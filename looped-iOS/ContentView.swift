@@ -8,14 +8,40 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var authViewModel = AuthViewModel()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if authViewModel.isAuthenticated {
+                MainTabView()
+            } else {
+                AuthView(authViewModel: authViewModel)
+            }
         }
-        .padding()
+    }
+}
+
+struct MainTabView: View {
+    var body: some View {
+        TabView {
+            FeedView()
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("Feed")
+                }
+            
+            MessagesView()
+                .tabItem {
+                    Image(systemName: "message.fill")
+                    Text("Messages")
+                }
+            
+            ProfileView()
+                .tabItem {
+                    Image(systemName: "person.fill")
+                    Text("Profile")
+                }
+        }
     }
 }
 

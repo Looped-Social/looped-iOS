@@ -1,0 +1,43 @@
+import Foundation
+import Combine
+
+@MainActor
+class FeedViewModel: ObservableObject {
+    @Published var posts: [Post] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    
+    private let feedService: FeedServiceProtocol
+    private var cancellables = Set<AnyCancellable>()
+    
+    init(feedService: FeedServiceProtocol = MockConfig.useMockData ? MockFeedService() : FeedService()) {
+        self.feedService = feedService
+    }
+    
+    func loadPosts() async {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            let fetchedPosts = try await feedService.getPosts()
+            posts = fetchedPosts
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        
+        isLoading = false
+    }
+    
+    func refreshPosts() async {
+        await loadPosts()
+    }
+    
+    func reactToPost(_ post: Post, reaction: ReactionType) async {
+        do {
+            try await feedService.reactToPost(postId: post.id, reaction: reaction)
+            await loadPosts()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
