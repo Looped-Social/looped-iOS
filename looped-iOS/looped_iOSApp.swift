@@ -9,6 +9,10 @@ import SwiftUI
 
 @main
 struct looped_iOSApp: App {
+    init() {
+        LoopedFontLoader.registerFonts()
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
