@@ -22,25 +22,31 @@ struct ContentView: View {
 }
 
 struct MainTabView: View {
+    @State private var selectedTab: TabItem = .home
+    
     var body: some View {
-        TabView {
-            FeedView()
-                .tabItem {
-                    Image(systemName: "house.fill")
-                    Text("Feed")
+        VStack(spacing: 0) {
+            // Content Area
+            NavigationView {
+                Group {
+                    switch selectedTab {
+                    case .home:
+                        FeedView()
+                    case .messages:
+                        MessagesView()
+                    case .search:
+                        SearchView()
+                    case .notifications:
+                        NotificationsView()
+                    case .profile:
+                        ProfileView()
+                    }
                 }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            MessagesView()
-                .tabItem {
-                    Image(systemName: "message.fill")
-                    Text("Messages")
-                }
-            
-            ProfileView()
-                .tabItem {
-                    Image(systemName: "person.fill")
-                    Text("Profile")
-                }
+            // Custom Tab Bar
+            CustomTabBar(selectedTab: $selectedTab)
         }
     }
 }

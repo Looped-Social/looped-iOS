@@ -4,6 +4,19 @@ struct MockPosts {
     
     // MARK: - Sample Posts for Feed
     static let feedPosts: [Post] = [
+        // Figma example post
+        Post(
+            id: UUID(),
+            content: "Excited to share my latest project, a redesign of our user onboarding flow. Focused on simplicity and clarity, resulting in a 20% increase in user retention. Check it out and let me know your thoughts! #uxdesign #productdesign",
+            authorId: MockUsers.colleagues[0].id, // Sarah Chen
+            authorDisplayName: "Sarah Chen",
+            company: "Looped",
+            isAnonymous: false,
+            reactionCount: 188,
+            userReaction: .like,
+            createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        ),
         Post(
             id: UUID(),
             content: "Just shipped a major feature! 🚀 The new search functionality is lightning fast. Shoutout to the entire engineering team for the late nights debugging.",
@@ -156,7 +169,7 @@ struct MockPosts {
         // In real app, this would be handled by backend
         // For mock data, we can simulate the reaction
         guard let postIndex = feedPosts.firstIndex(where: { $0.id == postId }) else { return nil }
-        var updatedPost = feedPosts[postIndex]
+        let updatedPost = feedPosts[postIndex]
         
         // Simple mock logic: toggle reaction
         if updatedPost.userReaction == reaction {
