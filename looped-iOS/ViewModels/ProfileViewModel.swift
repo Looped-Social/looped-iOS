@@ -4,6 +4,7 @@ import Combine
 @MainActor
 class ProfileViewModel: ObservableObject {
     @Published var user: User?
+    @Published var userPosts: [Post] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     
@@ -25,6 +26,10 @@ class ProfileViewModel: ObservableObject {
         
         do {
             user = try await userService.getCurrentUser()
+            // Load user's posts - filter MockPosts by current user
+            if let currentUser = user {
+                userPosts = MockPosts.getPostsByUser(currentUser.id)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

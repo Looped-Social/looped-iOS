@@ -1,58 +1,247 @@
 import SwiftUI
 
+enum ProfileTab: String, CaseIterable {
+    case posts = "Posts"
+    case replies = "Replies"
+    case saved = "Saved"
+}
+
 struct ProfileView: View {
+    @State private var selectedTab: ProfileTab = .posts
     @StateObject private var viewModel = ProfileViewModel()
     
     var body: some View {
-        NavigationView {
-            Form {
-                Section("Profile") {
-                    HStack {
-                        Text("Username")
-                        Spacer()
-                        Text(viewModel.user?.username ?? "")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Company")
-                        Spacer()
-                        HStack {
-                            Text(viewModel.user?.company ?? "")
-                            if viewModel.user?.isVerified == true {
-                                Image(systemName: "checkmark.seal.fill")
-                                    .foregroundColor(.blue)
-                            }
+        VStack(spacing: 0) {
+            // Profile Header
+            ProfileHeaderView()
+            
+            // Stats Section
+            ProfileStatsView()
+            
+            // Action Buttons
+            ProfileActionButtons()
+            
+            // Tab Navigation
+            ProfileTabsView(selectedTab: $selectedTab)
+            
+            // Content based on selected tab
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    switch selectedTab {
+                    case .posts:
+                        ForEach(viewModel.userPosts) { post in
+                            PostCard(post: post)
+                            
+                            Rectangle()
+                                .frame(height: 1)
+                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
                         }
-                        .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Display Name")
-                        Spacer()
-                        Text(viewModel.user?.displayName ?? "Not set")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Section("Privacy") {
-                    Toggle("Anonymous Mode", isOn: .constant(viewModel.user?.isAnonymous ?? false))
-                        .onChange(of: viewModel.user?.isAnonymous ?? false) { _ in
-                            // Handle anonymous mode toggle
-                        }
-                }
-                
-                Section("Account") {
-                    Button("Sign Out", role: .destructive) {
-                        viewModel.signOut()
+                    case .replies:
+                        Text("Replies coming soon")
+                            .foregroundColor(.loopedTextSecondary)
+                            .padding()
+                    case .saved:
+                        Text("Saved posts coming soon")
+                            .foregroundColor(.loopedTextSecondary)
+                            .padding()
                     }
                 }
-            }
-            .navigationTitle("Profile")
-            .task {
-                await viewModel.loadUserProfile()
             }
         }
+        .background(Color.loopedBackground)
+        .navigationBarHidden(true)
+        .task {
+            await viewModel.loadUserProfile()
+        }
+    }
+}
+
+struct ProfileHeaderView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Profile Avatar - left aligned
+            HStack {
+                AsyncImage(url: URL(string: "https://via.placeholder.com/80")) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(Color.loopedPrimary)
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(.white)
+                        )
+                }
+                .frame(width: 80, height: 80)
+                .clipShape(Circle())
+                
+                Spacer()
+            }
+            
+            // Name and Handle - left aligned
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Billy Bob")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.loopedTextPrimary)
+                
+                Text("@billy.bob24")
+                    .font(.subheadline)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            
+            // Bio - left aligned
+            Text("Hello, i am Billy Bob. Always looking for new connections. Feel free to reach out!")
+                .font(.body)
+                .foregroundColor(.loopedTextPrimary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 20)
+        .padding(.horizontal, 16)
+    }
+}
+
+struct ProfileStatsView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Years in Loop and Company - left aligned
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(.loopedTextSecondary)
+                        .font(.system(size: 16))
+                    
+                    Text("2 years in the Loop")
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
+                    
+                    Spacer()
+                }
+                
+                HStack(spacing: 8) {
+                    // Google logo placeholder
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 16, height: 16)
+                        .overlay(
+                            Text("G")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                        )
+                    
+                    Text("Works at Google")
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
+                    
+                    Spacer()
+                }
+            }
+            
+            // Follower Stats - left aligned
+            HStack(spacing: 16) {
+                Text("100")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.loopedTextPrimary)
+                +
+                Text(" Following")
+                    .font(.subheadline)
+                    .foregroundColor(.loopedTextSecondary)
+                
+                Text("123")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.loopedTextPrimary)
+                +
+                Text(" Followers")
+                    .font(.subheadline)
+                    .foregroundColor(.loopedTextSecondary)
+                
+                Spacer()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+    }
+}
+
+struct ProfileActionButtons: View {
+    var body: some View {
+        HStack(spacing: 16) {
+            Button(action: {
+                // TODO: Handle edit profile
+            }) {
+                Text("Edit Profile")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.loopedTextPrimary)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            Button(action: {
+                // TODO: Handle settings
+            }) {
+                Text("Settings")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.loopedTextPrimary)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 20)
+    }
+}
+
+struct ProfileTabsView: View {
+    @Binding var selectedTab: ProfileTab
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(ProfileTab.allCases, id: \.self) { tab in
+                    Button(action: {
+                        selectedTab = tab
+                    }) {
+                        Text(tab.rawValue)
+                            .font(.headline)
+                            .fontWeight(.medium)
+                            .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 16)
+            
+            // Full-width underlines
+            HStack(spacing: 0) {
+                ForEach(ProfileTab.allCases, id: \.self) { tab in
+                    Rectangle()
+                        .frame(height: selectedTab == tab ? 2 : 1)
+                        .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary.opacity(0.3))
+                }
+            }
+        }
+        .background(Color.loopedBackground)
     }
 }
 

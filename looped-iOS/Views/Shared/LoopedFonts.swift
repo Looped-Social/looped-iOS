@@ -5,6 +5,8 @@ extension Font {
     
     // MARK: - Typography Scale (Design System)
     
+    
+    static let loopedLogo = Font.custom("Poppins-Bold", size: 24)
     /// Large title text (32pt, Bold) - Hero sections, main headings
     static let loopedLargeTitle = Font.custom("Poppins-Bold", size: 32)
     
@@ -78,6 +80,7 @@ extension Font {
         return Font.custom(fontName, size: size, relativeTo: .body)
     }
     
+    
     /// Body text with Dynamic Type scaling
     static let loopedBodyScaled = Font.custom("Poppins-Regular", size: 16, relativeTo: .body)
     
@@ -95,7 +98,8 @@ struct LoopedFontLoader {
             "Poppins-Regular",
             "Poppins-Medium", 
             "Poppins-SemiBold",
-            "Poppins-Bold"
+            "Poppins-Bold",
+            "Poppins-ExtraBold"
         ]
         
         for fontName in fontNames {
@@ -105,7 +109,7 @@ struct LoopedFontLoader {
     
     /// Registers a single font file using modern iOS 18+ API
     private static func registerFont(name: String, withExtension ext: String) {
-        guard let fontURL = Bundle.main.url(forResource: name, withExtension: ext) else {
+        guard let fontURL = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Poppins") else {
             print("❌ Failed to find font file: \(name).\(ext)")
             return
         }
