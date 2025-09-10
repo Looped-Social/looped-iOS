@@ -25,28 +25,7 @@ struct ProfileView: View {
             ProfileTabsView(selectedTab: $selectedTab)
             
             // Content based on selected tab
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    switch selectedTab {
-                    case .posts:
-                        ForEach(viewModel.userPosts) { post in
-                            PostCard(post: post)
-                            
-                            Rectangle()
-                                .frame(height: 1)
-                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                        }
-                    case .replies:
-                        Text("Replies coming soon")
-                            .foregroundColor(.loopedTextSecondary)
-                            .padding()
-                    case .saved:
-                        Text("Saved posts coming soon")
-                            .foregroundColor(.loopedTextSecondary)
-                            .padding()
-                    }
-                }
-            }
+            Spacer()
         }
         .background(Color.loopedBackground)
         .navigationBarHidden(true)
@@ -59,8 +38,8 @@ struct ProfileView: View {
 struct ProfileHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Profile Avatar - left aligned
-            HStack {
+            // Profile Avatar with Name and Handle beside it
+            HStack(spacing: 16) {
                 AsyncImage(url: URL(string: "https://via.placeholder.com/80")) { image in
                     image
                         .resizable()
@@ -69,7 +48,8 @@ struct ProfileHeaderView: View {
                     Circle()
                         .fill(Color.loopedPrimary)
                         .overlay(
-                            Image(systemName: "person.fill")
+                            Image("profile-icon")
+                                .renderingMode(.template)
                                 .font(.system(size: 32))
                                 .foregroundColor(.white)
                         )
@@ -77,19 +57,19 @@ struct ProfileHeaderView: View {
                 .frame(width: 80, height: 80)
                 .clipShape(Circle())
                 
-                Spacer()
-            }
-            
-            // Name and Handle - left aligned
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Billy Bob")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.loopedTextPrimary)
+                // Name and Handle beside profile picture
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Billy Bob")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.loopedTextPrimary)
+                    
+                    Text("@billy.bob24")
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
+                }
                 
-                Text("@billy.bob24")
-                    .font(.subheadline)
-                    .foregroundColor(.loopedTextSecondary)
+                Spacer()
             }
             
             // Bio - left aligned
@@ -172,7 +152,7 @@ struct ProfileStatsView: View {
 
 struct ProfileActionButtons: View {
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 64) {
             Button(action: {
                 // TODO: Handle edit profile
             }) {
@@ -183,7 +163,7 @@ struct ProfileActionButtons: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 10)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
                     )
             }
@@ -199,14 +179,13 @@ struct ProfileActionButtons: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 10)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
                     )
             }
             .buttonStyle(PlainButtonStyle())
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 20)
+        .padding(.vertical, 10)
     }
 }
 

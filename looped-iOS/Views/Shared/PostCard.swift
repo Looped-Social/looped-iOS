@@ -138,7 +138,7 @@ struct PostCard: View {
             }
         }
         .padding(16)
-        .background(Color.loopedSurface)
+        .background(Color.loopedBackground)
         .cornerRadius(0)
     }
 }

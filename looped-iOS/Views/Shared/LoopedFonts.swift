@@ -5,22 +5,13 @@ extension Font {
     
     // MARK: - Typography Scale (Design System)
     
+    static let loopedLargeHeading = Font.custom("Poppins-Regular", size: 52)
+    
+    static let loopedHeading = Font.custom("Poppins-Regular", size: 36)
     
     static let loopedLogo = Font.custom("Poppins-Bold", size: 24)
-    /// Large title text (32pt, Bold) - Hero sections, main headings
-    static let loopedLargeTitle = Font.custom("Poppins-Bold", size: 32)
     
-    /// Title text (28pt, Bold) - Screen titles, major sections
-    static let loopedTitle = Font.custom("Poppins-Bold", size: 28)
-    
-    /// Title 2 text (22pt, Bold) - Section headers
-    static let loopedTitle2 = Font.custom("Poppins-Bold", size: 22)
-    
-    /// Title 3 text (20pt, Semibold) - Subsection headers
-    static let loopedTitle3 = Font.custom("Poppins-SemiBold", size: 20)
-    
-    /// Headline text (17pt, Semibold) - List headers, emphasized text
-    static let loopedHeadline = Font.custom("Poppins-SemiBold", size: 17)
+    static let loopedSubheadMedium = Font.custom("Poppins-Medium", size: 20)
     
     /// Body text (16pt, Regular) - Main content, paragraphs
     static let loopedBody = Font.custom("Poppins-Regular", size: 16)
@@ -28,48 +19,19 @@ extension Font {
     /// Body medium text (16pt, Medium) - Emphasized body text
     static let loopedBodyMedium = Font.custom("Poppins-Medium", size: 16)
     
-    /// Callout text (15pt, Regular) - Secondary content
-    static let loopedCallout = Font.custom("Poppins-Regular", size: 15)
+    static let loopedSubBodyMedium = Font.custom("Poppins-Medium", size: 14)
     
-    /// Subhead text (14pt, Regular) - Supporting text, descriptions
-    static let loopedSubhead = Font.custom("Poppins-Regular", size: 14)
+    static let loopedSubBodyBold = Font.custom("Poppins-Bold", size: 14)
     
-    /// Subhead medium text (14pt, Medium) - Emphasized supporting text
-    static let loopedSubheadMedium = Font.custom("Poppins-Medium", size: 14)
+    static let loopedSubBodyRegular = Font.custom("Poppins-Regular", size: 14)
     
-    /// Footnote text (13pt, Regular) - Fine print, metadata
-    static let loopedFootnote = Font.custom("Poppins-Regular", size: 13)
-    
-    /// Caption text (12pt, Regular) - Image captions, timestamps
-    static let loopedCaption = Font.custom("Poppins-Regular", size: 12)
-    
-    /// Caption 2 text (11pt, Regular) - Smallest text, labels
-    static let loopedCaption2 = Font.custom("Poppins-Regular", size: 11)
-    
-    // MARK: - UI-Specific Fonts
-    
-    /// Button text (16pt, Semibold) - All button labels
-    static let loopedButton = Font.custom("Poppins-SemiBold", size: 16)
-    
-    /// Navigation title (17pt, Semibold) - Navigation bar titles
-    static let loopedNavTitle = Font.custom("Poppins-SemiBold", size: 17)
-    
-    /// Tab bar text (10pt, Medium) - Tab bar labels
-    static let loopedTabBar = Font.custom("Poppins-Medium", size: 10)
+    static let loopedSmallText = Font.custom("Poppins-Regular", size: 12)
+
     
     // MARK: - Fallback System Fonts (when custom fonts fail)
     
-    static let loopedLargeTitleFallback = Font.largeTitle.bold()
-    static let loopedTitleFallback = Font.title.bold()
-    static let loopedTitle2Fallback = Font.title2.bold()
-    static let loopedTitle3Fallback = Font.title3.weight(.semibold)
-    static let loopedHeadlineFallback = Font.headline
+    static let loopedLogoFallback = Font.largeTitle.bold()
     static let loopedBodyFallback = Font.body
-    static let loopedCalloutFallback = Font.callout
-    static let loopedSubheadFallback = Font.subheadline
-    static let loopedFootnoteFallback = Font.footnote
-    static let loopedCaptionFallback = Font.caption
-    static let loopedCaption2Fallback = Font.caption2
 }
 
 // MARK: - Dynamic Type Support
@@ -138,16 +100,6 @@ struct LoopedFontLoader {
                 print("❌ Failed to register font: \(name). Error: \(errorDescription)")
             } else {
                 print("✅ Successfully registered font: \(name)")
-            }
-        }
-    }
-    
-    /// Lists all available fonts (useful for debugging)
-    static func printAvailableFonts() {
-        for family in UIFont.familyNames.sorted() {
-            print("Font Family: \(family)")
-            for name in UIFont.fontNames(forFamilyName: family) {
-                print("  - \(name)")
             }
         }
     }

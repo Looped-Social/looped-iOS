@@ -30,7 +30,7 @@ struct SecondaryButtonStyle: LoopedButtonStyle {
 }
 
 struct DestructiveButtonStyle: LoopedButtonStyle {
-    let backgroundColor: Color = .loopedDestructive
+    let backgroundColor: Color = .loopedPrimary
     let foregroundColor: Color = .white
     let cornerRadius: CGFloat = 12
     let height: CGFloat = 50

@@ -11,8 +11,6 @@ import SwiftUI
 struct looped_iOSApp: App {
     init() {
         LoopedFontLoader.registerFonts()
-        // Debug: Print available fonts
-        LoopedFontLoader.printAvailableFonts()
     }
     
     var body: some Scene {
