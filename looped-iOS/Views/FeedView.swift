@@ -2,12 +2,14 @@ import SwiftUI
 
 struct FeedView: View {
     let onMenuToggle: () -> Void
+    let onProfileTap: () -> Void
     @EnvironmentObject var viewModel: FeedViewModel
     @State private var isHeaderVisible = true
     @State private var isRefreshing = false
 
-    init(onMenuToggle: @escaping () -> Void = {}) {
+    init(onMenuToggle: @escaping () -> Void = {}, onProfileTap: @escaping () -> Void = {}) {
         self.onMenuToggle = onMenuToggle
+        self.onProfileTap = onProfileTap
     }
     
     var body: some View {
@@ -15,12 +17,12 @@ struct FeedView: View {
             // Header and tabs with slide animation
             VStack(spacing: 0) {
                 // Custom header
-                FeedHeader(onMenuToggle: onMenuToggle)
+                FeedHeader(onMenuToggle: onMenuToggle, onProfileTap: onProfileTap)
 
                 // Tab and filter section
                 FeedTabs()
             }
-            .background(Color.loopedBackground)
+            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top))
             .offset(y: isHeaderVisible ? 0 : -200)
             .opacity(isHeaderVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.3), value: isHeaderVisible)
@@ -53,7 +55,7 @@ struct FeedView: View {
                 }
             }
         }
-        .background(Color.loopedBackground)
+        .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .task {
             await viewModel.loadPosts()

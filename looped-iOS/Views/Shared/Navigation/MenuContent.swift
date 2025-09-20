@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SideMenuView: View {
+struct MenuContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header area
@@ -33,10 +33,10 @@ struct SideMenuView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Color.loopedBackground)
     }
 }
 
 #Preview {
-    SideMenuView()
+    MenuContent()
+        .background(Color.loopedBackground)
 }

@@ -24,8 +24,11 @@ extension Font {
     static let loopedSubBodyBold = Font.custom("Poppins-Bold", size: 14)
     
     static let loopedSubBodyRegular = Font.custom("Poppins-Regular", size: 14)
-    
+
     static let loopedSmallText = Font.custom("Poppins-Regular", size: 12)
+
+    /// Body strong text (16pt, SemiBold) - Strong emphasized body text
+    static let loopedBodyStrong = Font.custom("Poppins-SemiBold", size: 16)
 
     
     // MARK: - Fallback System Fonts (when custom fonts fail)

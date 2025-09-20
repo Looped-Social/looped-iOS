@@ -44,7 +44,7 @@ struct CreatePostView: View {
                     .font(.loopedBodyMedium)
                 }
                 .padding()
-                .background(Color.loopedBackground)
+                .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top))
                 
                 // Divider
                 Rectangle()
@@ -132,10 +132,10 @@ struct CreatePostView: View {
                     Spacer()
                 }
                 .padding()
-                .background(Color.loopedBackground)
+                .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .bottom))
             }
         }
-        .background(Color.loopedBackground)
+        .background(Color.loopedBackground.ignoresSafeArea())
     }
     
     private func submitPost() async {

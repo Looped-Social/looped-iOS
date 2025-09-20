@@ -12,13 +12,14 @@ struct AuthView: View {
             }
             .pickerStyle(SegmentedPickerStyle())
             .padding()
-            
+
             if isLogin {
                 LoginView(viewModel: authViewModel)
             } else {
                 SignUpView(viewModel: authViewModel)
             }
         }
+        .background(Color.loopedBackground.ignoresSafeArea())
     }
 }
 

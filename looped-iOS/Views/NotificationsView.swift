@@ -10,7 +10,7 @@ struct NotificationsView: View {
                 
                 Spacer()
             }
-            .background(Color.loopedBackground)
+            .background(Color.loopedBackground.ignoresSafeArea())
             .navigationTitle("Notifications")
             .navigationBarHidden(true)
         }

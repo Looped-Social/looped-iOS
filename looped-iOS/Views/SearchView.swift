@@ -10,7 +10,7 @@ struct SearchView: View {
                 
                 Spacer()
             }
-            .background(Color.loopedBackground)
+            .background(Color.loopedBackground.ignoresSafeArea())
             .navigationTitle("Search")
             .navigationBarHidden(true)
         }

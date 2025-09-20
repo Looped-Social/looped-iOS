@@ -25,6 +25,7 @@ struct MainTabView: View {
     @State private var selectedTab: TabItem = .home
     @State private var showCreatePost = false
     @State private var isMenuOpen = false
+    @State private var isRightMenuOpen = false
     @StateObject private var feedViewModel = FeedViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
     
@@ -33,9 +34,32 @@ struct MainTabView: View {
             ZStack(alignment: .leading) {
                 // Side Menu (only visible on home tab)
                 if selectedTab == .home {
-                    SideMenuView()
-                        .frame(width: geometry.size.width * 0.8)
-                        .offset(x: isMenuOpen ? 0 : -geometry.size.width * 0.8)
+                    ZStack(alignment: .leading) {
+                        // Full-width background that extends everywhere
+                        Color.loopedBackground
+                            .ignoresSafeArea(.all)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        // Menu content constrained to 80% width
+                        SideMenuView()
+                            .frame(width: geometry.size.width * 0.8)
+                    }
+                    .offset(x: isMenuOpen ? 0 : -geometry.size.width * 0.8)
+                }
+
+                // Right Menu (only visible on home tab)
+                if selectedTab == .home {
+                    ZStack(alignment: .trailing) {
+                        // Full-width background that extends everywhere
+                        Color.loopedBackground
+                            .ignoresSafeArea(.all)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        // Menu content constrained to 80% width
+                        MenuContent()
+                            .frame(width: geometry.size.width * 0.8)
+                    }
+                    .offset(x: isRightMenuOpen ? 0 : geometry.size.width * 0.8)
                 }
 
                 // Main app content
@@ -45,11 +69,20 @@ struct MainTabView: View {
                         Group {
                             switch selectedTab {
                             case .home:
-                                FeedView(onMenuToggle: {
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isMenuOpen.toggle()
+                                FeedView(
+                                    onMenuToggle: {
+                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                            isRightMenuOpen = false // Close right menu if open
+                                            isMenuOpen.toggle()
+                                        }
+                                    },
+                                    onProfileTap: {
+                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                            isMenuOpen = false // Close left menu if open
+                                            isRightMenuOpen.toggle()
+                                        }
                                     }
-                                })
+                                )
                                     .environmentObject(feedViewModel)
                                     .environmentObject(commentsManager)
                             case .messages:
@@ -68,45 +101,65 @@ struct MainTabView: View {
                     // Custom Tab Bar
                     CustomTabBar(selectedTab: $selectedTab)
                 }
-                .background(Color.loopedBackground)
+                .background(Color.loopedBackground.ignoresSafeArea())
                 .overlay(
-                    // Overlay to darken content when menu is open (only on home tab)
+                    // Overlay to darken content when either menu is open (only on home tab)
                     Group {
                         if selectedTab == .home {
-                            Color.black.opacity(isMenuOpen ? 0.3 : 0)
+                            Color.black.opacity((isMenuOpen || isRightMenuOpen) ? 0.3 : 0)
+                                .ignoresSafeArea(.all)
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                         isMenuOpen = false
+                                        isRightMenuOpen = false
                                     }
                                 }
-                                .allowsHitTesting(isMenuOpen)
+                                .allowsHitTesting(isMenuOpen || isRightMenuOpen)
                         }
                     }
                 )
-                .offset(x: (selectedTab == .home && isMenuOpen) ? geometry.size.width * 0.8 : 0)
-                .scaleEffect((selectedTab == .home && isMenuOpen) ? 0.95 : 1.0)
+                .offset(x: selectedTab == .home ? (isMenuOpen ? geometry.size.width * 0.8 : (isRightMenuOpen ? -geometry.size.width * 0.8 : 0)) : 0)
+                .scaleEffect((selectedTab == .home && (isMenuOpen || isRightMenuOpen)) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuOpen)
+                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
                 .gesture(
                     DragGesture()
                         .onEnded { value in
                             guard selectedTab == .home else { return }
                             let threshold: CGFloat = 50
-                            if isMenuOpen && value.translation.width < -threshold {
-                                // Swipe left to close menu
-                                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                    isMenuOpen = false
+
+                            if value.translation.width > threshold {
+                                // Swipe right
+                                if isRightMenuOpen {
+                                    // Close right menu
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isRightMenuOpen = false
+                                    }
+                                } else if !isMenuOpen {
+                                    // Open left menu
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isMenuOpen = true
+                                    }
                                 }
-                            } else if !isMenuOpen && value.translation.width > threshold {
-                                // Swipe right to open menu
-                                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                    isMenuOpen = true
+                            } else if value.translation.width < -threshold {
+                                // Swipe left
+                                if isMenuOpen {
+                                    // Close left menu
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isMenuOpen = false
+                                    }
+                                } else if !isRightMenuOpen {
+                                    // Open right menu
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isRightMenuOpen = true
+                                    }
                                 }
                             }
                         }
                 )
                 
-                // Floating Action Button (only show on home tab when menu is closed)
-                if selectedTab == .home && !commentsManager.isPresented && !isMenuOpen {
+                // Floating Action Button (only show on home tab when both menus are closed)
+                if selectedTab == .home && !commentsManager.isPresented && !isMenuOpen && !isRightMenuOpen {
                     VStack {
                         Spacer()
                         HStack {
@@ -188,7 +241,7 @@ struct MainTabView: View {
                 }
                 .frame(maxHeight: UIScreen.main.bounds.height * 0.5) // Reduced height to make room for post
                 .background(
-                    Color.loopedBackground
+                    Color.loopedBackground.ignoresSafeArea()
                 )
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

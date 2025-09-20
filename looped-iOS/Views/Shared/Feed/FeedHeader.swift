@@ -2,9 +2,11 @@ import SwiftUI
 
 struct FeedHeader: View {
     let onMenuToggle: () -> Void
+    let onProfileTap: () -> Void
 
-    init(onMenuToggle: @escaping (() -> Void) = {}) {
+    init(onMenuToggle: @escaping (() -> Void) = {}, onProfileTap: @escaping (() -> Void) = {}) {
         self.onMenuToggle = onMenuToggle
+        self.onProfileTap = onProfileTap
     }
 
     var body: some View {
@@ -49,7 +51,7 @@ struct FeedHeader: View {
             
             // Profile avatar
             Button(action: {
-                // TODO: Handle profile action
+                onProfileTap()
             }) {
                 AsyncImage(url: URL(string: "https://via.placeholder.com/36")) { image in
                     image

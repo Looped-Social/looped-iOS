@@ -61,7 +61,7 @@ struct CustomTabBar: View {
                 }
             }
             .padding(.horizontal, 20)
-            .background(Color.loopedBackground)
+            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .bottom))
             .padding(.bottom, 0)
         }
     }

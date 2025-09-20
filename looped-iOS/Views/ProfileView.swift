@@ -27,7 +27,7 @@ struct ProfileView: View {
             // Content based on selected tab
             Spacer()
         }
-        .background(Color.loopedBackground)
+        .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .task {
             await viewModel.loadUserProfile()
@@ -220,7 +220,7 @@ struct ProfileTabsView: View {
                 }
             }
         }
-        .background(Color.loopedBackground)
+        .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .horizontal))
     }
 }
 

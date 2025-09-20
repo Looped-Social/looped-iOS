@@ -1,102 +1,93 @@
 import SwiftUI
 
 struct MessagesView: View {
-    @StateObject private var viewModel = MessagesViewModel()
-    
+    @State private var selectedTab: MessageTab = .messages
+    @State private var searchText = ""
+    @State private var showNewMessage = false
+
+    // Filter conversations based on search text
+    private var filteredConversations: [Conversation] {
+        if searchText.isEmpty {
+            return MockConversations.conversations
+        } else {
+            return MockConversations.conversations.filter { conversation in
+                conversation.userName.localizedCaseInsensitiveContains(searchText) ||
+                conversation.lastMessage.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(viewModel.channels) { channel in
-                    NavigationLink(destination: ChatView(channel: channel)) {
-                        ChannelRowView(channel: channel)
+        ZStack {
+            VStack(spacing: 0) {
+                // Header
+                MessagesHeader()
+
+                // Search Bar
+                SearchBar(searchText: $searchText)
+                    .padding(.bottom, 8)
+
+                // Tabs
+                MessagesTabs(selectedTab: $selectedTab)
+
+                // Content based on selected tab
+                if selectedTab == .messages {
+                    // Messages List
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(filteredConversations) { conversation in
+                                Button(action: {
+                                    // TODO: Navigate to chat with this user
+                                    print("Tapped conversation with \(conversation.userName)")
+                                }) {
+                                    ConversationRow(conversation: conversation)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
+                                // Divider line
+                                Rectangle()
+                                    .frame(height: 1)
+                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                    .padding(.leading, 78) // Indent to align with text content
+                            }
+                        }
+                    }
+                } else {
+                    // Groups placeholder
+                    VStack {
+                        Spacer()
+                        Text("Groups coming soon...")
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextSecondary)
+                        Spacer()
                     }
                 }
             }
-            .navigationTitle("Messages")
-            .task {
-                await viewModel.loadChannels()
-            }
-        }
-    }
-}
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationBarHidden(true)
 
-struct ChannelRowView: View {
-    let channel: Channel
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(channel.name)
-                    .font(.headline)
+            // Floating Action Button
+            VStack {
                 Spacer()
-                Image(systemName: channel.isPublic ? "globe" : "lock")
-                    .foregroundColor(.secondary)
-            }
-            
-            Text("\(channel.memberCount) members")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .padding(.vertical, 2)
-    }
-}
-
-struct ChatView: View {
-    let channel: Channel
-    @StateObject private var viewModel = ChatViewModel()
-    @State private var messageText = ""
-    
-    var body: some View {
-        VStack {
-            List {
-                ForEach(viewModel.messages) { message in
-                    MessageRowView(message: message)
-                }
-            }
-            
-            HStack {
-                TextField("Type a message...", text: $messageText)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                Button("Send") {
-                    Task {
-                        await viewModel.sendMessage(messageText, to: channel)
-                        messageText = ""
+                HStack {
+                    Spacer()
+                    FloatingActionButton(type: .sendMessage) {
+                        showNewMessage = true
                     }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 90) // Position above tab bar
                 }
-                .disabled(messageText.isEmpty)
             }
-            .padding()
         }
-        .navigationTitle(channel.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await viewModel.loadMessages(for: channel)
+        .sheet(isPresented: $showNewMessage) {
+            // TODO: New message composition view
+            Text("New Message")
+                .font(.loopedHeading)
+                .padding()
         }
     }
 }
 
-struct MessageRowView: View {
-    let message: Message
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(message.senderDisplayName ?? "Anonymous")
-                    .font(.caption)
-                    .bold()
-                Spacer()
-                Text(message.createdAt, style: .time)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            
-            Text(message.content)
-                .font(.body)
-        }
-        .padding(.vertical, 2)
-    }
-}
 
 #Preview {
     MessagesView()
