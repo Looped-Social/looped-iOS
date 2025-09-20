@@ -40,4 +40,20 @@ class FeedViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+    
+    func createPost(content: String, isAnonymous: Bool = false, channel: String = "General") async {
+        isLoading = true
+        errorMessage = nil
+        
+        // Create the new post using MockPosts helper
+        let newPost = MockPosts.createPost(content: content, isAnonymous: isAnonymous)
+        
+        // Add to the beginning of the posts array (newest first)
+        posts.insert(newPost, at: 0)
+        
+        isLoading = false
+        
+        // In a real app, this would make an API call to create the post
+        // For now, we just add it to the local array
+    }
 }

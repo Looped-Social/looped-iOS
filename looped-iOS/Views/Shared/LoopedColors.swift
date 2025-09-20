@@ -5,6 +5,7 @@ extension Color {
     // MARK: - Primary Colors
     static let loopedPrimary = Color("PrimaryColor")
     static let loopedSecondary = Color("SecondaryColor")
+    static let loopedContrast = Color("ContrastColor")
     
     // MARK: - Background Colors
     static let loopedBackground = Color("BackgroundColor")

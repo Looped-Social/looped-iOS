@@ -4,6 +4,11 @@ struct PostCard: View {
     let post: Post
     @State private var isLiked = false
     @State private var isBookmarked = false
+    @EnvironmentObject var commentsManager: CommentsModalManager
+    
+    private var commentCount: Int {
+        MockComments.getCommentCount(for: post.id)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -93,14 +98,16 @@ struct PostCard: View {
                 }
                 
                 // Comment button
-                Button(action: {}) {
+                Button(action: { 
+                    commentsManager.showComments(for: post)
+                }) {
                     HStack(spacing: 4) {
                         Image("comment-icon")
                             .resizable()
                             .renderingMode(.template)
                             .frame(width: 18, height: 18)
                             .foregroundColor(.loopedTextSecondary)
-                        Text("999")
+                        Text("\(commentCount)")
                             .font(.caption)
                             .foregroundColor(.loopedTextSecondary)
                     }
@@ -160,4 +167,5 @@ struct PostCard: View {
     PostCard(post: samplePost)
         .padding()
         .background(Color.loopedBackground)
+        .environmentObject(CommentsModalManager())
 }

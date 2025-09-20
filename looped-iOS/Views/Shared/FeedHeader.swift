@@ -1,37 +1,47 @@
 import SwiftUI
 
 struct FeedHeader: View {
+    let onMenuToggle: () -> Void
+
+    init(onMenuToggle: @escaping (() -> Void) = {}) {
+        self.onMenuToggle = onMenuToggle
+    }
+
     var body: some View {
         HStack {
             // Left side: Hamburger menu and Looped text
             HStack(spacing: 12) {
                 // Hamburger menu button
                 Button(action: {
-                    // TODO: Handle menu action
+                    onMenuToggle()
                 }) {
                     VStack(spacing: 5) {
                         Rectangle()
                             .frame(width: 22, height: 2.5)
-                            .foregroundColor(.loopedTextSecondary)
+                            .foregroundColor(.loopedContrast)
                         Rectangle()
                             .frame(width: 22, height: 2.5)
-                            .foregroundColor(.loopedTextSecondary)
+                            .foregroundColor(.loopedContrast)
                         Rectangle()
                             .frame(width: 22, height: 2.5)
-                            .foregroundColor(.loopedTextSecondary)
+                            .foregroundColor(.loopedContrast)
                     }
                 }
                 
                 // Looped logo/text
                 HStack(spacing: 6) {
-                    Text("Looped")
-                        .font(.loopedLogo)
-                        .foregroundColor(.loopedPrimary)
-                    
-                    // Dropdown arrow
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.loopedTextSecondary)
+                    HStack(spacing: 2) {
+                        // Logo
+                        Image("logo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 32)
+
+                        Text("ooped")
+                            .font(.loopedHeading)
+                            .foregroundColor(.loopedContrast)
+                    }
+
                 }
             }
             

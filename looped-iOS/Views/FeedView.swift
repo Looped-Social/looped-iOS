@@ -1,17 +1,22 @@
 import SwiftUI
 
 struct FeedView: View {
-    @StateObject private var viewModel = FeedViewModel()
+    let onMenuToggle: () -> Void
+    @EnvironmentObject var viewModel: FeedViewModel
     @State private var isHeaderVisible = true
     @State private var isRefreshing = false
+
+    init(onMenuToggle: @escaping () -> Void = {}) {
+        self.onMenuToggle = onMenuToggle
+    }
     
     var body: some View {
         VStack(spacing: 0) {
             // Header and tabs with slide animation
             VStack(spacing: 0) {
                 // Custom header
-                FeedHeader()
-                
+                FeedHeader(onMenuToggle: onMenuToggle)
+
                 // Tab and filter section
                 FeedTabs()
             }
@@ -20,7 +25,7 @@ struct FeedView: View {
             .opacity(isHeaderVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.3), value: isHeaderVisible)
             .clipped() // This ensures content outside bounds is hidden
-            
+
             // Feed content with Lottie-style refresh
             PullToRefreshScrollView(
                 options: PullToRefreshOptions(
@@ -39,7 +44,7 @@ struct FeedView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(viewModel.posts) { post in
                         PostCard(post: post)
-                        
+
                         // Separator line
                         Rectangle()
                             .frame(height: 1)
@@ -76,4 +81,5 @@ struct FeedView: View {
 
 #Preview {
     FeedView()
+        .environmentObject(FeedViewModel())
 }
