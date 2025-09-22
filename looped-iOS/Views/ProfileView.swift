@@ -168,10 +168,8 @@ struct ProfileActionButtons: View {
                     )
             }
             .buttonStyle(PlainButtonStyle())
-            
-            Button(action: {
-                // TODO: Handle settings
-            }) {
+
+            NavigationLink(destination: SettingsView()) {
                 Text("Settings")
                     .font(.subheadline)
                     .fontWeight(.medium)

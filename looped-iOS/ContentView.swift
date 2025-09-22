@@ -34,31 +34,31 @@ struct MainTabView: View {
             ZStack(alignment: .leading) {
                 // Side Menu (only visible on home tab)
                 if selectedTab == .home {
-                    ZStack(alignment: .leading) {
-                        // Full-width background that extends everywhere
-                        Color.loopedBackground
-                            .ignoresSafeArea(.all)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                        // Menu content constrained to 80% width
+                    HStack(spacing: 0) {
+                        // Menu content constrained to 80% width with full background
                         SideMenuView()
                             .frame(width: geometry.size.width * 0.8)
+                            .background(Color.loopedBackground.ignoresSafeArea(.all))
+
+                        Spacer()
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.loopedBackground.ignoresSafeArea(.all))
                     .offset(x: isMenuOpen ? 0 : -geometry.size.width * 0.8)
                 }
 
                 // Right Menu (only visible on home tab)
                 if selectedTab == .home {
-                    ZStack(alignment: .trailing) {
-                        // Full-width background that extends everywhere
-                        Color.loopedBackground
-                            .ignoresSafeArea(.all)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    HStack(spacing: 0) {
+                        Spacer()
 
-                        // Menu content constrained to 80% width
+                        // Menu content constrained to 80% width with full background
                         MenuContent()
                             .frame(width: geometry.size.width * 0.8)
+                            .background(Color.loopedBackground.ignoresSafeArea(.all))
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.loopedBackground.ignoresSafeArea(.all))
                     .offset(x: isRightMenuOpen ? 0 : geometry.size.width * 0.8)
                 }
 
@@ -102,27 +102,19 @@ struct MainTabView: View {
                     CustomTabBar(selectedTab: $selectedTab)
                 }
                 .background(Color.loopedBackground.ignoresSafeArea())
-                .overlay(
-                    // Overlay to darken content when either menu is open (only on home tab)
-                    Group {
-                        if selectedTab == .home {
-                            Color.black.opacity((isMenuOpen || isRightMenuOpen) ? 0.3 : 0)
-                                .ignoresSafeArea(.all)
-                                .onTapGesture {
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isMenuOpen = false
-                                        isRightMenuOpen = false
-                                    }
-                                }
-                                .allowsHitTesting(isMenuOpen || isRightMenuOpen)
+                .onTapGesture {
+                    if selectedTab == .home && (isMenuOpen || isRightMenuOpen) {
+                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                            isMenuOpen = false
+                            isRightMenuOpen = false
                         }
                     }
-                )
+                }
                 .offset(x: selectedTab == .home ? (isMenuOpen ? geometry.size.width * 0.8 : (isRightMenuOpen ? -geometry.size.width * 0.8 : 0)) : 0)
                 .scaleEffect((selectedTab == .home && (isMenuOpen || isRightMenuOpen)) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuOpen)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
-                .gesture(
+                .simultaneousGesture(
                     DragGesture()
                         .onEnded { value in
                             guard selectedTab == .home else { return }
@@ -157,7 +149,58 @@ struct MainTabView: View {
                             }
                         }
                 )
-                
+
+                // Shadow overlays - feed casting shadow onto drawers
+                if selectedTab == .home && isMenuOpen {
+                    // Feed casts shadow onto left drawer (shadow at left edge of shifted feed)
+                    HStack(spacing: 0) {
+                        Spacer()
+                            .frame(width: geometry.size.width * 0.8 - 20)
+
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.black.opacity(0.2),
+                                Color.black.opacity(0.1),
+                                Color.black.opacity(0.05),
+                                Color.clear
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: 20)
+
+                        Spacer()
+                            .frame(width: geometry.size.width * 0.2)
+                    }
+                    .ignoresSafeArea(.all)
+                    .allowsHitTesting(false)
+                }
+
+                if selectedTab == .home && isRightMenuOpen {
+                    // Feed casts shadow onto right drawer (shadow at right edge of shifted feed)
+                    HStack(spacing: 0) {
+                        Spacer()
+                            .frame(width: geometry.size.width * 0.2)
+
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.clear,
+                                Color.black.opacity(0.05),
+                                Color.black.opacity(0.1),
+                                Color.black.opacity(0.2)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: 20)
+
+                        Spacer()
+                            .frame(width: geometry.size.width * 0.8 - 20)
+                    }
+                    .ignoresSafeArea(.all)
+                    .allowsHitTesting(false)
+                }
+
                 // Floating Action Button (only show on home tab when both menus are closed)
                 if selectedTab == .home && !commentsManager.isPresented && !isMenuOpen && !isRightMenuOpen {
                     VStack {
@@ -241,7 +284,7 @@ struct MainTabView: View {
                 }
                 .frame(maxHeight: UIScreen.main.bounds.height * 0.5) // Reduced height to make room for post
                 .background(
-                    Color.loopedBackground.ignoresSafeArea()
+//                    Color.loopedBackground.ignoresSafeArea()
                 )
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

@@ -69,6 +69,8 @@ struct FeedHeader: View {
                 .frame(width: 36, height: 36)
                 .clipShape(Circle())
             }
+            .buttonStyle(PlainButtonStyle())
+            .zIndex(1)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

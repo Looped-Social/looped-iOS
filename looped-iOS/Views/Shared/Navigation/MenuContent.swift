@@ -33,6 +33,7 @@ struct MenuContent: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(Color.loopedBackground.ignoresSafeArea(.all))
     }
 }
 
