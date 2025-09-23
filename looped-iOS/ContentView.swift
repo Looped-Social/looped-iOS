@@ -106,14 +106,22 @@ struct MainTabView: View {
                     CustomTabBar(selectedTab: $selectedTab)
                 }
                 .background(Color.loopedBackground.ignoresSafeArea())
-                .onTapGesture {
-                    if selectedTab == .home && (isMenuOpen || isRightMenuOpen) {
-                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                            isMenuOpen = false
-                            isRightMenuOpen = false
+                .overlay(
+                    // Blocking overlay when drawer is open - prevents feed interactions
+                    Group {
+                        if selectedTab == .home && (isMenuOpen || isRightMenuOpen) {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isMenuOpen = false
+                                        isRightMenuOpen = false
+                                    }
+                                }
+                                .allowsHitTesting(true)
                         }
                     }
-                }
+                )
                 .offset(x: selectedTab == .home ? (isMenuOpen ? geometry.size.width * 0.8 : (isRightMenuOpen ? -geometry.size.width * 0.8 : 0)) : 0)
                 .scaleEffect((selectedTab == .home && (isMenuOpen || isRightMenuOpen)) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuOpen)
