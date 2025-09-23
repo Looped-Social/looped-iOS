@@ -154,8 +154,8 @@ struct MainTabView: View {
                 )
 
                 // Shadow overlays - feed casting shadow onto drawers
-                if selectedTab == .home && isMenuOpen {
-                    // Feed casts shadow onto left drawer (shadow at left edge of shifted feed)
+                if selectedTab == .home {
+                    // Left shadow - instantly visible/invisible
                     HStack(spacing: 0) {
                         Spacer()
                             .frame(width: geometry.size.width * 0.8 - 20)
@@ -175,12 +175,12 @@ struct MainTabView: View {
                         Spacer()
                             .frame(width: geometry.size.width * 0.2)
                     }
+                    .opacity(isMenuOpen ? 1 : 0)
+                    .animation(.linear(duration: 0.0), value: isMenuOpen)
                     .ignoresSafeArea(.all)
                     .allowsHitTesting(false)
-                }
 
-                if selectedTab == .home && isRightMenuOpen {
-                    // Feed casts shadow onto right drawer (shadow at right edge of shifted feed)
+                    // Right shadow - instantly visible/invisible
                     HStack(spacing: 0) {
                         Spacer()
                             .frame(width: geometry.size.width * 0.2)
@@ -200,6 +200,8 @@ struct MainTabView: View {
                         Spacer()
                             .frame(width: geometry.size.width * 0.8 - 20)
                     }
+                    .opacity(isRightMenuOpen ? 1 : 0)
+                    .animation(.linear(duration: 0.0), value: isRightMenuOpen)
                     .ignoresSafeArea(.all)
                     .allowsHitTesting(false)
                 }
