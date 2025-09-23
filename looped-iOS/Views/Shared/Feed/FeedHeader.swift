@@ -32,7 +32,10 @@ struct FeedHeader: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
-                .zIndex(1)
+                .zIndex(100)
+                .onTapGesture {
+                    onMenuToggle()
+                }
                 
                 // Looped logo/text
                 HStack(spacing: 6) {
@@ -74,7 +77,10 @@ struct FeedHeader: View {
                 .clipShape(Circle())
             }
             .buttonStyle(PlainButtonStyle())
-            .zIndex(1)
+            .zIndex(100)
+            .onTapGesture {
+                onProfileTap()
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

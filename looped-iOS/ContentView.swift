@@ -118,9 +118,14 @@ struct MainTabView: View {
                 .scaleEffect((selectedTab == .home && (isMenuOpen || isRightMenuOpen)) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuOpen)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
-                .gesture(
+                .simultaneousGesture(
                     selectedTab == .home ? DragGesture()
                         .onEnded { value in
+                            // Skip gesture if starting in header area (first 80 points from top)
+                            if value.startLocation.y < 80 {
+                                return
+                            }
+
                             let threshold: CGFloat = 50
 
                             if value.translation.width > threshold {
