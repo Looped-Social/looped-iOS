@@ -66,11 +66,10 @@ struct PullToRefreshScrollView<Content: View>: View {
     
     private func handleScrollOffset(_ offset: CGFloat) {
         let scrollDelta = offset - lastScrollOffset
-        
+
         // Notify parent about scroll changes for header hiding
-        if abs(scrollDelta) > 5 {
-            onScrollChange?(scrollDelta)
-        }
+        // Pass the actual offset, not the delta
+        onScrollChange?(offset)
         
         // Handle pull-to-refresh logic
         if !isRefreshing && offset > 0 {

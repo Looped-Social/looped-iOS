@@ -69,35 +69,33 @@ struct MainTabView: View {
                 // Main app content
                 VStack(spacing: 0) {
                     // Content Area
-                    NavigationView {
-                        Group {
-                            switch selectedTab {
-                            case .home:
-                                FeedView(
-                                    onMenuToggle: {
-                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                            isRightMenuOpen = false // Close right menu if open
-                                            isMenuOpen.toggle()
-                                        }
-                                    },
-                                    onProfileTap: {
-                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                            isMenuOpen = false // Close left menu if open
-                                            isRightMenuOpen.toggle()
-                                        }
+                    Group {
+                        switch selectedTab {
+                        case .home:
+                            FeedView(
+                                onMenuToggle: {
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isRightMenuOpen = false // Close right menu if open
+                                        isMenuOpen.toggle()
                                     }
-                                )
-                                    .environmentObject(feedViewModel)
-                                    .environmentObject(commentsManager)
-                            case .messages:
-                                MessagesView()
-                            case .search:
-                                SearchView()
-                            case .notifications:
-                                NotificationsView()
-                            case .profile:
-                                ProfileView()
-                            }
+                                },
+                                onProfileTap: {
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isMenuOpen = false // Close left menu if open
+                                        isRightMenuOpen.toggle()
+                                    }
+                                }
+                            )
+                                .environmentObject(feedViewModel)
+                                .environmentObject(commentsManager)
+                        case .messages:
+                            MessagesView()
+                        case .search:
+                            SearchView()
+                        case .notifications:
+                            NotificationsView()
+                        case .profile:
+                            ProfileView()
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
