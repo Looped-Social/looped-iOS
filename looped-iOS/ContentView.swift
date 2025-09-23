@@ -36,15 +36,17 @@ struct MainTabView: View {
                 if selectedTab == .home {
                     HStack(spacing: 0) {
                         // Menu content constrained to 80% width with full background
-                        SideMenuView()
+                        SideMenuView(selectedTab: $selectedTab, isMenuOpen: $isMenuOpen)
                             .frame(width: geometry.size.width * 0.8)
                             .background(Color.loopedBackground.ignoresSafeArea(.all))
+                            .contentShape(Rectangle())
 
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.loopedBackground.ignoresSafeArea(.all))
                     .offset(x: isMenuOpen ? 0 : -geometry.size.width * 0.8)
+                    .allowsHitTesting(isMenuOpen)
                 }
 
                 // Right Menu (only visible on home tab)
@@ -56,10 +58,12 @@ struct MainTabView: View {
                         MenuContent()
                             .frame(width: geometry.size.width * 0.8)
                             .background(Color.loopedBackground.ignoresSafeArea(.all))
+                            .contentShape(Rectangle())
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.loopedBackground.ignoresSafeArea(.all))
                     .offset(x: isRightMenuOpen ? 0 : geometry.size.width * 0.8)
+                    .allowsHitTesting(isRightMenuOpen)
                 }
 
                 // Main app content
@@ -114,10 +118,9 @@ struct MainTabView: View {
                 .scaleEffect((selectedTab == .home && (isMenuOpen || isRightMenuOpen)) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuOpen)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
-                .simultaneousGesture(
-                    DragGesture()
+                .gesture(
+                    selectedTab == .home ? DragGesture()
                         .onEnded { value in
-                            guard selectedTab == .home else { return }
                             let threshold: CGFloat = 50
 
                             if value.translation.width > threshold {
@@ -147,7 +150,7 @@ struct MainTabView: View {
                                     }
                                 }
                             }
-                        }
+                        } : nil
                 )
 
                 // Shadow overlays - feed casting shadow onto drawers

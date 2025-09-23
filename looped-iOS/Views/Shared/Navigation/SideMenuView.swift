@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct SideMenuView: View {
+    @Binding var selectedTab: TabItem
+    @Binding var isMenuOpen: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header area
@@ -23,13 +26,48 @@ struct SideMenuView: View {
 
             // Navigation menu items
             VStack(alignment: .leading, spacing: 0) {
-                SideMenuButton(icon: "house.fill", title: "Home")
-                SideMenuButton(icon: "magnifyingglass", title: "Explore")
-                SideMenuButton(icon: "bell", title: "Notifications")
-                SideMenuButton(icon: "envelope", title: "Messages")
-                SideMenuButton(icon: "bookmark", title: "Bookmarks")
-                SideMenuButton(icon: "person", title: "Profile")
-                SideMenuButton(icon: "gear", title: "Settings")
+                SideMenuButton(icon: "house.fill", title: "Home", action: {
+                    selectedTab = .home
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuOpen = false
+                    }
+                })
+                SideMenuButton(icon: "magnifyingglass", title: "Explore", action: {
+                    selectedTab = .search
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuOpen = false
+                    }
+                })
+                SideMenuButton(icon: "bell", title: "Notifications", action: {
+                    selectedTab = .notifications
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuOpen = false
+                    }
+                })
+                SideMenuButton(icon: "envelope", title: "Messages", action: {
+                    selectedTab = .messages
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuOpen = false
+                    }
+                })
+                SideMenuButton(icon: "bookmark", title: "Bookmarks", action: {
+                    // TODO: Implement bookmarks functionality
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuOpen = false
+                    }
+                })
+                SideMenuButton(icon: "person", title: "Profile", action: {
+                    selectedTab = .profile
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuOpen = false
+                    }
+                })
+                SideMenuButton(icon: "gear", title: "Settings", action: {
+                    // TODO: Implement settings navigation
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isMenuOpen = false
+                    }
+                })
             }
             .padding(.horizontal, 24)
 
@@ -43,11 +81,10 @@ struct SideMenuView: View {
 struct SideMenuButton: View {
     let icon: String
     let title: String
+    let action: () -> Void
 
     var body: some View {
-        Button(action: {
-            // TODO: Handle navigation
-        }) {
+        Button(action: action) {
             HStack(spacing: 16) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
@@ -67,5 +104,8 @@ struct SideMenuButton: View {
 }
 
 #Preview {
-    SideMenuView()
+    @State var selectedTab: TabItem = .home
+    @State var isMenuOpen = true
+
+    return SideMenuView(selectedTab: $selectedTab, isMenuOpen: $isMenuOpen)
 }
