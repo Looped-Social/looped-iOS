@@ -16,7 +16,7 @@ struct FeedView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            
+
             // Simple native ScrollView with ScrollViewReader
             ScrollViewReader { proxy in
                 ScrollView {
@@ -52,24 +52,22 @@ struct FeedView: View {
             }
 
             // Fixed header with proper safe area handling
-            ZStack(alignment: .top) {
-                // Background that fills entire safe area
+            VStack(spacing: 0) {
+                FeedHeader(onMenuToggle: onMenuToggle, onProfileTap: onProfileTap)
+                FeedTabs()
+            }
+            .frame(height: headerHeight)
+            .frame(maxWidth: .infinity)
+            .background(
                 Color.loopedBackground
                     .ignoresSafeArea(.all, edges: .top)
-                    .frame(height: headerHeight + 50) // Extra height for safe area
-
-                // Header content
-                VStack(spacing: 0) {
-                    FeedHeader(onMenuToggle: onMenuToggle, onProfileTap: onProfileTap)
-                    FeedTabs()
-                }
-            }
+            )
+            .zIndex(100)
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.25), value: headerVisible)
-            .clipped()
         }
-        .background(Color.loopedBackground.ignoresSafeArea())
+        .background(Color.loopedBackground.ignoresSafeArea(.all))
         .navigationBarHidden(true)
         .task {
             await viewModel.loadPosts()
