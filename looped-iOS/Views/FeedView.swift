@@ -57,17 +57,15 @@ struct FeedView: View {
                 FeedTabs()
             }
             .frame(height: headerHeight)
-            .frame(maxWidth: .infinity)
             .background(
                 Color.loopedBackground
                     .ignoresSafeArea(.all, edges: .top)
             )
-            .zIndex(100)
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.25), value: headerVisible)
         }
-        .background(Color.loopedBackground.ignoresSafeArea(.all))
+        .background(Color.loopedBackground)
         .navigationBarHidden(true)
         .task {
             await viewModel.loadPosts()
