@@ -91,5 +91,5 @@ struct FeedTabs: View {
         FeedTabs()
         Spacer()
     }
-    .background(Color.loopedBackground)
+    .background(Color.loopedBackground.ignoresSafeArea())
 }

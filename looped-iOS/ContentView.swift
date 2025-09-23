@@ -124,45 +124,6 @@ struct MainTabView: View {
                 .scaleEffect((selectedTab == .home && (isMenuOpen || isRightMenuOpen)) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuOpen)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
-                .simultaneousGesture(
-                    selectedTab == .home ? DragGesture()
-                        .onEnded { value in
-                            // Skip gesture if starting in header area (first 80 points from top)
-                            if value.startLocation.y < 80 {
-                                return
-                            }
-
-                            let threshold: CGFloat = 50
-
-                            if value.translation.width > threshold {
-                                // Swipe right
-                                if isRightMenuOpen {
-                                    // Close right menu
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isRightMenuOpen = false
-                                    }
-                                } else if !isMenuOpen {
-                                    // Open left menu
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isMenuOpen = true
-                                    }
-                                }
-                            } else if value.translation.width < -threshold {
-                                // Swipe left
-                                if isMenuOpen {
-                                    // Close left menu
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isMenuOpen = false
-                                    }
-                                } else if !isRightMenuOpen {
-                                    // Open right menu
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isRightMenuOpen = true
-                                    }
-                                }
-                            }
-                        } : nil
-                )
 
                 // Shadow overlays - feed casting shadow onto drawers
                 if selectedTab == .home {

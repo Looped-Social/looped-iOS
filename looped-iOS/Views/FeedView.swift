@@ -16,6 +16,7 @@ struct FeedView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            
             // Simple native ScrollView with ScrollViewReader
             ScrollViewReader { proxy in
                 ScrollView {

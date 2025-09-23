@@ -89,8 +89,9 @@ struct FeedHeader: View {
 
 #Preview {
     VStack {
-        FeedHeader()
         Spacer()
+        
+            .background(Color.loopedBackground.ignoresSafeArea(.all))
     }
-    .background(Color.loopedBackground)
+    .background(Color.loopedBackground.ignoresSafeArea(.all))
 }
