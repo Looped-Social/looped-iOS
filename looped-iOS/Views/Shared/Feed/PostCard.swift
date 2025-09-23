@@ -5,62 +5,77 @@ struct PostCard: View {
     @State private var isLiked = false
     @State private var isBookmarked = false
     @EnvironmentObject var commentsManager: CommentsModalManager
-    
+
     private var commentCount: Int {
         MockComments.getCommentCount(for: post.id)
+    }
+
+    private var formattedTimeAgo: String {
+        let now = Date()
+        let timeInterval = now.timeIntervalSince(post.createdAt)
+
+        let days = Int(timeInterval) / 86400
+        let hours = Int(timeInterval) / 3600
+        let minutes = Int(timeInterval) / 60
+
+        if days > 0 {
+            return "\(days) day\(days == 1 ? "" : "s") ago"
+        } else if hours > 0 {
+            return "\(hours) hour\(hours == 1 ? "" : "s") ago"
+        } else if minutes > 0 {
+            return "\(minutes) minute\(minutes == 1 ? "" : "s") ago"
+        } else {
+            return "just now"
+        }
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with user info
             HStack(alignment: .top, spacing: 12) {
-                // Avatar
-                AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.3))
+                // Avatar (hidden for anonymous posts)
+                if !post.isAnonymous {
+                    AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Circle()
+                            .fill(Color.loopedTextSecondary.opacity(0.3))
+                    }
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
                 }
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         // Name and handle
                         Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
                             .font(.headline)
-                            .foregroundColor(.loopedTextPrimary)
-                        
+                            .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+
                         if !post.isAnonymous {
                             Text("@\(post.authorDisplayName?.lowercased().replacingOccurrences(of: " ", with: "") ?? "user")")
                                 .font(.subheadline)
                                 .foregroundColor(.loopedTextSecondary)
                         }
-                        
+
                         Spacer()
-                        
+
                         // More button
                         Button(action: {}) {
                             Image(systemName: "ellipsis")
                                 .foregroundColor(.loopedTextSecondary)
                         }
                     }
-                    
-                    // Job title, company, and time
-                    HStack(spacing: 4) {
-                        Text("\(post.isAnonymous ? "Employee" : "Product Designer") @ \(post.company)")
-                            .font(.subheadline)
-                            .foregroundColor(.loopedTextSecondary)
-                        
-                        Text("•")
-                            .font(.subheadline)
-                            .foregroundColor(.loopedTextSecondary)
-                        
-                        Text(post.createdAt, style: .relative)
-                            .font(.subheadline)
-                            .foregroundColor(.loopedTextSecondary)
+
+                    // Job title and company (only for non-anonymous posts)
+                    if !post.isAnonymous {
+                        HStack(spacing: 4) {
+                            Text("Product Designer @ \(post.company)")
+                                .font(.subheadline)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
                     }
                 }
             }
@@ -96,9 +111,9 @@ struct PostCard: View {
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
-                
+
                 // Comment button
-                Button(action: { 
+                Button(action: {
                     commentsManager.showComments(for: post)
                 }) {
                     HStack(spacing: 4) {
@@ -112,7 +127,7 @@ struct PostCard: View {
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
-                
+
                 // Share button
                 Button(action: {}) {
                     HStack(spacing: 4) {
@@ -126,9 +141,9 @@ struct PostCard: View {
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // Bookmark button
                 Button(action: { isBookmarked.toggle() }) {
                     HStack(spacing: 4) {
@@ -142,6 +157,14 @@ struct PostCard: View {
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
+            }
+
+            // Timestamp at bottom
+            HStack {
+                Text(formattedTimeAgo)
+                    .font(.subheadline)
+                    .foregroundColor(.loopedTextSecondary)
+                Spacer()
             }
         }
         .padding(16)
@@ -157,7 +180,7 @@ struct PostCard: View {
         authorId: UUID(),
         authorDisplayName: "Sarah Chen",
         company: "Looped",
-        isAnonymous: false,
+        isAnonymous: true,
         reactionCount: 188,
         userReaction: nil,
         createdAt: Date().addingTimeInterval(-86400),

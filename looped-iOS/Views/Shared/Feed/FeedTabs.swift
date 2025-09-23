@@ -2,7 +2,7 @@ import SwiftUI
 
 enum FeedTab: String, CaseIterable {
     case forYou = "For You"
-    case hot = "Hot"
+    case hot = "Latest"
 }
 
 enum FilterTag: String, CaseIterable {
@@ -22,7 +22,7 @@ struct FeedTabs: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Tab selector (For You / Hot)
+            // Tab selector (For You / Latest)
             VStack(spacing: 0) {
                 HStack {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
@@ -48,7 +48,7 @@ struct FeedTabs: View {
                         .frame(height: selectedTab == .forYou ? 2 : 1)
                         .foregroundColor(selectedTab == .forYou ? .loopedPrimary : .loopedTextSecondary.opacity(0.3))
                     
-                    // Hot underline  
+                    // Latest underline
                     Rectangle()
                         .frame(height: selectedTab == .hot ? 2 : 1)
                         .foregroundColor(selectedTab == .hot ? .loopedPrimary : .loopedTextSecondary.opacity(0.3))
