@@ -28,7 +28,11 @@ struct FeedHeader: View {
                             .frame(width: 22, height: 2.5)
                             .foregroundColor(.loopedContrast)
                     }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(PlainButtonStyle())
+                .zIndex(1)
                 
                 // Looped logo/text
                 HStack(spacing: 6) {
