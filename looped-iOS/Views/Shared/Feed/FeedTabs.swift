@@ -81,7 +81,7 @@ struct FeedTabs: View {
                 .padding(.horizontal, 16)
             }
             .padding(.vertical, 8)
-            .background(Color.clear)
+            .background(Color.loopedBackground)
         }
     }
 }
