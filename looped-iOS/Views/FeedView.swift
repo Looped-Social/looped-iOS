@@ -50,12 +50,19 @@ struct FeedView: View {
                 }
             }
 
-            // Fixed header
-            VStack(spacing: 0) {
-                FeedHeader(onMenuToggle: onMenuToggle, onProfileTap: onProfileTap)
-                FeedTabs()
+            // Fixed header with proper safe area handling
+            ZStack(alignment: .top) {
+                // Background that fills entire safe area
+                Color.loopedBackground
+                    .ignoresSafeArea(.all, edges: .top)
+                    .frame(height: headerHeight + 50) // Extra height for safe area
+
+                // Header content
+                VStack(spacing: 0) {
+                    FeedHeader(onMenuToggle: onMenuToggle, onProfileTap: onProfileTap)
+                    FeedTabs()
+                }
             }
-            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top))
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.25), value: headerVisible)
