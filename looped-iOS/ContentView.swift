@@ -95,7 +95,9 @@ struct MainTabView: View {
                         case .notifications:
                             NotificationsView()
                         case .profile:
-                            ProfileView()
+                            NavigationView {
+                                ProfileView()
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

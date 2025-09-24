@@ -35,16 +35,33 @@ struct PostCard: View {
             HStack(alignment: .top, spacing: 12) {
                 // Avatar (hidden for anonymous posts)
                 if !post.isAnonymous {
-                    AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.loopedTextSecondary.opacity(0.3))
+                    if let userProfile = MockUserProfiles.getUserProfile(byId: post.authorId) {
+                        NavigationLink(destination: UserProfileView(userProfile: userProfile)) {
+                            AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Circle()
+                                    .fill(Color.loopedTextSecondary.opacity(0.3))
+                            }
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    } else {
+                        // Fallback if profile not found
+                        AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Circle()
+                                .fill(Color.loopedTextSecondary.opacity(0.3))
+                        }
+                        .frame(width: 40, height: 40)
+                        .clipShape(Circle())
                     }
-                    .frame(width: 40, height: 40)
-                    .clipShape(Circle())
                 }
 
                 VStack(alignment: .leading, spacing: 2) {

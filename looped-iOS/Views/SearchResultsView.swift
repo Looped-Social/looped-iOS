@@ -3,7 +3,7 @@ import SwiftUI
 struct SearchResultsView: View {
     @StateObject private var viewModel = SearchResultsViewModel()
     @Environment(\.dismiss) private var dismiss
-    @State private var searchFieldFocused = true
+    @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
         NavigationView {
@@ -47,10 +47,7 @@ struct SearchResultsView: View {
             .navigationBarHidden(true)
         }
         .onAppear {
-            // Focus search field when view appears
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                searchFieldFocused = true
-            }
+            searchFieldFocused = true
         }
     }
 
@@ -62,7 +59,8 @@ struct SearchResultsView: View {
                 placeholder: "Search in JP Morgan",
                 onCancel: {
                     dismiss()
-                }
+                },
+                isSearchFieldFocused: $searchFieldFocused
             )
             .onSubmit {
                 viewModel.addRecentSearch(viewModel.searchText)
@@ -111,10 +109,6 @@ struct SearchResultsView: View {
             // Then profile/other results
             SearchResultsSection(
                 results: viewModel.searchResults,
-                onPersonTap: { person in
-                    // Navigate to person profile
-                    print("Tapped person: \(person.name)")
-                },
                 onPostTap: { post in
                     // Navigate to post detail
                     print("Tapped post: \(post.content)")

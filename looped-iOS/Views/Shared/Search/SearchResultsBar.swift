@@ -4,6 +4,7 @@ struct SearchResultsBar: View {
     @Binding var searchText: String
     var placeholder: String = "Search"
     let onCancel: () -> Void
+    @FocusState.Binding var isSearchFieldFocused: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -20,6 +21,7 @@ struct SearchResultsBar: View {
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
                     .multilineTextAlignment(searchText.isEmpty ? .center : .leading)
+                    .focused($isSearchFieldFocused)
                     .overlay(
                         // Custom centered placeholder when empty
                         Group {
@@ -62,12 +64,14 @@ struct SearchResultsBar: View {
 
 #Preview {
     @State var searchText = "Test"
+    @FocusState var isSearchFieldFocused: Bool
 
     return VStack {
         SearchResultsBar(
             searchText: $searchText,
             placeholder: "Search in JP Morgan",
-            onCancel: {}
+            onCancel: {},
+            isSearchFieldFocused: $isSearchFieldFocused
         )
 
         Spacer()

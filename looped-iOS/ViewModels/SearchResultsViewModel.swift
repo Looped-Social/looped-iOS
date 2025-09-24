@@ -55,42 +55,34 @@ class SearchResultsViewModel: ObservableObject {
         // Generate hashtag suggestions based on query
         generateHashtagSuggestions(for: query)
 
-        // Mock people results
+        // Mock people results using actual UserProfiles
         if filter == .allLoops || filter == .jpMorgan {
-            results.people = [
+            let searchResults = MockUserProfiles.searchUserProfiles(query: query)
+            results.people = searchResults.map { profile in
                 SearchResultPerson(
-                    id: UUID(),
-                    name: "Sarah Chen",
-                    username: "sarah58",
-                    title: "Product Designer",
-                    company: "Looped",
-                    avatarURL: nil
-                ),
-                SearchResultPerson(
-                    id: UUID(),
-                    name: "Sarah Chen",
-                    username: "sarah58",
-                    title: "Product Designer",
-                    company: "Looped",
-                    avatarURL: nil
-                ),
-                SearchResultPerson(
-                    id: UUID(),
-                    name: "Sarah Chen",
-                    username: "sarah58",
-                    title: "Product Designer",
-                    company: "Looped",
-                    avatarURL: nil
-                ),
-                SearchResultPerson(
-                    id: UUID(),
-                    name: "Sarah Chen",
-                    username: "sarah58",
-                    title: "Product Designer",
-                    company: "Looped",
-                    avatarURL: nil
+                    id: profile.id,
+                    name: profile.displayName ?? "Anonymous",
+                    username: profile.username,
+                    title: profile.jobTitle,
+                    company: profile.company,
+                    avatarURL: profile.profileImageURL
                 )
-            ]
+            }
+
+            // If no specific search results, show some default profiles
+            if results.people.isEmpty && !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let defaultProfiles = Array(MockUserProfiles.profiles.prefix(3))
+                results.people = defaultProfiles.map { profile in
+                    SearchResultPerson(
+                        id: profile.id,
+                        name: profile.displayName ?? "Anonymous",
+                        username: profile.username,
+                        title: profile.jobTitle,
+                        company: profile.company,
+                        avatarURL: profile.profileImageURL
+                    )
+                }
+            }
         }
 
         // Mock posts results
