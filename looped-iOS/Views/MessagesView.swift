@@ -30,50 +30,35 @@ struct MessagesView: View {
             MessagesTabs(selectedTab: $selectedTab)
 
             // Content based on selected tab
-            ZStack {
-                if selectedTab == .messages {
-                    // Messages List
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(filteredConversations) { conversation in
-                                Button(action: {
-                                    // TODO: Navigate to chat with this user
-                                    print("Tapped conversation with \(conversation.userName)")
-                                }) {
-                                    ConversationRow(conversation: conversation)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-
-                                // Divider line
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                    .padding(.leading, 78) // Indent to align with text content
+            if selectedTab == .messages {
+                // Messages List
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredConversations) { conversation in
+                            Button(action: {
+                                // TODO: Navigate to chat with this user
+                                print("Tapped conversation with \(conversation.userName)")
+                            }) {
+                                ConversationRow(conversation: conversation)
                             }
+                            .buttonStyle(PlainButtonStyle())
+
+                            // Divider line
+                            Rectangle()
+                                .frame(height: 1)
+                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                .padding(.leading, 78) // Indent to align with text content
                         }
-                    }
-                } else {
-                    // Groups placeholder
-                    VStack {
-                        Spacer()
-                        Text("Groups coming soon...")
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextSecondary)
-                        Spacer()
                     }
                 }
-
-                // Floating Action Button (positioned exactly like main feed)
+            } else {
+                // Groups placeholder
                 VStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        FloatingActionButton(type: .sendMessage) {
-                            showNewMessage = true
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 90) // Position above tab bar
-                    }
+                    Text("Groups coming soon...")
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedTextSecondary)
+                    Spacer()
                 }
             }
         }

@@ -91,7 +91,9 @@ struct MainTabView: View {
                                     .environmentObject(commentsManager)
                             }
                         case .messages:
-                            MessagesView()
+                            NavigationView {
+                                MessagesView()
+                            }
                         case .search:
                             SearchView()
                         case .notifications:
@@ -182,7 +184,7 @@ struct MainTabView: View {
                     .allowsHitTesting(false)
                 }
 
-                // Floating Action Button (only show on home tab when both menus are closed)
+                // Floating Action Button (show on home and messages tabs)
                 if selectedTab == .home && !commentsManager.isPresented && !isMenuOpen && !isRightMenuOpen {
                     VStack {
                         Spacer()
@@ -190,6 +192,21 @@ struct MainTabView: View {
                             Spacer()
                             FloatingActionButton {
                                 showCreatePost = true
+                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 90) // Position above tab bar
+                        }
+                    }
+                }
+
+                // Messages Floating Action Button
+                if selectedTab == .messages {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            FloatingActionButton(type: .sendMessage) {
+                                showCreatePost = true // TODO: Change to show new message
                             }
                             .padding(.trailing, 20)
                             .padding(.bottom, 90) // Position above tab bar
