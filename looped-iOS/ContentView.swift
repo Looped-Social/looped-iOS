@@ -24,6 +24,7 @@ struct ContentView: View {
 struct MainTabView: View {
     @State private var selectedTab: TabItem = .home
     @State private var showCreatePost = false
+    @State private var showNewMessage = false
     @State private var isMenuOpen = false
     @State private var isRightMenuOpen = false
     @StateObject private var feedViewModel = FeedViewModel()
@@ -206,7 +207,7 @@ struct MainTabView: View {
                         HStack {
                             Spacer()
                             FloatingActionButton(type: .sendMessage) {
-                                showCreatePost = true // TODO: Change to show new message
+                                showNewMessage = true
                             }
                             .padding(.trailing, 20)
                             .padding(.bottom, 90) // Position above tab bar
@@ -226,6 +227,9 @@ struct MainTabView: View {
         .animation(.easeInOut(duration: 0.3), value: commentsManager.isPresented)
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(feedViewModel: feedViewModel)
+        }
+        .sheet(isPresented: $showNewMessage) {
+            NewMessageView()
         }
     }
     
