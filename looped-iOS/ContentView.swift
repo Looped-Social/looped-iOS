@@ -72,22 +72,24 @@ struct MainTabView: View {
                     Group {
                         switch selectedTab {
                         case .home:
-                            FeedView(
-                                onMenuToggle: {
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isRightMenuOpen = false // Close right menu if open
-                                        isMenuOpen.toggle()
+                            NavigationView {
+                                FeedView(
+                                    onMenuToggle: {
+                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                            isRightMenuOpen = false // Close right menu if open
+                                            isMenuOpen.toggle()
+                                        }
+                                    },
+                                    onProfileTap: {
+                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                            isMenuOpen = false // Close left menu if open
+                                            isRightMenuOpen.toggle()
+                                        }
                                     }
-                                },
-                                onProfileTap: {
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isMenuOpen = false // Close left menu if open
-                                        isRightMenuOpen.toggle()
-                                    }
-                                }
-                            )
-                                .environmentObject(feedViewModel)
-                                .environmentObject(commentsManager)
+                                )
+                                    .environmentObject(feedViewModel)
+                                    .environmentObject(commentsManager)
+                            }
                         case .messages:
                             MessagesView()
                         case .search:
