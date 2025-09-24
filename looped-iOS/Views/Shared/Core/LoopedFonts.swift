@@ -5,6 +5,9 @@ extension Font {
     
     // MARK: - Typography Scale (Design System)
     
+    
+    static let loopedSuperLargeHeading = Font.custom("Poppins-Regular", size: 68)
+
     static let loopedLargeHeading = Font.custom("Poppins-Regular", size: 52)
     
     static let loopedHeading = Font.custom("Poppins-Regular", size: 36)
@@ -13,6 +16,8 @@ extension Font {
     
     static let loopedSubheadMedium = Font.custom("Poppins-Medium", size: 20)
     
+    static let loopedHeadingMedium = Font.custom("Poppins-Medium", size: 24)
+
     /// Body text (16pt, Regular) - Main content, paragraphs
     static let loopedBody = Font.custom("Poppins-Regular", size: 16)
     

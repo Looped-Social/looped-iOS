@@ -24,7 +24,7 @@ struct MessagesHeader: View {
 
             // Right side: Dynamic title
             Text(title)
-                .font(.loopedHeading)
+                .font(.loopedLogo)
                 .foregroundColor(.loopedTextPrimary)
         }
         .padding(.horizontal, 16)

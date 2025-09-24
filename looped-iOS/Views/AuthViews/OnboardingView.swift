@@ -8,7 +8,7 @@ struct OnboardingView: View {
         GeometryReader { geometry in
             VStack {
                 Spacer()
-                    .frame(height: geometry.size.height * 0.15)
+                    .frame(height: geometry.size.height * 0.20)
 
                 // Logo and tagline
                 VStack(spacing: 16) {
@@ -17,27 +17,27 @@ struct OnboardingView: View {
                         Image("logo")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(height: 64)
+                            .frame(height: 68)
 
                         Text("ooped")
-                            .font(.system(size: 64, weight: .regular))
+                            .font(.loopedSuperLargeHeading)
                             .foregroundColor(.loopedTextPrimary)
                     }
 
                     // Tagline
                     VStack(spacing: 4) {
                         Text("Where Verified Voices")
-                            .font(.loopedSubheadMedium)
+                            .font(.loopedHeadingMedium)
                             .foregroundColor(.loopedTextPrimary)
                         Text("speak freely")
-                            .font(.loopedSubheadMedium)
+                            .font(.loopedHeadingMedium)
                             .foregroundColor(.loopedTextPrimary)
                     }
                 }
-                .padding(.bottom, 60)
+                .padding(.bottom, 32)
 
                 // Buttons section
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     // Get Started button
                     Button(action: {
                         onNavigate(.employmentStatus)
@@ -66,12 +66,10 @@ struct OnboardingView: View {
                     }) {
                         HStack {
                             // Google logo placeholder (using "G" for now)
-                            Text("G")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                                .frame(width: 20, height: 20)
-                                .background(Color.white)
-                                .cornerRadius(10)
+                            Image("google-logo")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: 24)
 
                             Text("Continue with Google")
                                 .font(.loopedBodyMedium)
@@ -98,7 +96,7 @@ struct OnboardingView: View {
                         HStack {
                             // Apple logo placeholder (using apple symbol)
                             Image(systemName: "applelogo")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.system(size: 24, weight: .medium))
                                 .foregroundColor(.loopedTextPrimary)
 
                             Text("Continue with Apple")
@@ -117,11 +115,10 @@ struct OnboardingView: View {
                     .disabled(authViewModel.isLoading)
                 }
                 .padding(.horizontal, 32)
-
-                Spacer()
+                .padding(.bottom, 12)
 
                 // Already have account link
-                VStack(spacing: 16) {
+                VStack(spacing: 8) {
                     if authViewModel.isLoading {
                         ProgressView()
                             .scaleEffect(1.2)
@@ -144,10 +141,10 @@ struct OnboardingView: View {
                             onNavigate(.login)
                         }
                         .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedPrimary)
+                        .foregroundColor(.loopedSecondary)
                     }
                 }
-                .padding(.bottom, 50)
+                .padding(.bottom,32)
             }
         }
     }
