@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MessagesHeader: View {
+    let title: String
+
     var body: some View {
         HStack {
             // Left side: Looped logo/text
@@ -20,8 +22,8 @@ struct MessagesHeader: View {
 
             Spacer()
 
-            // Right side: Messages title
-            Text("Messages")
+            // Right side: Dynamic title
+            Text(title)
                 .font(.loopedHeading)
                 .foregroundColor(.loopedTextPrimary)
         }
@@ -32,7 +34,7 @@ struct MessagesHeader: View {
 
 #Preview {
     VStack {
-        MessagesHeader()
+        MessagesHeader(title: "Messages")
         Spacer()
     }
     .background(Color.loopedBackground)

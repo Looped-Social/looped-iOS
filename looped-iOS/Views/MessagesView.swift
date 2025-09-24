@@ -18,19 +18,19 @@ struct MessagesView: View {
     }
 
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                // Header
-                MessagesHeader()
+        VStack(spacing: 0) {
+            // Header
+            MessagesHeader(title: selectedTab == .messages ? "Messages" : "Groups")
 
-                // Search Bar
-                SearchBar(searchText: $searchText)
-                    .padding(.bottom, 8)
+            // Search Bar
+            MessagesSearchBar(searchText: $searchText)
+                .padding(.bottom, 8)
 
-                // Tabs
-                MessagesTabs(selectedTab: $selectedTab)
+            // Tabs
+            MessagesTabs(selectedTab: $selectedTab)
 
-                // Content based on selected tab
+            // Content based on selected tab
+            ZStack {
                 if selectedTab == .messages {
                     // Messages List
                     ScrollView {
@@ -62,23 +62,23 @@ struct MessagesView: View {
                         Spacer()
                     }
                 }
-            }
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationBarHidden(true)
 
-            // Floating Action Button
-            VStack {
-                Spacer()
-                HStack {
+                // Floating Action Button (positioned exactly like main feed)
+                VStack {
                     Spacer()
-                    FloatingActionButton(type: .sendMessage) {
-                        showNewMessage = true
+                    HStack {
+                        Spacer()
+                        FloatingActionButton(type: .sendMessage) {
+                            showNewMessage = true
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 90) // Position above tab bar
                     }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 90) // Position above tab bar
                 }
             }
         }
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationBarHidden(true)
         .sheet(isPresented: $showNewMessage) {
             // TODO: New message composition view
             Text("New Message")

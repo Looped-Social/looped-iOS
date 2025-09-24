@@ -23,11 +23,9 @@ struct FloatingActionButton: View {
                         .font(.system(size: 33, weight: .regular))
                         .foregroundColor(.white)
                 case .sendMessage:
-                    Image("send-icon")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 24, height: 24)
-                        .foregroundColor(.loopedBackground)
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.white)
                 }
             }
             .frame(width: 56, height: 56)
