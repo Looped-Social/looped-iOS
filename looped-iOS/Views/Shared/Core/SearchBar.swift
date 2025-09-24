@@ -6,17 +6,40 @@ struct SearchBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.loopedTextSecondary)
-                .font(.system(size: 16))
+            // Hide magnifying glass when text is empty to center placeholder
+            if !searchText.isEmpty {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.loopedTextSecondary)
+                    .font(.system(size: 16))
+            }
 
-            TextField(placeholder, text: $searchText)
+            TextField("", text: $searchText)
                 .font(.loopedBody)
                 .foregroundColor(.loopedTextPrimary)
+                .multilineTextAlignment(searchText.isEmpty ? .center : .leading)
+                .overlay(
+                    // Custom centered placeholder when empty
+                    Group {
+                        if searchText.isEmpty {
+                            HStack(spacing: 6) {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .font(.system(size: 16))
+                                Text(placeholder)
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                        }
+                    }
+                )
+
+            if !searchText.isEmpty {
+                Spacer()
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.loopedMutedBackground)
+        .padding(.vertical, 8)
+        .background(Color.gray.opacity(0.15))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
     }
