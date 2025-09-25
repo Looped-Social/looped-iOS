@@ -4,28 +4,46 @@ import Combine
 @MainActor
 class MessagesViewModel: ObservableObject {
     @Published var channels: [Channel] = []
+    @Published var conversations: [Conversation] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
-    
+
     private let messageService: MessageServiceProtocol
     private var cancellables = Set<AnyCancellable>()
-    
+
     init(messageService: MessageServiceProtocol = MockConfig.useMockData ? MockMessageService() : MessageService()) {
         self.messageService = messageService
     }
-    
+
     func loadChannels() async {
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let fetchedChannels = try await messageService.getChannels()
             channels = fetchedChannels
         } catch {
             errorMessage = error.localizedDescription
         }
-        
+
         isLoading = false
+    }
+
+    func loadConversations() async {
+        isLoading = true
+        errorMessage = nil
+
+        // Simulate network delay for realistic loading experience
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+        // For now, use mock data. In production, this would call an API
+        conversations = MockConversations.conversations
+
+        isLoading = false
+    }
+
+    func refreshConversations() async {
+        await loadConversations()
     }
 }
 

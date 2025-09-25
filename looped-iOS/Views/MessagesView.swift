@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MessagesView: View {
+    @StateObject private var viewModel = MessagesViewModel()
     @State private var selectedTab: MessageTab = .messages
     @State private var searchText = ""
     @State private var showNewMessage = false
@@ -8,9 +9,9 @@ struct MessagesView: View {
     // Filter conversations based on search text
     private var filteredConversations: [Conversation] {
         if searchText.isEmpty {
-            return MockConversations.conversations
+            return viewModel.conversations
         } else {
-            return MockConversations.conversations.filter { conversation in
+            return viewModel.conversations.filter { conversation in
                 conversation.userName.localizedCaseInsensitiveContains(searchText) ||
                 conversation.lastMessage.localizedCaseInsensitiveContains(searchText)
             }
@@ -51,6 +52,9 @@ struct MessagesView: View {
                         }
                     }
                 }
+                .refreshable {
+                    await viewModel.refreshConversations()
+                }
             } else {
                 // Groups placeholder
                 VStack {
@@ -64,6 +68,9 @@ struct MessagesView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .task {
+            await viewModel.loadConversations()
+        }
         .sheet(isPresented: $showNewMessage) {
             // TODO: New message composition view
             Text("New Message")
