@@ -21,11 +21,6 @@ struct FeedView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        // Spacer for header
-                        Color.clear
-                            .frame(height: headerHeight)
-                            .id("top")
-
                         ForEach(viewModel.posts) { post in
                             PostCard(post: post)
 
@@ -42,6 +37,9 @@ struct FeedView: View {
                                 }
                         }
                     )
+                }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    Color.clear.frame(height: headerHeight)
                 }
                 .refreshable {
                     withAnimation(.easeInOut(duration: 0.25)) {
