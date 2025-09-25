@@ -69,23 +69,39 @@ class ChatViewModel: ObservableObject {
     func loadMessages(for channel: Channel) async {
         isLoading = true
         errorMessage = nil
-        
+
         do {
             let fetchedMessages = try await messageService.getMessages(channelId: channel.id)
             messages = fetchedMessages.sorted { $0.createdAt < $1.createdAt }
         } catch {
             errorMessage = error.localizedDescription
         }
-        
+
         isLoading = false
     }
-    
+
+    func loadDirectMessages(with userId: UUID) async {
+        isLoading = true
+        errorMessage = nil
+
+        // For now, use mock data for direct messages
+        messages = MockMessages.getDirectMessages().sorted { $0.createdAt < $1.createdAt }
+
+        isLoading = false
+    }
+
     func sendMessage(_ content: String, to channel: Channel) async {
         do {
             try await messageService.sendMessage(content: content, channelId: channel.id)
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func sendDirectMessage(_ content: String, to userId: UUID) async {
+        // For now, simulate sending a direct message
+        let newMessage = MockMessages.sendDirectMessage(content: content, to: userId)
+        messages.append(newMessage)
     }
     
     private func setupWebSocketListeners() {

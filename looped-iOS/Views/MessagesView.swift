@@ -5,6 +5,9 @@ struct MessagesView: View {
     @State private var selectedTab: MessageTab = .messages
     @State private var searchText = ""
     @State private var showNewMessage = false
+    @State private var selectedConversation: Conversation?
+    @State private var selectedChannel: Channel?
+    @State private var showingChat = false
 
     // Filter conversations based on search text
     private var filteredConversations: [Conversation] {
@@ -37,8 +40,14 @@ struct MessagesView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredConversations) { conversation in
                             Button(action: {
-                                // TODO: Navigate to chat with this user
-                                print("Tapped conversation with \(conversation.userName)")
+                                if MockConversations.isGroupConversation(conversation) {
+                                    selectedChannel = MockConversations.getChannelForGroupConversation(conversation)
+                                    selectedConversation = nil
+                                } else {
+                                    selectedConversation = conversation
+                                    selectedChannel = nil
+                                }
+                                showingChat = true
                             }) {
                                 ConversationRow(conversation: conversation)
                             }
@@ -76,6 +85,17 @@ struct MessagesView: View {
             Text("New Message")
                 .font(.loopedHeading)
                 .padding()
+        }
+        .fullScreenCover(isPresented: $showingChat) {
+            ChatView(
+                conversation: selectedConversation,
+                channel: selectedChannel,
+                onBackTapped: {
+                    showingChat = false
+                    selectedConversation = nil
+                    selectedChannel = nil
+                }
+            )
         }
     }
 }

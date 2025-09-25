@@ -47,7 +47,7 @@ struct SearchResultsBar: View {
             .background(Color.gray.opacity(0.15))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.red, lineWidth: 1)
+                    .stroke(Color.loopedContrast, lineWidth: 3)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12))
 

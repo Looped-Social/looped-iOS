@@ -1,0 +1,170 @@
+import SwiftUI
+
+struct ChatView: View {
+    let conversation: Conversation?
+    let channel: Channel?
+    let onBackTapped: () -> Void
+
+    @StateObject private var viewModel = ChatViewModel()
+    @State private var messageText = ""
+
+    private var isGroupChat: Bool {
+        return channel != nil
+    }
+
+    private var chatTitle: String {
+        if let channel = channel {
+            return channel.name
+        } else if let conversation = conversation {
+            return conversation.userName
+        } else {
+            return "Chat"
+        }
+    }
+
+    private var profileImageUrl: String? {
+        return conversation?.userProfileImageUrl
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Custom Header
+            HStack(spacing: 12) {
+                // Back Button
+                Button(action: onBackTapped) {
+                    Image(systemName: "chevron.left")
+                        .font(.title2)
+                        .foregroundColor(.loopedPrimary)
+                }
+
+                // Looped Logo
+                HStack(spacing: 2) {
+                    Text("l")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(.loopedPrimary)
+                        .italic()
+                    Text("ooped")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(.loopedTextPrimary)
+                }
+
+                Spacer()
+
+                // Chat Title and Profile
+                HStack(spacing: 8) {
+                    Text(chatTitle)
+                        .font(.loopedBodyStrong)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    if !isGroupChat, let profileImageUrl = profileImageUrl {
+                        AsyncImage(url: URL(string: profileImageUrl)) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Circle()
+                                .fill(Color.loopedPrimary.opacity(0.3))
+                                .overlay(
+                                    Text(String(chatTitle.prefix(1)).uppercased())
+                                        .font(.caption)
+                                        .foregroundColor(.loopedPrimary)
+                                )
+                        }
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                    } else if isGroupChat {
+                        Circle()
+                            .fill(Color.purple)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text("VP")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                            )
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.loopedBackground)
+
+            // Messages List
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(viewModel.messages) { message in
+                            if message.senderId == MockUsers.currentUser.id {
+                                SentMessageBubble(message: message)
+                            } else {
+                                ReceivedMessageBubble(
+                                    message: message,
+                                    showProfilePicture: isGroupChat,
+                                    showSenderName: isGroupChat
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 16)
+                }
+                .onChange(of: viewModel.messages.count) { _ in
+                    if let lastMessage = viewModel.messages.last {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+
+            // Input Area
+            ChatInputView(
+                messageText: $messageText,
+                onSendTapped: {
+                    sendMessage()
+                }
+            )
+        }
+        .background(Color.loopedBackground.ignoresSafeArea(.all))
+        .task {
+            await loadMessages()
+        }
+    }
+
+    private func sendMessage() {
+        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        Task {
+            if let channel = channel {
+                await viewModel.sendMessage(messageText, to: channel)
+            } else if let conversation = conversation {
+                await viewModel.sendDirectMessage(messageText, to: conversation.userId)
+            }
+
+            messageText = ""
+        }
+    }
+
+    private func loadMessages() async {
+        if let channel = channel {
+            await viewModel.loadMessages(for: channel)
+        } else if let conversation = conversation {
+            await viewModel.loadDirectMessages(with: conversation.userId)
+        }
+    }
+}
+
+
+#Preview {
+    ChatView(
+        conversation: Conversation(
+            userId: UUID(),
+            userName: "Big Bros",
+            userProfileImageUrl: nil,
+            lastMessage: "Good morning!",
+            lastMessageTimestamp: Date()
+        ),
+        channel: nil,
+        onBackTapped: {}
+    )
+}

@@ -224,6 +224,93 @@ struct MockMessages {
         )
     ]
     
+    // MARK: - Mock Group Chat Messages (Intro Interns)
+    static let introInternsGroupMessages: [Message] = [
+        Message(
+            id: UUID(),
+            content: "Wakey wakey",
+            senderId: MockUsers.colleagues[0].id, // Sarah
+            senderDisplayName: "Sarah",
+            receiverId: nil,
+            channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
+            messageType: .channel,
+            isRead: true,
+            createdAt: Calendar.current.date(byAdding: .hour, value: -3, to: Date())!
+        ),
+
+        Message(
+            id: UUID(),
+            content: "Lets get this bread",
+            senderId: MockUsers.colleagues[1].id, // Mike
+            senderDisplayName: "Mike",
+            receiverId: nil,
+            channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
+            messageType: .channel,
+            isRead: true,
+            createdAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!
+        ),
+
+        Message(
+            id: UUID(),
+            content: "Bro shut up, its early",
+            senderId: MockUsers.colleagues[2].id, // Alex
+            senderDisplayName: "Alex",
+            receiverId: nil,
+            channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
+            messageType: .channel,
+            isRead: true,
+            createdAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date())!
+        ),
+
+        Message(
+            id: UUID(),
+            content: "It's morning in NY 😎",
+            senderId: MockUsers.currentUser.id,
+            senderDisplayName: MockUsers.currentUser.displayName,
+            receiverId: nil,
+            channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
+            messageType: .channel,
+            isRead: true,
+            createdAt: Calendar.current.date(byAdding: .minute, value: -45, to: Date())!
+        ),
+
+        Message(
+            id: UUID(),
+            content: "I wonder how many bagels get bought evry morning",
+            senderId: MockUsers.colleagues[3].id, // Jenny
+            senderDisplayName: "Jenny",
+            receiverId: nil,
+            channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
+            messageType: .channel,
+            isRead: true,
+            createdAt: Calendar.current.date(byAdding: .minute, value: -30, to: Date())!
+        ),
+
+        Message(
+            id: UUID(),
+            content: "I want a bagel",
+            senderId: MockUsers.colleagues[4].id, // David
+            senderDisplayName: "David",
+            receiverId: nil,
+            channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
+            messageType: .channel,
+            isRead: true,
+            createdAt: Calendar.current.date(byAdding: .minute, value: -20, to: Date())!
+        ),
+
+        Message(
+            id: UUID(),
+            content: "Fr, hungry as fck",
+            senderId: MockUsers.colleagues[0].id, // Sarah
+            senderDisplayName: "Sarah",
+            receiverId: nil,
+            channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
+            messageType: .channel,
+            isRead: false,
+            createdAt: Calendar.current.date(byAdding: .minute, value: -5, to: Date())!
+        )
+    ]
+
     // MARK: - Helper Functions
     static func getMessagesForChannel(_ channelId: UUID) -> [Message] {
         switch channelId {
@@ -231,6 +318,8 @@ struct MockMessages {
             return generalChannelMessages.sorted { $0.createdAt < $1.createdAt }
         case channels[1].id: // engineering
             return engineeringChannelMessages.sorted { $0.createdAt < $1.createdAt }
+        case UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!: // Intro Interns group
+            return introInternsGroupMessages.sorted { $0.createdAt < $1.createdAt }
         default:
             // For other channels, return some generic messages
             return [

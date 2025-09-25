@@ -73,6 +73,17 @@ struct MockConversations {
 
     // MARK: - Mock Conversations (matching the design exactly)
     static let conversations: [Conversation] = [
+        // Intro Interns - Group Chat
+        Conversation(
+            userId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!, // Special UUID for group
+            userName: "Intro Interns",
+            userProfileImageUrl: nil, // No profile image for groups
+            lastMessage: "Fr, hungry as fck",
+            lastMessageTimestamp: Calendar.current.date(byAdding: .minute, value: -5, to: Date())!,
+            unreadCount: 2,
+            hasSpecialStatus: false,
+            isOnline: false
+        ),
         // Sujeet - "Happy Journey Bro" (20/3/22)
         Conversation(
             userId: conversationUsers[0].id,
@@ -180,5 +191,23 @@ struct MockConversations {
 
     static func getTotalUnreadCount() -> Int {
         return conversations.reduce(0) { $0 + $1.unreadCount }
+    }
+
+    static func isGroupConversation(_ conversation: Conversation) -> Bool {
+        return conversation.userId.uuidString.uppercased() == "12345678-1234-1234-1234-123456789ABC"
+    }
+
+    static func getChannelForGroupConversation(_ conversation: Conversation) -> Channel? {
+        guard isGroupConversation(conversation) else { return nil }
+
+        // Return a mock channel for the group conversation
+        return Channel(
+            id: conversation.userId,
+            name: conversation.userName,
+            company: "Anthropic",
+            memberCount: 5,
+            isPublic: true,
+            createdAt: Calendar.current.date(byAdding: .month, value: -1, to: Date())!
+        )
     }
 }

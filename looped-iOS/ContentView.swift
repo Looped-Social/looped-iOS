@@ -200,20 +200,6 @@ struct MainTabView: View {
                     }
                 }
 
-                // Messages Floating Action Button
-                if selectedTab == .messages {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            FloatingActionButton(type: .sendMessage) {
-                                showNewMessage = true
-                            }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 90) // Position above tab bar
-                        }
-                    }
-                }
             }
         }
         // MODAL OVERLAY - Completely separate from main content

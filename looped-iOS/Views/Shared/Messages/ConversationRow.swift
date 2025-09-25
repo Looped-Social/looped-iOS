@@ -5,22 +5,36 @@ struct ConversationRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Profile Picture
-            AsyncImage(url: URL(string: conversation.userProfileImageUrl ?? "")) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
+            // Profile Picture or Group Icon
+            if MockConversations.isGroupConversation(conversation) {
+                // Group icon
                 Circle()
-                    .fill(Color.loopedPrimary.opacity(0.3))
+                    .fill(Color.purple)
+                    .frame(width: 50, height: 50)
                     .overlay(
-                        Text(String(conversation.userName.prefix(1)).uppercased())
+                        Text("VP")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedPrimary)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
                     )
+            } else {
+                // Individual profile picture
+                AsyncImage(url: URL(string: conversation.userProfileImageUrl ?? "")) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(Color.loopedPrimary.opacity(0.3))
+                        .overlay(
+                            Text(String(conversation.userName.prefix(1)).uppercased())
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedPrimary)
+                        )
+                }
+                .frame(width: 50, height: 50)
+                .clipShape(Circle())
             }
-            .frame(width: 50, height: 50)
-            .clipShape(Circle())
 
             // Content: Name and Last Message
             VStack(alignment: .leading, spacing: 4) {
