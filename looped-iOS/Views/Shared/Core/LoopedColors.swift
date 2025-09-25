@@ -10,7 +10,9 @@ extension Color {
     // MARK: - Background Colors
     static let loopedBackground = Color("BackgroundColor")
     static let loopedMutedBackground = Color("MutedBackgroundColor")
-    
+    static let loopedMessageColor = Color("MessageColor")
+    static let loopedMessageMutedColor = Color("MessageColorMuted")
+
     // MARK: - Text Colors
     static let loopedTextPrimary = Color("TextPrimaryColor")
     static let loopedTextSecondary = Color("TextSecondaryColor")

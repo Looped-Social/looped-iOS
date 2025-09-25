@@ -34,18 +34,19 @@ struct ChatView: View {
                 Button(action: onBackTapped) {
                     Image(systemName: "chevron.left")
                         .font(.title2)
-                        .foregroundColor(.loopedPrimary)
+                        .foregroundColor(.loopedSecondary)
                 }
 
-                // Looped Logo
                 HStack(spacing: 2) {
-                    Text("l")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(.loopedPrimary)
-                        .italic()
+                    // Logo
+                    Image("logo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(height: 32)
+
                     Text("ooped")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(.loopedTextPrimary)
+                        .font(.loopedHeading)
+                        .foregroundColor(.loopedContrast)
                 }
 
                 Spacer()

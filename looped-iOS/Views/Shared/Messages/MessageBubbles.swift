@@ -21,10 +21,10 @@ struct SentMessageBubble: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
-                        Color.white
+                        Color.loopedMessageColor
                     )
                     .clipShape(TailCornerShape(isFromCurrentUser: true, showTail: showTail))
-                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(formatMessageTime(message.createdAt))
@@ -88,10 +88,11 @@ struct ReceivedMessageBubble: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(
-                            Color(red: 0.7, green: 0.9, blue: 0.9)
+                            Color.loopedMessageMutedColor
                         )
                         .clipShape(TailCornerShape(isFromCurrentUser: false, showTail: showTail))
                         .fixedSize(horizontal: false, vertical: true)
+                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
 
                     Text(formatMessageTime(message.createdAt))
                         .font(.loopedSmallText)
@@ -232,6 +233,22 @@ private func formatMessageTime(_ date: Date) -> String {
             ),
             showTail: true
         )
+                ReceivedMessageBubble(
+            message: Message(
+                id: UUID(),
+                content: "Japan looks amazing!",
+                senderId: UUID(),
+                senderDisplayName: "Big Bros",
+                receiverId: UUID(),
+                channelId: nil,
+                messageType: .direct,
+                isRead: true,
+                createdAt: Date()
+            ),
+            showProfilePicture: false,
+            showSenderName: false,
+            showTail: true
+        )
 
         SentMessageBubble(
             message: Message(
@@ -271,6 +288,25 @@ private func formatMessageTime(_ date: Date) -> String {
             showSenderName: false,
             showTail: true
         )
+        
+               ReceivedMessageBubble(
+        
+            message: Message(
+                id: UUID(),
+                content: "Japan looks amazing!",
+                senderId: UUID(),
+                senderDisplayName: "Big Bros",
+                receiverId: UUID(),
+                channelId: nil,
+                messageType: .direct,
+                isRead: true,
+                createdAt: Date()
+            ),
+            showProfilePicture: false,
+            showSenderName: false,
+            showTail: true
+        ) 
+        
 
         // Group chat message with profile without tail
         ReceivedMessageBubble(

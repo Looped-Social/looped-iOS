@@ -8,12 +8,6 @@ struct ChatInputView: View {
 
     var body: some View {
         VStack {
-            // Home indicator line
-            Rectangle()
-                .frame(width: 134, height: 5)
-                .foregroundColor(.black)
-                .cornerRadius(2.5)
-                .padding(.top, 8)
 
             HStack(spacing: 12) {
                 // Plus button for attachments

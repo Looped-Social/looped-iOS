@@ -80,7 +80,7 @@ struct OnboardingView: View {
                         .background(Color.white)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                                .stroke(Color.loopedTextSecondary.opacity(0.7), lineWidth: 1)
                         )
                         .cornerRadius(25)
                     }
@@ -108,7 +108,7 @@ struct OnboardingView: View {
                         .background(Color.white)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                                .stroke(Color.loopedTextSecondary.opacity(0.7), lineWidth: 1)
                         )
                         .cornerRadius(25)
                     }
