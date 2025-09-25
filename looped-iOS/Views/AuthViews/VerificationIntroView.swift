@@ -15,21 +15,20 @@ struct VerificationIntroView: View {
                     Image("logo")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(height: 32)
+                        .frame(height: 68)
 
                     Text("ooped")
-                        .font(.loopedLogo)
+                        .font(.loopedSuperLargeHeading)
                         .foregroundColor(.loopedTextPrimary)
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 20)
 
                 // Verification illustration
                 Image("teal-verify")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(height: geometry.size.height * 0.35)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 40)
+                    .frame(height: geometry.size.height * 0.42)
+                    .padding(.bottom, 4)
 
                 // Title and subtitle
                 VStack(spacing: 16) {
@@ -47,7 +46,7 @@ struct VerificationIntroView: View {
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
-                .padding(.bottom, 50)
+                .padding(.bottom, 12)
 
                 // Verify button
                 Button(action: {
@@ -56,17 +55,17 @@ struct VerificationIntroView: View {
                     Text("Verify")
                         .font(.loopedBodyMedium)
                         .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        .frame(maxWidth: 152)
+                        .frame(height: 46)
                         .background(Color.loopedPrimary)
                         .cornerRadius(25)
                 }
                 .padding(.horizontal, 32)
 
-                Spacer()
+                Spacer(minLength: 20)
 
                 // Verify later link
-                VStack(spacing: 8) {
+                VStack(spacing: 4) {
                     Text("Don't have anything to say?")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
@@ -75,7 +74,7 @@ struct VerificationIntroView: View {
                         onNavigate(.signUp)
                     }
                     .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedPrimary)
+                    .foregroundColor(.loopedSecondary)
                 }
                 .padding(.bottom, 50)
             }

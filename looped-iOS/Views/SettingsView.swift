@@ -43,7 +43,7 @@ struct SettingsView: View {
                     // Connected Accounts Section
                     SettingsSection(title: "Connected Accounts") {
                         ConnectedAccountRow(
-                            icon: "G",
+                            icon: "google-logo",
                             title: "Google",
                             buttonText: "Connect",
                             buttonColor: .loopedPrimary,
@@ -79,7 +79,7 @@ struct SettingsView: View {
                     SettingsSection(title: "Actions") {
                         SettingsRow(icon: "flag", title: "Report a problem")
                         SettingsRow(icon: "building.2", title: "Change Workplace/Position")
-                        SettingsRow(icon: "trash", title: "Delete Account", textColor: .red)
+                        SettingsRow(icon: "trash", title: "Delete Account")
                         SettingsRow(icon: "arrow.right.square", title: "Log out") {
                             authViewModel.signOut()
                         }
@@ -115,8 +115,8 @@ struct SettingsHeader: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.loopedTextPrimary)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.loopedTextSecondary)
             }
 
             HStack(spacing: 2) {
@@ -126,14 +126,14 @@ struct SettingsHeader: View {
                     .frame(height: 24)
 
                 Text("ooped")
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
+                    .font(.loopedBody24)
+                    .foregroundColor(.loopedContrast)
             }
 
             Spacer()
 
             Text("Settings")
-                .font(.loopedBodyMedium)
+                .font(.loopedSubheadMedium)
                 .foregroundColor(.loopedTextSecondary)
         }
         .padding(.horizontal, 20)
@@ -154,12 +154,13 @@ struct SettingsSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.loopedBodyStrong)
                 .foregroundColor(.loopedTextPrimary)
                 .padding(.horizontal, 20)
-                .padding(.top, 32)
+                .padding(.top, 24)
+                .padding(.bottom, 4)
 
             VStack(spacing: 0) {
                 content
@@ -193,13 +194,13 @@ struct SettingsRow: View {
 
     var body: some View {
         Button(action: { action?() }) {
-            HStack(spacing: 12) {
+            HStack(spacing: 4) {
                 if !isIndented {
                     if let icon = icon {
                         Image(systemName: icon)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.loopedTextSecondary)
-                            .frame(width: 20, height: 20)
+                            .frame(width: 20, height: 10)
                     }
                 }
 
@@ -210,8 +211,8 @@ struct SettingsRow: View {
 
                 Spacer()
             }
-            .padding(.horizontal, isIndented ? 52 : 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, isIndented ? 52 : 28)
+            .padding(.vertical, 8)
         }
         .buttonStyle(PlainButtonStyle())
     }

@@ -11,13 +11,13 @@ struct EmploymentStatusView: View {
 
                 // Title and subtitle
                 VStack(spacing: 12) {
-                    Text("Nice to meet you")
-                        .font(.loopedHeading)
+                    Text("Nice to meet you!")
+                        .font(.loopedHeadingMedium32)
                         .foregroundColor(.loopedTextPrimary)
                         .multilineTextAlignment(.center)
 
-                    Text("are you currently...")
-                        .font(.loopedHeading)
+                    Text("Are you currently...")
+                        .font(.loopedHeadingMedium32)
                         .foregroundColor(.loopedTextPrimary)
                         .multilineTextAlignment(.center)
                 }
@@ -30,45 +30,41 @@ struct EmploymentStatusView: View {
                         onNavigate(.selectCompany)
                     }) {
                         Text("Employeed")
-                            .font(.loopedBodyMedium)
+                            .font(.loopedHeadingMedium)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 56)
+                            .frame(height: 96)
                             .background(Color.loopedPrimary)
-                            .cornerRadius(28)
+                            .cornerRadius(96)
                     }
                     .padding(.horizontal, 32)
 
-                    // "or" divider
                     Text("or")
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextSecondary)
+                        .font(.loopedBody24)
+                        .foregroundColor(.loopedTextPrimary)
                         .padding(.vertical, 8)
 
-                    // Student button
                     Button(action: {
                         onNavigate(.selectSchool)
                     }) {
                         Text("Student")
-                            .font(.loopedBodyMedium)
+                            .font(.loopedHeadingMedium)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 56)
-                            .background(Color(red: 0.4, green: 0.7, blue: 0.6)) // Teal color
-                            .cornerRadius(28)
+                            .frame(height: 96)
+                            .background(Color.loopedSecondary)
+                            .cornerRadius(96)
                     }
                     .padding(.horizontal, 32)
                 }
 
-                Spacer()
-
-                // Skip for now link
                 Button("Skip For Now") {
                     onNavigate(.signUp)
                 }
                 .font(.loopedSubBodyMedium)
-                .foregroundColor(.loopedPrimary)
-                .padding(.bottom, 50)
+                .foregroundColor(.loopedSecondary)
+                .padding(.bottom, 52)
+                .padding(.top, 56)
             }
         }
     }

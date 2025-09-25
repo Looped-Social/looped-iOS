@@ -36,7 +36,7 @@ struct FilterTab: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.red : Color.loopedMutedBackground)
+                        .fill(isSelected ? Color.loopedPrimary : Color.loopedMutedBackground)
                 )
         }
         .buttonStyle(PlainButtonStyle())

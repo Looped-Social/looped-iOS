@@ -27,7 +27,7 @@ struct FloatingActionButton: View {
                         .resizable()
                         .renderingMode(.template)
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 24, height: 24)
+                        .frame(width: 25, height: 25)
                         .foregroundColor(.loopedBackground)
                 }
             }

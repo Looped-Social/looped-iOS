@@ -17,10 +17,15 @@ extension Font {
     static let loopedSubheadMedium = Font.custom("Poppins-Medium", size: 20)
     
     static let loopedHeadingMedium = Font.custom("Poppins-Medium", size: 24)
+    
+    
+    static let loopedHeadingMedium32 = Font.custom("Poppins-Medium", size: 32)
 
     /// Body text (16pt, Regular) - Main content, paragraphs
     static let loopedBody = Font.custom("Poppins-Regular", size: 16)
     
+    static let loopedBody24 = Font.custom("Poppins-Regular", size: 24)
+
     /// Body medium text (16pt, Medium) - Emphasized body text
     static let loopedBodyMedium = Font.custom("Poppins-Medium", size: 16)
     

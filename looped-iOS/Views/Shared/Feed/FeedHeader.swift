@@ -32,7 +32,7 @@ struct FeedHeader: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
-                .zIndex(100)
+                .zIndex(10)
                 .onTapGesture {
                     onMenuToggle()
                 }
