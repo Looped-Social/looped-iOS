@@ -93,14 +93,17 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(viewModel.messages) { message in
+                        ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
+                            let showTail = shouldShowTail(for: message, at: index, in: viewModel.messages)
+
                             if message.senderId == MockUsers.currentUser.id {
-                                SentMessageBubble(message: message)
+                                SentMessageBubble(message: message, showTail: showTail)
                             } else {
                                 ReceivedMessageBubble(
                                     message: message,
                                     showProfilePicture: isGroupChat,
-                                    showSenderName: isGroupChat
+                                    showSenderName: isGroupChat,
+                                    showTail: showTail
                                 )
                             }
                         }
@@ -151,6 +154,15 @@ struct ChatView: View {
         } else if let conversation = conversation {
             await viewModel.loadDirectMessages(with: conversation.userId)
         }
+    }
+
+    private func shouldShowTail(for message: Message, at index: Int, in messages: [Message]) -> Bool {
+        // Always show tail if this is the only message or the last message
+        guard index < messages.count - 1 else { return true }
+
+        // Check if the next message is from a different sender
+        let nextMessage = messages[index + 1]
+        return message.senderId != nextMessage.senderId
     }
 }
 

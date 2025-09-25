@@ -98,14 +98,10 @@ struct MainTabView: View {
                             NavigationView {
                                 MessagesView(
                                     onChatSelected: { conversation, channel in
-                                        print("🚀 Chat selected callback received")
-                                        print("🚀 Conversation: \(conversation?.userName ?? "nil")")
-                                        print("🚀 Channel: \(channel?.name ?? "nil")")
                                         withAnimation(.easeInOut(duration: 0.3)) {
                                             selectedConversation = conversation
                                             selectedChannel = channel
                                             showingChat = true
-                                            print("🚀 showingChat set to: \(showingChat)")
                                         }
                                     }
                                 )
@@ -221,7 +217,6 @@ struct MainTabView: View {
                         conversation: selectedConversation,
                         channel: selectedChannel,
                         onBackTapped: {
-                            print("🔙 Back button tapped in ChatView")
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 showingChat = false
                                 selectedConversation = nil
@@ -230,9 +225,6 @@ struct MainTabView: View {
                         }
                     )
                     .transition(.move(edge: .trailing))
-                    .onAppear {
-                        print("🎉 ChatView appeared!")
-                    }
                 }
 
             }

@@ -39,12 +39,9 @@ struct MessagesView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredConversations) { conversation in
                             Button(action: {
-                                print("🔥 Message tapped: \(conversation.userName)")
                                 if MockConversations.isGroupConversation(conversation) {
-                                    print("🔥 Group conversation detected")
                                     onChatSelected(nil, MockConversations.getChannelForGroupConversation(conversation))
                                 } else {
-                                    print("🔥 Direct conversation detected")
                                     onChatSelected(conversation, nil)
                                 }
                             }) {

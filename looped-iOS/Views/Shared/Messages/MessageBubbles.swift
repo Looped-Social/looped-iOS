@@ -3,6 +3,12 @@ import SwiftUI
 // MARK: - Sent Message Bubble (User's Messages)
 struct SentMessageBubble: View {
     let message: Message
+    let showTail: Bool
+
+    init(message: Message, showTail: Bool = true) {
+        self.message = message
+        self.showTail = showTail
+    }
 
     var body: some View {
         HStack {
@@ -15,10 +21,10 @@ struct SentMessageBubble: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(Color.white)
-                            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        Color.white
                     )
+                    .clipShape(TailCornerShape(isFromCurrentUser: true, showTail: showTail))
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(formatMessageTime(message.createdAt))
@@ -36,6 +42,14 @@ struct ReceivedMessageBubble: View {
     let message: Message
     let showProfilePicture: Bool
     let showSenderName: Bool
+    let showTail: Bool
+
+    init(message: Message, showProfilePicture: Bool, showSenderName: Bool, showTail: Bool = true) {
+        self.message = message
+        self.showProfilePicture = showProfilePicture
+        self.showSenderName = showSenderName
+        self.showTail = showTail
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -74,9 +88,9 @@ struct ReceivedMessageBubble: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(
-                            RoundedRectangle(cornerRadius: 18)
-                                .fill(Color(red: 0.7, green: 0.9, blue: 0.9))
+                            Color(red: 0.7, green: 0.9, blue: 0.9)
                         )
+                        .clipShape(TailCornerShape(isFromCurrentUser: false, showTail: showTail))
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(formatMessageTime(message.createdAt))
@@ -215,7 +229,8 @@ private func formatMessageTime(_ date: Date) -> String {
                 messageType: .direct,
                 isRead: true,
                 createdAt: Date()
-            )
+            ),
+            showTail: true
         )
 
         SentMessageBubble(
@@ -229,7 +244,8 @@ private func formatMessageTime(_ date: Date) -> String {
                 messageType: .direct,
                 isRead: true,
                 createdAt: Date()
-            )
+            ),
+            showTail: false
         )
     }
     .padding()
@@ -238,7 +254,7 @@ private func formatMessageTime(_ date: Date) -> String {
 
 #Preview("Received Messages") {
     VStack(spacing: 16) {
-        // Single chat message
+        // Single chat message with tail
         ReceivedMessageBubble(
             message: Message(
                 id: UUID(),
@@ -252,10 +268,11 @@ private func formatMessageTime(_ date: Date) -> String {
                 createdAt: Date()
             ),
             showProfilePicture: false,
-            showSenderName: false
+            showSenderName: false,
+            showTail: true
         )
 
-        // Group chat message with profile
+        // Group chat message with profile without tail
         ReceivedMessageBubble(
             message: Message(
                 id: UUID(),
@@ -269,7 +286,8 @@ private func formatMessageTime(_ date: Date) -> String {
                 createdAt: Date()
             ),
             showProfilePicture: true,
-            showSenderName: true
+            showSenderName: true,
+            showTail: false
         )
     }
     .padding()
