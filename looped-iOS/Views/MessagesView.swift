@@ -1,13 +1,12 @@
 import SwiftUI
 
 struct MessagesView: View {
+    let onChatSelected: (Conversation?, Channel?) -> Void
+
     @StateObject private var viewModel = MessagesViewModel()
     @State private var selectedTab: MessageTab = .messages
     @State private var searchText = ""
     @State private var showNewMessage = false
-    @State private var selectedConversation: Conversation?
-    @State private var selectedChannel: Channel?
-    @State private var showingChat = false
 
     // Filter conversations based on search text
     private var filteredConversations: [Conversation] {
@@ -40,14 +39,14 @@ struct MessagesView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredConversations) { conversation in
                             Button(action: {
+                                print("🔥 Message tapped: \(conversation.userName)")
                                 if MockConversations.isGroupConversation(conversation) {
-                                    selectedChannel = MockConversations.getChannelForGroupConversation(conversation)
-                                    selectedConversation = nil
+                                    print("🔥 Group conversation detected")
+                                    onChatSelected(nil, MockConversations.getChannelForGroupConversation(conversation))
                                 } else {
-                                    selectedConversation = conversation
-                                    selectedChannel = nil
+                                    print("🔥 Direct conversation detected")
+                                    onChatSelected(conversation, nil)
                                 }
-                                showingChat = true
                             }) {
                                 ConversationRow(conversation: conversation)
                             }
@@ -86,21 +85,10 @@ struct MessagesView: View {
                 .font(.loopedHeading)
                 .padding()
         }
-        .fullScreenCover(isPresented: $showingChat) {
-            ChatView(
-                conversation: selectedConversation,
-                channel: selectedChannel,
-                onBackTapped: {
-                    showingChat = false
-                    selectedConversation = nil
-                    selectedChannel = nil
-                }
-            )
-        }
     }
 }
 
 
 #Preview {
-    MessagesView()
+    MessagesView(onChatSelected: { _, _ in })
 }

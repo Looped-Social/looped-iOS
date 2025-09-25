@@ -27,6 +27,9 @@ struct MainTabView: View {
     @State private var showNewMessage = false
     @State private var isMenuOpen = false
     @State private var isRightMenuOpen = false
+    @State private var showingChat = false
+    @State private var selectedConversation: Conversation?
+    @State private var selectedChannel: Channel?
     @StateObject private var feedViewModel = FeedViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
     
@@ -93,7 +96,19 @@ struct MainTabView: View {
                             }
                         case .messages:
                             NavigationView {
-                                MessagesView()
+                                MessagesView(
+                                    onChatSelected: { conversation, channel in
+                                        print("🚀 Chat selected callback received")
+                                        print("🚀 Conversation: \(conversation?.userName ?? "nil")")
+                                        print("🚀 Channel: \(channel?.name ?? "nil")")
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            selectedConversation = conversation
+                                            selectedChannel = channel
+                                            showingChat = true
+                                            print("🚀 showingChat set to: \(showingChat)")
+                                        }
+                                    }
+                                )
                             }
                         case .search:
                             SearchView()
@@ -200,6 +215,26 @@ struct MainTabView: View {
                     }
                 }
 
+                // Chat View - Full Screen Overlay (MUST be last in ZStack)
+                if showingChat {
+                    ChatView(
+                        conversation: selectedConversation,
+                        channel: selectedChannel,
+                        onBackTapped: {
+                            print("🔙 Back button tapped in ChatView")
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showingChat = false
+                                selectedConversation = nil
+                                selectedChannel = nil
+                            }
+                        }
+                    )
+                    .transition(.move(edge: .trailing))
+                    .onAppear {
+                        print("🎉 ChatView appeared!")
+                    }
+                }
+
             }
         }
         // MODAL OVERLAY - Completely separate from main content
@@ -211,6 +246,7 @@ struct MainTabView: View {
             }
         )
         .animation(.easeInOut(duration: 0.3), value: commentsManager.isPresented)
+        .animation(.easeInOut(duration: 0.3), value: showingChat)
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(feedViewModel: feedViewModel)
         }
