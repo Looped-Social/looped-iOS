@@ -84,7 +84,7 @@ struct TabBarButton: View {
                    
                 }
                 .foregroundColor(isSelected ? .loopedPrimary : .loopedTextSecondary)
-                .padding(.vertical, 16)
+                .padding(.top, 4)
             }
             .frame(maxWidth: .infinity)
         }

@@ -34,7 +34,7 @@ struct FeedTabs: View {
                                 .fontWeight(.medium)
                                 .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
+                                .padding(.bottom, 12)
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
@@ -88,6 +88,7 @@ struct FeedTabs: View {
 
 #Preview {
     VStack {
+        FeedHeader()
         FeedTabs()
         Spacer()
     }

@@ -12,7 +12,7 @@ struct FeedHeader: View {
     var body: some View {
         HStack {
             // Left side: Hamburger menu and Looped text
-            HStack(spacing: 12) {
+            HStack(spacing: 0) {
                 // Hamburger menu button
                 Button(action: {
                     onMenuToggle()
@@ -83,15 +83,11 @@ struct FeedHeader: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 2)
     }
 }
 
 #Preview {
-    VStack {
-        Spacer()
-        
-            .background(Color.loopedBackground.ignoresSafeArea(.all))
-    }
-    .background(Color.loopedBackground.ignoresSafeArea(.all))
+    FeedHeader()
+    FeedTabs()
 }
