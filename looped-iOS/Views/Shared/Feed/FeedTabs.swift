@@ -61,7 +61,9 @@ struct FeedTabs: View {
                 HStack(spacing: 18) {
                     // Plus/Minus toggle button
                     Button(action: {
-                        isPlus.toggle()
+                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                            isPlus.toggle()
+                        }
                     }) {
                         ZStack {
                             // Horizontal line (always visible)
@@ -100,6 +102,10 @@ struct FeedTabs: View {
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .leading).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
                     }
                 }
                 .padding(.horizontal, 16)
