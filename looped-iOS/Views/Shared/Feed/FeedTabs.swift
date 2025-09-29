@@ -18,7 +18,7 @@ enum FilterTag: String, CaseIterable {
 
 struct FeedTabs: View {
     @State private var selectedTab: FeedTab = .forYou
-    @State private var selectedFilters: Set<FilterTag> = [.allLoops] // Default selected
+    @State private var selectedFilter: FilterTag = .allLoops // Default selected
     @State private var isPlus: Bool = true
     
     var body: some View {
@@ -85,19 +85,15 @@ struct FeedTabs: View {
                     if !isPlus {
                         ForEach(FilterTag.allCases, id: \.self) { filter in
                             Button(action: {
-                                if selectedFilters.contains(filter) {
-                                    selectedFilters.remove(filter)
-                                } else {
-                                    selectedFilters.insert(filter)
-                                }
+                                selectedFilter = filter
                             }) {
                                 Text(filter.displayName)
                                     .font(.subheadline)
                                     .fontWeight(.medium)
-                                    .foregroundColor(selectedFilters.contains(filter) ? .white : .loopedTextSecondary)
+                                    .foregroundColor(selectedFilter == filter ? .white : .loopedTextSecondary)
                                     .padding(.horizontal,8)
                                     .padding(.vertical, 8)
-                                    .background(selectedFilters.contains(filter) ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.1))
+                                    .background(selectedFilter == filter ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.1))
                                     .cornerRadius(20)
                             }
                             .buttonStyle(PlainButtonStyle())
