@@ -65,18 +65,18 @@ struct FeedTabs: View {
                     }) {
                         ZStack {
                             // Horizontal line (always visible)
-                            Rectangle()
-                                .frame(width: 16, height: 2)
-                                .foregroundColor(.loopedTextSecondary)
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .frame(width: 20, height: 3)
+                                .foregroundColor(.loopedSecondary)
 
                             // Vertical line (only visible for plus)
                             if isPlus {
-                                Rectangle()
-                                    .frame(width: 2, height: 16)
-                                    .foregroundColor(.loopedTextSecondary)
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .frame(width: 3, height: 20)
+                                    .foregroundColor(.loopedSecondary)
                             }
                         }
-                        .frame(width: 28, height: 28)
+                        .frame(width: 16, height: 8)
                     }
                     .buttonStyle(PlainButtonStyle())
 
