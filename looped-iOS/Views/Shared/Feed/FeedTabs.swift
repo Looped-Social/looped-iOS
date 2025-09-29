@@ -66,13 +66,13 @@ struct FeedTabs: View {
                         ZStack {
                             // Horizontal line (always visible)
                             RoundedRectangle(cornerRadius: 1.5)
-                                .frame(width: 20, height: 3)
+                                .frame(width: 25, height: 3)
                                 .foregroundColor(.loopedSecondary)
 
                             // Vertical line (only visible for plus)
                             if isPlus {
                                 RoundedRectangle(cornerRadius: 1.5)
-                                    .frame(width: 3, height: 20)
+                                    .frame(width: 3, height: 25)
                                     .foregroundColor(.loopedSecondary)
                             }
                         }
