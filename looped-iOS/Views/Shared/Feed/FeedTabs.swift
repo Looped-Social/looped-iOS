@@ -19,6 +19,7 @@ enum FilterTag: String, CaseIterable {
 struct FeedTabs: View {
     @State private var selectedTab: FeedTab = .forYou
     @State private var selectedFilters: Set<FilterTag> = [.allLoops] // Default selected
+    @State private var isPlus: Bool = true
     
     var body: some View {
         VStack(spacing: 0) {
@@ -58,6 +59,27 @@ struct FeedTabs: View {
             // Filter pills
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 18) {
+                    // Plus/Minus toggle button
+                    Button(action: {
+                        isPlus.toggle()
+                    }) {
+                        ZStack {
+                            // Horizontal line (always visible)
+                            Rectangle()
+                                .frame(width: 16, height: 2)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            // Vertical line (only visible for plus)
+                            if isPlus {
+                                Rectangle()
+                                    .frame(width: 2, height: 16)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                        }
+                        .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
                     ForEach(FilterTag.allCases, id: \.self) { filter in
                         Button(action: {
                             if selectedFilters.contains(filter) {
