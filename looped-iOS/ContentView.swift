@@ -197,16 +197,22 @@ struct MainTabView: View {
                 }
 
                 // Floating Action Button (show on home and messages tabs)
-                if selectedTab == .home && !commentsManager.isPresented && !isMenuOpen && !isRightMenuOpen {
+                if (selectedTab == .home || selectedTab == .messages) && !commentsManager.isPresented && !isMenuOpen && !isRightMenuOpen {
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
-                            FloatingActionButton {
-                                showCreatePost = true
+                            FloatingActionButton(
+                                type: selectedTab == .messages ? .sendMessage : .addPost
+                            ) {
+                                if selectedTab == .messages {
+                                    showNewMessage = true
+                                } else {
+                                    showCreatePost = true
+                                }
                             }
                             .padding(.trailing, 20)
-                            .padding(.bottom, 90) // Position above tab bar
+                            .padding(.bottom, 60) // Position above tab bar
                         }
                     }
                 }
