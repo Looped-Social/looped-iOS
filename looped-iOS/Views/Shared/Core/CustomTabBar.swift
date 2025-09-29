@@ -47,8 +47,8 @@ struct CustomTabBar: View {
         VStack(spacing: 0) {
             // Top border line
             Rectangle()
-                .frame(height: 0.2)
-                .foregroundColor(Color("BorderColor"))
+                .frame(height: 1)
+                .foregroundColor(Color.loopedTextSecondary.opacity(0.1))
             
             HStack(spacing: 0) {
                 ForEach(TabItem.allCases, id: \.self) { tab in

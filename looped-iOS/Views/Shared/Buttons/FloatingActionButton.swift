@@ -23,12 +23,12 @@ struct FloatingActionButton: View {
                         .font(.system(size: 33, weight: .regular))
                         .foregroundColor(.white)
                 case .sendMessage:
-                    Image("send-icon")
+                    Image("send-icon-fab")
                         .resizable()
                         .renderingMode(.template)
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 25, height: 25)
-                        .foregroundColor(.loopedBackground)
+                        .frame(width: 30, height: 30)
+                        .foregroundColor(.white)
                 }
             }
             .frame(width: 56, height: 56)
@@ -53,6 +53,11 @@ struct FloatingActionButton: View {
                 }
                 .padding(.trailing, 20)
                 .padding(.bottom, 100)
+                Spacer()
+                FloatingActionButton(
+                    type: .sendMessage
+                ){
+                }
             }
         }
     }

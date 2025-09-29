@@ -9,7 +9,7 @@ enum FilterTag: String, CaseIterable {
     case allLoops = "All Loops"
     case jpMorgan = "Jp Morgan"
     case finance = "Finance"
-    case laborDay = "#LaborDay"
+    case laborDay = "Interns"
     
     var displayName: String {
         return self.rawValue
