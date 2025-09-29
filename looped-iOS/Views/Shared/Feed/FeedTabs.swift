@@ -76,34 +76,36 @@ struct FeedTabs: View {
                                     .foregroundColor(.loopedSecondary)
                             }
                         }
-                        .frame(width: 16, height: 8)
+                        .frame(width: 16)
                     }
                     .buttonStyle(PlainButtonStyle())
 
-                    ForEach(FilterTag.allCases, id: \.self) { filter in
-                        Button(action: {
-                            if selectedFilters.contains(filter) {
-                                selectedFilters.remove(filter)
-                            } else {
-                                selectedFilters.insert(filter)
+                    if !isPlus {
+                        ForEach(FilterTag.allCases, id: \.self) { filter in
+                            Button(action: {
+                                if selectedFilters.contains(filter) {
+                                    selectedFilters.remove(filter)
+                                } else {
+                                    selectedFilters.insert(filter)
+                                }
+                            }) {
+                                Text(filter.displayName)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(selectedFilters.contains(filter) ? .white : .loopedTextSecondary)
+                                    .padding(.horizontal,8)
+                                    .padding(.vertical, 8)
+                                    .background(selectedFilters.contains(filter) ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.1))
+                                    .cornerRadius(20)
                             }
-                        }) {
-                            Text(filter.displayName)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(selectedFilters.contains(filter) ? .white : .loopedTextSecondary)
-                                .padding(.horizontal,8)
-                                .padding(.vertical, 8)
-                                .background(selectedFilters.contains(filter) ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.1))
-                                .cornerRadius(20)
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 .padding(.horizontal, 16)
             }
+            .frame(height: 28)
             .padding(.vertical, 8)
-            .background(Color.loopedBackground)
         }
     }
 }
