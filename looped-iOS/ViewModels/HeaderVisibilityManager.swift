@@ -7,8 +7,8 @@ class HeaderVisibilityManager: ObservableObject {
 
     private var lastScrollOffset: CGFloat = 0
     private var scrollDirection: ScrollDirection = .none
-    private let threshold: CGFloat = 30
-    private let hideThreshold: CGFloat = 80
+    private let threshold: CGFloat = 15
+    private let hideThreshold: CGFloat = 40
     private var cancellables = Set<AnyCancellable>()
 
     enum ScrollDirection {
@@ -22,7 +22,7 @@ class HeaderVisibilityManager: ObservableObject {
     private func setupScrollHandling() {
         $scrollOffset
             .dropFirst()
-            .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
+            .debounce(for: .milliseconds(10), scheduler: DispatchQueue.main)
             .sink { [weak self] offset in
                 self?.handleScrollChange(offset)
             }
@@ -37,7 +37,7 @@ class HeaderVisibilityManager: ObservableObject {
         let delta = newOffset - lastScrollOffset
 
         // Show header when at or near the top
-        if newOffset >= -10 {
+        if newOffset >= -5 {
             withAnimation(.easeInOut(duration: 0.25)) {
                 isVisible = true
             }
@@ -45,19 +45,13 @@ class HeaderVisibilityManager: ObservableObject {
             return
         }
 
-        // Only process significant scroll changes
-        if abs(delta) < 10 {
-            return
-        }
-
-        // Determine scroll direction
-        if delta < -threshold && newOffset < -hideThreshold {
-            // Scrolling down significantly - hide header
+        // Hide header on ANY downward movement
+        if delta < 0 {
             withAnimation(.easeInOut(duration: 0.25)) {
                 isVisible = false
             }
-        } else if delta > threshold {
-            // Scrolling up significantly - show header
+        } else if delta > 0 {
+            // Show header on ANY upward movement
             withAnimation(.easeInOut(duration: 0.25)) {
                 isVisible = true
             }
