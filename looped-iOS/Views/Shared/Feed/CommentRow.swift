@@ -5,9 +5,9 @@ struct CommentRow: View {
     let nestingLevel: Int
     @State private var isLiked = false
     @State private var showReplies = false
-    @State private var visibleRepliesCount = 7
+    @State private var visibleRepliesCount = 5
 
-    private let repliesPerPage = 7
+    private let repliesPerPage = 5
 
     init(comment: Comment, nestingLevel: Int = 0) {
         self.comment = comment
@@ -197,25 +197,38 @@ struct CommentRow: View {
                                 }
                             }
 
-                            // Show more button
+                            // Show more and Hide buttons
                             if hasMoreReplies {
-                                Button(action: {
-                                    withAnimation {
-                                        visibleRepliesCount += repliesPerPage
+                                HStack(spacing: 12) {
+                                    Button(action: {
+                                        withAnimation {
+                                            visibleRepliesCount += repliesPerPage
+                                        }
+                                    }) {
+                                        HStack(spacing: 4) {
+                                            Text("-- Show more replies (\(totalRepliesCount - visibleRepliesCount) remaining)")
+                                                .font(.loopedSmallText)
+                                                .foregroundColor(.loopedTextSecondary)
+
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 10, weight: .medium))
+                                                .foregroundColor(.loopedTextSecondary)
+                                        }
                                     }
-                                }) {
-                                    HStack(spacing: 4) {
-                                        Text("-- Show more replies (\(totalRepliesCount - visibleRepliesCount) remaining)")
+
+                                    Button(action: {
+                                        withAnimation {
+                                            showReplies = false
+                                            visibleRepliesCount = repliesPerPage
+                                        }
+                                    }) {
+                                        Text("Hide")
                                             .font(.loopedSmallText)
                                             .foregroundColor(.loopedTextSecondary)
-
-                                        Image(systemName: "chevron.down")
-                                            .font(.system(size: 10, weight: .medium))
-                                            .foregroundColor(.loopedTextSecondary)
                                     }
-                                    .padding(.leading, nestingLevel > 0 ? 44 : 48)
-                                    .padding(.vertical, 12)
                                 }
+                                .padding(.leading, nestingLevel > 0 ? 44 : 48)
+                                .padding(.vertical, 12)
                             }
                         }
                         .padding(.top, 8)
