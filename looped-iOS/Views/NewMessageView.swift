@@ -25,8 +25,6 @@ struct NewMessageView: View {
 
                 // Contacts List
                 contactsList
-
-                Spacer()
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationTitle("New Message")
@@ -59,24 +57,10 @@ struct NewMessageView: View {
                     .font(.loopedBodyMedium)
                     .foregroundColor(.loopedTextPrimary)
 
-                // Selected Recipients as Chips
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 8) {
-                        ForEach(selectedRecipients) { recipient in
-                            RecipientChip(
-                                recipient: recipient,
-                                onRemove: { removeRecipient(recipient) }
-                            )
-                        }
-
-                        // Search TextField
-                        TextField("Search people...", text: $searchText)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .frame(minWidth: searchText.isEmpty ? 120 : nil)
-                    }
-                    .padding(.horizontal, 4)
-                }
+                // Search TextField
+                TextField("Search people...", text: $searchText)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextPrimary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
