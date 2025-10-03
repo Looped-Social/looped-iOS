@@ -4,7 +4,6 @@ struct NewMessageView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var selectedRecipients: [UserProfile] = []
-    @State private var showCreateGroup = false
 
     private var suggestedContacts: [UserProfile] {
         MockUserProfiles.profiles.filter { !$0.isCurrentUser }
@@ -23,9 +22,6 @@ struct NewMessageView: View {
             VStack(spacing: 0) {
                 // To: Field and Recipients
                 toFieldSection
-
-                // Create New Group Action
-                createGroupAction
 
                 // Contacts List
                 contactsList
@@ -46,17 +42,12 @@ struct NewMessageView: View {
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Next") {
-                        // TODO: Navigate to chat with selected recipients
-                        dismiss()
+                        handleNextButtonTap()
                     }
                     .foregroundColor(selectedRecipients.isEmpty ? .loopedTextSecondary : .loopedPrimary)
                     .disabled(selectedRecipients.isEmpty)
                 }
             }
-        }
-        .sheet(isPresented: $showCreateGroup) {
-            // TODO: Create Group View
-            CreateGroupView()
         }
     }
 
@@ -95,33 +86,6 @@ struct NewMessageView: View {
                 .frame(height: 1)
                 .foregroundColor(.loopedTextSecondary.opacity(0.2))
         }
-    }
-
-    // MARK: - Create Group Action
-    private var createGroupAction: some View {
-        Button(action: {
-            showCreateGroup = true
-        }) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(Color.loopedPrimary)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.white)
-                    )
-
-                Text("Create new group")
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Contacts List
@@ -165,6 +129,32 @@ struct NewMessageView: View {
 
     private func removeRecipient(_ recipient: UserProfile) {
         selectedRecipients.removeAll { $0.id == recipient.id }
+    }
+
+    private func handleNextButtonTap() {
+        guard !selectedRecipients.isEmpty else { return }
+
+        if selectedRecipients.count == 1 {
+            // Single recipient: navigate to 1-on-1 conversation
+            // TODO: Navigate to individual chat
+            print("Navigate to 1-on-1 chat with \(selectedRecipients[0].displayName ?? "Unknown")")
+        } else {
+            // Multiple recipients: check for existing group or create new one
+            let memberIds = selectedRecipients.map { $0.id }
+
+            if let existingGroup = MockConversations.findGroupByMembers(memberIds) {
+                // Group already exists: navigate to it
+                print("Found existing group: \(existingGroup.userName)")
+                // TODO: Navigate to existing group
+            } else {
+                // No existing group: create new one
+                let newGroup = MockConversations.createGroup(withMembers: selectedRecipients)
+                print("Created new group: \(newGroup.userName)")
+                // TODO: Navigate to new group
+            }
+        }
+
+        dismiss()
     }
 }
 
@@ -246,38 +236,6 @@ struct ContactRow: View {
             .padding(.vertical, 8)
         }
         .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// MARK: - Create Group View (Placeholder)
-struct CreateGroupView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationView {
-            VStack {
-                Spacer()
-                Text("Create Group")
-                    .font(.loopedHeading)
-                    .foregroundColor(.loopedTextPrimary)
-                Text("Coming soon...")
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedTextSecondary)
-                Spacer()
-            }
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationTitle("New Group")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(.loopedPrimary)
-                }
-            }
-        }
     }
 }
 

@@ -72,7 +72,7 @@ struct MockConversations {
     ]
 
     // MARK: - Mock Conversations (matching the design exactly)
-    static let conversations: [Conversation] = [
+    static var conversations: [Conversation] = [
         // Intro Interns - Group Chat
         Conversation(
             userId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!, // Special UUID for group
@@ -82,7 +82,13 @@ struct MockConversations {
             lastMessageTimestamp: Calendar.current.date(byAdding: .minute, value: -5, to: Date())!,
             unreadCount: 2,
             hasSpecialStatus: false,
-            isOnline: false
+            isOnline: false,
+            isGroup: true,
+            memberIds: [
+                conversationUsers[0].id, // Sujeet
+                conversationUsers[1].id, // Shivam
+                conversationUsers[2].id  // Anuj
+            ]
         ),
         // Sujeet - "Happy Journey Bro" (20/3/22)
         Conversation(
@@ -194,20 +200,77 @@ struct MockConversations {
     }
 
     static func isGroupConversation(_ conversation: Conversation) -> Bool {
-        return conversation.userId.uuidString.uppercased() == "12345678-1234-1234-1234-123456789ABC"
+        return conversation.isGroup
     }
 
     static func getChannelForGroupConversation(_ conversation: Conversation) -> Channel? {
         guard isGroupConversation(conversation) else { return nil }
 
         // Return a mock channel for the group conversation
+        let memberCount = conversation.memberIds?.count ?? 2
         return Channel(
             id: conversation.userId,
             name: conversation.userName,
             company: "Anthropic",
-            memberCount: 5,
+            memberCount: memberCount,
             isPublic: true,
             createdAt: Calendar.current.date(byAdding: .month, value: -1, to: Date())!
         )
+    }
+
+    // MARK: - Group Management
+
+    /// Find an existing group conversation by member IDs
+    /// Returns the group if all members match exactly
+    static func findGroupByMembers(_ memberIds: [UUID]) -> Conversation? {
+        guard memberIds.count >= 2 else { return nil }
+
+        let sortedMemberIds = Set(memberIds)
+
+        return conversations.first { conversation in
+            guard conversation.isGroup,
+                  let groupMemberIds = conversation.memberIds else {
+                return false
+            }
+
+            let sortedGroupMemberIds = Set(groupMemberIds)
+            return sortedMemberIds == sortedGroupMemberIds
+        }
+    }
+
+    /// Create a new group conversation with the given members
+    static func createGroup(withMembers members: [UserProfile]) -> Conversation {
+        guard members.count >= 2 else {
+            fatalError("Groups require at least 2 members")
+        }
+
+        let memberIds = members.map { $0.id }
+        let groupName = members.map { $0.displayName ?? "Unknown" }.joined(separator: ", ")
+
+        let newGroup = Conversation(
+            userId: UUID(), // New unique ID for the group
+            userName: groupName,
+            userProfileImageUrl: nil,
+            lastMessage: "Group created",
+            lastMessageTimestamp: Date(),
+            unreadCount: 0,
+            isGroup: true,
+            memberIds: memberIds
+        )
+
+        // Add to conversations list
+        conversations.insert(newGroup, at: 0)
+
+        return newGroup
+    }
+
+    /// Get all group conversations
+    static func getGroupConversations() -> [Conversation] {
+        return conversations.filter { $0.isGroup }
+    }
+
+    /// Get all individual (non-group) conversations
+    static func getIndividualConversations() -> [Conversation] {
+        return conversations.filter { !$0.isGroup }
     }
 }

@@ -11,6 +11,8 @@ struct Conversation: Codable, Identifiable {
     let hasTypingIndicator: Bool
     let hasSpecialStatus: Bool
     let isOnline: Bool
+    let isGroup: Bool
+    let memberIds: [UUID]?
 
     init(
         id: UUID = UUID(),
@@ -22,7 +24,9 @@ struct Conversation: Codable, Identifiable {
         unreadCount: Int = 0,
         hasTypingIndicator: Bool = false,
         hasSpecialStatus: Bool = false,
-        isOnline: Bool = false
+        isOnline: Bool = false,
+        isGroup: Bool = false,
+        memberIds: [UUID]? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -34,6 +38,8 @@ struct Conversation: Codable, Identifiable {
         self.hasTypingIndicator = hasTypingIndicator
         self.hasSpecialStatus = hasSpecialStatus
         self.isOnline = isOnline
+        self.isGroup = isGroup
+        self.memberIds = memberIds
     }
 }
 

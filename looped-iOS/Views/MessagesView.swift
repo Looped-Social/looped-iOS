@@ -8,12 +8,18 @@ struct MessagesView: View {
     @State private var searchText = ""
     @State private var showNewMessage = false
 
-    // Filter conversations based on search text
+    // Filter conversations based on tab and search text
     private var filteredConversations: [Conversation] {
+        // First filter by tab
+        let tabFilteredConversations = selectedTab == .messages
+            ? viewModel.conversations.filter { !$0.isGroup }  // Messages tab: only individual conversations
+            : viewModel.conversations.filter { $0.isGroup }   // Groups tab: only group conversations
+
+        // Then filter by search text
         if searchText.isEmpty {
-            return viewModel.conversations
+            return tabFilteredConversations
         } else {
-            return viewModel.conversations.filter { conversation in
+            return tabFilteredConversations.filter { conversation in
                 conversation.userName.localizedCaseInsensitiveContains(searchText) ||
                 conversation.lastMessage.localizedCaseInsensitiveContains(searchText)
             }
@@ -32,43 +38,31 @@ struct MessagesView: View {
             // Tabs
             MessagesTabs(selectedTab: $selectedTab)
 
-            // Content based on selected tab
-            if selectedTab == .messages {
-                // Messages List
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(filteredConversations) { conversation in
-                            Button(action: {
-                                if MockConversations.isGroupConversation(conversation) {
-                                    onChatSelected(nil, MockConversations.getChannelForGroupConversation(conversation))
-                                } else {
-                                    onChatSelected(conversation, nil)
-                                }
-                            }) {
-                                ConversationRow(conversation: conversation)
+            // Content (both Messages and Groups use same list structure)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(filteredConversations) { conversation in
+                        Button(action: {
+                            if MockConversations.isGroupConversation(conversation) {
+                                onChatSelected(nil, MockConversations.getChannelForGroupConversation(conversation))
+                            } else {
+                                onChatSelected(conversation, nil)
                             }
-                            .buttonStyle(PlainButtonStyle())
-
-                            // Divider line
-                            Rectangle()
-                                .frame(height: 1)
-                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                .padding(.leading, 78) // Indent to align with text content
+                        }) {
+                            ConversationRow(conversation: conversation)
                         }
+                        .buttonStyle(PlainButtonStyle())
+
+                        // Divider line
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                            .padding(.leading, 78) // Indent to align with text content
                     }
                 }
-                .refreshable {
-                    await viewModel.refreshConversations()
-                }
-            } else {
-                // Groups placeholder
-                VStack {
-                    Spacer()
-                    Text("Groups coming soon...")
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextSecondary)
-                    Spacer()
-                }
+            }
+            .refreshable {
+                await viewModel.refreshConversations()
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
