@@ -9,7 +9,7 @@ enum ProfileTab: String, CaseIterable {
 struct ProfileView: View {
     @State private var selectedTab: ProfileTab = .posts
     @StateObject private var viewModel = ProfileViewModel()
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Profile Header
