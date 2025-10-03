@@ -3,10 +3,11 @@ import SwiftUI
 struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var postText: String = ""
-    @State private var isAnonymous: Bool = false
+    @AppStorage("anonymousMode") private var isAnonymous: Bool = false
     @State private var selectedChannel: String = "General"
     @State private var isSubmitting: Bool = false
-    
+    @State private var showSettings: Bool = false
+
     let feedViewModel: FeedViewModel
     
     let channels = ["General", "Random", "Work", "Announcements"]
@@ -106,28 +107,39 @@ struct CreatePostView: View {
                             .foregroundColor(remainingCharacters < 20 ? .red : .loopedTextSecondary)
                     }
                     
-                    // Anonymous toggle
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Post anonymously")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                            
-                            Text("Your identity will be hidden from other users")
-                                .font(.loopedSmallText)
+                    // Anonymous mode indicator
+                    Button(action: {
+                        showSettings = true
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "theatermasks")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.loopedTextSecondary)
+
+                                    Text(isAnonymous ? "Posting anonymously" : "Posting as yourself")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedTextPrimary)
+                                }
+
+                                Text(isAnonymous ? "Your identity is hidden" : "Tap to change in settings")
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12))
                                 .foregroundColor(.loopedTextSecondary)
                         }
-                        
-                        Spacer()
-                        
-                        Toggle("", isOn: $isAnonymous)
-                            .labelsHidden()
-                            .tint(.loopedPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color.loopedMutedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.loopedMutedBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .buttonStyle(PlainButtonStyle())
                     
                     Spacer()
                 }
@@ -136,6 +148,9 @@ struct CreatePostView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
     }
     
     private func submitPost() async {

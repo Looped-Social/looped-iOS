@@ -4,6 +4,7 @@ struct PostCard: View {
     let post: Post
     @State private var isLiked = false
     @State private var isBookmarked = false
+    @State private var showShareSheet = false
     @EnvironmentObject var commentsManager: CommentsModalManager
 
     private var commentCount: Int {
@@ -118,7 +119,7 @@ struct PostCard: View {
                 // Like button
                 Button(action: { isLiked.toggle() }) {
                     HStack(spacing: 4) {
-                        Image("heart-icon")
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
                             .resizable()
                             .renderingMode(.template)
                             .frame(width: 20, height: 20)
@@ -146,7 +147,7 @@ struct PostCard: View {
                 }
 
                 // Share button
-                Button(action: {}) {
+                Button(action: { showShareSheet = true }) {
                     HStack(spacing: 4) {
                         Image("send-icon")
                             .resizable()
@@ -187,7 +188,27 @@ struct PostCard: View {
         .padding(16)
         .background(Color.loopedBackground)
         .cornerRadius(0)
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(items: [shareText])
+        }
     }
+
+    private var shareText: String {
+        let author = post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "Someone")
+        return "\(author) posted on Looped:\n\n\(post.content)"
+    }
+}
+
+// MARK: - Share Sheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {
@@ -203,7 +224,7 @@ struct PostCard: View {
         createdAt: Date().addingTimeInterval(-86400),
         updatedAt: Date().addingTimeInterval(-86400)
     )
-    
+
     PostCard(post: samplePost)
         .padding()
         .background(Color.loopedBackground)

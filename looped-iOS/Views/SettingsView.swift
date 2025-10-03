@@ -6,7 +6,7 @@ struct SettingsView: View {
 
     // Toggle states
     @State private var showFollowerCount = true
-    @State private var anonymousMode = true
+    @AppStorage("anonymousMode") private var anonymousMode = true
 
     var body: some View {
         VStack(spacing: 0) {
