@@ -249,7 +249,7 @@ struct MockComments {
     static func getCommentCount(for postId: UUID) -> Int {
         return getCommentsForPost(postId).count
     }
-    
+
     static func createComment(
         postId: UUID,
         content: String,
@@ -265,5 +265,74 @@ struct MockComments {
             createdAt: Date(),
             updatedAt: Date()
         )
+    }
+
+    // MARK: - Mock Replies
+    private static var cachedReplies: [UUID: [Comment]] = [:]
+
+    static func getRepliesForComment(_ commentId: UUID) -> [Comment] {
+        // Return cached replies if they exist
+        if let cached = cachedReplies[commentId] {
+            return cached
+        }
+
+        // Generate mock replies based on comment ID to simulate variety
+        let commentSeed = abs(commentId.uuidString.hashValue) % 10
+        let postId = UUID() // Dummy post ID for replies
+
+        var replies: [Comment] = []
+
+        // Generate 10-15 replies to test pagination
+        let replyCount = 10 + (commentSeed % 6)
+
+        for i in 0..<replyCount {
+            let isAnonymous = i % 4 == 0 // Every 4th reply is anonymous
+            let user = isAnonymous ? MockUsers.colleagues[5] : MockUsers.colleagues[i % MockUsers.colleagues.count]
+
+            let contents = [
+                "Thanks! Glad you found it helpful 😊",
+                "Same here! This completely changed my perspective",
+                "Could you share more details about this?",
+                "100% this! We need more discussions like this",
+                "Totally agree with this take 👍",
+                "This is so true! I've been thinking the same thing",
+                "Great point! Never thought of it that way",
+                "Can confirm, this happened to me too",
+                "I disagree, but I see where you're coming from",
+                "Interesting perspective! Tell me more",
+                "This! Exactly this! 🔥",
+                "lol same energy",
+                "wait really? that's wild",
+                "Thanks for sharing this insight",
+                "Appreciate you bringing this up"
+            ]
+
+            let reply = Comment(
+                postId: postId,
+                content: contents[i % contents.count],
+                authorId: user.id,
+                authorDisplayName: isAnonymous ? nil : user.displayName,
+                company: user.company,
+                isAnonymous: isAnonymous,
+                likeCount: Int.random(in: 0...50),
+                isLikedByCreator: i % 3 == 0,
+                createdAt: Date().addingTimeInterval(-Double(i * 1800)),
+                replyToCommentId: commentId
+            )
+
+            replies.append(reply)
+        }
+
+        // Cache the replies
+        cachedReplies[commentId] = replies
+        return replies
+    }
+
+    static func getReplyCount(for commentId: UUID) -> Int {
+        return getRepliesForComment(commentId).count
+    }
+
+    static func clearRepliesCache() {
+        cachedReplies.removeAll()
     }
 }

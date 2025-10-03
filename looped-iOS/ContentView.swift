@@ -255,24 +255,24 @@ struct MainTabView: View {
     
     private var modalOverlay: some View {
         ZStack {
-            // Background dimming
-            Color.black.opacity(0.5)
+            // Background dimming - covers entire screen including safe area
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         commentsManager.dismissComments()
                     }
                 }
-            
+
             // Modal content with post above
             VStack(spacing: 0) {
                 Spacer()
-                    .frame(maxHeight: UIScreen.main.bounds.height * 0.15) // Reduce spacer to move everything higher
-                
+
                 // Post display above comments (TikTok style)
                 if let post = commentsManager.currentPost {
                     VStack(spacing: 0) {
                         SimplifiedPostCard(post: post)
-                        
+
                         // Separator line
                         Rectangle()
                             .frame(height: 1)
@@ -284,7 +284,7 @@ struct MainTabView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
                 }
-                
+
                 // Comments modal
                 VStack(spacing: 0) {
                     // Modal handle
@@ -293,21 +293,20 @@ struct MainTabView: View {
                         .frame(width: 36, height: 5)
                         .padding(.top, 8)
                         .padding(.bottom, 12)
-                    
+
                     // Comments content
                     if let post = commentsManager.currentPost {
                         CommentsView(
-                            post: post, 
+                            post: post,
                             comments: commentsManager.currentComments
                         ) {
                             commentsManager.dismissComments()
                         }
                     }
                 }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.5) // Reduced height to make room for post
-                .background(
-//                    Color.loopedBackground.ignoresSafeArea()
-                )
+                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
+                .background(Color.loopedBackground)
+                .cornerRadius(16)
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }

@@ -13,22 +13,22 @@ struct CommentsView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-                // Header - TikTok style
+                // Header
                 HStack {
                     Text("\(comments.count) comment\(comments.count == 1 ? "" : "s")")
-                        .font(.loopedBodyMedium)
+                        .font(.loopedSubBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
-                    
+
                     Spacer()
-                    
+
                     Button(action: { onDismiss() }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 18, weight: .medium))
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.vertical, 14)
                 .background(Color.loopedBackground)
                 
                 // Divider
