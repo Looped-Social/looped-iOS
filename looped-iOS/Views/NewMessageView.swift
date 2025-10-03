@@ -9,11 +9,23 @@ struct NewMessageView: View {
         MockUserProfiles.profiles.filter { !$0.isCurrentUser }
     }
 
+    private var suggestedGroups: [Conversation] {
+        MockConversations.getGroupConversations()
+    }
+
     private var filteredContacts: [UserProfile] {
         if searchText.isEmpty {
             return suggestedContacts
         } else {
             return MockUserProfiles.searchUserProfiles(query: searchText)
+        }
+    }
+
+    private var filteredGroups: [Conversation] {
+        if searchText.isEmpty {
+            return suggestedGroups
+        } else {
+            return suggestedGroups.filter { $0.userName.localizedCaseInsensitiveContains(searchText) }
         }
     }
 
@@ -58,22 +70,30 @@ struct NewMessageView: View {
                     .foregroundColor(.loopedTextPrimary)
 
                 // Selected Recipients as Chips
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(selectedRecipients) { recipient in
-                            RecipientChip(
-                                recipient: recipient,
-                                onRemove: { removeRecipient(recipient) }
-                            )
-                        }
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(selectedRecipients) { recipient in
+                                RecipientChip(
+                                    recipient: recipient,
+                                    onRemove: { removeRecipient(recipient) }
+                                )
+                            }
 
-                        // Search TextField
-                        TextField("Search people...", text: $searchText)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .frame(minWidth: searchText.isEmpty ? 120 : nil)
+                            // Search TextField
+                            TextField("Search people...", text: $searchText)
+                                .font(.loopedBody)
+                                .foregroundColor(.loopedTextPrimary)
+                                .frame(minWidth: searchText.isEmpty ? 120 : nil)
+                                .id("searchField")
+                        }
+                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal, 4)
+                    .onChange(of: selectedRecipients.count) { _ in
+                        withAnimation {
+                            proxy.scrollTo("searchField", anchor: .trailing)
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -88,22 +108,47 @@ struct NewMessageView: View {
 
     // MARK: - Contacts List
     private var contactsList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Section Header
-            HStack {
-                Text(searchText.isEmpty ? "Suggested" : "Results")
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-                    .textCase(.uppercase)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                // Groups Section
+                if !filteredGroups.isEmpty {
+                    // Section Header
+                    HStack {
+                        Text(searchText.isEmpty ? "Group Chats" : "Groups")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedTextSecondary)
+                            .textCase(.uppercase)
 
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
 
-            // Contacts
-            ScrollView {
-                LazyVStack(spacing: 0) {
+                    // Group Rows
+                    ForEach(filteredGroups) { group in
+                        GroupRow(
+                            group: group,
+                            onTap: { navigateToGroup(group) }
+                        )
+                    }
+                }
+
+                // Contacts Section
+                if !filteredContacts.isEmpty {
+                    // Section Header
+                    HStack {
+                        Text(searchText.isEmpty ? "Suggested" : "Contacts")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedTextSecondary)
+                            .textCase(.uppercase)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .padding(.top, filteredGroups.isEmpty ? 0 : 16)
+
+                    // Contact Rows
                     ForEach(filteredContacts) { contact in
                         ContactRow(
                             contact: contact,
@@ -127,6 +172,12 @@ struct NewMessageView: View {
 
     private func removeRecipient(_ recipient: UserProfile) {
         selectedRecipients.removeAll { $0.id == recipient.id }
+    }
+
+    private func navigateToGroup(_ group: Conversation) {
+        // TODO: Navigate to group chat
+        print("Navigate to group: \(group.userName)")
+        dismiss()
     }
 
     private func handleNextButtonTap() {
@@ -177,6 +228,49 @@ struct RecipientChip: View {
         .padding(.vertical, 4)
         .background(Color.loopedPrimary.opacity(0.1))
         .clipShape(Capsule())
+    }
+}
+
+// MARK: - Group Row
+struct GroupRow: View {
+    let group: Conversation
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Group Icon
+                Circle()
+                    .fill(Color.loopedPrimary.opacity(0.2))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.loopedPrimary)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(group.userName)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    if let memberCount = group.memberIds?.count {
+                        Text("\(memberCount) members")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
