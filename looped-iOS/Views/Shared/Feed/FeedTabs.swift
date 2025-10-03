@@ -19,7 +19,7 @@ enum FilterTag: String, CaseIterable {
 struct FeedTabs: View {
     @State private var selectedTab: FeedTab = .forYou
     @State private var selectedFilter: FilterTag = .allLoops // Default selected
-    @State private var isPlus: Bool = true
+    @State private var isPlus: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
