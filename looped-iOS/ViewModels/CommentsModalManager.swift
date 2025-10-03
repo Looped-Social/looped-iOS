@@ -10,11 +10,15 @@ class CommentsModalManager: ObservableObject {
     func showComments(for post: Post) {
         currentPost = post
         currentComments = MockComments.getCommentsForPost(post.id)
-        isPresented = true
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            isPresented = true
+        }
     }
-    
+
     func dismissComments() {
-        isPresented = false
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+            isPresented = false
+        }
         // Delay clearing the data to allow for smooth animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             self.currentPost = nil

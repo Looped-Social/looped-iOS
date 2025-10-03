@@ -44,23 +44,21 @@ struct UserProfileView: View {
                 }
             }
         )
-        .animation(.easeInOut(duration: 0.3), value: commentsManager.isPresented)
     }
 
     private var commentsModalOverlay: some View {
         ZStack {
-            // Background dimming
-            Color.black.opacity(0.5)
+            // Background dimming - covers entire screen including safe area
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .transition(.opacity)
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        commentsManager.dismissComments()
-                    }
+                    commentsManager.dismissComments()
                 }
 
             // Modal content with post above
             VStack(spacing: 0) {
                 Spacer()
-                    .frame(maxHeight: UIScreen.main.bounds.height * 0.15)
 
                 // Post display above comments
                 if let post = commentsManager.currentPost {
@@ -98,11 +96,12 @@ struct UserProfileView: View {
                         }
                     }
                 }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.5)
-                .background(Color.loopedBackground.ignoresSafeArea())
+                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
+                .background(Color.loopedBackground)
+                .cornerRadius(16)
                 .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            .transition(.move(edge: .bottom))
         }
     }
 }
