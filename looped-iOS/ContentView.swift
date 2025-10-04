@@ -44,7 +44,8 @@ struct MainTabView: View {
                             .frame(width: geometry.size.width * 0.8)
                             .background(Color.loopedBackground.ignoresSafeArea(.all))
                             .contentShape(Rectangle())
-                            .clipped()
+                            .clipShape(Rectangle())
+                            .ignoresSafeArea(.all, edges: .top)
 
                         Spacer()
                     }

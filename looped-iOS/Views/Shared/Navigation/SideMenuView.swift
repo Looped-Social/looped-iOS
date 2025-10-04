@@ -11,15 +11,12 @@ struct SideMenuView: View {
             // Main content with unified ScrollView
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
-                    // Safe area spacing at top
-                    Color.clear
-                        .frame(height: 40)
-
-                    // Company circles section
+                    // Company circles section (starts from top, extending into safe area)
                     CompanyStackView(
                         companies: MockCompanies.companies,
                         selectedIndex: $selectedCompanyIndex
                     )
+                    .ignoresSafeArea(.all, edges: .top)
 
                     // Messages section
                     VStack(alignment: .leading, spacing: 12) {
@@ -68,7 +65,6 @@ struct SideMenuView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.loopedBackground.ignoresSafeArea(.all))
-            .clipped()
 
             // Profile icon (top right)
             Button(action: {
