@@ -62,8 +62,8 @@ struct ChatInputView: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.white)
-                        .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
+                        .fill(Color.loopedMessageMutedColor)
+                        .shadow(color: .black.opacity(0.10), radius: 1, x: 0, y: 1)
                 )
             }
             .padding(.horizontal, 16)
