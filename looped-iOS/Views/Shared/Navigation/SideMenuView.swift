@@ -3,109 +3,106 @@ import SwiftUI
 struct SideMenuView: View {
     @Binding var selectedTab: TabItem
     @Binding var isMenuOpen: Bool
+    @State private var selectedCompanyIndex = 0
+    @State private var conversations: [Conversation] = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header area
-            VStack(alignment: .leading, spacing: 16) {
-                // Logo and title
-                HStack(spacing: 8) {
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 32)
+        ZStack(alignment: .topTrailing) {
+            // Main content with unified ScrollView
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // Safe area spacing at top
+                    Color.clear
+                        .frame(height: 40)
 
-                    Text("ooped")
-                        .font(.loopedHeading)
-                        .foregroundColor(.loopedContrast)
+                    // Company circles section
+                    CompanyStackView(
+                        companies: MockCompanies.companies,
+                        selectedIndex: $selectedCompanyIndex
+                    )
+
+                    // Messages section
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Messages header
+                        HStack {
+                            Text("Messages")
+                                .font(.loopedHeadingMedium)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            Spacer()
+
+                            Button(action: {
+                                // Navigate to messages
+                                selectedTab = .messages
+                                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                    isMenuOpen = false
+                                }
+                            }) {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 24)
+
+                        // Message list
+                        VStack(spacing: 0) {
+                            ForEach(conversations.prefix(5)) { conversation in
+                                Button(action: {
+                                    // Navigate to specific conversation
+                                    selectedTab = .messages
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isMenuOpen = false
+                                    }
+                                }) {
+                                    DrawerMessageRow(conversation: conversation)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(.bottom, 40)
+                    }
+                    .background(Color.loopedBackground)
                 }
-                .padding(.top, 60)
-                .padding(.bottom, 20)
             }
-            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.loopedBackground.ignoresSafeArea(.all))
+            .clipped()
 
-            // Navigation menu items
-            VStack(alignment: .leading, spacing: 0) {
-                SideMenuButton(icon: "house.fill", title: "Home", action: {
-                    selectedTab = .home
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuOpen = false
-                    }
-                })
-                SideMenuButton(icon: "magnifyingglass", title: "Explore", action: {
-                    selectedTab = .search
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuOpen = false
-                    }
-                })
-                SideMenuButton(icon: "bell", title: "Notifications", action: {
-                    selectedTab = .notifications
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuOpen = false
-                    }
-                })
-                SideMenuButton(icon: "envelope", title: "Messages", action: {
-                    selectedTab = .messages
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuOpen = false
-                    }
-                })
-                SideMenuButton(icon: "bookmark", title: "Bookmarks", action: {
-                    // TODO: Implement bookmarks functionality
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuOpen = false
-                    }
-                })
-                SideMenuButton(icon: "person", title: "Profile", action: {
-                    selectedTab = .profile
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuOpen = false
-                    }
-                })
-                SideMenuButton(icon: "gear", title: "Settings", action: {
-                    // TODO: Implement settings navigation
-                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                        isMenuOpen = false
-                    }
-                })
+            // Profile icon (top right)
+            Button(action: {
+                selectedTab = .profile
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    isMenuOpen = false
+                }
+            }) {
+                Circle()
+                    .fill(Color.loopedPrimary.opacity(0.3))
+                    .frame(width: 48, height: 48)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.loopedPrimary)
+                    )
             }
-            .padding(.horizontal, 24)
-
-            Spacer()
+            .padding(.top, 60)
+            .padding(.trailing, 20)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Color.loopedBackground.ignoresSafeArea(.all))
+        .task {
+            loadConversations()
+        }
     }
-}
 
-struct SideMenuButton: View {
-    let icon: String
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.loopedTextSecondary)
-                    .frame(width: 24, height: 24)
-
-                Text(title)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-            }
-            .padding(.vertical, 16)
-        }
-        .buttonStyle(PlainButtonStyle())
+    private func loadConversations() {
+        conversations = MockConversations.conversations
     }
 }
 
 #Preview {
-    @State var selectedTab: TabItem = .home
-    @State var isMenuOpen = true
+    @Previewable @State var selectedTab: TabItem = .home
+    @Previewable @State var isMenuOpen = true
 
     return SideMenuView(selectedTab: $selectedTab, isMenuOpen: $isMenuOpen)
+        .background(Color.loopedBackground)
 }
