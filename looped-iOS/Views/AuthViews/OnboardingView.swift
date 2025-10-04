@@ -77,7 +77,7 @@ struct OnboardingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(Color.white)
+                        .background(Color.loopedBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
                                 .stroke(Color.loopedTextSecondary.opacity(0.7), lineWidth: 1)
@@ -105,7 +105,7 @@ struct OnboardingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(Color.white)
+                        .background(Color.loopedBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
                                 .stroke(Color.loopedTextSecondary.opacity(0.7), lineWidth: 1)

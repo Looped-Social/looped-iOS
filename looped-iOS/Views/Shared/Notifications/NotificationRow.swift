@@ -40,7 +40,13 @@ struct NotificationRow: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Spacer()
-
+            // Unread Indicator
+            if !notification.isRead {
+                Circle()
+                    .fill(Color.loopedSecondary)
+                    .frame(width: 8, height: 8)
+                    .padding(.top, 4)
+            }
                     // Timestamp
                     Text(notification.relativeTimeString)
                         .font(.loopedSmallText)
@@ -67,7 +73,7 @@ struct NotificationRow: View {
                     }) {
                         Text(notification.actionButtonText)
                             .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedBackground)
+                            .foregroundColor(.loopedTextPrimary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                             .background(Color.loopedPrimary)
@@ -77,13 +83,7 @@ struct NotificationRow: View {
                 }
             }
 
-            // Unread Indicator
-            if !notification.isRead {
-                Circle()
-                    .fill(Color.blue)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, 4)
-            }
+
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
