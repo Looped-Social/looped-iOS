@@ -46,12 +46,12 @@ struct ProfileHeaderView: View {
                         .aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Circle()
-                        .fill(Color.loopedPrimary)
+                        .fill(Color.loopedTextSecondary.opacity(0.1))
                         .overlay(
                             Image("profile-icon")
                                 .renderingMode(.template)
                                 .font(.system(size: 32))
-                                .foregroundColor(.white)
+                                .foregroundColor(.loopedTextSecondary)
                         )
                 }
                 .frame(width: 80, height: 80)

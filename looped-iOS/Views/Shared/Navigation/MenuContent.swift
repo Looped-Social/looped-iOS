@@ -10,12 +10,12 @@ struct MenuContent: View {
             VStack(alignment: .center, spacing: 16) {
                 // Profile Avatar
                 Circle()
-                    .fill(Color.loopedTextPrimary)
+                    .fill(Color.loopedTextSecondary.opacity(0.1))
                     .frame(width: 80, height: 80)
                     .overlay(
                         Image(systemName: "person.fill")
                             .font(.system(size: 36))
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedTextSecondary)
                     )
                     .padding(.top, 60)
 

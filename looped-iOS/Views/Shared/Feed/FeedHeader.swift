@@ -66,11 +66,11 @@ struct FeedHeader: View {
                         .aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Circle()
-                        .fill(Color.loopedPrimary)
+                        .fill(Color.loopedTextSecondary.opacity(0.1))
                         .overlay(
                             Image(systemName: "person.fill")
                                 .font(.system(size: 18))
-                                .foregroundColor(.white)
+                                .foregroundColor(.loopedTextSecondary)
                         )
                 }
                 .frame(width: 36, height: 36)
