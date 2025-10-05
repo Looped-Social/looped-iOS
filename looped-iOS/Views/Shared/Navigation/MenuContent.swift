@@ -10,7 +10,7 @@ struct MenuContent: View {
             VStack(alignment: .center, spacing: 16) {
                 // Profile Avatar
                 Circle()
-                    .fill(Color.loopedPrimary)
+                    .fill(Color.loopedTextPrimary)
                     .frame(width: 80, height: 80)
                     .overlay(
                         Image(systemName: "person.fill")
@@ -21,8 +21,8 @@ struct MenuContent: View {
 
                 // Display Name
                 Text(viewModel.user?.displayName ?? "Billy Bob")
-                    .font(.loopedHeadingMedium)
-                    .foregroundColor(.loopedTextPrimary)
+                    .font(.loopedBodyStrong32)
+                    .foregroundColor(.loopedContrast)
 
                 // Anonymous Status Toggle
                 Button(action: {
@@ -37,7 +37,7 @@ struct MenuContent: View {
                     HStack(spacing: 8) {
                         Text("Anonymous Status:")
                             .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedTextPrimary)
+                            .foregroundColor(isAnonymous ? Color(red: 0.2, green: 0.8, blue: 0.7) : .loopedTextSecondary)
                         Text(isAnonymous ? "ON" : "OFF")
                             .font(.loopedSubBodyBold)
                             .foregroundColor(isAnonymous ? Color(red: 0.2, green: 0.8, blue: 0.7) : .loopedTextSecondary)

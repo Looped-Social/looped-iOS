@@ -7,40 +7,42 @@ struct SideMenuView: View {
     @State private var conversations: [Conversation] = []
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Main content with unified ScrollView
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Company circles section (starts from top, extending into safe area)
-                    CompanyStackView(
-                        companies: MockCompanies.companies,
-                        selectedIndex: $selectedCompanyIndex
-                    )
-                    .ignoresSafeArea(.all, edges: .top)
+        GeometryReader { geometry in
+            ZStack(alignment: .topTrailing) {
+                // Main content with unified ScrollView
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // Company circles section (starts from top, extending into safe area)
+                        CompanyStackView(
+                            companies: MockCompanies.companies,
+                            selectedIndex: $selectedCompanyIndex
+                        )
+                        .ignoresSafeArea(.all, edges: .top)
 
-                    // Messages section
-                    VStack(alignment: .leading, spacing: 12) {
-                        // Messages header
-                        HStack {
-                            Text("Messages")
-                                .font(.loopedHeadingMedium)
-                                .foregroundColor(.loopedTextPrimary)
+                        // Messages section
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Messages header
+                            HStack {
+                                Text("Messages")
+                                    .font(.loopedHeadingMedium)
+                                    .foregroundColor(.loopedTextPrimary)
 
-                            Spacer()
+                                Spacer()
 
-                            Button(action: {
-                                // Navigate to messages
-                                selectedTab = .messages
-                                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                    isMenuOpen = false
+                                Button(action: {
+                                    // Navigate to messages
+                                    selectedTab = .messages
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                        isMenuOpen = false
+                                    }
+                                }) {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.loopedTextSecondary)
                                 }
-                            }) {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.loopedTextSecondary)
                             }
-                        }
-                        .padding(.horizontal, 16)
+                            .padding(.leading, max(geometry.safeAreaInsets.leading, 16))
+                            .padding(.trailing, 16)
 //                        .padding(.top, 24)
 
                         // Message list
@@ -58,6 +60,7 @@ struct SideMenuView: View {
                                 .buttonStyle(PlainButtonStyle())
                             }
                         }
+                        .padding(.leading, max(geometry.safeAreaInsets.leading, 0))
                         .padding(.bottom, 40)
                     }
                     .background(Color.loopedBackground)
@@ -66,9 +69,10 @@ struct SideMenuView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.loopedBackground.ignoresSafeArea(.all))
 
-        }
-        .task {
-            loadConversations()
+            }
+            .task {
+                loadConversations()
+            }
         }
     }
 

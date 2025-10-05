@@ -39,6 +39,7 @@ extension Font {
 
     /// Body strong text (16pt, SemiBold) - Strong emphasized body text
     static let loopedBodyStrong = Font.custom("Poppins-SemiBold", size: 16)
+    static let loopedBodyStrong32 = Font.custom("Poppins-SemiBold", size: 32)
 
     
     // MARK: - Fallback System Fonts (when custom fonts fail)

@@ -22,6 +22,7 @@ struct DrawerMessageRow: View {
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
 
                     Spacer()
 
@@ -34,7 +35,9 @@ struct DrawerMessageRow: View {
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextSecondary)
                     .lineLimit(1)
+                    .truncationMode(.tail)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 16)
