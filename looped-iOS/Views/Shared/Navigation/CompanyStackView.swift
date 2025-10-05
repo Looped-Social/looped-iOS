@@ -21,6 +21,7 @@ struct CompanyStackView: View {
                 .zIndex(Double(1000 - index))
             }
         }
+        .offset(y: -400)
         .frame(maxWidth: .infinity)
     }
 }
