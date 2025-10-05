@@ -41,7 +41,7 @@ struct SideMenuView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 24)
+//                        .padding(.top, 24)
 
                         // Message list
                         VStack(spacing: 0) {
@@ -66,24 +66,6 @@ struct SideMenuView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.loopedBackground.ignoresSafeArea(.all))
 
-            // Profile icon (top right)
-            Button(action: {
-                selectedTab = .profile
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                    isMenuOpen = false
-                }
-            }) {
-                Circle()
-                    .fill(Color.loopedPrimary.opacity(0.3))
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.loopedPrimary)
-                    )
-            }
-            .padding(.top, 60)
-            .padding(.trailing, 20)
         }
         .task {
             loadConversations()

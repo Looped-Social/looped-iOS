@@ -50,7 +50,7 @@ struct CompanyCircleView: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .offset(y: isSelected ? 130 : 200)
+        .offset(y: isSelected ? 200 : 130)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isSelected)
     }
 }
