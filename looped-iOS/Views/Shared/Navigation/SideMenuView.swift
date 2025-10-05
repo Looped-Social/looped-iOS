@@ -5,6 +5,7 @@ struct SideMenuView: View {
     @Binding var isMenuOpen: Bool
     @State private var selectedCompanyIndex = 0
     @State private var conversations: [Conversation] = []
+    var safeAreaLeading: CGFloat = 0
 
     var body: some View {
         GeometryReader { geometry in
@@ -15,7 +16,8 @@ struct SideMenuView: View {
                         // Company circles section (starts from top, extending into safe area)
                         CompanyStackView(
                             companies: MockCompanies.companies,
-                            selectedIndex: $selectedCompanyIndex
+                            selectedIndex: $selectedCompanyIndex,
+                            horizontalOffset: -safeAreaLeading
                         )
                         .ignoresSafeArea(.all, edges: .top)
 
@@ -41,7 +43,7 @@ struct SideMenuView: View {
                                         .foregroundColor(.loopedTextSecondary)
                                 }
                             }
-                            .padding(.leading, max(geometry.safeAreaInsets.leading, 16))
+                            .padding(.leading, max(safeAreaLeading, 16))
                             .padding(.trailing, 16)
 //                        .padding(.top, 24)
 
@@ -60,7 +62,7 @@ struct SideMenuView: View {
                                 .buttonStyle(PlainButtonStyle())
                             }
                         }
-                        .padding(.leading, max(geometry.safeAreaInsets.leading, 0))
+                        .padding(.leading, max(safeAreaLeading, 0))
                         .padding(.bottom, 40)
                     }
                     .background(Color.loopedBackground)
@@ -85,6 +87,10 @@ struct SideMenuView: View {
     @Previewable @State var selectedTab: TabItem = .home
     @Previewable @State var isMenuOpen = true
 
-    return SideMenuView(selectedTab: $selectedTab, isMenuOpen: $isMenuOpen)
+    return SideMenuView(
+        selectedTab: $selectedTab,
+        isMenuOpen: $isMenuOpen,
+        safeAreaLeading: 47
+    )
         .background(Color.loopedBackground)
 }

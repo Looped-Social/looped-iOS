@@ -40,7 +40,11 @@ struct MainTabView: View {
                 if selectedTab == .home {
                     HStack(spacing: 0) {
                         // Menu content constrained to 80% width with full background
-                        SideMenuView(selectedTab: $selectedTab, isMenuOpen: $isMenuOpen)
+                        SideMenuView(
+                            selectedTab: $selectedTab,
+                            isMenuOpen: $isMenuOpen,
+                            safeAreaLeading: geometry.safeAreaInsets.leading
+                        )
                             .frame(width: geometry.size.width * 0.8)
                             .background(Color.loopedBackground.ignoresSafeArea(.all))
                             .contentShape(Rectangle())

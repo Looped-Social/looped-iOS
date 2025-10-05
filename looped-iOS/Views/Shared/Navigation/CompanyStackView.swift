@@ -3,6 +3,7 @@ import SwiftUI
 struct CompanyStackView: View {
     let companies: [Company]
     @Binding var selectedIndex: Int
+    var horizontalOffset: CGFloat = 0
 
     private let overlapOffset: CGFloat = -320
 
@@ -21,8 +22,8 @@ struct CompanyStackView: View {
                 .zIndex(Double(1000 - index))
             }
         }
-        .offset(y: -400)
         .frame(maxWidth: .infinity)
+        .offset(x: horizontalOffset, y: -400)
     }
 }
 
