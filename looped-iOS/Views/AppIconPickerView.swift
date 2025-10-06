@@ -50,13 +50,13 @@ struct AppIconPickerView: View {
     }
 
     private func changeIcon(to icon: AppIconManager.AppIcon) {
-        iconManager.setIcon(icon) { success in
+        iconManager.setIcon(icon) { success, error in
             if success {
                 alertMessage = "App icon changed to \(icon.displayName)"
             } else {
-                alertMessage = "Unable to change app icon"
+                alertMessage = error ?? "Unable to change app icon"
             }
-            // Note: iOS shows its own alert when changing icons, so we might skip this
+            // Note: iOS shows its own alert when changing icons
         }
     }
 }

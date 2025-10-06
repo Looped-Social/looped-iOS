@@ -48,25 +48,30 @@ class AppIconManager: ObservableObject {
     }
 
     /// Change the app icon
-    func setIcon(_ icon: AppIcon, completion: ((Bool) -> Void)? = nil) {
+    func setIcon(_ icon: AppIcon, completion: ((Bool, String?) -> Void)? = nil) {
         guard UIApplication.shared.supportsAlternateIcons else {
-            completion?(false)
+            print("⚠️ Device does not support alternate icons")
+            completion?(false, "Device does not support alternate icons")
             return
         }
 
         guard icon != currentIcon else {
-            completion?(true)
+            print("ℹ️ Icon is already set to \(icon.displayName)")
+            completion?(true, nil)
             return
         }
 
+        print("🔄 Attempting to change icon to: \(icon.displayName) (iconName: \(icon.iconName ?? "nil"))")
+
         UIApplication.shared.setAlternateIconName(icon.iconName) { [weak self] error in
             DispatchQueue.main.async {
-                if error == nil {
-                    self?.currentIcon = icon
-                    completion?(true)
+                if let error = error {
+                    print("❌ Error changing app icon: \(error.localizedDescription)")
+                    completion?(false, error.localizedDescription)
                 } else {
-                    print("Error changing app icon: \(error?.localizedDescription ?? "Unknown error")")
-                    completion?(false)
+                    print("✅ Successfully changed icon to \(icon.displayName)")
+                    self?.currentIcon = icon
+                    completion?(true, nil)
                 }
             }
         }
