@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var authViewModel = AuthViewModel()
-    @ObservedObject private var iconManager = AppIconManager.shared
 
     // Toggle states
     @State private var showFollowerCount = true
@@ -25,35 +24,6 @@ struct SettingsView: View {
                         SettingsRow(icon: "shield", title: "Security")
                         SettingsRow(icon: "bell", title: "Notifications")
                         SettingsRow(icon: "lock", title: "Privacy and Data Protection")
-                    }
-
-                    // Appearance Section
-                    SettingsSection(title: "Appearance") {
-                        NavigationLink(destination: AppIconPickerView()) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "app.fill")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .frame(width: 20, height: 10)
-
-                                Text("App Icon")
-                                    .font(.loopedBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-
-                                Spacer()
-
-                                Text(iconManager.currentIcon.displayName)
-                                    .font(.loopedSubBodyMedium)
-                                    .foregroundColor(.loopedTextSecondary)
-
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-                            .padding(.horizontal, 28)
-                            .padding(.vertical, 8)
-                        }
-                        .buttonStyle(PlainButtonStyle())
                     }
 
                     // Support & About Section
