@@ -25,7 +25,6 @@ struct MainTabView: View {
     @State private var selectedTab: TabItem = .home
     @State private var showCreatePost = false
     @State private var showNewMessage = false
-    @State private var isMenuOpen = false
     @State private var isRightMenuOpen = false
     @State private var showingChat = false
     @State private var selectedConversation: Conversation?
@@ -36,29 +35,6 @@ struct MainTabView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // Side Menu (only visible on home tab)
-                if selectedTab == .home {
-                    HStack(spacing: 0) {
-                        // Menu content constrained to 80% width with full background
-                        SideMenuView(
-                            selectedTab: $selectedTab,
-                            isMenuOpen: $isMenuOpen,
-                            safeAreaLeading: geometry.safeAreaInsets.leading
-                        )
-                            .frame(width: geometry.size.width * 0.8)
-                            .background(Color.loopedBackground.ignoresSafeArea(.all))
-                            .contentShape(Rectangle())
-                            .clipShape(Rectangle())
-                            .ignoresSafeArea(.all, edges: .top)
-
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.loopedBackground.ignoresSafeArea(.all))
-                    .offset(x: isMenuOpen ? 0 : -geometry.size.width * 0.8)
-                    .allowsHitTesting(isMenuOpen)
-                }
-
                 // Right Menu (only visible on home tab)
                 if selectedTab == .home {
                     HStack(spacing: 0) {
@@ -84,15 +60,8 @@ struct MainTabView: View {
                         case .home:
                             NavigationView {
                                 FeedView(
-                                    onMenuToggle: {
-                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                            isRightMenuOpen = false // Close right menu if open
-                                            isMenuOpen.toggle()
-                                        }
-                                    },
                                     onProfileTap: {
                                         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                            isMenuOpen = false // Close left menu if open
                                             isRightMenuOpen.toggle()
                                         }
                                     }
@@ -131,12 +100,11 @@ struct MainTabView: View {
                 .overlay(
                     // Blocking overlay when drawer is open - prevents feed interactions
                     Group {
-                        if selectedTab == .home && (isMenuOpen || isRightMenuOpen) {
+                        if selectedTab == .home && isRightMenuOpen {
                             Color.clear
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isMenuOpen = false
                                         isRightMenuOpen = false
                                     }
                                 }
@@ -144,38 +112,12 @@ struct MainTabView: View {
                         }
                     }
                 )
-                .offset(x: selectedTab == .home ? (isMenuOpen ? geometry.size.width * 0.8 : (isRightMenuOpen ? -geometry.size.width * 0.8 : 0)) : 0)
-                .scaleEffect((selectedTab == .home && (isMenuOpen || isRightMenuOpen)) ? 0.95 : 1.0)
-                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isMenuOpen)
+                .offset(x: selectedTab == .home ? (isRightMenuOpen ? -geometry.size.width * 0.8 : 0) : 0)
+                .scaleEffect((selectedTab == .home && isRightMenuOpen) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
 
                 // Shadow overlays - feed casting shadow onto drawers
                 if selectedTab == .home {
-                    // Left shadow - instantly visible/invisible
-                    HStack(spacing: 0) {
-                        Spacer()
-                            .frame(width: geometry.size.width * 0.8 - 20)
-
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.black.opacity(0.2),
-                                Color.black.opacity(0.1),
-                                Color.black.opacity(0.05),
-                                Color.clear
-                            ]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .frame(width: 20)
-
-                        Spacer()
-                            .frame(width: geometry.size.width * 0.2)
-                    }
-                    .opacity(isMenuOpen ? 1 : 0)
-                    .animation(.linear(duration: 0.0), value: isMenuOpen)
-                    .ignoresSafeArea(.all)
-                    .allowsHitTesting(false)
-
                     // Right shadow - instantly visible/invisible
                     HStack(spacing: 0) {
                         Spacer()
@@ -203,7 +145,7 @@ struct MainTabView: View {
                 }
 
                 // Floating Action Button (show on home and messages tabs)
-                if (selectedTab == .home || selectedTab == .messages) && !commentsManager.isPresented && !isMenuOpen && !isRightMenuOpen {
+                if (selectedTab == .home || selectedTab == .messages) && !commentsManager.isPresented && !isRightMenuOpen {
                     VStack {
                         Spacer()
                         HStack {

@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct FeedView: View {
-    let onMenuToggle: () -> Void
     let onProfileTap: () -> Void
     @EnvironmentObject var viewModel: FeedViewModel
     @State private var headerVisible = true
@@ -9,8 +8,7 @@ struct FeedView: View {
 
     private let headerHeight: CGFloat = 140
 
-    init(onMenuToggle: @escaping () -> Void = {}, onProfileTap: @escaping () -> Void = {}) {
-        self.onMenuToggle = onMenuToggle
+    init(onProfileTap: @escaping () -> Void = {}) {
         self.onProfileTap = onProfileTap
     }
 
@@ -51,7 +49,7 @@ struct FeedView: View {
 
             // Fixed header with proper safe area handling
             VStack(spacing: 0) {
-                FeedHeader(onMenuToggle: onMenuToggle, onProfileTap: onProfileTap)
+                FeedHeader(onProfileTap: onProfileTap)
                 FeedTabs()
             }
             .frame(height: headerHeight)
