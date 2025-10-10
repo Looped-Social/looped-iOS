@@ -9,6 +9,7 @@ struct Post: Codable, Identifiable {
     let isAnonymous: Bool
     let reactionCount: Int
     let userReaction: ReactionType?
+    let attachments: [MediaAttachment]?
     let createdAt: Date
     let updatedAt: Date
 }

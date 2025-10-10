@@ -109,6 +109,7 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
                     channelId: UUID(uuidString: wsMessage.payload["channelId"] ?? "") ?? UUID(),
                     messageType: .channel,
                     isRead: false,
+                    attachments: nil,
                     createdAt: Date()
                 )
                 _messageReceived.send(message)

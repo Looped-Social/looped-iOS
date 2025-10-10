@@ -99,12 +99,20 @@ struct PostCard: View {
             }
             
             // Post content
-            Text(post.content)
-                .font(.body)
-                .foregroundColor(.loopedTextPrimary)
-                .multilineTextAlignment(.leading)
-                .lineLimit(nil)
-            
+            if !post.content.isEmpty {
+                Text(post.content)
+                    .font(.body)
+                    .foregroundColor(.loopedTextPrimary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(nil)
+            }
+
+            // Media attachments
+            if let attachments = post.attachments, !attachments.isEmpty {
+                PostedMediaGrid(attachments: attachments, maxHeight: 350)
+                    .padding(.top, 8)
+            }
+
             // Hashtags (if any)
             if post.content.contains("#") {
                 HStack {
@@ -221,6 +229,7 @@ struct ShareSheet: UIViewControllerRepresentable {
         isAnonymous: true,
         reactionCount: 188,
         userReaction: nil,
+        attachments: nil,
         createdAt: Date().addingTimeInterval(-86400),
         updatedAt: Date().addingTimeInterval(-86400)
     )

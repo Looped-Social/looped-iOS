@@ -9,6 +9,7 @@ struct Message: Codable, Identifiable {
     let channelId: UUID?
     let messageType: MessageType
     let isRead: Bool
+    let attachments: [MediaAttachment]?
     let createdAt: Date
 }
 

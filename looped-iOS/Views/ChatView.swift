@@ -7,6 +7,7 @@ struct ChatView: View {
 
     @StateObject private var viewModel = ChatViewModel()
     @State private var messageText = ""
+    @State private var selectedMedia: [LocalMediaItem] = []
 
     private var isGroupChat: Bool {
         return channel != nil
@@ -124,6 +125,7 @@ struct ChatView: View {
             // Input Area
             ChatInputView(
                 messageText: $messageText,
+                selectedMedia: $selectedMedia,
                 onSendTapped: {
                     sendMessage()
                 }
@@ -136,7 +138,9 @@ struct ChatView: View {
     }
 
     private func sendMessage() {
-        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let hasText = !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasMedia = !selectedMedia.isEmpty
+        guard hasText || hasMedia else { return }
 
         Task {
             if let channel = channel {
@@ -146,6 +150,7 @@ struct ChatView: View {
             }
 
             messageText = ""
+            selectedMedia = []
         }
     }
 

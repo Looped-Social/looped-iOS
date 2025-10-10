@@ -212,6 +212,7 @@ class MockWebSocketService: NSObject, WebSocketServiceProtocol {
             channelId: randomChannel.id,
             messageType: .channel,
             isRead: false,
+            attachments: nil,
             createdAt: Date()
         )
         

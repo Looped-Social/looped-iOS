@@ -15,17 +15,43 @@ struct SentMessageBubble: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                Text(message.content)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedTextPrimary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        Color.loopedMessageColor
-                    )
-                    .clipShape(TailCornerShape(isFromCurrentUser: true, showTail: showTail))
-                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Show media if present
+                if let attachments = message.attachments, !attachments.isEmpty {
+                    ForEach(attachments) { attachment in
+                        if attachment.type == .video {
+                            VideoPlayerView(url: attachment.url)
+                                .frame(maxWidth: 220, maxHeight: 220)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        } else {
+                            AsyncImage(url: URL(string: attachment.url)) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Rectangle()
+                                    .fill(Color.loopedMutedBackground)
+                                    .overlay(ProgressView())
+                            }
+                            .frame(maxWidth: 220, maxHeight: 220)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                }
+
+                // Show text if present
+                if !message.content.isEmpty {
+                    Text(message.content)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedTextPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            Color.loopedMessageColor
+                        )
+                        .clipShape(TailCornerShape(isFromCurrentUser: true, showTail: showTail))
+                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 Text(formatMessageTime(message.createdAt))
                     .font(.loopedSmallText)
@@ -82,17 +108,43 @@ struct ReceivedMessageBubble: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(message.content)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(
-                            Color.loopedMessageMutedColor
-                        )
-                        .clipShape(TailCornerShape(isFromCurrentUser: false, showTail: showTail))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
+                    // Show media if present
+                    if let attachments = message.attachments, !attachments.isEmpty {
+                        ForEach(attachments) { attachment in
+                            if attachment.type == .video {
+                                VideoPlayerView(url: attachment.url)
+                                    .frame(maxWidth: 220, maxHeight: 220)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            } else {
+                                AsyncImage(url: URL(string: attachment.url)) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Rectangle()
+                                        .fill(Color.loopedMutedBackground)
+                                        .overlay(ProgressView())
+                                }
+                                .frame(maxWidth: 220, maxHeight: 220)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                        }
+                    }
+
+                    // Show text if present
+                    if !message.content.isEmpty {
+                        Text(message.content)
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(
+                                Color.loopedMessageMutedColor
+                            )
+                            .clipShape(TailCornerShape(isFromCurrentUser: false, showTail: showTail))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
+                    }
 
                     Text(formatMessageTime(message.createdAt))
                         .font(.loopedSmallText)
@@ -229,6 +281,7 @@ private func formatMessageTime(_ date: Date) -> String {
                 channelId: nil,
                 messageType: .direct,
                 isRead: true,
+                attachments: nil,
                 createdAt: Date()
             ),
             showTail: true
@@ -243,6 +296,7 @@ private func formatMessageTime(_ date: Date) -> String {
                 channelId: nil,
                 messageType: .direct,
                 isRead: true,
+                attachments: nil,
                 createdAt: Date()
             ),
             showProfilePicture: false,
@@ -260,6 +314,7 @@ private func formatMessageTime(_ date: Date) -> String {
                 channelId: nil,
                 messageType: .direct,
                 isRead: true,
+                attachments: nil,
                 createdAt: Date()
             ),
             showTail: false
@@ -282,15 +337,16 @@ private func formatMessageTime(_ date: Date) -> String {
                 channelId: nil,
                 messageType: .direct,
                 isRead: true,
+                attachments: nil,
                 createdAt: Date()
             ),
             showProfilePicture: false,
             showSenderName: false,
             showTail: true
         )
-        
+
                ReceivedMessageBubble(
-        
+
             message: Message(
                 id: UUID(),
                 content: "Japan looks amazing!",
@@ -300,13 +356,14 @@ private func formatMessageTime(_ date: Date) -> String {
                 channelId: nil,
                 messageType: .direct,
                 isRead: true,
+                attachments: nil,
                 createdAt: Date()
             ),
             showProfilePicture: false,
             showSenderName: false,
             showTail: true
-        ) 
-        
+        )
+
 
         // Group chat message with profile without tail
         ReceivedMessageBubble(
@@ -319,6 +376,7 @@ private func formatMessageTime(_ date: Date) -> String {
                 channelId: UUID(),
                 messageType: .channel,
                 isRead: true,
+                attachments: nil,
                 createdAt: Date()
             ),
             showProfilePicture: true,

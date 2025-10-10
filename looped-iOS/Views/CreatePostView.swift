@@ -7,6 +7,9 @@ struct CreatePostView: View {
     @State private var selectedChannel: String = "General"
     @State private var isSubmitting: Bool = false
     @State private var showSettings: Bool = false
+    @State private var selectedMedia: [LocalMediaItem] = []
+    @State private var showMediaPicker: Bool = false
+    @State private var showCamera: Bool = false
 
     let feedViewModel: FeedViewModel
     
@@ -14,7 +17,12 @@ struct CreatePostView: View {
     
     private var characterLimit: Int { 280 }
     private var remainingCharacters: Int { characterLimit - postText.count }
-    private var isPostValid: Bool { !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && postText.count <= characterLimit }
+    private var isPostValid: Bool {
+        let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasMedia = !selectedMedia.isEmpty
+        let isTextValid = postText.count <= characterLimit
+        return (hasText || hasMedia) && isTextValid
+    }
     
     var body: some View {
         NavigationView {
@@ -88,7 +96,7 @@ struct CreatePostView: View {
                         Text("What's happening?")
                             .font(.loopedSubBodyMedium)
                             .foregroundColor(.loopedTextSecondary)
-                        
+
                         TextField("Share your thoughts...", text: $postText, axis: .vertical)
                             .font(.loopedBody)
                             .foregroundColor(.loopedTextPrimary)
@@ -98,7 +106,55 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                    
+
+                    // Media attachment buttons
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            showMediaPicker = true
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "photo")
+                                    .font(.system(size: 16))
+                                Text("Photo/Video")
+                                    .font(.loopedSubBodyMedium)
+                            }
+                            .foregroundColor(.loopedPrimary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+
+                        Button(action: {
+                            showCamera = true
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "camera")
+                                    .font(.system(size: 16))
+                                Text("Camera")
+                                    .font(.loopedSubBodyMedium)
+                            }
+                            .foregroundColor(.loopedPrimary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+
+                        Spacer()
+                    }
+
+                    // Media preview grid
+                    if !selectedMedia.isEmpty {
+                        MediaPreviewGrid(
+                            media: selectedMedia,
+                            maxHeight: 280,
+                            onRemove: { item in
+                                selectedMedia.removeAll { $0.id == item.id }
+                            }
+                        )
+                    }
+
                     // Character count
                     HStack {
                         Spacer()
@@ -150,6 +206,19 @@ struct CreatePostView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showMediaPicker) {
+            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 4)
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView(selectedImage: .init(
+                get: { nil },
+                set: { image in
+                    if let image = image {
+                        selectedMedia.append(LocalMediaItem(type: .image, image: image))
+                    }
+                }
+            ))
         }
     }
     

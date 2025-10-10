@@ -2,12 +2,62 @@ import SwiftUI
 
 struct ChatInputView: View {
     @Binding var messageText: String
+    @Binding var selectedMedia: [LocalMediaItem]
     let onSendTapped: () -> Void
 
     @State private var showAttachmentOptions = false
+    @State private var showMediaPicker = false
+    @State private var showCamera = false
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
+            // Media preview if any
+            if !selectedMedia.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(selectedMedia) { item in
+                            ZStack(alignment: .topTrailing) {
+                                if let image = item.image {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 80, height: 80)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+
+                                if item.type == .video {
+                                    Circle()
+                                        .fill(Color.black.opacity(0.6))
+                                        .frame(width: 24, height: 24)
+                                        .overlay(
+                                            Image(systemName: "play.fill")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.white)
+                                        )
+                                }
+
+                                // Remove button
+                                Button(action: {
+                                    selectedMedia.removeAll { $0.id == item.id }
+                                }) {
+                                    Circle()
+                                        .fill(Color.black.opacity(0.7))
+                                        .frame(width: 20, height: 20)
+                                        .overlay(
+                                            Image(systemName: "xmark")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.white)
+                                        )
+                                }
+                                .padding(4)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+                .background(Color.loopedMutedBackground.opacity(0.5))
+            }
 
             HStack(spacing: 12) {
                 // Plus button for attachments
@@ -32,24 +82,24 @@ struct ChatInputView: View {
                     HStack(spacing: 16) {
                         // Camera button
                         Button(action: {
-                            // TODO: Implement camera functionality
+                            showCamera = true
                         }) {
                             Image(systemName: "camera")
                                 .font(.system(size: 20))
                                 .foregroundColor(.loopedPrimary)
                         }
 
-                        // Microphone button
+                        // Photo library button (replaced microphone)
                         Button(action: {
-                            // TODO: Implement voice recording functionality
+                            showMediaPicker = true
                         }) {
-                            Image(systemName: "mic")
+                            Image(systemName: "photo")
                                 .font(.system(size: 20))
                                 .foregroundColor(.loopedPrimary)
                         }
 
-                        // Send button - only show when there's text
-                        if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        // Send button - show when there's text or media
+                        if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedMedia.isEmpty {
                             Button(action: onSendTapped) {
                                 Image(systemName: "arrow.up.circle.fill")
                                     .font(.system(size: 28))
@@ -80,17 +130,27 @@ struct ChatInputView: View {
                 message: Text("Choose an option"),
                 buttons: [
                     .default(Text("Photo Library")) {
-                        // TODO: Implement photo library picker
+                        showMediaPicker = true
                     },
                     .default(Text("Camera")) {
-                        // TODO: Implement camera capture
-                    },
-                    .default(Text("Document")) {
-                        // TODO: Implement document picker
+                        showCamera = true
                     },
                     .cancel()
                 ]
             )
+        }
+        .sheet(isPresented: $showMediaPicker) {
+            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 4)
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView(selectedImage: .init(
+                get: { nil },
+                set: { image in
+                    if let image = image {
+                        selectedMedia.append(LocalMediaItem(type: .image, image: image))
+                    }
+                }
+            ))
         }
     }
 }
@@ -103,12 +163,14 @@ struct ChatInputView: View {
         // Preview with empty text
         ChatInputView(
             messageText: .constant(""),
+            selectedMedia: .constant([]),
             onSendTapped: {}
         )
 
         // Preview with text (showing send button)
         ChatInputView(
             messageText: .constant("This is a sample message"),
+            selectedMedia: .constant([]),
             onSendTapped: {}
         )
     }

@@ -1,7 +1,28 @@
 import Foundation
 
 struct MockMessages {
-    
+
+    // MARK: - Sample Media Attachments for Mock Data
+    static let sampleMessageImage = MediaAttachment(
+        type: .image,
+        url: "https://picsum.photos/800/600?random=10",
+        thumbnailUrl: "https://picsum.photos/200/200?random=10",
+        width: 800,
+        height: 600,
+        duration: nil,
+        fileSize: 524288
+    )
+
+    static let sampleMessageVideo = MediaAttachment(
+        type: .video,
+        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        thumbnailUrl: "https://picsum.photos/800/600?random=11",
+        width: 1920,
+        height: 1080,
+        duration: 15.0,
+        fileSize: 10485760
+    )
+
     // MARK: - Mock Channels
     static let channels: [Channel] = [
         Channel(
@@ -61,6 +82,34 @@ struct MockMessages {
     
     // MARK: - Messages for General Channel
     static let generalChannelMessages: [Message] = [
+        // Message with image
+        Message(
+            id: UUID(),
+            content: "Check out the new office art installation! 🎨",
+            senderId: MockUsers.colleagues[3].id,
+            senderDisplayName: MockUsers.colleagues[3].displayName,
+            receiverId: nil,
+            channelId: channels[0].id,
+            messageType: .channel,
+            isRead: true,
+            attachments: [sampleMessageImage],
+            createdAt: Calendar.current.date(byAdding: .minute, value: -20, to: Date())!
+        ),
+
+        // Message with video
+        Message(
+            id: UUID(),
+            content: "Quick demo of the new feature we're launching next week!",
+            senderId: MockUsers.colleagues[0].id,
+            senderDisplayName: MockUsers.colleagues[0].displayName,
+            receiverId: nil,
+            channelId: channels[0].id,
+            messageType: .channel,
+            isRead: true,
+            attachments: [sampleMessageVideo],
+            createdAt: Calendar.current.date(byAdding: .minute, value: -18, to: Date())!
+        ),
+
         Message(
             id: UUID(),
             content: "Good morning everyone! Hope you all have a productive day ahead 😊",
@@ -70,6 +119,7 @@ struct MockMessages {
             channelId: channels[0].id, // general
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -15, to: Date())!
         ),
         
@@ -82,9 +132,10 @@ struct MockMessages {
             channelId: channels[0].id,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -12, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "🙌 Finally! I was about to bring my own espresso machine from home",
@@ -94,9 +145,10 @@ struct MockMessages {
             channelId: channels[0].id,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -10, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "Quick reminder: parking lot will be resurfaced this weekend. Please move your cars by Friday evening.",
@@ -106,9 +158,10 @@ struct MockMessages {
             channelId: channels[0].id,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -8, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "Does anyone have a phone charger I can borrow? Mine just died and I have calls all afternoon 😅",
@@ -118,9 +171,10 @@ struct MockMessages {
             channelId: channels[0].id,
             messageType: .channel,
             isRead: false,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -3, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "I have an extra USB-C charger at my desk. Come by whenever!",
@@ -130,6 +184,7 @@ struct MockMessages {
             channelId: channels[0].id,
             messageType: .channel,
             isRead: false,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -1, to: Date())!
         )
     ]
@@ -145,9 +200,10 @@ struct MockMessages {
             channelId: channels[1].id, // engineering
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "Nice work on the optimization! Response times are down by 35%",
@@ -157,9 +213,10 @@ struct MockMessages {
             channelId: channels[1].id,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "Anyone else seeing weird behavior with the new caching layer? Getting some intermittent 500s",
@@ -169,9 +226,10 @@ struct MockMessages {
             channelId: channels[1].id,
             messageType: .channel,
             isRead: false,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -30, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "I'm not seeing any errors on my end. Can you share the error logs?",
@@ -181,6 +239,7 @@ struct MockMessages {
             channelId: channels[1].id,
             messageType: .channel,
             isRead: false,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -25, to: Date())!
         )
     ]
@@ -196,9 +255,10 @@ struct MockMessages {
             channelId: nil,
             messageType: .direct,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -3, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "Sure! I'll take a look after lunch. Is it urgent?",
@@ -208,9 +268,10 @@ struct MockMessages {
             channelId: nil,
             messageType: .direct,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!
         ),
-        
+
         Message(
             id: UUID(),
             content: "Not super urgent, but would be great to get it in before the release on Friday. Thanks! 🙏",
@@ -220,6 +281,7 @@ struct MockMessages {
             channelId: nil,
             messageType: .direct,
             isRead: false,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -45, to: Date())!
         )
     ]
@@ -235,6 +297,7 @@ struct MockMessages {
             channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -3, to: Date())!
         ),
 
@@ -247,6 +310,7 @@ struct MockMessages {
             channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!
         ),
 
@@ -259,6 +323,7 @@ struct MockMessages {
             channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date())!
         ),
 
@@ -271,6 +336,7 @@ struct MockMessages {
             channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -45, to: Date())!
         ),
 
@@ -283,6 +349,7 @@ struct MockMessages {
             channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -30, to: Date())!
         ),
 
@@ -295,6 +362,7 @@ struct MockMessages {
             channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
             messageType: .channel,
             isRead: true,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -20, to: Date())!
         ),
 
@@ -307,6 +375,7 @@ struct MockMessages {
             channelId: UUID(uuidString: "12345678-1234-1234-1234-123456789abc")!,
             messageType: .channel,
             isRead: false,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .minute, value: -5, to: Date())!
         )
     ]
@@ -332,6 +401,7 @@ struct MockMessages {
                     channelId: channelId,
                     messageType: .channel,
                     isRead: true,
+                    attachments: nil,
                     createdAt: Calendar.current.date(byAdding: .hour, value: -4, to: Date())!
                 )
             ]
@@ -347,7 +417,7 @@ struct MockMessages {
         return allMessages.filter { !$0.isRead }.count
     }
     
-    static func sendMessage(content: String, to channelId: UUID) -> Message {
+    static func sendMessage(content: String, to channelId: UUID, attachments: [MediaAttachment]? = nil) -> Message {
         return Message(
             id: UUID(),
             content: content,
@@ -357,11 +427,12 @@ struct MockMessages {
             channelId: channelId,
             messageType: .channel,
             isRead: false,
+            attachments: attachments,
             createdAt: Date()
         )
     }
-    
-    static func sendDirectMessage(content: String, to receiverId: UUID) -> Message {
+
+    static func sendDirectMessage(content: String, to receiverId: UUID, attachments: [MediaAttachment]? = nil) -> Message {
         return Message(
             id: UUID(),
             content: content,
@@ -371,6 +442,7 @@ struct MockMessages {
             channelId: nil,
             messageType: .direct,
             isRead: false,
+            attachments: attachments,
             createdAt: Date()
         )
     }

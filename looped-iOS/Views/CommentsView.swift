@@ -188,6 +188,7 @@ struct CommentsView: View {
         isAnonymous: false,
         reactionCount: 188,
         userReaction: nil,
+        attachments: nil,
         createdAt: Date().addingTimeInterval(-86400),
         updatedAt: Date().addingTimeInterval(-86400)
     )

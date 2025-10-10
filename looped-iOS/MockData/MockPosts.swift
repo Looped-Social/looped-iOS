@@ -2,9 +2,120 @@ import Foundation
 
 struct MockPosts {
     
+    // MARK: - Sample Media Attachments for Mock Data
+    static let sampleImageAttachment1 = MediaAttachment(
+        type: .image,
+        url: "https://picsum.photos/800/600?random=1",
+        thumbnailUrl: "https://picsum.photos/200/200?random=1",
+        width: 800,
+        height: 600,
+        duration: nil,
+        fileSize: 524288
+    )
+
+    static let sampleImageAttachment2 = MediaAttachment(
+        type: .image,
+        url: "https://picsum.photos/800/600?random=2",
+        thumbnailUrl: "https://picsum.photos/200/200?random=2",
+        width: 800,
+        height: 600,
+        duration: nil,
+        fileSize: 612352
+    )
+
+    static let sampleImageAttachment3 = MediaAttachment(
+        type: .image,
+        url: "https://picsum.photos/800/600?random=3",
+        thumbnailUrl: "https://picsum.photos/200/200?random=3",
+        width: 800,
+        height: 600,
+        duration: nil,
+        fileSize: 498304
+    )
+
+    static let sampleImageAttachment4 = MediaAttachment(
+        type: .image,
+        url: "https://picsum.photos/800/600?random=4",
+        thumbnailUrl: "https://picsum.photos/200/200?random=4",
+        width: 800,
+        height: 600,
+        duration: nil,
+        fileSize: 487424
+    )
+
+    static let sampleVideoAttachment = MediaAttachment(
+        type: .video,
+        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+        thumbnailUrl: "https://picsum.photos/800/600?random=5",
+        width: 1920,
+        height: 1080,
+        duration: 596.5,
+        fileSize: 52428800
+    )
+
     // MARK: - Sample Posts for Feed
     static let feedPosts: [Post] = [
-        // Figma example post
+        // Post with single image
+        Post(
+            id: UUID(),
+            content: "Check out our new office space! The views are incredible 😍",
+            authorId: MockUsers.colleagues[1].id,
+            authorDisplayName: "Mike Johnson",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 45,
+            userReaction: .love,
+            attachments: [sampleImageAttachment1],
+            createdAt: Calendar.current.date(byAdding: .minute, value: -30, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .minute, value: -30, to: Date())!
+        ),
+
+        // Post with multiple images
+        Post(
+            id: UUID(),
+            content: "Team offsite was amazing! Here are some highlights from our weekend retreat.",
+            authorId: MockUsers.colleagues[2].id,
+            authorDisplayName: "Alex Thompson",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 67,
+            userReaction: .like,
+            attachments: [sampleImageAttachment1, sampleImageAttachment2, sampleImageAttachment3, sampleImageAttachment4],
+            createdAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date())!
+        ),
+
+        // Post with video
+        Post(
+            id: UUID(),
+            content: "Product demo from today's all-hands meeting 🎥",
+            authorId: MockUsers.colleagues[0].id,
+            authorDisplayName: "Sarah Chen",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 92,
+            userReaction: .wow,
+            attachments: [sampleVideoAttachment],
+            createdAt: Calendar.current.date(byAdding: .hour, value: -90, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .minute, value: -90, to: Date())!
+        ),
+
+        // Post with image only (no text)
+        Post(
+            id: UUID(),
+            content: "",
+            authorId: MockUsers.colleagues[3].id,
+            authorDisplayName: "Jenny Park",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 34,
+            userReaction: nil,
+            attachments: [sampleImageAttachment2],
+            createdAt: Calendar.current.date(byAdding: .hour, value: -3, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .hour, value: -3, to: Date())!
+        ),
+
+        // Figma example post (no attachments)
         Post(
             id: UUID(),
             content: "Excited to share my latest project, a redesign of our user onboarding flow. Focused on simplicity and clarity, resulting in a 20% increase in user retention. Check it out and let me know your thoughts! #uxdesign #productdesign",
@@ -14,6 +125,7 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 188,
             userReaction: .like,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         ),
@@ -26,6 +138,7 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 12,
             userReaction: .like,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!
         ),
@@ -39,10 +152,11 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 23,
             userReaction: .laugh,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -4, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .hour, value: -4, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "Hot take: our current sprint planning process is broken. We consistently overcommit and then stress about hitting deadlines. Maybe it's time to try something different?",
@@ -52,10 +166,11 @@ struct MockPosts {
             isAnonymous: true,
             reactionCount: 8,
             userReaction: nil,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -6, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .hour, value: -6, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "Celebrating our Q3 numbers! 📈 Revenue is up 34% from last quarter. Couldn't have done it without this amazing team. Pizza party in the break room at 3pm!",
@@ -65,10 +180,11 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 31,
             userReaction: .love,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -8, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .hour, value: -8, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "New design system is looking 🔥🔥🔥 Can't wait for everyone to see what we've been cooking up. The color palette alone is going to make our product stand out.",
@@ -78,10 +194,11 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 17,
             userReaction: .wow,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .hour, value: -12, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .hour, value: -12, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "Does anyone know why the parking garage elevator has been making that weird grinding noise? It's been going on for weeks and honestly it's starting to sound like a horror movie soundtrack 😱",
@@ -91,10 +208,11 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 5,
             userReaction: nil,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "Unpopular opinion: I actually like our new open office layout. Yes, it can get noisy, but the collaboration and spontaneous conversations are worth it. Maybe we just need better noise-canceling headphones?",
@@ -104,10 +222,11 @@ struct MockPosts {
             isAnonymous: true,
             reactionCount: 14,
             userReaction: .angry,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "Server migration completed successfully! 🎉 Zero downtime and everything is running 40% faster now. Thanks to the DevOps team for making this seamless.",
@@ -117,10 +236,11 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 28,
             userReaction: .like,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .day, value: -2, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .day, value: -2, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "Quick reminder: All-hands meeting tomorrow at 2pm in the main conference room. We'll be discussing the new product roadmap and Q4 goals. Pizza will be provided 🍕",
@@ -130,10 +250,11 @@ struct MockPosts {
             isAnonymous: false,
             reactionCount: 9,
             userReaction: nil,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())!
         ),
-        
+
         Post(
             id: UUID(),
             content: "Is it just me or has the office been really cold lately? I'm wearing a sweater in September. Can someone check the thermostat? My fingers are too cold to type properly 🥶",
@@ -143,6 +264,7 @@ struct MockPosts {
             isAnonymous: true,
             reactionCount: 19,
             userReaction: .sad,
+            attachments: nil,
             createdAt: Calendar.current.date(byAdding: .day, value: -4, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .day, value: -4, to: Date())!
         )
@@ -183,6 +305,7 @@ struct MockPosts {
                 isAnonymous: updatedPost.isAnonymous,
                 reactionCount: max(0, updatedPost.reactionCount - 1),
                 userReaction: nil,
+                attachments: updatedPost.attachments,
                 createdAt: updatedPost.createdAt,
                 updatedAt: Date()
             )
@@ -197,6 +320,7 @@ struct MockPosts {
                 isAnonymous: updatedPost.isAnonymous,
                 reactionCount: updatedPost.reactionCount + 1,
                 userReaction: reaction,
+                attachments: updatedPost.attachments,
                 createdAt: updatedPost.createdAt,
                 updatedAt: Date()
             )
@@ -204,7 +328,7 @@ struct MockPosts {
     }
     
     // MARK: - Create New Post (for testing create functionality)
-    static func createPost(content: String, isAnonymous: Bool = false) -> Post {
+    static func createPost(content: String, isAnonymous: Bool = false, attachments: [MediaAttachment]? = nil) -> Post {
         return Post(
             id: UUID(),
             content: content,
@@ -214,6 +338,7 @@ struct MockPosts {
             isAnonymous: isAnonymous,
             reactionCount: 0,
             userReaction: nil,
+            attachments: attachments,
             createdAt: Date(),
             updatedAt: Date()
         )
