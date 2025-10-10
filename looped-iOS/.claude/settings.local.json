@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//Users/wvmillen/looped/looped-iOS/looped-iOS.xcodeproj/**)"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}
