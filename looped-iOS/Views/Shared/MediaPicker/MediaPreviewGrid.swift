@@ -198,27 +198,47 @@ struct MediaGridLayout: View {
 struct PostedMediaGrid: View {
     let attachments: [MediaAttachment]
     let maxHeight: CGFloat
+    let onImageTap: (String) -> Void
+    let onVideoTap: (String) -> Void
 
-    init(attachments: [MediaAttachment], maxHeight: CGFloat = 350) {
+    init(attachments: [MediaAttachment], maxHeight: CGFloat = 350, onImageTap: @escaping (String) -> Void, onVideoTap: @escaping (String) -> Void) {
         self.attachments = attachments
         self.maxHeight = maxHeight
+        self.onImageTap = onImageTap
+        self.onVideoTap = onVideoTap
     }
 
     var body: some View {
-        if attachments.count == 1 {
-            // Single large display
-            SinglePostedMedia(attachment: attachments[0], maxHeight: maxHeight)
-        } else if attachments.count == 2 {
-            // Two side-by-side
-            HStack(spacing: 8) {
-                ForEach(attachments) { attachment in
-                    PostedMediaThumbnail(attachment: attachment)
+        Group {
+            if attachments.count == 1 {
+                // Single large display
+                SinglePostedMedia(
+                    attachment: attachments[0],
+                    maxHeight: maxHeight,
+                    onImageTap: onImageTap,
+                    onVideoTap: onVideoTap
+                )
+            } else if attachments.count == 2 {
+                // Two side-by-side
+                HStack(spacing: 8) {
+                    ForEach(attachments) { attachment in
+                        PostedMediaThumbnail(
+                            attachment: attachment,
+                            onImageTap: onImageTap,
+                            onVideoTap: onVideoTap
+                        )
+                    }
                 }
+                .frame(maxHeight: maxHeight * 0.7)
+            } else if attachments.count >= 3 {
+                // Grid layout
+                PostedMediaGridLayout(
+                    attachments: attachments,
+                    maxHeight: maxHeight,
+                    onImageTap: onImageTap,
+                    onVideoTap: onVideoTap
+                )
             }
-            .frame(maxHeight: maxHeight * 0.7)
-        } else if attachments.count >= 3 {
-            // Grid layout
-            PostedMediaGridLayout(attachments: attachments, maxHeight: maxHeight)
         }
     }
 }
@@ -227,13 +247,57 @@ struct PostedMediaGrid: View {
 struct SinglePostedMedia: View {
     let attachment: MediaAttachment
     let maxHeight: CGFloat
+    let onImageTap: (String) -> Void
+    let onVideoTap: (String) -> Void
 
     var body: some View {
         if attachment.type == .video {
-            // Video player
-            VideoPlayerView(url: attachment.url)
+            // Video thumbnail with play button
+            ZStack {
+                AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.loopedMutedBackground)
+                        .overlay(ProgressView())
+                }
                 .frame(maxHeight: maxHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                // Play button overlay
+                Circle()
+                    .fill(Color.black.opacity(0.6))
+                    .frame(width: 70, height: 70)
+                    .overlay(
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.white)
+                            .offset(x: 2)
+                    )
+
+                // Duration label if available
+                if let duration = attachment.duration {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Text(formatDuration(duration))
+                                .font(.loopedSmallText)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.black.opacity(0.7))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                .padding(12)
+                        }
+                    }
+                }
+            }
+            .onTapGesture {
+                onVideoTap(attachment.url)
+            }
         } else {
             // Image
             AsyncImage(url: URL(string: attachment.url)) { image in
@@ -249,6 +313,9 @@ struct SinglePostedMedia: View {
             }
             .frame(maxHeight: maxHeight)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .onTapGesture {
+                onImageTap(attachment.url)
+            }
         }
     }
 }
@@ -256,6 +323,8 @@ struct SinglePostedMedia: View {
 // MARK: - Posted Media Thumbnail
 struct PostedMediaThumbnail: View {
     let attachment: MediaAttachment
+    let onImageTap: (String) -> Void
+    let onVideoTap: (String) -> Void
 
     var body: some View {
         ZStack {
@@ -278,10 +347,18 @@ struct PostedMediaThumbnail: View {
                         Image(systemName: "play.fill")
                             .font(.system(size: 16))
                             .foregroundColor(.white)
+                            .offset(x: 1)
                     )
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture {
+            if attachment.type == .video {
+                onVideoTap(attachment.url)
+            } else {
+                onImageTap(attachment.url)
+            }
+        }
     }
 }
 
@@ -289,61 +366,63 @@ struct PostedMediaThumbnail: View {
 struct PostedMediaGridLayout: View {
     let attachments: [MediaAttachment]
     let maxHeight: CGFloat
+    let onImageTap: (String) -> Void
+    let onVideoTap: (String) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
             if attachments.count == 3 {
                 HStack(spacing: 8) {
-                    PostedMediaThumbnail(attachment: attachments[0])
-                    PostedMediaThumbnail(attachment: attachments[1])
+                    PostedMediaThumbnail(
+                        attachment: attachments[0],
+                        onImageTap: onImageTap,
+                        onVideoTap: onVideoTap
+                    )
+                    PostedMediaThumbnail(
+                        attachment: attachments[1],
+                        onImageTap: onImageTap,
+                        onVideoTap: onVideoTap
+                    )
                 }
                 .frame(height: maxHeight * 0.4)
 
-                PostedMediaThumbnail(attachment: attachments[2])
-                    .frame(height: maxHeight * 0.4)
+                PostedMediaThumbnail(
+                    attachment: attachments[2],
+                    onImageTap: onImageTap,
+                    onVideoTap: onVideoTap
+                )
+                .frame(height: maxHeight * 0.4)
             } else {
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
-                        PostedMediaThumbnail(attachment: attachments[0])
-                        PostedMediaThumbnail(attachment: attachments[1])
+                        PostedMediaThumbnail(
+                            attachment: attachments[0],
+                            onImageTap: onImageTap,
+                            onVideoTap: onVideoTap
+                        )
+                        PostedMediaThumbnail(
+                            attachment: attachments[1],
+                            onImageTap: onImageTap,
+                            onVideoTap: onVideoTap
+                        )
                     }
                     HStack(spacing: 8) {
-                        PostedMediaThumbnail(attachment: attachments[2])
+                        PostedMediaThumbnail(
+                            attachment: attachments[2],
+                            onImageTap: onImageTap,
+                            onVideoTap: onVideoTap
+                        )
                         if attachments.count > 3 {
-                            PostedMediaThumbnail(attachment: attachments[3])
+                            PostedMediaThumbnail(
+                                attachment: attachments[3],
+                                onImageTap: onImageTap,
+                                onVideoTap: onVideoTap
+                            )
                         }
                     }
                 }
                 .frame(maxHeight: maxHeight)
             }
-        }
-    }
-}
-
-// MARK: - Video Player View
-struct VideoPlayerView: View {
-    let url: String
-    @State private var player: AVPlayer?
-
-    var body: some View {
-        ZStack {
-            if let player = player {
-                VideoPlayer(player: player)
-            } else {
-                Rectangle()
-                    .fill(Color.loopedMutedBackground)
-                    .overlay(
-                        ProgressView()
-                    )
-            }
-        }
-        .onAppear {
-            if let videoURL = URL(string: url) {
-                player = AVPlayer(url: videoURL)
-            }
-        }
-        .onDisappear {
-            player?.pause()
         }
     }
 }

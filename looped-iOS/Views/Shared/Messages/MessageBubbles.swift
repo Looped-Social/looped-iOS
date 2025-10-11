@@ -5,6 +5,11 @@ struct SentMessageBubble: View {
     let message: Message
     let showTail: Bool
 
+    @State private var selectedImageUrl: String?
+    @State private var selectedVideoUrl: String?
+    @State private var showImageViewer = false
+    @State private var showVideoPlayer = false
+
     init(message: Message, showTail: Bool = true) {
         self.message = message
         self.showTail = showTail
@@ -19,9 +24,35 @@ struct SentMessageBubble: View {
                 if let attachments = message.attachments, !attachments.isEmpty {
                     ForEach(attachments) { attachment in
                         if attachment.type == .video {
-                            VideoPlayerView(url: attachment.url)
+                            // Video thumbnail with play button
+                            ZStack {
+                                AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Rectangle()
+                                        .fill(Color.loopedMutedBackground)
+                                        .overlay(ProgressView())
+                                }
                                 .frame(maxWidth: 220, maxHeight: 220)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                                // Play button overlay
+                                Circle()
+                                    .fill(Color.black.opacity(0.6))
+                                    .frame(width: 50, height: 50)
+                                    .overlay(
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(.white)
+                                            .offset(x: 2)
+                                    )
+                            }
+                            .onTapGesture {
+                                selectedVideoUrl = attachment.url
+                                showVideoPlayer = true
+                            }
                         } else {
                             AsyncImage(url: URL(string: attachment.url)) { image in
                                 image
@@ -34,6 +65,10 @@ struct SentMessageBubble: View {
                             }
                             .frame(maxWidth: 220, maxHeight: 220)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .onTapGesture {
+                                selectedImageUrl = attachment.url
+                                showImageViewer = true
+                            }
                         }
                     }
                 }
@@ -60,6 +95,16 @@ struct SentMessageBubble: View {
             }
         }
         .padding(.leading, 60)
+        .fullScreenCover(isPresented: $showImageViewer) {
+            if let imageUrl = selectedImageUrl {
+                FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+            }
+        }
+        .fullScreenCover(isPresented: $showVideoPlayer) {
+            if let videoUrl = selectedVideoUrl {
+                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
+            }
+        }
     }
 }
 
@@ -69,6 +114,11 @@ struct ReceivedMessageBubble: View {
     let showProfilePicture: Bool
     let showSenderName: Bool
     let showTail: Bool
+
+    @State private var selectedImageUrl: String?
+    @State private var selectedVideoUrl: String?
+    @State private var showImageViewer = false
+    @State private var showVideoPlayer = false
 
     init(message: Message, showProfilePicture: Bool, showSenderName: Bool, showTail: Bool = true) {
         self.message = message
@@ -112,9 +162,35 @@ struct ReceivedMessageBubble: View {
                     if let attachments = message.attachments, !attachments.isEmpty {
                         ForEach(attachments) { attachment in
                             if attachment.type == .video {
-                                VideoPlayerView(url: attachment.url)
+                                // Video thumbnail with play button
+                                ZStack {
+                                    AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { image in
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    } placeholder: {
+                                        Rectangle()
+                                            .fill(Color.loopedMutedBackground)
+                                            .overlay(ProgressView())
+                                    }
                                     .frame(maxWidth: 220, maxHeight: 220)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                                    // Play button overlay
+                                    Circle()
+                                        .fill(Color.black.opacity(0.6))
+                                        .frame(width: 50, height: 50)
+                                        .overlay(
+                                            Image(systemName: "play.fill")
+                                                .font(.system(size: 22))
+                                                .foregroundColor(.white)
+                                                .offset(x: 2)
+                                        )
+                                }
+                                .onTapGesture {
+                                    selectedVideoUrl = attachment.url
+                                    showVideoPlayer = true
+                                }
                             } else {
                                 AsyncImage(url: URL(string: attachment.url)) { image in
                                     image
@@ -127,6 +203,10 @@ struct ReceivedMessageBubble: View {
                                 }
                                 .frame(maxWidth: 220, maxHeight: 220)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .onTapGesture {
+                                    selectedImageUrl = attachment.url
+                                    showImageViewer = true
+                                }
                             }
                         }
                     }
@@ -157,6 +237,16 @@ struct ReceivedMessageBubble: View {
         }
         .padding(.trailing, 60)
         .padding(.leading, showProfilePicture ? 0 : 20)
+        .fullScreenCover(isPresented: $showImageViewer) {
+            if let imageUrl = selectedImageUrl {
+                FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+            }
+        }
+        .fullScreenCover(isPresented: $showVideoPlayer) {
+            if let videoUrl = selectedVideoUrl {
+                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
+            }
+        }
     }
 }
 
@@ -167,6 +257,8 @@ struct ImageMessageBubble: View {
     let showProfilePicture: Bool
     let showSenderName: Bool
     let isFromCurrentUser: Bool
+
+    @State private var showImageViewer = false
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -223,6 +315,9 @@ struct ImageMessageBubble: View {
                                         .foregroundColor(.loopedTextSecondary)
                                 )
                         }
+                        .onTapGesture {
+                            showImageViewer = true
+                        }
 
                         if !message.content.isEmpty {
                             Text(message.content)
@@ -251,6 +346,9 @@ struct ImageMessageBubble: View {
         }
         .padding(.leading, isFromCurrentUser ? 80 : (showProfilePicture ? 0 : 40))
         .padding(.trailing, isFromCurrentUser ? 0 : 80)
+        .fullScreenCover(isPresented: $showImageViewer) {
+            FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+        }
     }
 }
 

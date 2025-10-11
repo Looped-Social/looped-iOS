@@ -5,6 +5,10 @@ struct PostCard: View {
     @State private var isLiked = false
     @State private var isBookmarked = false
     @State private var showShareSheet = false
+    @State private var selectedImageUrl: String?
+    @State private var selectedVideoUrl: String?
+    @State private var showImageViewer = false
+    @State private var showVideoPlayer = false
     @EnvironmentObject var commentsManager: CommentsModalManager
 
     private var commentCount: Int {
@@ -109,8 +113,21 @@ struct PostCard: View {
 
             // Media attachments
             if let attachments = post.attachments, !attachments.isEmpty {
-                PostedMediaGrid(attachments: attachments, maxHeight: 350)
-                    .padding(.top, 8)
+                PostedMediaGrid(
+                    attachments: attachments,
+                    maxHeight: 350,
+                    onImageTap: { url in
+                        guard !url.isEmpty, URL(string: url) != nil else { return }
+                        selectedImageUrl = url
+                        showImageViewer = true
+                    },
+                    onVideoTap: { url in
+                        guard !url.isEmpty, URL(string: url) != nil else { return }
+                        selectedVideoUrl = url
+                        showVideoPlayer = true
+                    }
+                )
+                .padding(.top, 8)
             }
 
             // Hashtags (if any)
@@ -198,6 +215,56 @@ struct PostCard: View {
         .cornerRadius(0)
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [shareText])
+        }
+        .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
+            selectedImageUrl = nil
+        }) {
+            if let imageUrl = selectedImageUrl, !imageUrl.isEmpty, URL(string: imageUrl) != nil {
+                FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+            } else {
+                Color.black.ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 60))
+                                .foregroundColor(.white.opacity(0.5))
+                            Text("Invalid image URL")
+                                .foregroundColor(.white.opacity(0.7))
+                            Button("Close") {
+                                showImageViewer = false
+                            }
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.white.opacity(0.2))
+                            .cornerRadius(8)
+                        }
+                    )
+            }
+        }
+        .fullScreenCover(isPresented: $showVideoPlayer, onDismiss: {
+            selectedVideoUrl = nil
+        }) {
+            if let videoUrl = selectedVideoUrl, !videoUrl.isEmpty, URL(string: videoUrl) != nil {
+                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
+            } else {
+                Color.black.ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 60))
+                                .foregroundColor(.white.opacity(0.5))
+                            Text("Invalid video URL")
+                                .foregroundColor(.white.opacity(0.7))
+                            Button("Close") {
+                                showVideoPlayer = false
+                            }
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.white.opacity(0.2))
+                            .cornerRadius(8)
+                        }
+                    )
+            }
         }
     }
 
