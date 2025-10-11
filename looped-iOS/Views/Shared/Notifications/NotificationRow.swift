@@ -58,7 +58,6 @@ struct NotificationRow: View {
                 if let targetContent = notification.targetContent, !targetContent.isEmpty {
                     Text(targetContent)
                         .font(.loopedSmallText)
-                        .foregroundColor(.loopedTextSecondary)
                         .lineLimit(2)
                         .padding(.vertical, 6)
                         .padding(.horizontal, 12)
@@ -70,15 +69,17 @@ struct NotificationRow: View {
                 if notification.hasActionButton {
                     Button(action: {
                         onActionTapped?()
+                        
                     }) {
                         Text(notification.actionButtonText)
                             .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedTextPrimary)
+                            .foregroundColor(.loopedPrimary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Color.loopedPrimary)
-                            .cornerRadius(8)
+                            .background(Color.loopedBackground)
                     }
+                    .cornerRadius(10)
+                    .border(Color.loopedTextSecondary.opacity(0.3))
                     .padding(.top, 4)
                 }
             }
