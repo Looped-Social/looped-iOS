@@ -376,6 +376,19 @@ struct MockPosts {
     static func getPostsByUser(_ userId: UUID) -> [Post] {
         return feedPosts.filter { $0.authorId == userId }
     }
+
+    static func getLikedPosts() -> [Post] {
+        // Return posts that the current user has liked (simulate with posts that have userReaction)
+        return feedPosts.filter { $0.userReaction != nil }.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    static func getSavedPosts() -> [Post] {
+        // Return a mix of media posts and text-only posts for saved posts
+        let savedIndices = [0, 1, 2, 8, 9, 10, 11, 12, 13, 14, 15] // Mix of media and text posts
+        return savedIndices.compactMap { index in
+            index < feedPosts.count ? feedPosts[index] : nil
+        }.sorted { $0.createdAt > $1.createdAt }
+    }
     
     static func addReaction(to postId: UUID, reaction: ReactionType) -> Post? {
         // In real app, this would be handled by backend

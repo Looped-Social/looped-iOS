@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MenuContent: View {
+    let onMenuItemTap: (MenuDestination) -> Void
     @StateObject private var viewModel = ProfileViewModel()
     @State private var isAnonymous: Bool = false
 
@@ -68,12 +69,24 @@ struct MenuContent: View {
 
             // Menu Items
             VStack(alignment: .leading, spacing: 0) {
-                MenuItemRow(icon: "heart", title: "Liked", destination: AnyView(LikedPostsView()))
-                MenuItemRow(icon: "bookmark", title: "Saved", destination: AnyView(SavedPostsView()))
-                MenuItemRow(icon: "lock", title: "Privacy", destination: AnyView(PrivacyView()))
-                MenuItemRow(icon: "doc.text", title: "Drafts", destination: AnyView(DraftsView()))
-                MenuItemRow(icon: "chart.bar", title: "Analytics", destination: AnyView(AnalyticsView()))
-                MenuItemRow(icon: "questionmark.circle", title: "FAQ", destination: AnyView(FAQView()))
+                MenuItemButton(icon: "heart", title: "Liked") {
+                    onMenuItemTap(.liked)
+                }
+                MenuItemButton(icon: "bookmark", title: "Saved") {
+                    onMenuItemTap(.saved)
+                }
+                MenuItemButton(icon: "lock", title: "Privacy") {
+                    onMenuItemTap(.privacy)
+                }
+                MenuItemButton(icon: "doc.text", title: "Drafts") {
+                    onMenuItemTap(.drafts)
+                }
+                MenuItemButton(icon: "chart.bar", title: "Analytics") {
+                    onMenuItemTap(.analytics)
+                }
+                MenuItemButton(icon: "questionmark.circle", title: "FAQ") {
+                    onMenuItemTap(.faq)
+                }
             }
             .padding(.horizontal, 24)
 
@@ -82,7 +95,9 @@ struct MenuContent: View {
             // Settings Button (Bottom Right)
             HStack {
                 Spacer()
-                NavigationLink(destination: SettingsView()) {
+                Button(action: {
+                    onMenuItemTap(.settings)
+                }) {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 24))
                         .foregroundColor(.loopedTextSecondary)
@@ -100,14 +115,14 @@ struct MenuContent: View {
     }
 }
 
-// Menu Item Row Component
-struct MenuItemRow: View {
+// Menu Item Button Component
+struct MenuItemButton: View {
     let icon: String
     let title: String
-    let destination: AnyView
+    let action: () -> Void
 
     var body: some View {
-        NavigationLink(destination: destination) {
+        Button(action: action) {
             HStack(spacing: 16) {
                 Image(systemName: icon)
                     .font(.system(size: 20))
@@ -130,30 +145,135 @@ struct MenuItemRow: View {
     }
 }
 
-// Placeholder Views
+// MARK: - Liked Posts View
 struct LikedPostsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var commentsManager = CommentsModalManager()
+
+    var likedPosts: [Post] {
+        MockPosts.getLikedPosts()
+    }
+
     var body: some View {
-        VStack {
-            Text("Liked Posts")
-                .font(.loopedHeadingMedium)
-                .foregroundColor(.loopedTextPrimary)
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.loopedTextSecondary)
+                }
+
+                Spacer()
+
+                Text("Liked Posts")
+                    .font(.loopedHeadingMedium)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Spacer()
+
+                // Invisible spacer for centering
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.clear)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 15)
+            .padding(.bottom, 12)
+
+            // Posts List
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if likedPosts.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "heart")
+                                .font(.system(size: 48))
+                                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+                            Text("No liked posts yet")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(.top, 60)
+                    } else {
+                        ForEach(likedPosts) { post in
+                            PostCard(post: post)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 16)
+                        }
+                    }
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(true)
+        .environmentObject(commentsManager)
     }
 }
 
+// MARK: - Saved Posts View
 struct SavedPostsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var commentsManager = CommentsModalManager()
+
+    var savedPosts: [Post] {
+        MockPosts.getSavedPosts()
+    }
+
     var body: some View {
-        VStack {
-            Text("Saved Posts")
-                .font(.loopedHeadingMedium)
-                .foregroundColor(.loopedTextPrimary)
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.loopedTextSecondary)
+                }
+
+                Spacer()
+
+                Text("Saved Posts")
+                    .font(.loopedHeadingMedium)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Spacer()
+
+                // Invisible spacer for centering
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.clear)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 15)
+            .padding(.bottom, 12)
+
+            // Posts List
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if savedPosts.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "bookmark")
+                                .font(.system(size: 48))
+                                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+                            Text("No saved posts yet")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(.top, 60)
+                    } else {
+                        ForEach(savedPosts) { post in
+                            PostCard(post: post)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 16)
+                        }
+                    }
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(true)
+        .environmentObject(commentsManager)
     }
 }
 
@@ -210,6 +330,8 @@ struct FAQView: View {
 }
 
 #Preview {
-    MenuContent()
-        .background(Color.loopedBackground)
+    MenuContent(onMenuItemTap: { destination in
+        print("Tapped: \(destination)")
+    })
+    .background(Color.loopedBackground)
 }

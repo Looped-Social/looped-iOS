@@ -7,9 +7,31 @@
 
 import SwiftUI
 
+enum MenuDestination: Identifiable {
+    case liked
+    case saved
+    case privacy
+    case drafts
+    case analytics
+    case faq
+    case settings
+
+    var id: String {
+        switch self {
+        case .liked: return "liked"
+        case .saved: return "saved"
+        case .privacy: return "privacy"
+        case .drafts: return "drafts"
+        case .analytics: return "analytics"
+        case .faq: return "faq"
+        case .settings: return "settings"
+        }
+    }
+}
+
 struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
-    
+
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
@@ -29,6 +51,7 @@ struct MainTabView: View {
     @State private var showingChat = false
     @State private var selectedConversation: Conversation?
     @State private var selectedChannel: Channel?
+    @State private var menuDestination: MenuDestination?
     @StateObject private var feedViewModel = FeedViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
     
@@ -41,10 +64,18 @@ struct MainTabView: View {
                         Spacer()
 
                         // Menu content constrained to 80% width with full background
-                        MenuContent()
-                            .frame(width: geometry.size.width * 0.8)
-                            .background(Color.loopedBackground.ignoresSafeArea(.all))
-                            .contentShape(Rectangle())
+                        MenuContent(onMenuItemTap: { destination in
+                            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                isRightMenuOpen = false
+                            }
+                            // Small delay to let drawer close before navigation
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                menuDestination = destination
+                            }
+                        })
+                        .frame(width: geometry.size.width * 0.8)
+                        .background(Color.loopedBackground.ignoresSafeArea(.all))
+                        .contentShape(Rectangle())
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.loopedBackground.ignoresSafeArea(.all))
@@ -196,6 +227,29 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showNewMessage) {
             NewMessageView()
+        }
+        .sheet(item: $menuDestination) { destination in
+            destinationView(for: destination)
+        }
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: MenuDestination) -> some View {
+        switch destination {
+        case .liked:
+            LikedPostsView()
+        case .saved:
+            SavedPostsView()
+        case .privacy:
+            PrivacyView()
+        case .drafts:
+            DraftsView()
+        case .analytics:
+            AnalyticsView()
+        case .faq:
+            FAQView()
+        case .settings:
+            SettingsView()
         }
     }
     

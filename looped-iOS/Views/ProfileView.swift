@@ -9,6 +9,7 @@ enum ProfileTab: String, CaseIterable {
 struct ProfileView: View {
     @State private var selectedTab: ProfileTab = .posts
     @StateObject private var viewModel = ProfileViewModel()
+    @StateObject private var commentsManager = CommentsModalManager()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,10 +26,14 @@ struct ProfileView: View {
             ProfileTabsView(selectedTab: $selectedTab)
 
             // Content based on selected tab
-            Spacer()
+            ProfileContentView(
+                selectedTab: selectedTab,
+                viewModel: viewModel
+            )
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .environmentObject(commentsManager)
         .task {
             await viewModel.loadUserProfile()
         }
@@ -222,6 +227,77 @@ struct ProfileTabsView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .horizontal))
+    }
+}
+
+struct ProfileContentView: View {
+    let selectedTab: ProfileTab
+    @ObservedObject var viewModel: ProfileViewModel
+    @EnvironmentObject var commentsManager: CommentsModalManager
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                switch selectedTab {
+                case .posts:
+                    PostsList(posts: viewModel.userPosts)
+                case .replies:
+                    RepliesPlaceholderView()
+                case .saved:
+                    PostsList(posts: MockPosts.getSavedPosts())
+                }
+            }
+        }
+        .background(Color.loopedBackground)
+    }
+}
+
+struct PostsList: View {
+    let posts: [Post]
+    @EnvironmentObject var commentsManager: CommentsModalManager
+
+    var body: some View {
+        if posts.isEmpty {
+            EmptyPostsListView()
+                .padding(.top, 60)
+        } else {
+            ForEach(posts) { post in
+                PostCard(post: post)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+            }
+        }
+    }
+}
+
+struct EmptyPostsListView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "text.bubble")
+                .font(.system(size: 48))
+                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+            Text("No posts yet")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct RepliesPlaceholderView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 48))
+                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+            Text("Replies coming soon")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.loopedBackground)
     }
 }
 
