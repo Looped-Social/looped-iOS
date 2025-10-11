@@ -13,17 +13,17 @@ struct ProfileView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Profile Header
-            ProfileHeaderView()
-            
+            ProfileHeaderView(viewModel: viewModel)
+
             // Stats Section
             ProfileStatsView()
-            
+
             // Action Buttons
-            ProfileActionButtons()
-            
+            ProfileActionButtons(viewModel: viewModel)
+
             // Tab Navigation
             ProfileTabsView(selectedTab: $selectedTab)
-            
+
             // Content based on selected tab
             Spacer()
         }
@@ -36,11 +36,13 @@ struct ProfileView: View {
 }
 
 struct ProfileHeaderView: View {
+    @ObservedObject var viewModel: ProfileViewModel
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Profile Avatar with Name and Handle beside it
             HStack(spacing: 16) {
-                AsyncImage(url: URL(string: "https://via.placeholder.com/80")) { image in
+                AsyncImage(url: URL(string: viewModel.user?.profileImageURL ?? "")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -48,36 +50,37 @@ struct ProfileHeaderView: View {
                     Circle()
                         .fill(Color.loopedTextSecondary.opacity(0.1))
                         .overlay(
-                            Image("profile-icon")
-                                .renderingMode(.template)
+                            Image(systemName: "person.fill")
                                 .font(.system(size: 32))
                                 .foregroundColor(.loopedTextSecondary)
                         )
                 }
                 .frame(width: 80, height: 80)
                 .clipShape(Circle())
-                
+
                 // Name and Handle beside profile picture
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Billy Bob")
+                    Text(viewModel.user?.displayName ?? "")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.loopedTextPrimary)
-                    
-                    Text("@billy.bob24")
+
+                    Text("@\(viewModel.user?.handle ?? "")")
                         .font(.subheadline)
                         .foregroundColor(.loopedTextSecondary)
                 }
-                
+
                 Spacer()
             }
-            
+
             // Bio - left aligned
-            Text("Hello, i am Billy Bob. Always looking for new connections. Feel free to reach out!")
-                .font(.body)
-                .foregroundColor(.loopedTextPrimary)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if let bio = viewModel.user?.bio {
+                Text(bio)
+                    .font(.body)
+                    .foregroundColor(.loopedTextPrimary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 20)
@@ -151,11 +154,11 @@ struct ProfileStatsView: View {
 }
 
 struct ProfileActionButtons: View {
+    @ObservedObject var viewModel: ProfileViewModel
+
     var body: some View {
         HStack(spacing: 64) {
-            Button(action: {
-                // TODO: Handle edit profile
-            }) {
+            NavigationLink(destination: EditProfileView(viewModel: viewModel)) {
                 Text("Edit Profile")
                     .font(.subheadline)
                     .fontWeight(.medium)

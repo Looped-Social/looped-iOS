@@ -26,7 +26,7 @@ protocol MessageServiceProtocol {
 
 protocol UserServiceProtocol {
     func getCurrentUser() async throws -> User
-    func updateProfile(displayName: String?, isAnonymous: Bool) async throws -> User
+    func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
 }
 

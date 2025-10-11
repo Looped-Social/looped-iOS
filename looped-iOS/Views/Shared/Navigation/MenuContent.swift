@@ -30,6 +30,7 @@ struct MenuContent: View {
                     Task {
                         await viewModel.updateProfile(
                             displayName: viewModel.user?.displayName,
+                            bio: viewModel.user?.bio,
                             isAnonymous: isAnonymous
                         )
                     }

@@ -11,8 +11,8 @@ class UserService: UserServiceProtocol {
         return try await apiClient.get("/users/me")
     }
     
-    func updateProfile(displayName: String?, isAnonymous: Bool) async throws -> User {
-        let request = UpdateProfileRequest(displayName: displayName, isAnonymous: isAnonymous)
+    func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User {
+        let request = UpdateProfileRequest(displayName: displayName, bio: bio, isAnonymous: isAnonymous)
         return try await apiClient.put("/users/me", body: request)
     }
     
@@ -23,5 +23,6 @@ class UserService: UserServiceProtocol {
 
 private struct UpdateProfileRequest: Codable {
     let displayName: String?
+    let bio: String?
     let isAnonymous: Bool
 }

@@ -121,16 +121,19 @@ class MockUserService: UserServiceProtocol {
         return MockUsers.currentUser
     }
     
-    func updateProfile(displayName: String?, isAnonymous: Bool) async throws -> User {
+    func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User {
         // Simulate API delay
         try await Task.sleep(for: .seconds(MockConfig.mockDelay))
-        
+
         // Create updated user with new values
         return User(
             id: MockUsers.currentUser.id,
             username: MockUsers.currentUser.username,
             displayName: displayName,
+            handle: MockUsers.currentUser.handle,
             company: MockUsers.currentUser.company,
+            bio: bio,
+            profileImageURL: MockUsers.currentUser.profileImageURL,
             isVerified: MockUsers.currentUser.isVerified,
             isAnonymous: isAnonymous,
             createdAt: MockUsers.currentUser.createdAt,

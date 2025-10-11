@@ -37,9 +37,10 @@ class ProfileViewModel: ObservableObject {
         isLoading = false
     }
     
-    func updateProfile(displayName: String?, isAnonymous: Bool) async {
+    func updateProfile(displayName: String?, bio: String? = nil, isAnonymous: Bool) async {
         do {
-            user = try await userService.updateProfile(displayName: displayName, isAnonymous: isAnonymous)
+            user = try await userService.updateProfile(displayName: displayName, bio: bio, isAnonymous: isAnonymous)
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
