@@ -6,10 +6,15 @@ struct PostCard: View {
     @State private var isBookmarked = false
     @State private var showShareSheet = false
     @State private var selectedImageUrl: String?
+    @State private var selectedImageIndex: Int = 0
     @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
     @State private var showVideoPlayer = false
     @EnvironmentObject var commentsManager: CommentsModalManager
+
+    private var imageUrls: [String] {
+        post.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
+    }
 
     private var commentCount: Int {
         MockComments.getCommentCount(for: post.id)
@@ -118,6 +123,10 @@ struct PostCard: View {
                     maxHeight: 350,
                     onImageTap: { url in
                         guard !url.isEmpty, URL(string: url) != nil else { return }
+                        // Find the index of the tapped image among all images
+                        if let index = imageUrls.firstIndex(of: url) {
+                            selectedImageIndex = index
+                        }
                         selectedImageUrl = url
                         showImageViewer = true
                     },
@@ -219,8 +228,12 @@ struct PostCard: View {
         .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
             selectedImageUrl = nil
         }) {
-            if let imageUrl = selectedImageUrl, !imageUrl.isEmpty, URL(string: imageUrl) != nil {
-                FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+            if !imageUrls.isEmpty {
+                FullScreenImageViewer(
+                    imageUrls: imageUrls,
+                    initialIndex: selectedImageIndex,
+                    isPresented: $showImageViewer
+                )
             } else {
                 Color.black.ignoresSafeArea()
                     .overlay(
@@ -228,7 +241,7 @@ struct PostCard: View {
                             Image(systemName: "exclamationmark.triangle")
                                 .font(.system(size: 60))
                                 .foregroundColor(.white.opacity(0.5))
-                            Text("Invalid image URL")
+                            Text("No images available")
                                 .foregroundColor(.white.opacity(0.7))
                             Button("Close") {
                                 showImageViewer = false

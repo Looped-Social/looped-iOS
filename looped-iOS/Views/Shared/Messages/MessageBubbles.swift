@@ -6,6 +6,7 @@ struct SentMessageBubble: View {
     let showTail: Bool
 
     @State private var selectedImageUrl: String?
+    @State private var selectedImageIndex: Int = 0
     @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
     @State private var showVideoPlayer = false
@@ -13,6 +14,10 @@ struct SentMessageBubble: View {
     init(message: Message, showTail: Bool = true) {
         self.message = message
         self.showTail = showTail
+    }
+
+    private var imageUrls: [String] {
+        message.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
     }
 
     var body: some View {
@@ -66,6 +71,10 @@ struct SentMessageBubble: View {
                             .frame(maxWidth: 220, maxHeight: 220)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .onTapGesture {
+                                // Find the index of the tapped image among all images
+                                if let index = imageUrls.firstIndex(of: attachment.url) {
+                                    selectedImageIndex = index
+                                }
                                 selectedImageUrl = attachment.url
                                 showImageViewer = true
                             }
@@ -96,8 +105,12 @@ struct SentMessageBubble: View {
         }
         .padding(.leading, 60)
         .fullScreenCover(isPresented: $showImageViewer) {
-            if let imageUrl = selectedImageUrl {
-                FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+            if !imageUrls.isEmpty {
+                FullScreenImageViewer(
+                    imageUrls: imageUrls,
+                    initialIndex: selectedImageIndex,
+                    isPresented: $showImageViewer
+                )
             }
         }
         .fullScreenCover(isPresented: $showVideoPlayer) {
@@ -116,6 +129,7 @@ struct ReceivedMessageBubble: View {
     let showTail: Bool
 
     @State private var selectedImageUrl: String?
+    @State private var selectedImageIndex: Int = 0
     @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
     @State private var showVideoPlayer = false
@@ -125,6 +139,10 @@ struct ReceivedMessageBubble: View {
         self.showProfilePicture = showProfilePicture
         self.showSenderName = showSenderName
         self.showTail = showTail
+    }
+
+    private var imageUrls: [String] {
+        message.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
     }
 
     var body: some View {
@@ -204,6 +222,10 @@ struct ReceivedMessageBubble: View {
                                 .frame(maxWidth: 220, maxHeight: 220)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .onTapGesture {
+                                    // Find the index of the tapped image among all images
+                                    if let index = imageUrls.firstIndex(of: attachment.url) {
+                                        selectedImageIndex = index
+                                    }
                                     selectedImageUrl = attachment.url
                                     showImageViewer = true
                                 }
@@ -238,8 +260,12 @@ struct ReceivedMessageBubble: View {
         .padding(.trailing, 60)
         .padding(.leading, showProfilePicture ? 0 : 20)
         .fullScreenCover(isPresented: $showImageViewer) {
-            if let imageUrl = selectedImageUrl {
-                FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+            if !imageUrls.isEmpty {
+                FullScreenImageViewer(
+                    imageUrls: imageUrls,
+                    initialIndex: selectedImageIndex,
+                    isPresented: $showImageViewer
+                )
             }
         }
         .fullScreenCover(isPresented: $showVideoPlayer) {
@@ -347,7 +373,11 @@ struct ImageMessageBubble: View {
         .padding(.leading, isFromCurrentUser ? 80 : (showProfilePicture ? 0 : 40))
         .padding(.trailing, isFromCurrentUser ? 0 : 80)
         .fullScreenCover(isPresented: $showImageViewer) {
-            FullScreenImageViewer(imageUrl: imageUrl, isPresented: $showImageViewer)
+            FullScreenImageViewer(
+                imageUrls: [imageUrl],
+                initialIndex: 0,
+                isPresented: $showImageViewer
+            )
         }
     }
 }
