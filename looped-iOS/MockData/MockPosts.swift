@@ -53,6 +53,36 @@ struct MockPosts {
         fileSize: 52428800
     )
 
+    static let sampleVideoAttachment2 = MediaAttachment(
+        type: .video,
+        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+        thumbnailUrl: "https://picsum.photos/800/600?random=6",
+        width: 1280,
+        height: 720,
+        duration: 653.8,
+        fileSize: 67108864
+    )
+
+    static let sampleVideoAttachment3 = MediaAttachment(
+        type: .video,
+        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        thumbnailUrl: "https://picsum.photos/800/600?random=7",
+        width: 1920,
+        height: 1080,
+        duration: 15.0,
+        fileSize: 5242880
+    )
+
+    static let sampleVideoAttachment4 = MediaAttachment(
+        type: .video,
+        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+        thumbnailUrl: "https://picsum.photos/800/600?random=8",
+        width: 1920,
+        height: 818,
+        duration: 888.0,
+        fileSize: 73400320
+    )
+
     // MARK: - Sample Posts for Feed
     static let feedPosts: [Post] = [
         // Post with single image
@@ -96,8 +126,68 @@ struct MockPosts {
             reactionCount: 92,
             userReaction: .wow,
             attachments: [sampleVideoAttachment],
-            createdAt: Calendar.current.date(byAdding: .hour, value: -90, to: Date())!,
-            updatedAt: Calendar.current.date(byAdding: .minute, value: -90, to: Date())!
+            createdAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .hour, value: -2, to: Date())!
+        ),
+
+        // Post with short video
+        Post(
+            id: UUID(),
+            content: "Quick office tour for our new hires! Welcome to the team 🎉",
+            authorId: MockUsers.colleagues[2].id,
+            authorDisplayName: "Alex Thompson",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 54,
+            userReaction: .like,
+            attachments: [sampleVideoAttachment3],
+            createdAt: Calendar.current.date(byAdding: .hour, value: -5, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .hour, value: -5, to: Date())!
+        ),
+
+        // Post with longer video
+        Post(
+            id: UUID(),
+            content: "Recorded our entire brainstorming session from yesterday. Some really interesting ideas came up around the 8-minute mark!",
+            authorId: MockUsers.colleagues[4].id,
+            authorDisplayName: "David Lee",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 38,
+            userReaction: nil,
+            attachments: [sampleVideoAttachment2],
+            createdAt: Calendar.current.date(byAdding: .hour, value: -10, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .hour, value: -10, to: Date())!
+        ),
+
+        // Post with video - no text
+        Post(
+            id: UUID(),
+            content: "",
+            authorId: MockUsers.colleagues[1].id,
+            authorDisplayName: "Mike Johnson",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 76,
+            userReaction: .wow,
+            attachments: [sampleVideoAttachment4],
+            createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        ),
+
+        // Post with mixed media (images + video)
+        Post(
+            id: UUID(),
+            content: "Company retreat recap! Swipe through for photos and the closing ceremony video 🏔️",
+            authorId: MockUsers.colleagues[3].id,
+            authorDisplayName: "Jenny Park",
+            company: "Anthropic",
+            isAnonymous: false,
+            reactionCount: 89,
+            userReaction: .love,
+            attachments: [sampleImageAttachment1, sampleImageAttachment3, sampleVideoAttachment3, sampleImageAttachment4],
+            createdAt: Calendar.current.date(byAdding: .hour, value: -15, to: Date())!,
+            updatedAt: Calendar.current.date(byAdding: .hour, value: -15, to: Date())!
         ),
 
         // Post with image only (no text)
