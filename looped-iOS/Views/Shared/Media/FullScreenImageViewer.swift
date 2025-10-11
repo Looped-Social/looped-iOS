@@ -152,28 +152,38 @@ struct SingleImageView: View {
                             }
                     )
                     .gesture(
-                        DragGesture()
+                        DragGesture(minimumDistance: 20)
                             .onChanged { value in
-                                // Only allow panning when zoomed in
                                 if scale > 1.0 {
+                                    // When zoomed in, allow panning in all directions
                                     offset = CGSize(
                                         width: lastOffset.width + value.translation.width,
                                         height: lastOffset.height + value.translation.height
                                     )
                                 } else {
-                                    // When not zoomed, use drag to dismiss
-                                    offset = CGSize(
-                                        width: value.translation.width * 0.3,
-                                        height: value.translation.height
-                                    )
+                                    // When not zoomed, only handle vertical drags for dismiss
+                                    // Let horizontal drags pass through to TabView for swiping
+                                    let horizontalAmount = abs(value.translation.width)
+                                    let verticalAmount = abs(value.translation.height)
+
+                                    // Only handle if this is primarily a vertical drag
+                                    if verticalAmount > horizontalAmount {
+                                        offset = CGSize(
+                                            width: 0,
+                                            height: value.translation.height
+                                        )
+                                    }
                                 }
                             }
                             .onEnded { value in
                                 if scale > 1.0 {
                                     lastOffset = offset
                                 } else {
-                                    // Dismiss if dragged down enough
-                                    if value.translation.height > 100 {
+                                    let horizontalAmount = abs(value.translation.width)
+                                    let verticalAmount = abs(value.translation.height)
+
+                                    // Only dismiss if this was primarily a vertical drag
+                                    if verticalAmount > horizontalAmount && value.translation.height > 100 {
                                         isPresented = false
                                     } else {
                                         withAnimation(.spring()) {
