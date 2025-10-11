@@ -6,7 +6,9 @@ struct EditProfileView: View {
     @ObservedObject var viewModel: ProfileViewModel
 
     @State private var displayName: String = ""
+    @State private var handle: String = ""
     @State private var bio: String = ""
+    @State private var showFollowerCount: Bool = true
     @State private var selectedImage: PhotosPickerItem?
     @State private var profileImage: Image?
     @State private var isSaving = false
@@ -137,56 +139,88 @@ struct EditProfileView: View {
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
 
-                        // Handle (read-only)
+                        // Handle (editable)
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Handle")
                                 .font(.loopedSubBodyMedium)
                                 .foregroundColor(.loopedTextPrimary)
 
-                            HStack {
-                                Text("@\(viewModel.user?.handle ?? "")")
+                            HStack(spacing: 0) {
+                                Text("@")
                                     .font(.loopedBody)
                                     .foregroundColor(.loopedTextSecondary)
-                                    .padding(.horizontal, 16)
+                                    .padding(.leading, 16)
+
+                                TextField("username", text: $handle)
+                                    .font(.loopedBody)
+                                    .padding(.horizontal, 4)
                                     .padding(.vertical, 14)
+                                    .autocapitalization(.none)
+                                    .autocorrectionDisabled()
 
                                 Spacer()
                             }
-                            .background(Color.loopedTextSecondary.opacity(0.05))
+                            .background(Color.white)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
                                     .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
                             )
                             .cornerRadius(12)
 
-                            Text("Your handle cannot be changed")
+                            Text("Your unique identifier")
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
                         }
 
-                        // Company & Job Title (read-only)
+                        // Show Follower Count Toggle
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Show Follower Count")
+                                    .font(.loopedBodyMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+
+                                Text("Display your follower count on your profile")
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+
+                            Spacer()
+
+                            Toggle("", isOn: $showFollowerCount)
+                                .toggleStyle(SwitchToggleStyle(tint: Color.loopedPrimary))
+                        }
+                        .padding(.vertical, 12)
+
+                        // Company & Job Title (navigate to settings)
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Company")
                                 .font(.loopedSubBodyMedium)
                                 .foregroundColor(.loopedTextPrimary)
 
-                            HStack {
-                                Text(viewModel.user?.company ?? "")
-                                    .font(.loopedBody)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
+                            NavigationLink(destination: SettingsView()) {
+                                HStack {
+                                    Text(viewModel.user?.company ?? "")
+                                        .font(.loopedBody)
+                                        .foregroundColor(.loopedTextSecondary)
 
-                                Spacer()
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                                .background(Color.loopedTextSecondary.opacity(0.05))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                                )
+                                .cornerRadius(12)
                             }
-                            .background(Color.loopedTextSecondary.opacity(0.05))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .cornerRadius(12)
+                            .buttonStyle(PlainButtonStyle())
 
-                            Text("To change your company, contact support")
+                            Text("Go to Settings to verify a different company")
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
                         }
@@ -228,7 +262,7 @@ struct EditProfileView: View {
                     // Save Button
                     PrimaryButton(
                         title: "Save Changes",
-                        isEnabled: !displayName.isEmpty && bio.count <= 150,
+                        isEnabled: !displayName.isEmpty && !handle.isEmpty && bio.count <= 150,
                         isLoading: isSaving
                     ) {
                         Task {
@@ -246,7 +280,10 @@ struct EditProfileView: View {
             .onAppear {
                 // Initialize with current user data
                 displayName = viewModel.user?.displayName ?? ""
+                handle = viewModel.user?.handle ?? ""
                 bio = viewModel.user?.bio ?? ""
+                // TODO: Load showFollowerCount from user preferences
+                showFollowerCount = true
             }
         }
     }
@@ -255,11 +292,15 @@ struct EditProfileView: View {
         isSaving = true
         showSuccessMessage = false
 
+        // TODO: Update ProfileViewModel.updateProfile to accept handle and showFollowerCount
         await viewModel.updateProfile(
             displayName: displayName.isEmpty ? nil : displayName,
             bio: bio.isEmpty ? nil : bio,
             isAnonymous: viewModel.user?.isAnonymous ?? false
         )
+
+        // TODO: Save handle and showFollowerCount preferences
+        // For now, these would need to be added to the updateProfile method
 
         isSaving = false
 
