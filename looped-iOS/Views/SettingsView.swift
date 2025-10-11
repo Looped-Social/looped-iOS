@@ -1,5 +1,12 @@
 import SwiftUI
 
+// MARK: - Icon Source Enum
+
+enum IconSource {
+    case system(String)  // SF Symbol
+    case asset(String)   // Asset from Assets.xcassets
+}
+
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var authViewModel = AuthViewModel()
@@ -20,18 +27,18 @@ struct SettingsView: View {
                 VStack(spacing: 0) {
                     // Account Section
                     SettingsSection(title: "Account") {
-                        SettingsRow(icon: "person.circle", title: "User settings")
-                        SettingsRow(icon: "shield", title: "Security")
-                        SettingsRow(icon: "bell", title: "Notifications")
-                        SettingsRow(icon: "lock", title: "Privacy and Data Protection")
+                        SettingsRow(icon: .asset("user-settings-icon"), title: "User settings")
+                        SettingsRow(icon: .asset("shield-icon"), title: "Security")
+                        SettingsRow(icon: .asset("bell-icon"), title: "Notifications")
+                        SettingsRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
                     }
 
                     // Support & About Section
                     SettingsSection(title: "Support & About") {
-                        SettingsRow(icon: "doc.text", title: "Looped Rules")
-                        SettingsRow(icon: "questionmark.circle", title: "Help & Support")
-                        SettingsRow(icon: "info.circle", title: "Terms and Policies")
-                        SettingsRow(icon: "doc.on.clipboard", title: "User Agreement")
+                        SettingsRow(icon: .asset("rules-icon"), title: "Looped Rules")
+                        SettingsRow(icon: .asset("help-icon"), title: "Help & Support")
+                        SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Terms and Policies")
+                        SettingsRow(icon: .asset("user-agreement-icon"), title: "User Agreement")
                     }
 
                     // Content Interactions Section
@@ -43,33 +50,32 @@ struct SettingsView: View {
                     // Connected Accounts Section
                     SettingsSection(title: "Connected Accounts") {
                         ConnectedAccountRow(
-                            icon: "google-logo",
+                            icon: .asset("google-logo"),
                             title: "Google",
                             buttonText: "Connect",
-                            buttonColor: .loopedPrimary,
+                            buttonColor: .loopedSecondary,
                             isConnected: false
                         )
                         ConnectedAccountRow(
-                            icon: "",
+                            icon: .asset("apple-logo"),
                             title: "Apple",
                             buttonText: "Disconnect",
-                            buttonColor: .loopedPrimary,
-                            isConnected: true,
-                            isApple: true
+                            buttonColor: .loopedSecondary,
+                            isConnected: true
                         )
                     }
 
                     // Safety Section
                     SettingsSection(title: "Safety") {
                         SettingsToggleRow(
-                            icon: "person.2",
+                            icon: .asset("follower-count-icon"),
                             title: "Show Follower Count",
                             isOn: $showFollowerCount
                         )
-                        SettingsRow(icon: "gear", title: "Messaging Permissions")
-                        SettingsRow(icon: "person.2.slash", title: "Manage Blocked Accounts\nand Communities")
+                        SettingsRow(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
+                        SettingsRow(icon: .asset("blocked-icon"), title: "Manage Blocked Accounts\nand Communities")
                         SettingsToggleRow(
-                            icon: "theatermasks",
+                            icon: .system("theatermasks"),
                             title: "Anonymous Mode",
                             isOn: $anonymousMode
                         )
@@ -77,25 +83,25 @@ struct SettingsView: View {
 
                     // Actions Section
                     SettingsSection(title: "Actions") {
-                        SettingsRow(icon: "flag", title: "Report a problem")
-                        SettingsRow(icon: "building.2", title: "Change Workplace/Position")
-                        SettingsRow(icon: "trash", title: "Delete Account")
-                        SettingsRow(icon: "arrow.right.square", title: "Log out") {
+                        SettingsRow(icon: .system("flag"), title: "Report a problem")
+                        SettingsRow(icon: .system("building.2"), title: "Change Workplace/Position")
+                        SettingsRow(icon: .system("trash"), title: "Delete Account")
+                        SettingsRow(icon: .asset("log-out-icon"), title: "Log out") {
                             authViewModel.signOut()
                         }
                     }
 
                     // Language Section
                     SettingsSection(title: "Language") {
-                        SettingsRow(icon: "globe", title: "Display language")
-                        SettingsRow(icon: "shield.checkered", title: "Content language")
+                        SettingsRow(icon: .system("globe"), title: "Display language")
+                        SettingsRow(icon: .system("shield.checkered"), title: "Content language")
                     }
 
                     // Content viewer policy Section
                     SettingsSection(title: "Content viewer policy") {
-                        SettingsRow(icon: "doc.text", title: "Blocked")
-                        SettingsRow(icon: "questionmark.circle", title: "Profanity")
-                        SettingsRow(icon: "info.circle", title: "Content Preferences")
+                        SettingsRow(icon: .system("doc.text"), title: "Blocked")
+                        SettingsRow(icon: .system("questionmark.circle"), title: "Profanity")
+                        SettingsRow(icon: .system("info.circle"), title: "Content Preferences")
                     }
                 }
                 .padding(.bottom, 100)
@@ -172,14 +178,14 @@ struct SettingsSection<Content: View>: View {
 // MARK: - Settings Row
 
 struct SettingsRow: View {
-    let icon: String?
+    let icon: IconSource?
     let title: String
     let textColor: Color
     let isIndented: Bool
     let action: (() -> Void)?
 
     init(
-        icon: String? = nil,
+        icon: IconSource? = nil,
         title: String,
         textColor: Color = .loopedTextPrimary,
         isIndented: Bool = false,
@@ -197,10 +203,19 @@ struct SettingsRow: View {
             HStack(spacing: 4) {
                 if !isIndented {
                     if let icon = icon {
-                        Image(systemName: icon)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.loopedTextSecondary)
-                            .frame(width: 20, height: 10)
+                        switch icon {
+                        case .system(let name):
+                            Image(systemName: name)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.loopedTextSecondary)
+                                .frame(width: 20, height: 10)
+                        case .asset(let name):
+                            Image(name)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .foregroundColor(.loopedTextSecondary)
+                                .frame(width: 20, height: 20)
+                        }
                     }
                 }
 
@@ -221,16 +236,25 @@ struct SettingsRow: View {
 // MARK: - Settings Toggle Row
 
 struct SettingsToggleRow: View {
-    let icon: String
+    let icon: IconSource
     let title: String
     @Binding var isOn: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.loopedTextSecondary)
-                .frame(width: 20, height: 20)
+            switch icon {
+            case .system(let name):
+                Image(systemName: name)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.loopedTextSecondary)
+                    .frame(width: 20, height: 20)
+            case .asset(let name):
+                Image(name)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .foregroundColor(.loopedTextSecondary)
+                    .frame(width: 20, height: 20)
+            }
 
             Text(title)
                 .font(.loopedBodyMedium)
@@ -249,45 +273,40 @@ struct SettingsToggleRow: View {
 // MARK: - Connected Account Row
 
 struct ConnectedAccountRow: View {
-    let icon: String
+    let icon: IconSource
     let title: String
     let buttonText: String
     let buttonColor: Color
     let isConnected: Bool
-    let isApple: Bool
 
     init(
-        icon: String,
+        icon: IconSource,
         title: String,
         buttonText: String,
         buttonColor: Color,
-        isConnected: Bool,
-        isApple: Bool = false
+        isConnected: Bool
     ) {
         self.icon = icon
         self.title = title
         self.buttonText = buttonText
         self.buttonColor = buttonColor
         self.isConnected = isConnected
-        self.isApple = isApple
     }
 
     var body: some View {
         HStack(spacing: 12) {
             // Icon
-            if isApple {
-                Image(systemName: "applelogo")
+            switch icon {
+            case .system(let name):
+                Image(systemName: name)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.loopedTextPrimary)
                     .frame(width: 20, height: 20)
-            } else {
-                // Google icon placeholder
-                Text(icon)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
+            case .asset(let name):
+                Image(name)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
                     .frame(width: 20, height: 20)
-                    .background(Color.blue)
-                    .clipShape(Circle())
             }
 
             Text(title)
@@ -300,7 +319,7 @@ struct ConnectedAccountRow: View {
                 // Handle connection/disconnection
             }
             .font(.loopedSubBodyMedium)
-            .foregroundColor(isConnected ? .loopedPrimary : .loopedPrimary)
+            .foregroundColor(isConnected ? .loopedTextSecondary : .loopedSecondary)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
