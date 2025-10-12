@@ -10,26 +10,87 @@ struct ProfileView: View {
     @State private var selectedTab: ProfileTab = .posts
     @StateObject private var viewModel = ProfileViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
+    @State private var headerVisible = true
+    @State private var lastScrollOffset: CGFloat = 0
+
+    private let headerHeight: CGFloat = 350
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Profile Header
-            ProfileHeaderView(viewModel: viewModel)
+        ZStack(alignment: .top) {
+            // ScrollView with content (bottom layer)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    // Content based on selected tab
+                    switch selectedTab {
+                    case .posts:
+                        let posts = viewModel.userPosts
+                        ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
+                            PostCard(post: post)
+                                .padding(.horizontal, 16)
+                                .padding(.top, index == 0 ? 0 : 16)
+                        }
 
-            // Stats Section
-            ProfileStatsView()
+                        if posts.isEmpty {
+                            EmptyPostsListView()
+                                .padding(.top, 60)
+                        }
 
-            // Action Buttons
-            ProfileActionButtons(viewModel: viewModel)
+                    case .replies:
+                        RepliesPlaceholderView()
+                            .padding(.top, 60)
 
-            // Tab Navigation
-            ProfileTabsView(selectedTab: $selectedTab)
+                    case .saved:
+                        let posts = MockPosts.getSavedPosts()
+                        ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
+                            PostCard(post: post)
+                                .padding(.horizontal, 16)
+                                .padding(.top, index == 0 ? 0 : 16)
+                        }
 
-            // Content based on selected tab
-            ProfileContentView(
-                selectedTab: selectedTab,
-                viewModel: viewModel
+                        if posts.isEmpty {
+                            EmptyPostsListView()
+                                .padding(.top, 60)
+                        }
+                    }
+
+                    // Bottom spacer
+                    Color.clear.frame(height: 100)
+                }
+                .background(
+                    GeometryReader { geo in
+                        Color.clear
+                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                handleScroll(newValue)
+                            }
+                    }
+                )
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: headerHeight)
+            }
+            .background(Color.loopedBackground.ignoresSafeArea())
+
+            // Fixed collapsible header (middle layer)
+            VStack(spacing: 0) {
+                // Profile Header
+                ProfileHeaderView(viewModel: viewModel)
+
+                // Stats Section
+                ProfileStatsView()
+
+                // Action Buttons
+                ProfileActionButtons(viewModel: viewModel)
+
+                // Tab Navigation
+                ProfileTabsView(selectedTab: $selectedTab)
+            }
+            .background(
+                Color.loopedBackground
+                    .ignoresSafeArea(.all, edges: .top)
             )
+            .offset(y: headerVisible ? 0 : -headerHeight)
+            .opacity(headerVisible ? 1 : 0)
+            .animation(.easeInOut(duration: 0.25), value: headerVisible)
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
@@ -37,6 +98,35 @@ struct ProfileView: View {
         .task {
             await viewModel.loadUserProfile()
         }
+        .onAppear {
+            headerVisible = true
+            lastScrollOffset = 0
+        }
+    }
+
+    private func handleScroll(_ offset: CGFloat) {
+        let delta = offset - lastScrollOffset
+
+        // Show header when near top
+        if offset >= -50 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                headerVisible = true
+            }
+        }
+        // Hide when scrolling down significantly
+        else if delta < -30 && offset < -100 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                headerVisible = false
+            }
+        }
+        // Show when scrolling up significantly
+        else if delta > 30 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                headerVisible = true
+            }
+        }
+
+        lastScrollOffset = offset
     }
 }
 
@@ -191,7 +281,7 @@ struct ProfileActionButtons: View {
             }
             .buttonStyle(PlainButtonStyle())
         }
-        .padding(.vertical, 10)
+        .padding(.top, 10)
     }
 }
 

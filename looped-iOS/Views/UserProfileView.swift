@@ -10,29 +10,92 @@ struct UserProfileView: View {
     @State private var selectedTab: UserProfileTab = .posts
     @Environment(\.dismiss) private var dismiss
     @StateObject private var commentsManager = CommentsModalManager()
+    @State private var headerVisible = true
+    @State private var lastScrollOffset: CGFloat = 0
+
+    private let headerHeight: CGFloat = 430
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with Back Button
-            UserProfileHeader {
-                dismiss()
-            }
-
+        ZStack(alignment: .top) {
+            // ScrollView with content (bottom layer)
             ScrollView {
-                VStack(spacing: 0) {
-                    // Profile Info Section
-                    UserProfileInfoSection(userProfile: userProfile)
+                LazyVStack(spacing: 0) {
+                    // Content based on selected tab - directly in LazyVStack
+                    switch selectedTab {
+                    case .posts:
+                        let posts = MockPosts.getPostsByUser(userProfile.id)
+                        ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
+                            PostCard(post: post)
+                                .padding(.horizontal, 16)
+                                .padding(.top, index == 0 ? 0 : 16)
+                        }
 
-                    // Tab Navigation
-                    UserProfileTabsView(selectedTab: $selectedTab)
+                        if posts.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "text.bubble")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
-                    // Content based on selected tab
-                    UserProfileContentView(userProfile: userProfile, selectedTab: selectedTab)
+                                Text("No posts yet")
+                                    .font(.loopedBodyMedium)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                            .padding(.top, 60)
+                        }
+
+                    case .comments:
+                        VStack(spacing: 16) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: 48))
+                                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+                            Text("Comments coming soon")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(.top, 60)
+                    }
+
+                    // Bottom spacer to ensure content can scroll fully
+                    Color.clear.frame(height: 100)
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.clear
+                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                handleScroll(newValue)
+                            }
+                    }
+                )
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: headerHeight)
             }
             .background(Color.loopedBackground.ignoresSafeArea())
 
-            Spacer(minLength: 0)
+            // Fixed collapsible header (middle layer)
+            VStack(spacing: 0) {
+                // Profile Info Section
+                UserProfileInfoSection(userProfile: userProfile)
+
+                // Tab Navigation
+                UserProfileTabsView(selectedTab: $selectedTab)
+            }
+            .background(
+                Color.loopedBackground
+                    .ignoresSafeArea(.all, edges: .top)
+            )
+            .offset(y: headerVisible ? 0 : -headerHeight)
+            .opacity(headerVisible ? 1 : 0)
+            .animation(.easeInOut(duration: 0.25), value: headerVisible)
+
+            // Non-collapsible back button header (top layer)
+            VStack {
+                UserProfileHeader {
+                    dismiss()
+                }
+                Spacer()
+            }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
@@ -44,6 +107,35 @@ struct UserProfileView: View {
                 }
             }
         )
+        .onAppear {
+            headerVisible = true
+            lastScrollOffset = 0
+        }
+    }
+
+    private func handleScroll(_ offset: CGFloat) {
+        let delta = offset - lastScrollOffset
+
+        // Show header when near top
+        if offset >= -50 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                headerVisible = true
+            }
+        }
+        // Hide when scrolling down significantly
+        else if delta < -30 && offset < -100 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                headerVisible = false
+            }
+        }
+        // Show when scrolling up significantly
+        else if delta > 30 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                headerVisible = true
+            }
+        }
+
+        lastScrollOffset = offset
     }
 
     private var commentsModalOverlay: some View {
@@ -431,7 +523,6 @@ struct UserCommentsList: View {
         .padding(.top, 60)
     }
 }
-
 
 #Preview {
     NavigationView {
