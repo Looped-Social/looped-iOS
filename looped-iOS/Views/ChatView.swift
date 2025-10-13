@@ -8,6 +8,7 @@ struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
     @State private var messageText = ""
     @State private var selectedMedia: [LocalMediaItem] = []
+    @State private var showChatDetails = false
 
     private var isGroupChat: Bool {
         return channel != nil
@@ -54,42 +55,49 @@ struct ChatView: View {
 
                 Spacer(minLength: 8)
 
-                // Chat Title and Profile
-                HStack(spacing: 8) {
-                    Text(chatTitle)
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.loopedTextPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                // Chat Title and Profile - Tappable
+                Button(action: {
+                    let impact = UIImpactFeedbackGenerator(style: .light)
+                    impact.impactOccurred()
+                    showChatDetails = true
+                }) {
+                    HStack(spacing: 8) {
+                        Text(chatTitle)
+                            .font(.loopedBodyStrong)
+                            .foregroundColor(.loopedTextPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
 
-                    if !isGroupChat, let profileImageUrl = profileImageUrl {
-                        AsyncImage(url: URL(string: profileImageUrl)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
+                        if !isGroupChat, let profileImageUrl = profileImageUrl {
+                            AsyncImage(url: URL(string: profileImageUrl)) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Circle()
+                                    .fill(Color.loopedPrimary.opacity(0.3))
+                                    .overlay(
+                                        Text(String(chatTitle.prefix(1)).uppercased())
+                                            .font(.caption)
+                                            .foregroundColor(.loopedPrimary)
+                                    )
+                            }
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                        } else if isGroupChat {
                             Circle()
-                                .fill(Color.loopedPrimary.opacity(0.3))
+                                .fill(Color.purple)
+                                .frame(width: 32, height: 32)
                                 .overlay(
-                                    Text(String(chatTitle.prefix(1)).uppercased())
+                                    Text("VP")
                                         .font(.caption)
-                                        .foregroundColor(.loopedPrimary)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
                                 )
                         }
-                        .frame(width: 32, height: 32)
-                        .clipShape(Circle())
-                    } else if isGroupChat {
-                        Circle()
-                            .fill(Color.purple)
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Text("VP")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
-                            )
                     }
                 }
+                .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -136,6 +144,9 @@ struct ChatView: View {
             )
         }
         .background(Color.loopedBackground.ignoresSafeArea(.all))
+        .sheet(isPresented: $showChatDetails) {
+            ChatDetailsView(conversation: conversation, channel: channel)
+        }
         .task {
             await loadMessages()
         }
