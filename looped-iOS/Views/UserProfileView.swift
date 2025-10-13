@@ -13,7 +13,7 @@ struct UserProfileView: View {
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
 
-    private let headerHeight: CGFloat = 430
+    private let headerHeight: CGFloat = 450
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -358,7 +358,8 @@ struct UserProfileInfoSection: View {
             UserProfileActionButtons(userProfile: userProfile)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 20)
+        .padding(.top, 50)
+        .padding(.bottom, 20)
     }
 }
 
