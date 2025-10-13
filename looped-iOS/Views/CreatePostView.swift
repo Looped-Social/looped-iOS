@@ -27,39 +27,6 @@ struct CreatePostView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Top navigation bar
-                HStack {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(.loopedTextSecondary)
-                    .font(.loopedBody)
-                    
-                    Spacer()
-                    
-                    Text("New Post")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-                    
-                    Spacer()
-                    
-                    Button("Post") {
-                        Task {
-                            await submitPost()
-                        }
-                    }
-                    .disabled(!isPostValid || isSubmitting)
-                    .foregroundColor((isPostValid && !isSubmitting) ? .loopedPrimary : .loopedTextSecondary)
-                    .font(.loopedBodyMedium)
-                }
-                .padding()
-                .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top))
-                
-                // Divider
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                
                 // Main content
                 VStack(alignment: .leading, spacing: 16) {
                     // Channel selector
@@ -202,9 +169,30 @@ struct CreatePostView: View {
                 .padding()
                 .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .bottom))
             }
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationTitle("New Post")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .foregroundColor(.loopedPrimary)
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Post") {
+                        Task {
+                            await submitPost()
+                        }
+                    }
+                    .disabled(!isPostValid || isSubmitting)
+                    .foregroundColor((isPostValid && !isSubmitting) ? .loopedPrimary : .loopedTextSecondary)
+                }
+            }
         }
         .navigationViewStyle(.stack)
-        .background(Color.loopedBackground.ignoresSafeArea())
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
