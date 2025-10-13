@@ -49,14 +49,18 @@ struct ChatView: View {
                         .font(.loopedHeading)
                         .foregroundColor(.loopedContrast)
                 }
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 // Chat Title and Profile
                 HStack(spacing: 8) {
                     Text(chatTitle)
                         .font(.loopedBodyStrong)
                         .foregroundColor(.loopedTextPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
                     if !isGroupChat, let profileImageUrl = profileImageUrl {
                         AsyncImage(url: URL(string: profileImageUrl)) { image in
