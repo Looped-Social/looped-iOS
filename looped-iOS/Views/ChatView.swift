@@ -9,6 +9,7 @@ struct ChatView: View {
     @State private var messageText = ""
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var showChatDetails = false
+    @State private var selectedUserProfile: UserProfile? = nil
 
     private var isGroupChat: Bool {
         return channel != nil
@@ -117,7 +118,12 @@ struct ChatView: View {
                                     message: message,
                                     showProfilePicture: isGroupChat,
                                     showSenderName: isGroupChat,
-                                    showTail: showTail
+                                    showTail: showTail,
+                                    onProfileTap: { userId in
+                                        if let profile = MockUserProfiles.getUserProfile(byId: userId) {
+                                            selectedUserProfile = profile
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -146,6 +152,9 @@ struct ChatView: View {
         .background(Color.loopedBackground.ignoresSafeArea(.all))
         .sheet(isPresented: $showChatDetails) {
             ChatDetailsView(conversation: conversation, channel: channel)
+        }
+        .sheet(item: $selectedUserProfile) { profile in
+            UserProfileView(userProfile: profile)
         }
         .task {
             await loadMessages()

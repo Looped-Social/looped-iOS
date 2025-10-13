@@ -127,6 +127,7 @@ struct ReceivedMessageBubble: View {
     let showProfilePicture: Bool
     let showSenderName: Bool
     let showTail: Bool
+    let onProfileTap: ((UUID) -> Void)?
 
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
@@ -134,11 +135,12 @@ struct ReceivedMessageBubble: View {
     @State private var showImageViewer = false
     @State private var showVideoPlayer = false
 
-    init(message: Message, showProfilePicture: Bool, showSenderName: Bool, showTail: Bool = true) {
+    init(message: Message, showProfilePicture: Bool, showSenderName: Bool, showTail: Bool = true, onProfileTap: ((UUID) -> Void)? = nil) {
         self.message = message
         self.showProfilePicture = showProfilePicture
         self.showSenderName = showSenderName
         self.showTail = showTail
+        self.onProfileTap = onProfileTap
     }
 
     private var imageUrls: [String] {
@@ -149,21 +151,26 @@ struct ReceivedMessageBubble: View {
         HStack(alignment: .bottom, spacing: 8) {
             // Profile Picture (only for group chats)
             if showProfilePicture {
-                AsyncImage(url: URL(string: "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedPrimary.opacity(0.3))
-                        .overlay(
-                            Text(String(message.senderDisplayName?.prefix(1) ?? "U").uppercased())
-                                .font(.caption)
-                                .foregroundColor(.loopedPrimary)
-                        )
+                Button(action: {
+                    onProfileTap?(message.senderId)
+                }) {
+                    AsyncImage(url: URL(string: "")) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Circle()
+                            .fill(Color.loopedPrimary.opacity(0.3))
+                            .overlay(
+                                Text(String(message.senderDisplayName?.prefix(1) ?? "U").uppercased())
+                                    .font(.caption)
+                                    .foregroundColor(.loopedPrimary)
+                            )
+                    }
+                    .frame(width: 32, height: 32)
+                    .clipShape(Circle())
                 }
-                .frame(width: 32, height: 32)
-                .clipShape(Circle())
+                .buttonStyle(PlainButtonStyle())
             }
 
             VStack(alignment: .leading, spacing: 4) {

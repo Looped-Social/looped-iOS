@@ -36,6 +36,11 @@ struct ChatDetailsView: View {
         return currentMemberIds
     }
 
+    private var userProfile: UserProfile? {
+        guard !isGroupChat, let conversation = conversation else { return nil }
+        return MockUserProfiles.getUserProfile(byId: conversation.userId)
+    }
+
     init(conversation: Conversation?, channel: Channel?) {
         self.conversation = conversation
         self.channel = channel
@@ -183,14 +188,16 @@ struct ChatDetailsView: View {
                             Divider().padding(.leading, 60)
                         } else {
                             // 1-on-1 actions
-                            NavigationLink(destination: Text("User Profile")) {
-                                ChatDetailsActionRow(
-                                    icon: "person.circle",
-                                    title: "View Profile",
-                                    showChevron: true
-                                )
+                            if let userProfile = userProfile {
+                                NavigationLink(destination: UserProfileView(userProfile: userProfile)) {
+                                    ChatDetailsActionRow(
+                                        icon: "person.circle",
+                                        title: "View Profile",
+                                        showChevron: true
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
-                            .buttonStyle(PlainButtonStyle())
 
                             Divider().padding(.leading, 60)
                         }
@@ -545,7 +552,7 @@ struct GroupMemberDetailsView: View {
 
                     // Actions Section
                     VStack(spacing: 0) {
-                        NavigationLink(destination: Text("User Profile")) {
+                        NavigationLink(destination: UserProfileView(userProfile: profile)) {
                             ChatDetailsActionRow(
                                 icon: "person.circle",
                                 title: "View Profile",
