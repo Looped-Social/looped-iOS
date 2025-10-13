@@ -16,6 +16,7 @@ struct ChatDetailsView: View {
     @State private var showRemoveMemberAlert: UUID? = nil
     @State private var selectedImage: UIImage? = nil
     @State private var selectedMemberProfile: UserProfile? = nil
+    @State private var currentMemberIds: [UUID]
 
     private var isGroupChat: Bool {
         return channel != nil
@@ -32,15 +33,16 @@ struct ChatDetailsView: View {
     }
 
     private var memberIds: [UUID] {
-        if let conversation = conversation, let ids = conversation.memberIds {
-            return ids
-        }
-        return []
+        return currentMemberIds
     }
 
     init(conversation: Conversation?, channel: Channel?) {
         self.conversation = conversation
         self.channel = channel
+
+        // Initialize member IDs
+        let ids = conversation?.memberIds ?? []
+        _currentMemberIds = State(initialValue: ids)
 
         // Initialize state with current values
         if let channel = channel {
@@ -140,7 +142,7 @@ struct ChatDetailsView: View {
                                 }
                             }
 
-                            Text("\(memberIds.count) members")
+                            Text("\(currentMemberIds.count) members")
                                 .font(.loopedBody)
                                 .foregroundColor(.loopedTextSecondary)
                         } else {
@@ -217,7 +219,7 @@ struct ChatDetailsView: View {
                     .padding(.horizontal, 16)
 
                     // Members Section (Group only)
-                    if isGroupChat && !memberIds.isEmpty {
+                    if isGroupChat && !currentMemberIds.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Members")
                                 .font(.loopedBodyStrong)
@@ -320,7 +322,7 @@ struct ChatDetailsView: View {
             }
             Button("Remove", role: .destructive) {
                 if let memberId = showRemoveMemberAlert {
-                    // TODO: Implement remove member
+                    removeMember(memberId)
                     showRemoveMemberAlert = nil
                 }
             }
@@ -328,7 +330,49 @@ struct ChatDetailsView: View {
             Text("Are you sure you want to remove this member from the group?")
         }
         .sheet(item: $selectedMemberProfile) { profile in
-            GroupMemberDetailsView(profile: profile)
+            GroupMemberDetailsView(profile: profile, onRemove: removeMember)
+        }
+    }
+
+    // MARK: - Helper Functions
+    private func removeMember(_ memberId: UUID) {
+        // Remove from local state
+        currentMemberIds.removeAll { $0 == memberId }
+
+        // Update the conversation in MockConversations if it exists
+        if let conversation = conversation,
+           let index = MockConversations.conversations.firstIndex(where: { $0.id == conversation.id }) {
+            var updatedConversation = MockConversations.conversations[index]
+
+            // Update member IDs
+            var updatedMemberIds = updatedConversation.memberIds ?? []
+            updatedMemberIds.removeAll { $0 == memberId }
+
+            // Update group name if needed (rebuild from remaining members)
+            if updatedMemberIds.count > 0 {
+                let memberNames = updatedMemberIds.compactMap { id in
+                    MockUserProfiles.getUserProfile(byId: id)?.displayName
+                }
+                let newGroupName = memberNames.joined(separator: ", ")
+
+                // Create updated conversation
+                let updated = Conversation(
+                    id: updatedConversation.id,
+                    userId: updatedConversation.userId,
+                    userName: newGroupName,
+                    userProfileImageUrl: updatedConversation.userProfileImageUrl,
+                    lastMessage: updatedConversation.lastMessage,
+                    lastMessageTimestamp: updatedConversation.lastMessageTimestamp,
+                    unreadCount: updatedConversation.unreadCount,
+                    hasTypingIndicator: updatedConversation.hasTypingIndicator,
+                    hasSpecialStatus: updatedConversation.hasSpecialStatus,
+                    isOnline: updatedConversation.isOnline,
+                    isGroup: updatedConversation.isGroup,
+                    memberIds: updatedMemberIds
+                )
+
+                MockConversations.conversations[index] = updated
+            }
         }
     }
 }
@@ -402,6 +446,7 @@ struct ChatDetailsToggleRow: View {
 // MARK: - Group Member Details View
 struct GroupMemberDetailsView: View {
     let profile: UserProfile
+    let onRemove: ((UUID) -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     @State private var customNickname: String
@@ -411,8 +456,9 @@ struct GroupMemberDetailsView: View {
     @State private var selectedImage: UIImage? = nil
     @State private var isMuted = false
 
-    init(profile: UserProfile) {
+    init(profile: UserProfile, onRemove: ((UUID) -> Void)? = nil) {
         self.profile = profile
+        self.onRemove = onRemove
         _customNickname = State(initialValue: profile.displayName ?? "")
     }
 
@@ -585,7 +631,7 @@ struct GroupMemberDetailsView: View {
         .alert("Remove Member", isPresented: $showRemoveMemberAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Remove", role: .destructive) {
-                // TODO: Implement remove member
+                onRemove?(profile.id)
                 dismiss()
             }
         } message: {
