@@ -123,6 +123,7 @@ struct SearchView: View {
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationBarHidden(true)
         }
+        .navigationViewStyle(.stack)
         .fullScreenCover(isPresented: $showSearchResults) {
             SearchResultsView()
         }

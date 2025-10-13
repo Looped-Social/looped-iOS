@@ -62,6 +62,7 @@ struct SearchResultsView: View {
                 .hidden()
             )
         }
+        .navigationViewStyle(.stack)
         .onAppear {
             searchFieldFocused = true
         }

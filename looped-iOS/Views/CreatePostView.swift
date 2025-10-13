@@ -203,6 +203,7 @@ struct CreatePostView: View {
                 .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .bottom))
             }
         }
+        .navigationViewStyle(.stack)
         .background(Color.loopedBackground.ignoresSafeArea())
         .sheet(isPresented: $showSettings) {
             SettingsView()

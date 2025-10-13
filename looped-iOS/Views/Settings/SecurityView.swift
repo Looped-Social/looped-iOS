@@ -328,6 +328,7 @@ struct ChangePasswordView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
 }
 

@@ -100,6 +100,7 @@ struct MainTabView: View {
                                     .environmentObject(feedViewModel)
                                     .environmentObject(commentsManager)
                             }
+                            .navigationViewStyle(.stack)
                         case .messages:
                             NavigationView {
                                 MessagesView(
@@ -112,6 +113,7 @@ struct MainTabView: View {
                                     }
                                 )
                             }
+                            .navigationViewStyle(.stack)
                         case .search:
                             SearchView()
                         case .notifications:
@@ -120,6 +122,7 @@ struct MainTabView: View {
                             NavigationView {
                                 ProfileView()
                             }
+                            .navigationViewStyle(.stack)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

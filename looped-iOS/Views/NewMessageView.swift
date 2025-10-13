@@ -59,6 +59,7 @@ struct NewMessageView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
 
     // MARK: - To Field Section
