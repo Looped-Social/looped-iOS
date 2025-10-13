@@ -10,6 +10,8 @@ struct PostCard: View {
     @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
     @State private var showVideoPlayer = false
+    @State private var selectedHashtag: String?
+    @State private var showHashtagFeed = false
     @EnvironmentObject var commentsManager: CommentsModalManager
 
     private var imageUrls: [String] {
@@ -107,13 +109,18 @@ struct PostCard: View {
                 }
             }
             
-            // Post content
+            // Post content with tappable hashtags
             if !post.content.isEmpty {
-                Text(post.content)
-                    .font(.body)
-                    .foregroundColor(.loopedTextPrimary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(nil)
+                HashtagText(
+                    text: post.content,
+                    font: .body,
+                    textColor: .loopedTextPrimary,
+                    hashtagColor: .loopedPrimary
+                ) { hashtag in
+                    selectedHashtag = hashtag
+                    showHashtagFeed = true
+                }
+                .multilineTextAlignment(.leading)
             }
 
             // Media attachments
@@ -139,15 +146,6 @@ struct PostCard: View {
                 .padding(.top, 8)
             }
 
-            // Hashtags (if any)
-            if post.content.contains("#") {
-                HStack {
-                    Text("#uxdesign #productdesign")
-                        .font(.body)
-                        .foregroundColor(.loopedPrimary)
-                }
-            }
-            
             // Engagement buttons
             HStack(spacing: 24) {
                 // Like button
@@ -279,6 +277,19 @@ struct PostCard: View {
                     )
             }
         }
+        .background(
+            NavigationLink(
+                destination: Group {
+                    if let hashtag = selectedHashtag {
+                        HashtagFeedView(hashtag: hashtag)
+                            .environmentObject(commentsManager)
+                    }
+                },
+                isActive: $showHashtagFeed,
+                label: { EmptyView() }
+            )
+            .hidden()
+        )
     }
 
     private var shareText: String {

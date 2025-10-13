@@ -15,23 +15,40 @@ struct SettingsView: View {
     @State private var showFollowerCount = true
     @AppStorage("anonymousMode") private var anonymousMode = true
 
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            SettingsHeader {
-                dismiss()
-            }
+    // Alert states
+    @State private var showLogoutAlert = false
+    @State private var showDeleteAccountAlert = false
 
-            // Scrollable content
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Account Section
-                    SettingsSection(title: "Account") {
-                        SettingsRow(icon: .asset("user-settings-icon"), title: "User settings")
-                        SettingsRow(icon: .asset("shield-icon"), title: "Security")
-                        SettingsRow(icon: .asset("bell-icon"), title: "Notifications")
-                        SettingsRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
-                    }
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Header
+                SettingsHeader {
+                    dismiss()
+                }
+
+                // Scrollable content
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Account Section
+                        SettingsSection(title: "Account") {
+                            NavigationLink(destination: UserSettingsView()) {
+                                SettingsNavigationRow(icon: .asset("user-settings-icon"), title: "User settings")
+                            }
+                            .buttonStyle(PlainButtonStyle())
+
+                            NavigationLink(destination: SecurityView()) {
+                                SettingsNavigationRow(icon: .asset("shield-icon"), title: "Security")
+                            }
+                            .buttonStyle(PlainButtonStyle())
+
+                            NavigationLink(destination: NotificationSettingsView()) {
+                                SettingsNavigationRow(icon: .asset("bell-icon"), title: "Notifications")
+                            }
+                            .buttonStyle(PlainButtonStyle())
+
+                            SettingsRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
+                        }
 
                     // Support & About Section
                     SettingsSection(title: "Support & About") {
@@ -85,9 +102,13 @@ struct SettingsView: View {
                     SettingsSection(title: "Actions") {
                         SettingsRow(icon: .system("flag"), title: "Report a problem")
                         SettingsRow(icon: .system("building.2"), title: "Change Workplace/Position")
-                        SettingsRow(icon: .system("trash"), title: "Delete Account")
-                        SettingsRow(icon: .asset("log-out-icon"), title: "Log out") {
-                            authViewModel.signOut()
+                        SettingsRow(icon: .system("trash"), title: "Delete Account") {
+                            showDeleteAccountAlert = true
+                        }
+                        SettingsRow(icon: .asset("log-out-icon"), title: "Log out", textColor: .red) {
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
+                            showLogoutAlert = true
                         }
                     }
 
@@ -106,9 +127,26 @@ struct SettingsView: View {
                 }
                 .padding(.bottom, 100)
             }
+            }
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationBarHidden(true)
         }
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .alert("Log out", isPresented: $showLogoutAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Log out", role: .destructive) {
+                authViewModel.signOut()
+            }
+        } message: {
+            Text("Are you sure you want to log out?")
+        }
+        .alert("Delete Account", isPresented: $showDeleteAccountAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                // TODO: Implement delete account functionality
+            }
+        } message: {
+            Text("Are you sure you want to permanently delete your account? This action cannot be undone.")
+        }
     }
 }
 
@@ -267,6 +305,57 @@ struct SettingsToggleRow: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+}
+
+// MARK: - Settings Navigation Row
+
+struct SettingsNavigationRow: View {
+    let icon: IconSource?
+    let title: String
+    let textColor: Color
+
+    init(
+        icon: IconSource? = nil,
+        title: String,
+        textColor: Color = .loopedTextPrimary
+    ) {
+        self.icon = icon
+        self.title = title
+        self.textColor = textColor
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let icon = icon {
+                switch icon {
+                case .system(let name):
+                    Image(systemName: name)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 20, height: 10)
+                case .asset(let name):
+                    Image(name)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 20, height: 20)
+                }
+            }
+
+            Text(title)
+                .font(.loopedBodyMedium)
+                .foregroundColor(textColor)
+                .multilineTextAlignment(.leading)
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 8)
     }
 }
 

@@ -2,8 +2,11 @@ import SwiftUI
 
 struct SearchResultsView: View {
     @StateObject private var viewModel = SearchResultsViewModel()
+    @StateObject private var commentsManager = CommentsModalManager()
     @Environment(\.dismiss) private var dismiss
     @FocusState private var searchFieldFocused: Bool
+    @State private var selectedHashtag: String?
+    @State private var showHashtagFeed = false
 
     var body: some View {
         NavigationView {
@@ -45,6 +48,19 @@ struct SearchResultsView: View {
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationBarHidden(true)
+            .background(
+                NavigationLink(
+                    destination: Group {
+                        if let hashtag = selectedHashtag {
+                            HashtagFeedView(hashtag: hashtag)
+                                .environmentObject(commentsManager)
+                        }
+                    },
+                    isActive: $showHashtagFeed,
+                    label: { EmptyView() }
+                )
+                .hidden()
+            )
         }
         .onAppear {
             searchFieldFocused = true
@@ -94,8 +110,12 @@ struct SearchResultsView: View {
                 HashtagSuggestions(
                     hashtags: viewModel.hashtagSuggestions,
                     onHashtagTap: { hashtag in
-                        viewModel.searchText = hashtag
-                        viewModel.addRecentSearch(hashtag)
+                        let impact = UIImpactFeedbackGenerator(style: .light)
+                        impact.impactOccurred()
+                        // Remove # if present
+                        let cleanHashtag = hashtag.hasPrefix("#") ? String(hashtag.dropFirst()) : hashtag
+                        selectedHashtag = cleanHashtag
+                        showHashtagFeed = true
                     }
                 )
 
