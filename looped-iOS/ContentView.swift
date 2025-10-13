@@ -229,7 +229,19 @@ struct MainTabView: View {
             CreatePostView(feedViewModel: feedViewModel)
         }
         .sheet(isPresented: $showNewMessage) {
-            NewMessageView()
+            NewMessageView(onChatSelected: { conversation, channel in
+                // Dismiss the sheet first
+                showNewMessage = false
+
+                // Small delay to let sheet dismiss before showing chat
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        selectedConversation = conversation
+                        selectedChannel = channel
+                        showingChat = true
+                    }
+                }
+            })
         }
         .sheet(item: $menuDestination) { destination in
             destinationView(for: destination)

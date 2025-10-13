@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct NewMessageView: View {
+    let onChatSelected: (Conversation?, Channel?) -> Void
+
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var selectedRecipients: [UserProfile] = []
@@ -176,8 +178,10 @@ struct NewMessageView: View {
     }
 
     private func navigateToGroup(_ group: Conversation) {
-        // TODO: Navigate to group chat
-        print("Navigate to group: \(group.userName)")
+        // Convert group conversation to channel and navigate
+        if let channel = MockConversations.getChannelForGroupConversation(group) {
+            onChatSelected(nil, channel)
+        }
         dismiss()
     }
 
@@ -186,21 +190,49 @@ struct NewMessageView: View {
 
         if selectedRecipients.count == 1 {
             // Single recipient: navigate to 1-on-1 conversation
-            // TODO: Navigate to individual chat
-            print("Navigate to 1-on-1 chat with \(selectedRecipients[0].displayName ?? "Unknown")")
+            let recipientId = selectedRecipients[0].id
+
+            // Check if conversation already exists with this user
+            let existingConversation = MockConversations.conversations.first { conversation in
+                !conversation.isGroup && conversation.userId == recipientId
+            }
+
+            if let existing = existingConversation {
+                // Use existing conversation
+                onChatSelected(existing, nil)
+            } else {
+                // Create new conversation
+                let recipient = selectedRecipients[0]
+                let newConversation = Conversation(
+                    userId: recipientId,
+                    userName: recipient.displayName ?? "Unknown",
+                    userProfileImageUrl: recipient.profileImageURL,
+                    lastMessage: "",
+                    lastMessageTimestamp: Date(),
+                    unreadCount: 0,
+                    isGroup: false
+                )
+                // Add to conversations list
+                MockConversations.conversations.insert(newConversation, at: 0)
+                onChatSelected(newConversation, nil)
+            }
         } else {
             // Multiple recipients: check for existing group or create new one
             let memberIds = selectedRecipients.map { $0.id }
+            // Add current user to the member IDs for group matching
+            let allMemberIds = memberIds + [MockUsers.currentUser.id]
 
-            if let existingGroup = MockConversations.findGroupByMembers(memberIds) {
+            if let existingGroup = MockConversations.findGroupByMembers(allMemberIds) {
                 // Group already exists: navigate to it
-                print("Found existing group: \(existingGroup.userName)")
-                // TODO: Navigate to existing group
+                if let channel = MockConversations.getChannelForGroupConversation(existingGroup) {
+                    onChatSelected(nil, channel)
+                }
             } else {
                 // No existing group: create new one
                 let newGroup = MockConversations.createGroup(withMembers: selectedRecipients)
-                print("Created new group: \(newGroup.userName)")
-                // TODO: Navigate to new group
+                if let channel = MockConversations.getChannelForGroupConversation(newGroup) {
+                    onChatSelected(nil, channel)
+                }
             }
         }
 
@@ -333,5 +365,5 @@ struct ContactRow: View {
 }
 
 #Preview {
-    NewMessageView()
+    NewMessageView(onChatSelected: { _, _ in })
 }
