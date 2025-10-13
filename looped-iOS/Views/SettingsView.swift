@@ -20,15 +20,14 @@ struct SettingsView: View {
     @State private var showDeleteAccountAlert = false
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Header
-                SettingsHeader {
-                    dismiss()
-                }
+        VStack(spacing: 0) {
+            // Header
+            SettingsHeader {
+                dismiss()
+            }
 
-                // Scrollable content
-                ScrollView {
+            // Scrollable content
+            ScrollView {
                     VStack(spacing: 0) {
                         // Account Section
                         SettingsSection(title: "Account") {
@@ -127,10 +126,9 @@ struct SettingsView: View {
                 }
                 .padding(.bottom, 100)
             }
-            }
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationBarHidden(true)
         }
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationBarHidden(true)
         .alert("Log out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Log out", role: .destructive) {
