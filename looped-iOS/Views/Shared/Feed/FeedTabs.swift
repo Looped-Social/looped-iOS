@@ -85,6 +85,8 @@ struct FeedTabs: View {
                     if !isPlus {
                         ForEach(FilterTag.allCases, id: \.self) { filter in
                             Button(action: {
+                                let impact = UIImpactFeedbackGenerator(style: .light)
+                                impact.impactOccurred()
                                 selectedFilter = filter
                             }) {
                                 Text(filter.displayName)
