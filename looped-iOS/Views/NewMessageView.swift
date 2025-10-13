@@ -178,9 +178,9 @@ struct NewMessageView: View {
     }
 
     private func navigateToGroup(_ group: Conversation) {
-        // Convert group conversation to channel and navigate
+        // Convert group conversation to channel and navigate (pass both for member info)
         if let channel = MockConversations.getChannelForGroupConversation(group) {
-            onChatSelected(nil, channel)
+            onChatSelected(group, channel)
         }
         dismiss()
     }
@@ -223,15 +223,15 @@ struct NewMessageView: View {
             let allMemberIds = memberIds + [MockUsers.currentUser.id]
 
             if let existingGroup = MockConversations.findGroupByMembers(allMemberIds) {
-                // Group already exists: navigate to it
+                // Group already exists: navigate to it (pass both for member info)
                 if let channel = MockConversations.getChannelForGroupConversation(existingGroup) {
-                    onChatSelected(nil, channel)
+                    onChatSelected(existingGroup, channel)
                 }
             } else {
-                // No existing group: create new one
+                // No existing group: create new one (pass both for member info)
                 let newGroup = MockConversations.createGroup(withMembers: selectedRecipients)
                 if let channel = MockConversations.getChannelForGroupConversation(newGroup) {
-                    onChatSelected(nil, channel)
+                    onChatSelected(newGroup, channel)
                 }
             }
         }

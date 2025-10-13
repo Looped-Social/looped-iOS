@@ -44,7 +44,8 @@ struct MessagesView: View {
                     ForEach(filteredConversations) { conversation in
                         Button(action: {
                             if MockConversations.isGroupConversation(conversation) {
-                                onChatSelected(nil, MockConversations.getChannelForGroupConversation(conversation))
+                                // Pass both conversation and channel for groups (to access memberIds)
+                                onChatSelected(conversation, MockConversations.getChannelForGroupConversation(conversation))
                             } else {
                                 onChatSelected(conversation, nil)
                             }

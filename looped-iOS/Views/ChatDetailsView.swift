@@ -15,6 +15,7 @@ struct ChatDetailsView: View {
     @State private var showBlockUserAlert = false
     @State private var showRemoveMemberAlert: UUID? = nil
     @State private var selectedImage: UIImage? = nil
+    @State private var selectedMemberProfile: UserProfile? = nil
 
     private var isGroupChat: Bool {
         return channel != nil
@@ -229,6 +230,9 @@ struct ChatDetailsView: View {
                                         ChatDetailsMemberRow(
                                             profile: profile,
                                             isCurrentUser: profile.isCurrentUser,
+                                            onTap: {
+                                                selectedMemberProfile = profile
+                                            },
                                             onRemove: {
                                                 showRemoveMemberAlert = memberId
                                             }
@@ -323,6 +327,9 @@ struct ChatDetailsView: View {
         } message: {
             Text("Are you sure you want to remove this member from the group?")
         }
+        .sheet(item: $selectedMemberProfile) { profile in
+            GroupMemberDetailsView(profile: profile)
+        }
     }
 }
 
@@ -392,65 +399,268 @@ struct ChatDetailsToggleRow: View {
     }
 }
 
+// MARK: - Group Member Details View
+struct GroupMemberDetailsView: View {
+    let profile: UserProfile
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var customNickname: String
+    @State private var showImagePicker = false
+    @State private var showBlockUserAlert = false
+    @State private var showRemoveMemberAlert = false
+    @State private var selectedImage: UIImage? = nil
+    @State private var isMuted = false
+
+    init(profile: UserProfile) {
+        self.profile = profile
+        _customNickname = State(initialValue: profile.displayName ?? "")
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Profile Section
+                    VStack(spacing: 16) {
+                        // Large profile photo
+                        ZStack(alignment: .bottomTrailing) {
+                            if let profileImageUrl = profile.profileImageURL {
+                                AsyncImage(url: URL(string: profileImageUrl)) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Circle()
+                                        .fill(Color.loopedPrimary.opacity(0.3))
+                                        .overlay(
+                                            Text(String((profile.displayName ?? "U").prefix(1)).uppercased())
+                                                .font(.system(size: 40, weight: .bold))
+                                                .foregroundColor(.loopedPrimary)
+                                        )
+                                }
+                                .frame(width: 120, height: 120)
+                                .clipShape(Circle())
+                            } else {
+                                Circle()
+                                    .fill(Color.loopedPrimary.opacity(0.3))
+                                    .frame(width: 120, height: 120)
+                                    .overlay(
+                                        Text(String((profile.displayName ?? "U").prefix(1)).uppercased())
+                                            .font(.system(size: 40, weight: .bold))
+                                            .foregroundColor(.loopedPrimary)
+                                    )
+                            }
+
+                            // View full photo button
+                            Button(action: {
+                                showImagePicker = true
+                            }) {
+                                Circle()
+                                    .fill(Color.loopedPrimary)
+                                    .frame(width: 36, height: 36)
+                                    .overlay(
+                                        Image(systemName: "eye.fill")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.white)
+                                    )
+                            }
+                            .offset(x: -5, y: -5)
+                        }
+
+                        // Custom nickname
+                        VStack(spacing: 4) {
+                            HStack(spacing: 8) {
+                                TextField("Custom name", text: $customNickname)
+                                    .font(.loopedHeadingMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                                    .multilineTextAlignment(.center)
+                                    .textFieldStyle(.plain)
+
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.loopedPrimary)
+                            }
+
+                            Text("(Custom name for you only)")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+
+                        // Actual username
+                        Text(profile.displayName ?? "Unknown")
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        Text(profile.formattedJobTitle)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.top, 20)
+
+                    // Actions Section
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: Text("User Profile")) {
+                            ChatDetailsActionRow(
+                                icon: "person.circle",
+                                title: "View Profile",
+                                showChevron: true
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Divider().padding(.leading, 60)
+
+                        ChatDetailsToggleRow(
+                            icon: "bell.slash",
+                            title: "Mute Notifications",
+                            isOn: $isMuted
+                        )
+
+                        Divider().padding(.leading, 60)
+
+                        ChatDetailsActionRow(
+                            icon: "person.fill.xmark",
+                            title: "Remove from Group",
+                            textColor: .red,
+                            action: {
+                                showRemoveMemberAlert = true
+                            }
+                        )
+
+                        Divider().padding(.leading, 60)
+
+                        ChatDetailsActionRow(
+                            icon: "hand.raised",
+                            title: "Block User",
+                            textColor: .red,
+                            action: {
+                                showBlockUserAlert = true
+                            }
+                        )
+                    }
+                    .background(Color.loopedTextSecondary.opacity(0.05))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 16)
+
+                    Spacer(minLength: 40)
+                }
+            }
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationTitle("Member Info")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.loopedPrimary)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .sheet(isPresented: $showImagePicker) {
+            // Full-screen image viewer
+            if let imageUrl = profile.profileImageURL, let url = URL(string: imageUrl) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    ProgressView()
+                }
+                .ignoresSafeArea()
+                .background(Color.black)
+            }
+        }
+        .alert("Block User", isPresented: $showBlockUserAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Block", role: .destructive) {
+                // TODO: Implement block user
+                dismiss()
+            }
+        } message: {
+            Text("Are you sure you want to block this user? They won't be able to message you.")
+        }
+        .alert("Remove Member", isPresented: $showRemoveMemberAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Remove", role: .destructive) {
+                // TODO: Implement remove member
+                dismiss()
+            }
+        } message: {
+            Text("Are you sure you want to remove this member from the group?")
+        }
+    }
+}
+
 // MARK: - Member Row
 struct ChatDetailsMemberRow: View {
     let profile: UserProfile
     let isCurrentUser: Bool
+    let onTap: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Profile Picture
-            AsyncImage(url: URL(string: profile.profileImageURL ?? "")) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Circle()
-                    .fill(Color.loopedPrimary.opacity(0.3))
-                    .overlay(
-                        Text(String((profile.displayName ?? "U").prefix(1)).uppercased())
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.loopedPrimary)
-                    )
-            }
-            .frame(width: 40, height: 40)
-            .clipShape(Circle())
+        Button(action: {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+            onTap()
+        }) {
+            HStack(spacing: 12) {
+                // Profile Picture
+                AsyncImage(url: URL(string: profile.profileImageURL ?? "")) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(Color.loopedPrimary.opacity(0.3))
+                        .overlay(
+                            Text(String((profile.displayName ?? "U").prefix(1)).uppercased())
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.loopedPrimary)
+                        )
+                }
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(profile.displayName ?? "Unknown")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(profile.displayName ?? "Unknown")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedTextPrimary)
 
-                    if isCurrentUser {
-                        Text("(You)")
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
+                        if isCurrentUser {
+                            Text("(You)")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
+
+                    Text(profile.formattedJobTitle)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+
+                Spacer()
+
+                if !isCurrentUser {
+                    Button(action: {
+                        let impact = UIImpactFeedbackGenerator(style: .light)
+                        impact.impactOccurred()
+                        onRemove()
+                    }) {
+                        Text("Remove")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.red)
                     }
                 }
-
-                Text(profile.formattedJobTitle)
-                    .font(.loopedSubBodyRegular)
-                    .foregroundColor(.loopedTextSecondary)
             }
-
-            Spacer()
-
-            if !isCurrentUser {
-                Button(action: {
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
-                    onRemove()
-                }) {
-                    Text("Remove")
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.red)
-                }
-            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
