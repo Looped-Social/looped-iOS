@@ -73,13 +73,13 @@ struct ProfileView: View {
             // Fixed collapsible header (middle layer)
             VStack(spacing: 0) {
                 // Profile Header
-                ProfileHeaderView(viewModel: viewModel)
+                ProfileHeaderView(userProfile: viewModel.userProfile)
 
                 // Stats Section
-                ProfileStatsView()
+                ProfileStatsView(userProfile: viewModel.userProfile)
 
                 // Action Buttons
-                ProfileActionButtons(viewModel: viewModel)
+                ProfileActionButtons(viewModel: viewModel, userProfile: viewModel.userProfile)
 
                 // Tab Navigation
                 ProfileTabsView(selectedTab: $selectedTab)
@@ -131,13 +131,13 @@ struct ProfileView: View {
 }
 
 struct ProfileHeaderView: View {
-    @ObservedObject var viewModel: ProfileViewModel
+    let userProfile: UserProfile?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Profile Avatar with Name and Handle beside it
             HStack(spacing: 16) {
-                AsyncImage(url: URL(string: viewModel.user?.profileImageURL ?? "")) { image in
+                AsyncImage(url: URL(string: userProfile?.profileImageURL ?? "")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -155,21 +155,23 @@ struct ProfileHeaderView: View {
 
                 // Name and Handle beside profile picture
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(viewModel.user?.displayName ?? "")
+                    Text(userProfile?.displayName ?? "Anonymous")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.loopedTextPrimary)
 
-                    Text("@\(viewModel.user?.handle ?? "")")
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
+                    if let handle = userProfile?.formattedHandle {
+                        Text(handle)
+                            .font(.subheadline)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
                 }
 
                 Spacer()
             }
 
             // Bio - left aligned
-            if let bio = viewModel.user?.bio {
+            if let bio = userProfile?.bio, !bio.isEmpty {
                 Text(bio)
                     .font(.body)
                     .foregroundColor(.loopedTextPrimary)
@@ -184,62 +186,69 @@ struct ProfileHeaderView: View {
 }
 
 struct ProfileStatsView: View {
+    let userProfile: UserProfile?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Years in Loop and Company - left aligned
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "calendar")
-                        .foregroundColor(.loopedTextSecondary)
-                        .font(.system(size: 16))
+            if let profile = userProfile {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar")
+                            .foregroundColor(.loopedTextSecondary)
+                            .font(.system(size: 16))
+                        
+                        Text(profile.formattedYearsInLoop)
+                            .font(.subheadline)
+                            .foregroundColor(.loopedTextSecondary)
+                        
+                        Spacer()
+                    }
                     
-                    Text("2 years in the Loop")
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.loopedPrimary)
+                            .frame(width: 16, height: 16)
+                            .overlay(
+                                Text(String(profile.company.prefix(1)).uppercased())
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                        
+                        Text(profile.formattedJobTitle)
+                            .font(.subheadline)
+                            .foregroundColor(.loopedTextSecondary)
+                        
+                        Spacer()
+                    }
+                }
+                
+                // Follower Stats - left aligned
+                HStack(spacing: 16) {
+                    Text("\(profile.followingCount)")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.loopedTextPrimary)
+                    +
+                    Text(" Following")
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
+                    
+                    Text("\(profile.followersCount)")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.loopedTextPrimary)
+                    +
+                    Text(" Followers")
                         .font(.subheadline)
                         .foregroundColor(.loopedTextSecondary)
                     
                     Spacer()
                 }
-                
-                HStack(spacing: 8) {
-                    // Google logo placeholder
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 16, height: 16)
-                        .overlay(
-                            Text("G")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                        )
-                    
-                    Text("Works at Google")
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
-                    
-                    Spacer()
-                }
-            }
-            
-            // Follower Stats - left aligned
-            HStack(spacing: 16) {
-                Text("100")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.loopedTextPrimary)
-                +
-                Text(" Following")
-                    .font(.subheadline)
-                    .foregroundColor(.loopedTextSecondary)
-                
-                Text("123")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.loopedTextPrimary)
-                +
-                Text(" Followers")
-                    .font(.subheadline)
-                    .foregroundColor(.loopedTextSecondary)
-                
-                Spacer()
+            } else {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -250,36 +259,71 @@ struct ProfileStatsView: View {
 
 struct ProfileActionButtons: View {
     @ObservedObject var viewModel: ProfileViewModel
+    let userProfile: UserProfile?
 
     var body: some View {
         HStack(spacing: 64) {
-            NavigationLink(destination: EditProfileView(viewModel: viewModel)) {
-                Text("Edit Profile")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.loopedTextPrimary)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                    )
-            }
-            .buttonStyle(PlainButtonStyle())
+            if userProfile?.isCurrentUser ?? true {
+                NavigationLink(destination: EditProfileView(viewModel: viewModel)) {
+                    Text("Edit Profile")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.loopedTextPrimary)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
 
-            NavigationLink(destination: SettingsView()) {
-                Text("Settings")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.loopedTextPrimary)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                    )
+                NavigationLink(destination: SettingsView()) {
+                    Text("Settings")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.loopedTextPrimary)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                Button(action: {
+                    // TODO: Implement follow action
+                }) {
+                    Text("Follow")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.loopedTextPrimary)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Button(action: {
+                    // TODO: Implement message action
+                }) {
+                    Text("Message")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.loopedTextPrimary)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-            .buttonStyle(PlainButtonStyle())
         }
         .padding(.top, 10)
     }

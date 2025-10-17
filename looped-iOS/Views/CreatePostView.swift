@@ -4,7 +4,7 @@ struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var postText: String = ""
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
-    @State private var selectedChannel: String = "General"
+    @State private var selectedChannel: String
     @State private var isSubmitting: Bool = false
     @State private var showSettings: Bool = false
     @State private var selectedMedia: [LocalMediaItem] = []
@@ -12,8 +12,14 @@ struct CreatePostView: View {
     @State private var showCamera: Bool = false
 
     let feedViewModel: FeedViewModel
-    
-    let channels = ["General", "Random", "Work", "Announcements"]
+    private let channelNames: [String]
+
+    init(feedViewModel: FeedViewModel) {
+        self.feedViewModel = feedViewModel
+        let names = MockMessages.channels.map { $0.name }
+        self.channelNames = names.isEmpty ? ["general"] : names
+        _selectedChannel = State(initialValue: self.channelNames.first ?? "general")
+    }
     
     private var characterLimit: Int { 280 }
     private var remainingCharacters: Int { characterLimit - postText.count }
@@ -36,14 +42,14 @@ struct CreatePostView: View {
                             .foregroundColor(.loopedTextSecondary)
                         
                         Menu {
-                            ForEach(channels, id: \.self) { channel in
+                            ForEach(channelNames, id: \.self) { channel in
                                 Button(channel) {
                                     selectedChannel = channel
                                 }
                             }
                         } label: {
                             HStack {
-                                Text("# \(selectedChannel)")
+                                Text(selectedChannel)
                                     .font(.loopedBody)
                                     .foregroundColor(.loopedTextPrimary)
                                 Spacer()

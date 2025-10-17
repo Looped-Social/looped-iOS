@@ -3,11 +3,19 @@ import SwiftUI
 struct UserSettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var username = "@johndoe"
-    @State private var displayName = "John Doe"
-    @State private var bio = "Software engineer at JP Morgan"
+    @State private var username: String
+    @State private var displayName: String
+    @State private var bio: String
     @State private var emailNotifications = true
     @State private var pushNotifications = true
+
+    init() {
+        let currentUser = MockUsers.currentUser
+        let currentProfile = MockUserProfiles.getCurrentUserProfile()
+        _username = State(initialValue: "@\(currentProfile?.handle ?? currentUser.handle)")
+        _displayName = State(initialValue: currentProfile?.displayName ?? currentUser.displayName ?? "")
+        _bio = State(initialValue: currentProfile?.bio ?? currentUser.bio ?? "")
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -107,11 +115,11 @@ struct UserSettingsView: View {
                             .padding(.horizontal, 20)
 
                         VStack(spacing: 0) {
-                            UserSettingsInfoRow(label: "Company", value: "JP Morgan Chase")
+                            UserSettingsInfoRow(label: "Company", value: MockUsers.currentUser.company)
                             Divider().padding(.horizontal, 20)
-                            UserSettingsInfoRow(label: "Position", value: "Software Engineer")
+                            UserSettingsInfoRow(label: "Position", value: MockUserProfiles.getCurrentUserProfile()?.jobTitle ?? "Team Member")
                             Divider().padding(.horizontal, 20)
-                            UserSettingsInfoRow(label: "Verified", value: "Yes")
+                            UserSettingsInfoRow(label: "Verified", value: MockUserProfiles.getCurrentUserProfile()?.isVerified == true ? "Yes" : "No")
                         }
                         .background(Color.loopedTextSecondary.opacity(0.05))
                         .cornerRadius(8)

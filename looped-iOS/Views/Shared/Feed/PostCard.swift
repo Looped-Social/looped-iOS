@@ -22,6 +22,18 @@ struct PostCard: View {
         MockComments.getCommentCount(for: post.id)
     }
 
+    private var authorProfile: UserProfile? {
+        MockUserProfiles.getUserProfile(byId: post.authorId)
+    }
+
+    private var shareCount: Int {
+        MockPosts.shareCount(for: post.id)
+    }
+
+    private var saveCount: Int {
+        MockPosts.saveCount(for: post.id)
+    }
+
     private var formattedTimeAgo: String {
         let now = Date()
         let timeInterval = now.timeIntervalSince(post.createdAt)
@@ -47,9 +59,9 @@ struct PostCard: View {
             HStack(alignment: .top, spacing: 12) {
                 // Avatar (hidden for anonymous posts)
                 if !post.isAnonymous {
-                    if let userProfile = MockUserProfiles.getUserProfile(byId: post.authorId) {
+                    if let userProfile = authorProfile {
                         NavigationLink(destination: UserProfileView(userProfile: userProfile)) {
-                            AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
+                            AsyncImage(url: URL(string: userProfile.profileImageURL ?? "")) { image in
                                 image
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
@@ -79,7 +91,7 @@ struct PostCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         // Name and handle
-                        Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
+                        Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? authorProfile?.displayName ?? "User"))
                             .font(.headline)
                             .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
 
@@ -101,7 +113,7 @@ struct PostCard: View {
                     // Job title and company (only for non-anonymous posts)
                     if !post.isAnonymous {
                         HStack(spacing: 4) {
-                            Text("Product Designer @ \(post.company)")
+                            Text(authorProfile?.formattedJobTitle ?? post.company)
                                 .font(.subheadline)
                                 .foregroundColor(.loopedTextSecondary)
                         }
@@ -186,7 +198,7 @@ struct PostCard: View {
                             .renderingMode(.template)
                             .frame(width: 19, height: 19)
                             .foregroundColor(.loopedTextSecondary)
-                        Text("67")
+                        Text("\(shareCount)")
                             .font(.caption)
                             .foregroundColor(.loopedTextSecondary)
                     }
@@ -202,7 +214,7 @@ struct PostCard: View {
                             .renderingMode(.template)
                             .frame(width: 18, height: 18)
                             .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
-                        Text("999")
+                        Text("\(saveCount)")
                             .font(.caption)
                             .foregroundColor(.loopedTextSecondary)
                     }

@@ -1,15 +1,16 @@
 import SwiftUI
 
 struct SearchFilterTabs: View {
-    @Binding var selectedFilter: SearchFilter
-    let onFilterChange: (SearchFilter) -> Void
+    let filters: [SearchFilterOption]
+    @Binding var selectedFilter: SearchFilterOption
+    let onFilterChange: (SearchFilterOption) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(SearchFilter.allCases, id: \.self) { filter in
+                ForEach(filters) { filter in
                     FilterTab(
-                        title: filter.displayName,
+                        title: filter.title,
                         isSelected: selectedFilter == filter
                     ) {
                         selectedFilter = filter
@@ -44,17 +45,18 @@ struct FilterTab: View {
 }
 
 #Preview {
-    @State var selectedFilter: SearchFilter = .jpMorgan
+    @State var selectedFilter: SearchFilterOption = MockSearchContent.filterOptions[1]
 
     return VStack(spacing: 20) {
         SearchFilterTabs(
+            filters: MockSearchContent.filterOptions,
             selectedFilter: $selectedFilter,
             onFilterChange: { filter in
-                print("Selected filter: \(filter)")
+                print("Selected filter: \(filter.title)")
             }
         )
 
-        Text("Selected: \(selectedFilter.rawValue)")
+        Text("Selected: \(selectedFilter.title)")
     }
     .background(Color.loopedBackground)
 }

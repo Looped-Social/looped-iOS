@@ -1,38 +1,5 @@
 import SwiftUI
 
-// MARK: - Organization Model
-
-struct Organization: Identifiable {
-    let id = UUID()
-    let name: String
-    let category: String
-    let logoText: String // For now, using initials instead of actual logos
-}
-
-struct MockOrganizations {
-    static let companies: [Organization] = [
-        Organization(name: "J.P. Morgan", category: "Banking", logoText: "JPMorgan"),
-        Organization(name: "Wells Fargo", category: "Banking", logoText: "JPMorgan"),
-        Organization(name: "Bank of America", category: "Banking", logoText: "JPMorgan"),
-        Organization(name: "Goldman Sachs", category: "Banking", logoText: "JPMorgan"),
-        Organization(name: "Morgan Stanley", category: "Banking", logoText: "JPMorgan"),
-        Organization(name: "Citibank", category: "Banking", logoText: "JPMorgan"),
-        Organization(name: "Charles Schwab", category: "Banking", logoText: "JPMorgan"),
-        Organization(name: "First Citizens", category: "Banking", logoText: "JPMorgan")
-    ]
-
-    static let schools: [Organization] = [
-        Organization(name: "NC State", category: "University", logoText: "JPMorgan"),
-        Organization(name: "Chapel Hill", category: "University", logoText: "JPMorgan"),
-        Organization(name: "Duke University", category: "University", logoText: "JPMorgan"),
-        Organization(name: "Wake Forest", category: "University", logoText: "JPMorgan"),
-        Organization(name: "UNC Charlotte", category: "University", logoText: "JPMorgan"),
-        Organization(name: "NC A&T", category: "University", logoText: "JPMorgan"),
-        Organization(name: "East Carolina", category: "University", logoText: "JPMorgan"),
-        Organization(name: "Appalachian State", category: "University", logoText: "JPMorgan")
-    ]
-}
-
 // MARK: - Organization Selection View
 
 struct OrganizationSelectionView: View {

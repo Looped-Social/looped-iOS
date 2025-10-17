@@ -3,12 +3,16 @@ import SwiftUI
 struct SimplifiedPostCard: View {
     let post: Post
     
+    private var authorProfile: UserProfile? {
+        MockUserProfiles.getUserProfile(byId: post.authorId)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with user info only
             HStack(alignment: .top, spacing: 12) {
                 // Avatar
-                AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
+                AsyncImage(url: URL(string: authorProfile?.profileImageURL ?? "")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -21,23 +25,28 @@ struct SimplifiedPostCard: View {
                 
                 VStack(alignment: .leading, spacing: 8) {
                     // Name only (no username, job title, or timestamp)
-                    Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
+                    Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? authorProfile?.displayName ?? "User"))
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
                     
                     // Post content
-                    Text(post.content)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextPrimary)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(nil)
-                    
-                    // Hashtags (if any)
                     if post.content.contains("#") {
-                        Text("#uxdesign #productdesign")
+                        HashtagText(
+                            text: post.content,
+                            font: .loopedBody,
+                            textColor: .loopedTextPrimary,
+                            hashtagColor: .loopedPrimary,
+                            onHashtagTap: { _ in }
+                        )
+                        .multilineTextAlignment(.leading)
+                    } else {
+                        Text(post.content)
                             .font(.loopedBody)
-                            .foregroundColor(.loopedPrimary)
+                            .foregroundColor(.loopedTextPrimary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(nil)
                     }
+                    
                 }
             }
         }

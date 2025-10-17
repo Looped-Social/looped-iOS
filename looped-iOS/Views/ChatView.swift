@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct ChatView: View {
     let conversation: Conversation?
@@ -27,6 +28,21 @@ struct ChatView: View {
 
     private var profileImageUrl: String? {
         return conversation?.userProfileImageUrl
+    }
+
+    private var groupInitials: String {
+        let rawTitle = channel?.name ?? conversation?.userName ?? "Group"
+        let components = rawTitle.split(separator: " ")
+        let initials = components.compactMap { component -> Character? in
+            component.first { char in
+                char.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) }
+            }
+        }
+        .prefix(2)
+        .map { String($0).uppercased() }
+        .joined()
+
+        return initials.isEmpty ? "GC" : initials
     }
 
     var body: some View {
@@ -90,7 +106,7 @@ struct ChatView: View {
                                 .fill(Color.purple)
                                 .frame(width: 32, height: 32)
                                 .overlay(
-                                    Text("VP")
+                                    Text(groupInitials)
                                         .font(.caption)
                                         .fontWeight(.medium)
                                         .foregroundColor(.white)

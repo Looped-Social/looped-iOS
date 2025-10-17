@@ -2,6 +2,12 @@ import SwiftUI
 
 struct ConversationRow: View {
     let conversation: Conversation
+    
+    private var groupInitials: String {
+        let words = conversation.userName.split(separator: " ")
+        let initials = words.prefix(2).compactMap { $0.first }.map { String($0).uppercased() }.joined()
+        return initials.isEmpty ? "GC" : initials
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -12,7 +18,7 @@ struct ConversationRow: View {
                     .fill(Color.purple)
                     .frame(width: 50, height: 50)
                     .overlay(
-                        Text("VP")
+                        Text(groupInitials)
                             .font(.loopedBodyMedium)
                             .fontWeight(.medium)
                             .foregroundColor(.white)

@@ -4,6 +4,7 @@ import Combine
 @MainActor
 class ProfileViewModel: ObservableObject {
     @Published var user: User?
+    @Published var userProfile: UserProfile?
     @Published var userPosts: [Post] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -25,11 +26,14 @@ class ProfileViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            user = try await userService.getCurrentUser()
-            // Load user's posts - filter MockPosts by current user
-            if let currentUser = user {
-                userPosts = MockPosts.getPostsByUser(currentUser.id)
+            let fetchedUser = try await userService.getCurrentUser()
+            user = fetchedUser
+
+            if let profile = MockUserProfiles.getUserProfile(byId: fetchedUser.id) {
+                userProfile = profile
             }
+
+            userPosts = MockPosts.getPostsByUser(fetchedUser.id)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -39,7 +43,32 @@ class ProfileViewModel: ObservableObject {
     
     func updateProfile(displayName: String?, bio: String? = nil, isAnonymous: Bool) async {
         do {
-            user = try await userService.updateProfile(displayName: displayName, bio: bio, isAnonymous: isAnonymous)
+            let updatedUser = try await userService.updateProfile(displayName: displayName, bio: bio, isAnonymous: isAnonymous)
+            user = updatedUser
+
+            if let existingProfile = userProfile {
+                userProfile = UserProfile(
+                    id: existingProfile.id,
+                    username: existingProfile.username,
+                    displayName: displayName ?? existingProfile.displayName,
+                    handle: existingProfile.handle,
+                    company: existingProfile.company,
+                    jobTitle: existingProfile.jobTitle,
+                    bio: bio ?? existingProfile.bio,
+                    profileImageURL: existingProfile.profileImageURL,
+                    isVerified: existingProfile.isVerified,
+                    isAnonymous: isAnonymous,
+                    yearsInLoop: existingProfile.yearsInLoop,
+                    followingCount: existingProfile.followingCount,
+                    followersCount: existingProfile.followersCount,
+                    postsCount: existingProfile.postsCount,
+                    commentsCount: existingProfile.commentsCount,
+                    isCurrentUser: existingProfile.isCurrentUser,
+                    createdAt: existingProfile.createdAt,
+                    updatedAt: Date()
+                )
+            }
+
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

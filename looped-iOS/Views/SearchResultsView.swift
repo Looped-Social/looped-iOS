@@ -16,6 +16,7 @@ struct SearchResultsView: View {
 
                 // Filter Tabs
                 SearchFilterTabs(
+                    filters: viewModel.filters,
                     selectedFilter: $viewModel.selectedFilter,
                     onFilterChange: viewModel.selectFilter
                 )
@@ -73,7 +74,7 @@ struct SearchResultsView: View {
         VStack(spacing: 0) {
             SearchResultsBar(
                 searchText: $viewModel.searchText,
-                placeholder: "Search in JP Morgan",
+                placeholder: "Search in \(MockSearchContent.companyFilterTitle)",
                 onCancel: {
                     dismiss()
                 },

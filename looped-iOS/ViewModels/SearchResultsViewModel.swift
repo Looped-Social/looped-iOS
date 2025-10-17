@@ -4,7 +4,8 @@ import Combine
 @MainActor
 class SearchResultsViewModel: ObservableObject {
     @Published var searchText = ""
-    @Published var selectedFilter: SearchFilter = .allLoops
+    @Published var filters: [SearchFilterOption] = []
+    @Published var selectedFilter: SearchFilterOption
     @Published var isSearching = false
     @Published var recentSearches: [String] = []
     @Published var searchResults: SearchResults = SearchResults()
@@ -14,6 +15,9 @@ class SearchResultsViewModel: ObservableObject {
     private let searchDebounceTime: TimeInterval = 0.3
 
     init() {
+        let availableFilters = MockSearchContent.filterOptions
+        filters = availableFilters
+        selectedFilter = availableFilters.first ?? SearchFilterOption(title: "All Loops", apiKey: "all")
         loadRecentSearches()
         setupSearchDebouncing()
     }
@@ -49,14 +53,14 @@ class SearchResultsViewModel: ObservableObject {
         isSearching = false
     }
 
-    private func generateMockResults(for query: String, filter: SearchFilter) -> SearchResults {
+    private func generateMockResults(for query: String, filter: SearchFilterOption) -> SearchResults {
         var results = SearchResults()
 
         // Generate hashtag suggestions based on query
         generateHashtagSuggestions(for: query)
 
         // Mock people results using actual UserProfiles
-        if filter == .allLoops || filter == .jpMorgan {
+        if filter.apiKey == "all" || filter.apiKey == "company" {
             let searchResults = MockUserProfiles.searchUserProfiles(query: query)
             results.people = searchResults.map { profile in
                 SearchResultPerson(
@@ -85,21 +89,31 @@ class SearchResultsViewModel: ObservableObject {
             }
         }
 
-        // Mock posts results
+        // Mock posts results (placeholder for future API integration)
         results.posts = []
 
         // Mock loops results
-        results.loops = []
+        if filter.apiKey == "all" || filter.apiKey == "company" {
+            let loopMatches = MockSearchContent.loopCategories.filter { loop in
+                query.isEmpty ? true : loop.title.localizedCaseInsensitiveContains(query) || loop.description.localizedCaseInsensitiveContains(query)
+            }
+
+            results.loops = loopMatches.map { loop in
+                SearchResultLoop(
+                    id: loop.id,
+                    name: loop.title,
+                    description: loop.description,
+                    memberCount: loop.memberCount
+                )
+            }
+        }
 
         return results
     }
 
     private func generateHashtagSuggestions(for query: String) {
         // Mock hashtag suggestions that relate to the search query
-        let allHashtags = [
-            "#interns", "#lunch", "#elevator", "#remote", "#office", "#meeting",
-            "#project", "#deadline", "#coffee", "#team", "#collaboration", "#innovation"
-        ]
+        let allHashtags = MockSearchContent.popularHashtags
 
         // Filter hashtags based on query or show popular ones
         if query.isEmpty {
@@ -120,7 +134,7 @@ class SearchResultsViewModel: ObservableObject {
     }
 
     // MARK: - Filter Management
-    func selectFilter(_ filter: SearchFilter) {
+    func selectFilter(_ filter: SearchFilterOption) {
         selectedFilter = filter
         Task {
             await performSearch(query: searchText)
@@ -158,11 +172,7 @@ class SearchResultsViewModel: ObservableObject {
 
     private func loadRecentSearches() {
         // Mock recent searches for now
-        recentSearches = [
-            "elevator broken",
-            "Lunch Break Shortened",
-            "#interns"
-        ]
+        recentSearches = MockSearchContent.defaultRecentSearches
     }
 
     private func saveRecentSearches() {
@@ -179,40 +189,5 @@ struct SearchResults {
 
     var isEmpty: Bool {
         people.isEmpty && posts.isEmpty && loops.isEmpty
-    }
-}
-
-struct SearchResultPerson: Identifiable {
-    let id: UUID
-    let name: String
-    let username: String
-    let title: String
-    let company: String
-    let avatarURL: String?
-}
-
-struct SearchResultPost: Identifiable {
-    let id: UUID
-    let content: String
-    let authorName: String
-    let timestamp: Date
-    let reactionCount: Int
-}
-
-struct SearchResultLoop: Identifiable {
-    let id: UUID
-    let name: String
-    let description: String
-    let memberCount: Int
-}
-
-enum SearchFilter: String, CaseIterable {
-    case allLoops = "All Loops"
-    case jpMorgan = "JP Morgan"
-    case finance = "Finance"
-    case investment = "Investment"
-
-    var displayName: String {
-        rawValue
     }
 }

@@ -446,4 +446,15 @@ struct MockPosts {
             updatedAt: Date()
         )
     }
+
+    // MARK: - Engagement Metrics
+    static func shareCount(for postId: UUID) -> Int {
+        guard let post = feedPosts.first(where: { $0.id == postId }) else { return 0 }
+        return max(3, Int(Double(post.reactionCount) * 0.35))
+    }
+
+    static func saveCount(for postId: UUID) -> Int {
+        guard let post = feedPosts.first(where: { $0.id == postId }) else { return 0 }
+        return max(5, Int(Double(post.reactionCount) * 0.55))
+    }
 }

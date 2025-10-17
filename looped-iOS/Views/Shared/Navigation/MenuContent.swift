@@ -21,7 +21,7 @@ struct MenuContent: View {
                     .padding(.top, 60)
 
                 // Display Name
-                Text(viewModel.user?.displayName ?? "Billy Bob")
+                Text(viewModel.userProfile?.displayName ?? viewModel.user?.displayName ?? "Looped User")
                     .font(.loopedBodyStrong32)
                     .foregroundColor(.loopedContrast)
 
@@ -30,8 +30,8 @@ struct MenuContent: View {
                     isAnonymous.toggle()
                     Task {
                         await viewModel.updateProfile(
-                            displayName: viewModel.user?.displayName,
-                            bio: viewModel.user?.bio,
+                            displayName: viewModel.userProfile?.displayName ?? viewModel.user?.displayName,
+                            bio: viewModel.userProfile?.bio ?? viewModel.user?.bio,
                             isAnonymous: isAnonymous
                         )
                     }
@@ -58,7 +58,7 @@ struct MenuContent: View {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 20))
                         .foregroundColor(.red)
-                    Text("10K Hearts")
+                    Text("\(totalHearts) Hearts")
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
                 }
@@ -110,8 +110,12 @@ struct MenuContent: View {
         .background(Color.loopedBackground.ignoresSafeArea(.all))
         .task {
             await viewModel.loadUserProfile()
-            isAnonymous = viewModel.user?.isAnonymous ?? false
+            isAnonymous = viewModel.userProfile?.isAnonymous ?? viewModel.user?.isAnonymous ?? false
         }
+    }
+
+    private var totalHearts: Int {
+        viewModel.userPosts.reduce(0) { $0 + $1.reactionCount }
     }
 }
 
