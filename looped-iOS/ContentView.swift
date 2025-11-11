@@ -243,8 +243,11 @@ struct MainTabView: View {
                 }
             })
         }
-        .sheet(item: $menuDestination) { destination in
-            destinationView(for: destination)
+        .fullScreenCover(item: $menuDestination) { destination in
+            NavigationView {
+                destinationView(for: destination)
+            }
+            .navigationViewStyle(.stack)
         }
     }
 
