@@ -28,6 +28,9 @@ struct FeedTabs: View {
                 HStack {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
                         Button(action: {
+                            guard selectedTab != tab else { return }
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
                             selectedTab = tab
                         }) {
                             Text(tab.rawValue)
