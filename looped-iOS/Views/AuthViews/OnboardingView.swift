@@ -1,8 +1,10 @@
 import SwiftUI
+import AuthenticationServices
 
 struct OnboardingView: View {
     @ObservedObject var authViewModel: AuthViewModel
     let onNavigate: (AuthScreen) -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         GeometryReader { geometry in
@@ -57,19 +59,13 @@ struct OnboardingView: View {
                         .foregroundColor(.loopedTextSecondary)
                         .padding(.vertical, 8)
 
-                    // Continue with Google button
-                    Button(action: {
-                        Task {
-                            // Mock Google login
-                            await authViewModel.login(email: "user@company.com", password: "password")
-                        }
-                    }) {
-                        HStack {
-                            // Google logo placeholder (using "G" for now)
+                    // Continue with Google button (custom styling)
+                    Button(action: { Task { await authViewModel.signInWithGoogle() } }) {
+                        HStack(spacing: 12) {
                             Image("google-logo")
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
-                                .frame(height: 24)
+                                .frame(width: 24, height: 24)
 
                             Text("Continue with Google")
                                 .font(.loopedBodyMedium)
@@ -77,42 +73,28 @@ struct OnboardingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(Color.loopedBackground)
+                        .background(Color.white.opacity(colorScheme == .dark ? 0.9 : 1))
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.loopedTextSecondary.opacity(0.7), lineWidth: 1)
+                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
                         )
                         .cornerRadius(25)
                     }
                     .disabled(authViewModel.isLoading)
 
-                    // Continue with Apple button
-                    Button(action: {
-                        Task {
-                            // Mock Apple login
-                            await authViewModel.login(email: "user@company.com", password: "password")
-                        }
-                    }) {
-                        HStack {
-                            // Apple logo placeholder (using apple symbol)
-                            Image(systemName: "applelogo")
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundColor(.loopedTextPrimary)
-
-                            Text("Continue with Apple")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Color.loopedBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.loopedTextSecondary.opacity(0.7), lineWidth: 1)
-                        )
-                        .cornerRadius(25)
+                    // Continue with Apple button (auto style per mode)
+                    SignInWithAppleButton(.signIn) { request in
+                        authViewModel.configureAppleRequest(request)
+                    } onCompletion: { result in
+                        Task { await authViewModel.handleAppleCompletion(result) }
                     }
-                    .disabled(authViewModel.isLoading)
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .black : .white)
+                    .frame(height: 50)
+                    .cornerRadius(25)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 25)
+                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                    )
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 12)

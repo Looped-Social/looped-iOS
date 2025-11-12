@@ -4,22 +4,27 @@ class APIClient {
     private let baseURL: URL
     private let session: URLSession
     private let tokenStorage: TokenStorage
+    private let tokenProvider: AuthTokenProvider?
     
     init(
-        baseURL: String = "https://api.looped.app",
+        baseURL: String? = nil,
         session: URLSession = .shared,
-        tokenStorage: TokenStorage = TokenStorage()
+        tokenStorage: TokenStorage = TokenStorage(),
+        tokenProvider: AuthTokenProvider? = FirebaseAuthTokenProvider()
     ) {
-        self.baseURL = URL(string: baseURL)!
+        let resolvedBaseURL = baseURL ?? Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
+        self.baseURL = URL(string: resolvedBaseURL ?? "https://api.mylooped.app")!
         self.session = session
         self.tokenStorage = tokenStorage
+        self.tokenProvider = tokenProvider
     }
     
     func get<T: Codable>(_ endpoint: String) async throws -> T {
         let url = baseURL.appendingPathComponent(endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        addAuthHeader(&request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        await addAuthHeader(&request)
         
         return try await performRequest(request)
     }
@@ -29,7 +34,23 @@ class APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        addAuthHeader(&request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        await addAuthHeader(&request)
+        
+        request.httpBody = try JSONEncoder().encode(body)
+        
+        return try await performRequest(request)
+    }
+    
+    /// POST with extra headers (e.g., Idempotency-Key)
+    func postWithHeaders<T: Codable, U: Codable>(_ endpoint: String, body: T, headers: [String: String]) async throws -> U {
+        let url = baseURL.appendingPathComponent(endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        headers.forEach { key, value in request.setValue(value, forHTTPHeaderField: key) }
+        await addAuthHeader(&request)
         
         request.httpBody = try JSONEncoder().encode(body)
         
@@ -41,7 +62,8 @@ class APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        addAuthHeader(&request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        await addAuthHeader(&request)
         
         request.httpBody = try JSONEncoder().encode(body)
         
@@ -52,48 +74,80 @@ class APIClient {
         let url = baseURL.appendingPathComponent(endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        addAuthHeader(&request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        await addAuthHeader(&request)
         
         let _: EmptyResponse = try await performRequest(request)
     }
     
-    private func addAuthHeader(_ request: inout URLRequest) {
+    private func addAuthHeader(_ request: inout URLRequest) async {
+        // Prefer FirebaseAuth ID token when available
+        if let provider = tokenProvider {
+            do {
+                if let token = try await provider.currentIDToken() {
+                    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                    return
+                }
+            } catch {
+                // ignore and fall back
+            }
+        }
+        // Fallback to any token stored locally (legacy flow)
         if let token = tokenStorage.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
     }
     
     private func performRequest<T: Codable>(_ request: URLRequest) async throws -> T {
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        guard 200...299 ~= httpResponse.statusCode else {
-            if httpResponse.statusCode == 401 {
-                throw APIError.unauthorized
-            }
-            throw APIError.serverError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        
         do {
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+            
+            guard 200...299 ~= httpResponse.statusCode else {
+                if httpResponse.statusCode == 401 {
+                    throw APIError.unauthorized
+                }
+                // Try to parse structured error
+                if let errorPayload = try? JSONDecoder().decode(ServerError.self, from: data) {
+                    throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
+                }
+                throw APIError.serverError(httpResponse.statusCode)
+            }
+            
+            // Handle empty bodies (e.g., 204) for types expecting EmptyResponse
+            if data.isEmpty, T.self == EmptyResponse.self {
+                // swiftlint:disable:next force_cast
+                return EmptyResponse() as! T
+            }
+            
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            
             return try decoder.decode(T.self, from: data)
+        } catch let error as APIError {
+            throw error
         } catch {
-            throw APIError.decodingError(error)
+            throw APIError.networkError(error)
         }
     }
 }
 
 struct EmptyResponse: Codable {}
 
+private struct ServerError: Codable {
+    let error: String
+    let message: String?
+}
+
 enum APIError: Error, LocalizedError {
     case invalidResponse
     case unauthorized
     case serverError(Int)
+    case apiError(code: Int, error: String, message: String?)
     case decodingError(Error)
     case networkError(Error)
     
@@ -105,6 +159,8 @@ enum APIError: Error, LocalizedError {
             return "Unauthorized access"
         case .serverError(let code):
             return "Server error: \(code)"
+        case .apiError(_, let error, let message):
+            return message ?? error
         case .decodingError(let error):
             return "Data decoding error: \(error.localizedDescription)"
         case .networkError(let error):

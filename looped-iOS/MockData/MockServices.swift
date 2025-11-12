@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import UIKit
+import AuthenticationServices
 
 // MARK: - Mock Auth Service
 class MockAuthService: AuthServiceProtocol {
@@ -47,6 +49,24 @@ class MockAuthService: AuthServiceProtocol {
     func refreshToken() async throws {
         // Mock refresh - always succeeds
         try await Task.sleep(for: .seconds(0.2))
+    }
+
+    func signInWithGoogle(presenting: UIViewController) async throws {
+        // Simulate Google sign-in success
+        try await Task.sleep(for: .seconds(0.5))
+        _isAuthenticated = true
+    }
+
+    func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws {
+        // Simulate Apple sign-in success
+        try await Task.sleep(for: .seconds(0.5))
+        _isAuthenticated = true
+    }
+
+    func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {
+        // Simulate Apple sign-in with credential
+        try await Task.sleep(for: .seconds(0.5))
+        _isAuthenticated = true
     }
 }
 

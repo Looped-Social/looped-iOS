@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import UIKit
+import AuthenticationServices
 
 protocol AuthServiceProtocol {
     var authStateChanged: AnyPublisher<Bool, Never> { get }
@@ -9,6 +11,11 @@ protocol AuthServiceProtocol {
     func signOut()
     func refreshToken() async throws
     var isAuthenticated: Bool { get }
+
+    // Social sign-in
+    func signInWithGoogle(presenting: UIViewController) async throws
+    func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws
+    func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws
 }
 
 protocol FeedServiceProtocol {
