@@ -20,7 +20,7 @@ class APIClient {
     }
     
     func get<T: Codable>(_ endpoint: String) async throws -> T {
-        let url = baseURL.appendingPathComponent(endpoint)
+        let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -30,7 +30,7 @@ class APIClient {
     }
     
     func post<T: Codable, U: Codable>(_ endpoint: String, body: T) async throws -> U {
-        let url = baseURL.appendingPathComponent(endpoint)
+        let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -44,7 +44,7 @@ class APIClient {
     
     /// POST with extra headers (e.g., Idempotency-Key)
     func postWithHeaders<T: Codable, U: Codable>(_ endpoint: String, body: T, headers: [String: String]) async throws -> U {
-        let url = baseURL.appendingPathComponent(endpoint)
+        let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -58,7 +58,7 @@ class APIClient {
     }
     
     func put<T: Codable, U: Codable>(_ endpoint: String, body: T) async throws -> U {
-        let url = baseURL.appendingPathComponent(endpoint)
+        let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -96,6 +96,16 @@ class APIClient {
         if let token = tokenStorage.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+    }
+    
+    private func makeURL(for endpoint: String) -> URL {
+        if let absolute = URL(string: endpoint), absolute.scheme != nil {
+            return absolute
+        }
+        if let relative = URL(string: endpoint, relativeTo: baseURL) {
+            return relative
+        }
+        return baseURL.appendingPathComponent(endpoint)
     }
     
     private func performRequest<T: Codable>(_ request: URLRequest) async throws -> T {

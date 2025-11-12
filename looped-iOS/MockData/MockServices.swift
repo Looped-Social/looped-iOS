@@ -73,29 +73,21 @@ class MockAuthService: AuthServiceProtocol {
 // MARK: - Mock Feed Service
 class MockFeedService: FeedServiceProtocol {
     
-    func getPosts() async throws -> [Post] {
-        // Simulate API delay
+    func fetchFeed(limit: Int, cursor: String?) async throws -> FeedPage {
         try await Task.sleep(for: .seconds(MockConfig.mockDelay))
-        
-        // Return mock posts sorted by most recent
-        return MockPosts.getRecentPosts()
+        let posts = MockPosts.getRecentPosts()
+        return FeedPage(posts: posts, nextCursor: nil)
     }
     
     func createPost(content: String, isAnonymous: Bool) async throws -> Post {
-        // Simulate API delay
         try await Task.sleep(for: .seconds(MockConfig.mockDelay))
-        
-        // Create and return new post
         return MockPosts.createPost(content: content, isAnonymous: isAnonymous)
     }
     
-    func reactToPost(postId: UUID, reaction: ReactionType) async throws {
-        // Simulate API delay
+    func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse {
         try await Task.sleep(for: .seconds(0.3))
-        
-        // In a real app, this would update the backend
-        // For mock data, we can simulate the reaction
-        let _ = MockPosts.addReaction(to: postId, reaction: reaction)
+        let updated = MockPosts.addReaction(toBackendId: postId, reaction: reaction)
+        return PostReactionResponse(postId: postId, likesCount: updated?.reactionCount ?? 0)
     }
 }
 

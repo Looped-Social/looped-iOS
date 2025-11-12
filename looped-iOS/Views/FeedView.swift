@@ -21,10 +21,20 @@ struct FeedView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.posts) { post in
                             PostCard(post: post)
+                                .onAppear {
+                                    Task {
+                                        await viewModel.loadMoreIfNeeded(currentPost: post)
+                                    }
+                                }
 
                             Rectangle()
                                 .frame(height: 1)
                                 .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                        }
+
+                        if viewModel.isLoadingMore {
+                            ProgressView()
+                                .padding()
                         }
                     }
                     .background(

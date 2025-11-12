@@ -19,9 +19,14 @@ protocol AuthServiceProtocol {
 }
 
 protocol FeedServiceProtocol {
-    func getPosts() async throws -> [Post]
+    func fetchFeed(limit: Int, cursor: String?) async throws -> FeedPage
     func createPost(content: String, isAnonymous: Bool) async throws -> Post
-    func reactToPost(postId: UUID, reaction: ReactionType) async throws
+    func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse
+}
+
+struct PostReactionResponse {
+    let postId: Int
+    let likesCount: Int
 }
 
 protocol MessageServiceProtocol {

@@ -84,7 +84,8 @@ struct MockPosts {
     )
 
     // MARK: - Sample Posts for Feed
-    static let feedPosts: [Post] = [
+    static let feedPosts: [Post] = {
+        let posts: [Post] = [
         // Post with single image
         Post(
             id: UUID(),
@@ -358,7 +359,11 @@ struct MockPosts {
             createdAt: Calendar.current.date(byAdding: .day, value: -4, to: Date())!,
             updatedAt: Calendar.current.date(byAdding: .day, value: -4, to: Date())!
         )
-    ]
+        ]
+        return posts.enumerated().map { index, post in
+            post.updating(backendId: 1000 + index)
+        }
+    }()
     
     // MARK: - Helper Functions
     static func getRecentPosts() -> [Post] {
@@ -390,50 +395,23 @@ struct MockPosts {
         }.sorted { $0.createdAt > $1.createdAt }
     }
     
-    static func addReaction(to postId: UUID, reaction: ReactionType) -> Post? {
-        // In real app, this would be handled by backend
-        // For mock data, we can simulate the reaction
-        guard let postIndex = feedPosts.firstIndex(where: { $0.id == postId }) else { return nil }
-        let updatedPost = feedPosts[postIndex]
-        
-        // Simple mock logic: toggle reaction
-        if updatedPost.userReaction == reaction {
-            // Remove reaction
-            return Post(
-                id: updatedPost.id,
-                content: updatedPost.content,
-                authorId: updatedPost.authorId,
-                authorDisplayName: updatedPost.authorDisplayName,
-                company: updatedPost.company,
-                isAnonymous: updatedPost.isAnonymous,
-                reactionCount: max(0, updatedPost.reactionCount - 1),
-                userReaction: nil,
-                attachments: updatedPost.attachments,
-                createdAt: updatedPost.createdAt,
-                updatedAt: Date()
-            )
-        } else {
-            // Add reaction
-            return Post(
-                id: updatedPost.id,
-                content: updatedPost.content,
-                authorId: updatedPost.authorId,
-                authorDisplayName: updatedPost.authorDisplayName,
-                company: updatedPost.company,
-                isAnonymous: updatedPost.isAnonymous,
-                reactionCount: updatedPost.reactionCount + 1,
-                userReaction: reaction,
-                attachments: updatedPost.attachments,
-                createdAt: updatedPost.createdAt,
-                updatedAt: Date()
-            )
-        }
+    static func addReaction(toBackendId backendId: Int, reaction: ReactionType) -> Post? {
+        guard let post = feedPosts.first(where: { $0.backendId == backendId }) else { return nil }
+        let newReaction = post.userReaction == reaction ? nil : reaction
+        let delta = post.userReaction == reaction ? -1 : 1
+        let updatedCount = max(0, post.reactionCount + delta)
+        return post.updating(
+            reactionCount: updatedCount,
+            userReaction: newReaction,
+            updatedAt: Date()
+        )
     }
     
     // MARK: - Create New Post (for testing create functionality)
     static func createPost(content: String, isAnonymous: Bool = false, attachments: [MediaAttachment]? = nil) -> Post {
         return Post(
             id: UUID(),
+            backendId: Int.random(in: 50_000...99_999),
             content: content,
             authorId: MockUsers.currentUser.id,
             authorDisplayName: isAnonymous ? nil : MockUsers.currentUser.displayName,
@@ -441,6 +419,7 @@ struct MockPosts {
             isAnonymous: isAnonymous,
             reactionCount: 0,
             userReaction: nil,
+            mediaAssetId: nil,
             attachments: attachments,
             createdAt: Date(),
             updatedAt: Date()

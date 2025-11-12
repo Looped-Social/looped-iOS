@@ -2,32 +2,37 @@ import Foundation
 
 class FeedService: FeedServiceProtocol {
     private let apiClient: APIClient
+    private let defaultLimit: Int
     
-    init(apiClient: APIClient = APIClient()) {
+    init(apiClient: APIClient = APIClient(), defaultLimit: Int = 20) {
         self.apiClient = apiClient
+        self.defaultLimit = defaultLimit
     }
     
-    func getPosts() async throws -> [Post] {
-        return try await apiClient.get("/feed/posts")
+    func fetchFeed(limit: Int, cursor: String?) async throws -> FeedPage {
+        var endpoint = "/v1/feed?limit=\(limit > 0 ? limit : defaultLimit)"
+        if let cursor = cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: FeedResponseDTO = try await apiClient.get(endpoint)
+        let posts = response.items.map(Post.init(dto:))
+        return FeedPage(posts: posts, nextCursor: response.nextCursor)
     }
     
     func createPost(content: String, isAnonymous: Bool) async throws -> Post {
-        let request = CreatePostRequest(content: content, isAnonymous: isAnonymous)
-        return try await apiClient.post("/feed/posts", body: request)
+        let request = CreatePostRequestDTO(content: content, mediaAssetId: nil)
+        let headers = ["Idempotency-Key": UUID().uuidString]
+        let dto: PostDTO = try await apiClient.postWithHeaders("/v1/posts", body: request, headers: headers)
+        return Post(dto: dto)
     }
     
-    func reactToPost(postId: UUID, reaction: ReactionType) async throws {
-        let request = ReactToPostRequest(postId: postId, reaction: reaction)
-        let _: EmptyResponse = try await apiClient.post("/feed/posts/\(postId)/react", body: request)
+    func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse {
+        // Backend currently supports "like" only. Ignore other reactions for now.
+        _ = reaction
+        let response: PostLikeResponseDTO = try await apiClient.post("/v1/posts/\(postId)/like", body: EmptyBody())
+        return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
     }
 }
 
-private struct CreatePostRequest: Codable {
-    let content: String
-    let isAnonymous: Bool
-}
-
-private struct ReactToPostRequest: Codable {
-    let postId: UUID
-    let reaction: ReactionType
-}
+private struct EmptyBody: Codable {}
