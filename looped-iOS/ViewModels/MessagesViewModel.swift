@@ -11,7 +11,7 @@ class MessagesViewModel: ObservableObject {
     private let messageService: MessageServiceProtocol
     private var cancellables = Set<AnyCancellable>()
 
-    init(messageService: MessageServiceProtocol = MockConfig.useMockData ? MockMessageService() : MessageService()) {
+    init(messageService: MessageServiceProtocol = MessageService()) {
         self.messageService = messageService
     }
 
@@ -58,8 +58,8 @@ class ChatViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init(
-        messageService: MessageServiceProtocol = MockConfig.useMockData ? MockMessageService() : MessageService(),
-        webSocketService: WebSocketServiceProtocol = MockConfig.useMockData ? MockWebSocketService() : WebSocketService()
+        messageService: MessageServiceProtocol = MessageService(),
+        webSocketService: WebSocketServiceProtocol = WebSocketService()
     ) {
         self.messageService = messageService
         self.webSocketService = webSocketService

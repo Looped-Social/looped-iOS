@@ -25,3 +25,7 @@ struct PostLikeResponseDTO: Codable {
     let likesCount: Int
 }
 
+struct PostSaveResponseDTO: Codable {
+    let postId: Int
+    let saved: Bool
+}

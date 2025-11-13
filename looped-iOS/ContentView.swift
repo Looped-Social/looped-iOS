@@ -37,6 +37,7 @@ struct ContentView: View {
         Group {
             if authViewModel.isAuthenticated {
                 MainTabView()
+                    .environmentObject(authViewModel)
             } else {
                 AuthView(authViewModel: authViewModel)
             }

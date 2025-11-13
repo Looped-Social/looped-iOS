@@ -13,7 +13,7 @@ class FeedViewModel: ObservableObject {
     private var nextCursor: String?
     private let pageSize = 20
     
-    init(feedService: FeedServiceProtocol = MockConfig.useMockData ? MockFeedService() : FeedService()) {
+    init(feedService: FeedServiceProtocol = FeedService()) {
         self.feedService = feedService
     }
     

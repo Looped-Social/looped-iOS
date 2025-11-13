@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FeedHeader: View {
     let onProfileTap: () -> Void
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     init(onProfileTap: @escaping (() -> Void) = {}) {
         self.onProfileTap = onProfileTap
@@ -27,38 +28,52 @@ struct FeedHeader: View {
             
             Spacer()
             
-            // Profile avatar
-            Button(action: {
-                onProfileTap()
-            }) {
-                AsyncImage(url: URL(string: "https://via.placeholder.com/36")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
+            HStack(spacing: 10) {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(displayName)
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    Text(handleText)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+
+                Button(action: {
+                    onProfileTap()
+                }) {
                     Circle()
                         .fill(Color.loopedTextSecondary.opacity(0.1))
                         .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(.loopedTextSecondary)
+                            Text(initials)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.loopedTextPrimary)
                         )
+                        .frame(width: 40, height: 40)
                 }
-                .frame(width: 36, height: 36)
-                .clipShape(Circle())
-            }
-            .buttonStyle(PlainButtonStyle())
-            .zIndex(100)
-            .onTapGesture {
-                onProfileTap()
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
 //        .padding(.vertical, 2)
     }
+
+    private var displayName: String {
+        authViewModel.currentUser?.displayName ?? "Looped User"
+    }
+
+    private var handleText: String {
+        let handle = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle
+        return handle.map { "@\($0)" } ?? "@looped"
+    }
+
+    private var initials: String {
+        if let name = authViewModel.currentUser?.displayName,
+           let first = name.split(separator: " ").first?.first {
+            return String(first).uppercased()
+        }
+        return "LU"
+    }
 }
 
-#Preview {
-    FeedHeader()
-    FeedTabs()
-}
+// Preview intentionally omitted since FeedHeader depends on runtime auth state.

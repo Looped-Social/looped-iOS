@@ -23,34 +23,14 @@ struct ProfileView: View {
                     // Content based on selected tab
                     switch selectedTab {
                     case .posts:
-                        let posts = viewModel.userPosts
-                        ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
-                            PostCard(post: post)
-                                .padding(.horizontal, 16)
-                                .padding(.top, index == 0 ? 0 : 16)
-                        }
-
-                        if posts.isEmpty {
-                            EmptyPostsListView()
-                                .padding(.top, 60)
-                        }
-
+                        PostsList(posts: viewModel.userPosts, isLoading: viewModel.isLoadingPosts)
                     case .replies:
                         RepliesPlaceholderView()
                             .padding(.top, 60)
 
                     case .saved:
-                        let posts = MockPosts.getSavedPosts()
-                        ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
-                            PostCard(post: post)
-                                .padding(.horizontal, 16)
-                                .padding(.top, index == 0 ? 0 : 16)
-                        }
-
-                        if posts.isEmpty {
-                            EmptyPostsListView()
-                                .padding(.top, 60)
-                        }
+                        SavedPlaceholderView()
+                            .padding(.top, 60)
                     }
 
                     // Bottom spacer
@@ -98,6 +78,9 @@ struct ProfileView: View {
         .task {
             await viewModel.loadUserProfile()
         }
+        .refreshable {
+            await viewModel.loadUserProfile()
+        }
         .onAppear {
             headerVisible = true
             lastScrollOffset = 0
@@ -132,6 +115,7 @@ struct ProfileView: View {
 
 struct ProfileHeaderView: View {
     let userProfile: UserProfile?
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -155,43 +139,59 @@ struct ProfileHeaderView: View {
 
                 // Name and Handle beside profile picture
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(userProfile?.displayName ?? "Anonymous")
+                    Text(displayName)
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.loopedTextPrimary)
 
-                    if let handle = userProfile?.formattedHandle {
-                        Text(handle)
-                            .font(.subheadline)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
+                    Text(handle)
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
                 }
 
                 Spacer()
             }
 
             // Bio - left aligned
-            if let bio = userProfile?.bio, !bio.isEmpty {
-                Text(bio)
-                    .font(.body)
-                    .foregroundColor(.loopedTextPrimary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            Text(bioPlaceholder)
+                .font(.body)
+                .foregroundColor(.loopedTextPrimary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 20)
         .padding(.horizontal, 16)
     }
+
+    private var displayName: String {
+        userProfile?.displayName ?? authViewModel.currentUser?.displayName ?? "Looped User"
+    }
+
+    private var handle: String {
+        if let handle = userProfile?.formattedHandle { return handle }
+        if let username = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle {
+            return "@\(username)"
+        }
+        return "@looped"
+    }
+
+    private var bioPlaceholder: String {
+        if let bio = userProfile?.bio ?? authViewModel.currentUser?.bio, !bio.isEmpty {
+            return bio
+        }
+        return "Add your bio in Settings"
+    }
 }
 
 struct ProfileStatsView: View {
     let userProfile: UserProfile?
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Years in Loop and Company - left aligned
-            if let profile = userProfile {
+            if let profile = resolvedProfile {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: "calendar")
@@ -223,37 +223,48 @@ struct ProfileStatsView: View {
                     }
                 }
                 
-                // Follower Stats - left aligned
+                // Follower Stats placeholder
                 HStack(spacing: 16) {
-                    Text("\(profile.followingCount)")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.loopedTextPrimary)
-                    +
-                    Text(" Following")
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
-                    
-                    Text("\(profile.followersCount)")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.loopedTextPrimary)
-                    +
-                    Text(" Followers")
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
-                    
+                    StatPill(title: "Following", value: profile.followingCount)
+                    StatPill(title: "Followers", value: profile.followersCount)
                     Spacer()
                 }
             } else {
                 ProgressView()
-                    .progressViewStyle(.circular)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
+    }
+    
+    private var resolvedProfile: UserProfile? {
+        if let profile = userProfile { return profile }
+        if let user = authViewModel.currentUser {
+            return UserProfile.from(user: user)
+        }
+        return nil
+    }
+}
+
+private struct StatPill: View {
+    let title: String
+    let value: Int
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Text("\(value)")
+                .font(.headline)
+                .foregroundColor(.loopedTextPrimary)
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.loopedMutedBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -374,11 +385,11 @@ struct ProfileContentView: View {
             LazyVStack(spacing: 0) {
                 switch selectedTab {
                 case .posts:
-                    PostsList(posts: viewModel.userPosts)
+                    PostsList(posts: viewModel.userPosts, isLoading: viewModel.isLoadingPosts)
                 case .replies:
                     RepliesPlaceholderView()
                 case .saved:
-                    PostsList(posts: MockPosts.getSavedPosts())
+                    SavedPlaceholderView()
                 }
             }
         }
@@ -388,10 +399,14 @@ struct ProfileContentView: View {
 
 struct PostsList: View {
     let posts: [Post]
+    var isLoading: Bool = false
     @EnvironmentObject var commentsManager: CommentsModalManager
 
     var body: some View {
-        if posts.isEmpty {
+        if isLoading {
+            ProgressView()
+                .padding(.top, 60)
+        } else if posts.isEmpty {
             EmptyPostsListView()
                 .padding(.top, 60)
         } else {
@@ -405,13 +420,14 @@ struct PostsList: View {
 }
 
 struct EmptyPostsListView: View {
+    var message: String = "No posts yet"
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "text.bubble")
                 .font(.system(size: 48))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
-            Text("No posts yet")
+            Text(message)
                 .font(.loopedBodyMedium)
                 .foregroundColor(.loopedTextSecondary)
         }
@@ -435,6 +451,20 @@ struct RepliesPlaceholderView: View {
     }
 }
 
-#Preview {
-    ProfileView()
+struct SavedPlaceholderView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "bookmark")
+                .font(.system(size: 48))
+                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+            Text("Saved posts coming soon")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.loopedBackground)
+    }
 }
+
+// Preview intentionally omitted; ProfileView depends on live auth/user data.

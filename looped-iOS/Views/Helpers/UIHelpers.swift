@@ -1,6 +1,7 @@
 import UIKit
 import AuthenticationServices
 
+@MainActor
 enum UIHelpers {
     static func topViewController(base: UIViewController? = UIApplication.shared.connectedScenes
         .compactMap { $0 as? UIWindowScene }

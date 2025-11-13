@@ -36,8 +36,7 @@ Environment variables (set in ECS via SSM/Secrets)
 ### Identity
 
 GET /v1/me
-- Auth required
-- Returns identity from the token and provisioned user (if present)
+- Auth required; returns identity from the token plus provisioned user (if present)
 - 200 OK
 ```
 {
@@ -54,10 +53,27 @@ GET /v1/me
       "method": "email|video|thirdparty",
       "verified": true,
       "verified_at": "2024-01-02T03:04:05Z"
+    },
+    "profile": {
+      "display_name": "Erin",
+      "username": "erin",
+      "bio": "PM @ Looped",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-05T00:00:00Z"
     }
   }
 }
 ```
+
+GET /v1/users/{id}
+- Auth required, same-company scope and caller must be provisioned
+- 200 OK with the same payload shape as `/v1/me.user`
+- 403 if cross-company, 409 if caller isn’t provisioned, 404 if user not found
+
+GET /v1/users/{id}/posts?limit=&cursor=
+- Paginated posts authored by `{id}` (ASC by created_at/id)
+- Response: `{ "items": [post...], "next_cursor": "..." }`
+- Same pagination + auth rules as `/v1/feed`
 
 ### Feed & Posts
 
@@ -265,4 +281,22 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 ---
 
 For architecture and scaling context, see `docs/ARCHITECTURE.md` and `AGENTS.md`.
+GET /v1/posts/liked?limit=&cursor=
+- Auth required; caller’s liked posts scoped to their company
+- Same post shape as `/v1/feed` with `next_cursor`
+
+GET /v1/posts/saved?limit=&cursor=
+- Auth required; caller’s saved posts in their company
+- Same response shape; cursor is based on save timestamp
+
+POST /v1/posts/{id}/save
+- Auth required; idempotent
+- 201 on first save, 200 if already saved
+```
+{ "post_id": 101, "saved": true }
+```
+
+DELETE /v1/posts/{id}/save
+- Removes bookmark; `{ "post_id": 101, "saved": false }`
+- 404 if post doesn’t exist, 403 if cross-company
 

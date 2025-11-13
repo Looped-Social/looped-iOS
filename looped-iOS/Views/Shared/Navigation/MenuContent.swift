@@ -2,8 +2,7 @@ import SwiftUI
 
 struct MenuContent: View {
     let onMenuItemTap: (MenuDestination) -> Void
-    @StateObject private var viewModel = ProfileViewModel()
-    @State private var isAnonymous: Bool = false
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
         VStack(alignment: .center, spacing: 0) {
@@ -14,55 +13,27 @@ struct MenuContent: View {
                     .fill(Color.loopedTextSecondary.opacity(0.1))
                     .frame(width: 80, height: 80)
                     .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 36))
-                            .foregroundColor(.loopedTextSecondary)
+                        Text(avatarInitials)
+                            .font(.system(size: 34, weight: .semibold))
+                            .foregroundColor(.loopedTextPrimary)
                     )
                     .padding(.top, 60)
 
                 // Display Name
-                Text(viewModel.userProfile?.displayName ?? viewModel.user?.displayName ?? "Looped User")
+                Text(displayName)
                     .font(.loopedBodyStrong32)
                     .foregroundColor(.loopedContrast)
 
-                // Anonymous Status Toggle
-                Button(action: {
-                    isAnonymous.toggle()
-                    Task {
-                        await viewModel.updateProfile(
-                            displayName: viewModel.userProfile?.displayName ?? viewModel.user?.displayName,
-                            bio: viewModel.userProfile?.bio ?? viewModel.user?.bio,
-                            isAnonymous: isAnonymous
-                        )
-                    }
-                }) {
-                    HStack(spacing: 8) {
-                        Text("Anonymous Status:")
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(isAnonymous ? Color(red: 0.2, green: 0.8, blue: 0.7) : .loopedTextSecondary)
-                        Text(isAnonymous ? "ON" : "OFF")
-                            .font(.loopedSubBodyBold)
-                            .foregroundColor(isAnonymous ? Color(red: 0.2, green: 0.8, blue: 0.7) : .loopedTextSecondary)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(isAnonymous ? Color(red: 0.2, green: 0.8, blue: 0.7) : .loopedTextSecondary.opacity(0.3), lineWidth: 1.5)
-                    )
-                }
-                .buttonStyle(PlainButtonStyle())
+                Text(handleText)
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedTextSecondary)
 
                 // Hearts Metric
-                HStack(spacing: 8) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.red)
-                    Text("\(totalHearts) Hearts")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
+                if let company = companyText {
+                    Text(company)
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
                 }
-                .padding(.top, 8)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
@@ -108,14 +79,28 @@ struct MenuContent: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.loopedBackground.ignoresSafeArea(.all))
-        .task {
-            await viewModel.loadUserProfile()
-            isAnonymous = viewModel.userProfile?.isAnonymous ?? viewModel.user?.isAnonymous ?? false
-        }
     }
-
-    private var totalHearts: Int {
-        viewModel.userPosts.reduce(0) { $0 + $1.reactionCount }
+    
+    private var displayName: String {
+        authViewModel.currentUser?.displayName ?? "Looped User"
+    }
+    
+    private var handleText: String {
+        let handle = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle
+        return handle.map { "@\($0)" } ?? "@looped"
+    }
+    
+    private var companyText: String? {
+        let company = authViewModel.currentUser?.company
+        return company?.isEmpty == false ? company : nil
+    }
+    
+    private var avatarInitials: String {
+        if let name = authViewModel.currentUser?.displayName,
+           let first = name.split(separator: " ").first?.first {
+            return String(first).uppercased()
+        }
+        return "LU"
     }
 }
 
@@ -153,10 +138,7 @@ struct MenuItemButton: View {
 struct LikedPostsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var commentsManager = CommentsModalManager()
-
-    var likedPosts: [Post] {
-        MockPosts.getLikedPosts()
-    }
+    @StateObject private var likedViewModel = CollectionPostsViewModel(collection: .liked)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -188,30 +170,19 @@ struct LikedPostsView: View {
             // Posts List
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if likedPosts.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "heart")
-                                .font(.system(size: 48))
-                                .foregroundColor(.loopedTextSecondary.opacity(0.5))
-
-                            Text("No liked posts yet")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                        .padding(.top, 60)
-                    } else {
-                        ForEach(likedPosts) { post in
-                            PostCard(post: post)
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 16)
-                        }
-                    }
+                    CollectionPostsContent(viewModel: likedViewModel, emptyMessage: "No liked posts yet", emptyIcon: "heart")
                 }
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
+        .task {
+            await likedViewModel.loadInitial()
+        }
+        .refreshable {
+            await likedViewModel.loadInitial()
+        }
     }
 }
 
@@ -219,10 +190,7 @@ struct LikedPostsView: View {
 struct SavedPostsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var commentsManager = CommentsModalManager()
-
-    var savedPosts: [Post] {
-        MockPosts.getSavedPosts()
-    }
+    @StateObject private var savedViewModel = CollectionPostsViewModel(collection: .saved)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -254,30 +222,67 @@ struct SavedPostsView: View {
             // Posts List
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if savedPosts.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "bookmark")
-                                .font(.system(size: 48))
-                                .foregroundColor(.loopedTextSecondary.opacity(0.5))
-
-                            Text("No saved posts yet")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                        .padding(.top, 60)
-                    } else {
-                        ForEach(savedPosts) { post in
-                            PostCard(post: post)
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 16)
-                        }
-                    }
+                    CollectionPostsContent(viewModel: savedViewModel, emptyMessage: "No saved posts yet", emptyIcon: "bookmark")
                 }
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
+        .task {
+            await savedViewModel.loadInitial()
+        }
+        .refreshable {
+            await savedViewModel.loadInitial()
+        }
+    }
+}
+
+private struct CollectionPostsContent: View {
+    @ObservedObject var viewModel: CollectionPostsViewModel
+    let emptyMessage: String
+    let emptyIcon: String
+    @EnvironmentObject private var commentsManager: CommentsModalManager
+    
+    var body: some View {
+        if viewModel.isLoading && viewModel.posts.isEmpty {
+            ProgressView()
+                .padding(.top, 60)
+        } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
+            VStack(spacing: 12) {
+                Text(error)
+                    .font(.loopedBody)
+                    .foregroundColor(.red)
+                Button("Retry") {
+                    Task { await viewModel.loadInitial() }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.top, 60)
+        } else if viewModel.posts.isEmpty {
+            VStack(spacing: 16) {
+                Image(systemName: emptyIcon)
+                    .font(.system(size: 48))
+                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                Text(emptyMessage)
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .padding(.top, 60)
+        } else {
+            ForEach(viewModel.posts) { post in
+                PostCard(post: post)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                    .onAppear {
+                        Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
+                    }
+            }
+            if viewModel.isLoadingMore {
+                ProgressView()
+                    .padding()
+            }
+        }
     }
 }
 
@@ -333,9 +338,4 @@ struct FAQView: View {
     }
 }
 
-#Preview {
-    MenuContent(onMenuItemTap: { destination in
-        print("Tapped: \(destination)")
-    })
-    .background(Color.loopedBackground)
-}
+// Preview intentionally omitted; MenuContent relies on live auth state.

@@ -71,13 +71,17 @@ class APIClient {
     }
     
     func delete(_ endpoint: String) async throws {
-        let url = baseURL.appendingPathComponent(endpoint)
+        let _: EmptyResponse = try await delete(endpoint, expecting: EmptyResponse.self)
+    }
+    
+    func delete<T: Codable>(_ endpoint: String, expecting: T.Type) async throws -> T {
+        let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         await addAuthHeader(&request)
         
-        let _: EmptyResponse = try await performRequest(request)
+        return try await performRequest(request)
     }
     
     private func addAuthHeader(_ request: inout URLRequest) async {

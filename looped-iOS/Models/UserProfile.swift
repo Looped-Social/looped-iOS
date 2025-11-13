@@ -20,16 +20,40 @@ struct UserProfile: Codable, Identifiable {
     let createdAt: Date
     let updatedAt: Date
 
-    // Computed properties for display
     var formattedHandle: String {
-        return "@\(handle)"
+        "@\(handle)"
     }
 
     var formattedYearsInLoop: String {
-        return "\(yearsInLoop) year\(yearsInLoop == 1 ? "" : "s") in the Loop"
+        "\(yearsInLoop) year\(yearsInLoop == 1 ? "" : "s") in the Loop"
     }
 
     var formattedJobTitle: String {
-        return "\(jobTitle) @ \(company)"
+        "\(jobTitle) @ \(company)"
+    }
+}
+
+extension UserProfile {
+    static func from(user: User) -> UserProfile {
+        UserProfile(
+            id: user.id,
+            username: user.username ?? user.handle,
+            displayName: user.displayName ?? "Looped User",
+            handle: user.handle,
+            company: user.companyName ?? "Looped",
+            jobTitle: "Team Member",
+            bio: user.bio,
+            profileImageURL: user.profileImageURL,
+            isVerified: user.isVerified,
+            isAnonymous: user.isAnonymous,
+            yearsInLoop: 1,
+            followingCount: 0,
+            followersCount: 0,
+            postsCount: 0,
+            commentsCount: 0,
+            isCurrentUser: true,
+            createdAt: user.createdAt ?? Date(),
+            updatedAt: user.updatedAt ?? Date()
+        )
     }
 }

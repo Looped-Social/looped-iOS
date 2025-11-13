@@ -7,8 +7,21 @@ class UserService: UserServiceProtocol {
         self.apiClient = apiClient
     }
     
+    func getIdentity() async throws -> IdentityResponseDTO {
+        try await apiClient.get("/v1/me")
+    }
+    
     func getCurrentUser() async throws -> User {
-        return try await apiClient.get("/users/me")
+        let identity = try await getIdentity()
+        guard let userDTO = identity.user else {
+            throw UserServiceError.userNotProvisioned
+        }
+        return User(dto: userDTO, profile: userDTO.profile)
+    }
+    
+    func getUser(by id: Int) async throws -> User {
+        let dto: UserDTO = try await apiClient.get("/v1/users/\(id)")
+        return User(dto: dto, profile: dto.profile)
     }
     
     func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User {
@@ -18,6 +31,17 @@ class UserService: UserServiceProtocol {
     
     func verifyEmployment(verification: EmploymentVerification) async throws {
         let _: EmptyResponse = try await apiClient.post("/users/verify-employment", body: verification)
+    }
+}
+
+enum UserServiceError: Error, LocalizedError {
+    case userNotProvisioned
+    
+    var errorDescription: String? {
+        switch self {
+        case .userNotProvisioned:
+            return "Your account isn't fully onboarded yet."
+        }
     }
 }
 

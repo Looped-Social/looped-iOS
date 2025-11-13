@@ -22,6 +22,11 @@ protocol FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?) async throws -> FeedPage
     func createPost(content: String, isAnonymous: Bool) async throws -> Post
     func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse
+    func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
+    func savePost(postId: Int) async throws -> Bool
+    func removeSavedPost(postId: Int) async throws -> Bool
 }
 
 struct PostReactionResponse {
@@ -37,7 +42,9 @@ protocol MessageServiceProtocol {
 }
 
 protocol UserServiceProtocol {
+    func getIdentity() async throws -> IdentityResponseDTO
     func getCurrentUser() async throws -> User
+    func getUser(by id: Int) async throws -> User
     func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
 }
