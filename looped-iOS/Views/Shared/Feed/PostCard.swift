@@ -2,8 +2,12 @@ import SwiftUI
 
 struct PostCard: View {
     let post: Post
+    let onBookmarkToggle: ((Bool) -> Void)?
+    private let feedService: FeedServiceProtocol
     @State private var isLiked = false
     @State private var isBookmarked = false
+    @State private var bookmarkInitialized = false
+    @State private var isBookmarkLoading = false
     @State private var showShareSheet = false
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
@@ -14,24 +18,18 @@ struct PostCard: View {
     @State private var showHashtagFeed = false
     @EnvironmentObject var commentsManager: CommentsModalManager
 
+    init(post: Post, feedService: FeedServiceProtocol = FeedService(), onBookmarkToggle: ((Bool) -> Void)? = nil) {
+        self.post = post
+        self.feedService = feedService
+        self.onBookmarkToggle = onBookmarkToggle
+    }
+
     private var imageUrls: [String] {
         post.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
     }
 
     private var commentCount: Int {
         MockComments.getCommentCount(for: post.id)
-    }
-
-    private var authorProfile: UserProfile? {
-        MockUserProfiles.getUserProfile(byId: post.authorId)
-    }
-
-    private var shareCount: Int {
-        MockPosts.shareCount(for: post.id)
-    }
-
-    private var saveCount: Int {
-        MockPosts.saveCount(for: post.id)
     }
 
     private var formattedTimeAgo: String {
@@ -59,39 +57,20 @@ struct PostCard: View {
             HStack(alignment: .top, spacing: 12) {
                 // Avatar (hidden for anonymous posts)
                 if !post.isAnonymous {
-                    if let userProfile = authorProfile {
-                        NavigationLink(destination: UserProfileView(userProfile: userProfile)) {
-                            AsyncImage(url: URL(string: userProfile.profileImageURL ?? "")) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Circle()
-                                    .fill(Color.loopedTextSecondary.opacity(0.3))
-                            }
-                            .frame(width: 40, height: 40)
-                            .clipShape(Circle())
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    } else {
-                        // Fallback if profile not found
-                        AsyncImage(url: URL(string: "https://via.placeholder.com/40")) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.loopedTextSecondary.opacity(0.3))
-                        }
+                    Circle()
+                        .fill(Color.loopedTextSecondary.opacity(0.2))
+                        .overlay(
+                            Text(initials(from: post.authorDisplayName))
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.loopedTextPrimary)
+                        )
                         .frame(width: 40, height: 40)
-                        .clipShape(Circle())
-                    }
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         // Name and handle
-                        Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? authorProfile?.displayName ?? "User"))
+                        Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
                             .font(.headline)
                             .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
 
@@ -113,7 +92,7 @@ struct PostCard: View {
                     // Job title and company (only for non-anonymous posts)
                     if !post.isAnonymous {
                         HStack(spacing: 4) {
-                            Text(authorProfile?.formattedJobTitle ?? post.company)
+                            Text(post.company)
                                 .font(.subheadline)
                                 .foregroundColor(.loopedTextSecondary)
                         }
@@ -198,7 +177,7 @@ struct PostCard: View {
                             .renderingMode(.template)
                             .frame(width: 19, height: 19)
                             .foregroundColor(.loopedTextSecondary)
-                        Text("\(shareCount)")
+                        Text("Share")
                             .font(.caption)
                             .foregroundColor(.loopedTextSecondary)
                     }
@@ -207,18 +186,20 @@ struct PostCard: View {
                 Spacer()
 
                 // Bookmark button
-                Button(action: { isBookmarked.toggle() }) {
+                Button(action: { toggleBookmark() }) {
                     HStack(spacing: 4) {
                         Image("save-icon")
                             .resizable()
                             .renderingMode(.template)
                             .frame(width: 18, height: 18)
                             .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
-                        Text("\(saveCount)")
+                            .opacity(isBookmarkLoading ? 0.6 : 1)
+                        Text(isBookmarked ? "Saved" : "Save")
                             .font(.caption)
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
+                .disabled(isBookmarkLoading || post.backendId == nil)
             }
 
             // Timestamp at bottom
@@ -232,6 +213,12 @@ struct PostCard: View {
         .padding(16)
         .background(Color.loopedBackground)
         .cornerRadius(0)
+        .onAppear {
+            if !bookmarkInitialized {
+                isBookmarked = post.isSaved
+                bookmarkInitialized = true
+            }
+        }
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [shareText])
         }
@@ -307,6 +294,38 @@ struct PostCard: View {
     private var shareText: String {
         let author = post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "Someone")
         return "\(author) posted on Looped:\n\n\(post.content)"
+    }
+
+    private func toggleBookmark() {
+        guard let postId = post.backendId, !isBookmarkLoading else { return }
+        isBookmarkLoading = true
+        Task {
+            defer { isBookmarkLoading = false }
+            do {
+                if isBookmarked {
+                    let removed = try await feedService.removeSavedPost(postId: postId)
+                    if removed {
+                        isBookmarked = false
+                        onBookmarkToggle?(false)
+                    }
+                } else {
+                    let saved = try await feedService.savePost(postId: postId)
+                    if saved {
+                        isBookmarked = true
+                        onBookmarkToggle?(true)
+                    }
+                }
+            } catch {
+                // TODO: surface error to user once we add toast system
+            }
+        }
+    }
+
+    private func initials(from name: String?) -> String {
+        guard let name = name, let first = name.split(separator: " ").first?.first else {
+            return "U"
+        }
+        return String(first).uppercased()
     }
 }
 

@@ -271,7 +271,9 @@ private struct CollectionPostsContent: View {
             .padding(.top, 60)
         } else {
             ForEach(viewModel.posts) { post in
-                PostCard(post: post)
+                PostCard(post: post) { saved in
+                    viewModel.handleBookmarkChange(for: post, isSaved: saved)
+                }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                     .onAppear {

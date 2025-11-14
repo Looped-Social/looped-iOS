@@ -3,6 +3,7 @@ import Foundation
 struct Post: Codable, Identifiable {
     let id: UUID
     let backendId: Int?
+    let authorBackendId: Int?
     let content: String
     let authorId: UUID
     let authorDisplayName: String?
@@ -12,12 +13,14 @@ struct Post: Codable, Identifiable {
     let userReaction: ReactionType?
     let mediaAssetId: Int?
     let attachments: [MediaAttachment]?
+    let isSaved: Bool
     let createdAt: Date
     let updatedAt: Date
 
     init(
         id: UUID,
         backendId: Int? = nil,
+        authorBackendId: Int? = nil,
         content: String,
         authorId: UUID,
         authorDisplayName: String? = nil,
@@ -27,11 +30,13 @@ struct Post: Codable, Identifiable {
         userReaction: ReactionType? = nil,
         mediaAssetId: Int? = nil,
         attachments: [MediaAttachment]? = nil,
+        isSaved: Bool = false,
         createdAt: Date,
         updatedAt: Date
     ) {
         self.id = id
         self.backendId = backendId
+        self.authorBackendId = authorBackendId
         self.content = content
         self.authorId = authorId
         self.authorDisplayName = authorDisplayName
@@ -41,6 +46,7 @@ struct Post: Codable, Identifiable {
         self.userReaction = userReaction
         self.mediaAssetId = mediaAssetId
         self.attachments = attachments
+        self.isSaved = isSaved
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -60,6 +66,7 @@ extension Post {
         self.init(
             id: UUID(),
             backendId: dto.id,
+            authorBackendId: dto.authorId,
             content: dto.content,
             authorId: UUID.fromBackendId(dto.authorId),
             authorDisplayName: nil,
@@ -69,6 +76,7 @@ extension Post {
             userReaction: nil,
             mediaAssetId: dto.mediaAssetId,
             attachments: nil,
+            isSaved: dto.isSaved ?? false,
             createdAt: dto.createdAt,
             updatedAt: dto.createdAt
         )
@@ -78,11 +86,13 @@ extension Post {
         backendId: Int? = nil,
         reactionCount: Int? = nil,
         userReaction: ReactionType?? = nil,
+        isSaved: Bool? = nil,
         updatedAt: Date? = nil
     ) -> Post {
         Post(
             id: id,
             backendId: backendId ?? self.backendId,
+            authorBackendId: authorBackendId,
             content: content,
             authorId: authorId,
             authorDisplayName: authorDisplayName,
@@ -92,6 +102,7 @@ extension Post {
             userReaction: userReaction ?? self.userReaction,
             mediaAssetId: mediaAssetId,
             attachments: attachments,
+            isSaved: isSaved ?? self.isSaved,
             createdAt: createdAt,
             updatedAt: updatedAt ?? self.updatedAt
         )

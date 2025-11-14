@@ -59,6 +59,9 @@ struct MainTabView: View {
     
     var body: some View {
         GeometryReader { geometry in
+            let safeWidth = max(geometry.size.width, 0)
+            let drawerWidth = safeWidth * 0.8
+            let shadowSpacerWidth = safeWidth * 0.2
             ZStack(alignment: .leading) {
                 // Right Menu (only visible on home tab)
                 if selectedTab == .home {
@@ -81,7 +84,7 @@ struct MainTabView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.loopedBackground.ignoresSafeArea(.all))
-                    .offset(x: isRightMenuOpen ? 0 : geometry.size.width * 0.8)
+                    .offset(x: isRightMenuOpen ? 0 : drawerWidth)
                     .allowsHitTesting(isRightMenuOpen)
                 }
 
@@ -148,7 +151,7 @@ struct MainTabView: View {
                         }
                     }
                 )
-                .offset(x: selectedTab == .home ? (isRightMenuOpen ? -geometry.size.width * 0.8 : 0) : 0)
+                .offset(x: selectedTab == .home ? (isRightMenuOpen ? -drawerWidth : 0) : 0)
                 .scaleEffect((selectedTab == .home && isRightMenuOpen) ? 0.95 : 1.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
 
@@ -157,7 +160,7 @@ struct MainTabView: View {
                     // Right shadow - instantly visible/invisible
                     HStack(spacing: 0) {
                         Spacer()
-                            .frame(width: geometry.size.width * 0.2)
+                            .frame(width: shadowSpacerWidth)
 
                         LinearGradient(
                             gradient: Gradient(colors: [
@@ -172,7 +175,7 @@ struct MainTabView: View {
                         .frame(width: 20)
 
                         Spacer()
-                            .frame(width: geometry.size.width * 0.8 - 20)
+                            .frame(width: max(drawerWidth - 20, 0))
                     }
                     .opacity(isRightMenuOpen ? 1 : 0)
                     .animation(.linear(duration: 0.0), value: isRightMenuOpen)

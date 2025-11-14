@@ -5,6 +5,7 @@ final class CollectionPostsViewModel: ObservableObject {
     enum CollectionType {
         case liked
         case saved
+        case user(userId: Int)
     }
     
     @Published var posts: [Post] = []
@@ -45,10 +46,11 @@ final class CollectionPostsViewModel: ObservableObject {
         
         do {
             let page = try await fetchPage(cursor: reset ? nil : nextCursor)
+            let normalized = applyOverrides(to: page.posts)
             if reset {
-                posts = page.posts
+                posts = normalized
             } else {
-                posts.append(contentsOf: page.posts)
+                posts.append(contentsOf: normalized)
             }
             nextCursor = page.nextCursor
         } catch {
@@ -68,6 +70,22 @@ final class CollectionPostsViewModel: ObservableObject {
             return try await feedService.fetchLikedPosts(limit: pageSize, cursor: cursor)
         case .saved:
             return try await feedService.fetchSavedPosts(limit: pageSize, cursor: cursor)
+        case .user(let userId):
+            return try await feedService.fetchUserPosts(userId: userId, limit: pageSize, cursor: cursor)
+        }
+    }
+    
+    func handleBookmarkChange(for post: Post, isSaved: Bool) {
+        guard case .saved = collection, !isSaved else { return }
+        posts.removeAll { $0.id == post.id }
+    }
+    
+    private func applyOverrides(to posts: [Post]) -> [Post] {
+        switch collection {
+        case .saved:
+            return posts.map { $0.updating(isSaved: true) }
+        default:
+            return posts
         }
     }
 }
