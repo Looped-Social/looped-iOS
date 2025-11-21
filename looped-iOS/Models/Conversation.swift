@@ -3,6 +3,7 @@ import Foundation
 struct Conversation: Codable, Identifiable {
     let id: UUID
     let userId: UUID
+    let backendUserId: Int?
     let userName: String
     let userProfileImageUrl: String?
     let lastMessage: String
@@ -17,6 +18,7 @@ struct Conversation: Codable, Identifiable {
     init(
         id: UUID = UUID(),
         userId: UUID,
+        backendUserId: Int? = nil,
         userName: String,
         userProfileImageUrl: String? = nil,
         lastMessage: String,
@@ -30,6 +32,7 @@ struct Conversation: Codable, Identifiable {
     ) {
         self.id = id
         self.userId = userId
+        self.backendUserId = backendUserId
         self.userName = userName
         self.userProfileImageUrl = userProfileImageUrl
         self.lastMessage = lastMessage

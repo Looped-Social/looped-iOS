@@ -2,9 +2,10 @@ import SwiftUI
 
 struct SimplifiedPostCard: View {
     let post: Post
-    
-    private var authorProfile: UserProfile? {
-        MockUserProfiles.getUserProfile(byId: post.authorId)
+
+    private var authorName: String {
+        if post.isAnonymous { return "Anonymous" }
+        return post.authorDisplayName ?? "User"
     }
     
     var body: some View {
@@ -12,20 +13,18 @@ struct SimplifiedPostCard: View {
             // Header with user info only
             HStack(alignment: .top, spacing: 12) {
                 // Avatar
-                AsyncImage(url: URL(string: authorProfile?.profileImageURL ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.3))
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
+                Circle()
+                    .fill(Color.loopedTextSecondary.opacity(0.3))
+                    .overlay(
+                        Text(String(authorName.prefix(1)).uppercased())
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.loopedPrimary)
+                    )
+                    .frame(width: 40, height: 40)
                 
                 VStack(alignment: .leading, spacing: 8) {
                     // Name only (no username, job title, or timestamp)
-                    Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? authorProfile?.displayName ?? "User"))
+                    Text(authorName)
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
                     

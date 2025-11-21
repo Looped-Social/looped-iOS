@@ -2,6 +2,7 @@ import Foundation
 
 struct UserProfile: Codable, Identifiable {
     let id: UUID
+    let backendId: Int?
     let username: String
     let displayName: String?
     let handle: String // @handle format
@@ -34,9 +35,10 @@ struct UserProfile: Codable, Identifiable {
 }
 
 extension UserProfile {
-    static func from(user: User) -> UserProfile {
+    static func from(user: User, isCurrentUser: Bool = false) -> UserProfile {
         UserProfile(
             id: user.id,
+            backendId: user.backendId,
             username: user.username ?? user.handle,
             displayName: user.displayName ?? "Looped User",
             handle: user.handle,
@@ -47,11 +49,11 @@ extension UserProfile {
             isVerified: user.isVerified,
             isAnonymous: user.isAnonymous,
             yearsInLoop: 1,
-            followingCount: 0,
-            followersCount: 0,
-            postsCount: 0,
-            commentsCount: 0,
-            isCurrentUser: true,
+            followingCount: user.followingCount ?? 0,
+            followersCount: user.followerCount ?? 0,
+            postsCount: user.postsCount ?? 0,
+            commentsCount: user.commentsCount ?? 0,
+            isCurrentUser: isCurrentUser,
             createdAt: user.createdAt ?? Date(),
             updatedAt: user.updatedAt ?? Date()
         )

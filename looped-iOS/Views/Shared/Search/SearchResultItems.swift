@@ -4,75 +4,50 @@ import SwiftUI
 struct PersonSearchResultItem: View {
     let person: SearchResultPerson
 
-    private var userProfile: UserProfile? {
-        MockUserProfiles.getUserProfile(byUsername: person.username)
-    }
-
     var body: some View {
-        if let userProfile = userProfile {
-            NavigationLink(destination: UserProfileView(userProfile: userProfile)) {
-                HStack(spacing: 12) {
-                    // Avatar
-                    AsyncImage(url: URL(string: person.avatarURL ?? "")) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.loopedMutedBackground)
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .font(.system(size: 16))
-                            )
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(Circle())
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(person.name)
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        Text("@\(person.username) • \(person.title) @ \(person.company)")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
-
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
+        if let backendId = person.backendId {
+            NavigationLink(destination: UserProfileView(userId: backendId)) {
+                rowContent
             }
             .buttonStyle(PlainButtonStyle())
         } else {
-            // Fallback if profile not found
-            HStack(spacing: 12) {
+            rowContent
+        }
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: 12) {
+            AsyncImage(url: URL(string: person.avatarURL ?? "")) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
                 Circle()
                     .fill(Color.loopedMutedBackground)
-                    .frame(width: 40, height: 40)
                     .overlay(
                         Image(systemName: "person.fill")
                             .foregroundColor(.loopedTextSecondary)
                             .font(.system(size: 16))
                     )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(person.name)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    Text("@\(person.username) • \(person.title) @ \(person.company)")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
-                Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .frame(width: 40, height: 40)
+            .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(person.name)
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Text("@\(person.username) • \(person.title) @ \(person.company)")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            Spacer()
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 }
 

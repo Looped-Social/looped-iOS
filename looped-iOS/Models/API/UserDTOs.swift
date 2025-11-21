@@ -29,5 +29,9 @@ struct UserProfileDTO: Codable {
     let bio: String?
     let createdAt: Date?
     let updatedAt: Date?
+    let profileImageUrl: String?
+    let followerCount: Int?
+    let followingCount: Int?
+    let postsCount: Int?
+    let commentsCount: Int?
 }
-

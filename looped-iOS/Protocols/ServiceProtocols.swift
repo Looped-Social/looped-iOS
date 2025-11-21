@@ -47,6 +47,8 @@ protocol UserServiceProtocol {
     func getUser(by id: Int) async throws -> User
     func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
+    func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage
+    func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage
 }
 
 protocol WebSocketServiceProtocol {

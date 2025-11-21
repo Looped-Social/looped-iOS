@@ -31,7 +31,7 @@ struct SettingsView: View {
                     VStack(spacing: 0) {
                         // Account Section
                         SettingsSection(title: "Account") {
-                            NavigationLink(destination: UserSettingsView()) {
+                            NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
                                 SettingsNavigationRow(icon: .asset("user-settings-icon"), title: "User settings")
                             }
                             .buttonStyle(PlainButtonStyle())

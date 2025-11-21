@@ -10,11 +10,14 @@ class SearchResultsViewModel: ObservableObject {
     @Published var recentSearches: [String] = []
     @Published var searchResults: SearchResults = SearchResults()
     @Published var hashtagSuggestions: [String] = []
+    @Published var errorMessage: String?
 
     private var cancellables = Set<AnyCancellable>()
     private let searchDebounceTime: TimeInterval = 0.3
+    private let userService: UserServiceProtocol
 
-    init() {
+    init(userService: UserServiceProtocol = UserService()) {
+        self.userService = userService
         let availableFilters = MockSearchContent.filterOptions
         filters = availableFilters
         selectedFilter = availableFilters.first ?? SearchFilterOption(title: "All Loops", apiKey: "all")
@@ -38,77 +41,53 @@ class SearchResultsViewModel: ObservableObject {
     // MARK: - Search Logic
     func performSearch(query: String) async {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            isSearching = false
             searchResults = SearchResults()
+            hashtagSuggestions = []
+            errorMessage = nil
             return
         }
 
         isSearching = true
-
-        // Simulate API delay
-        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-
-        // Mock search results based on query and filter
-        let results = generateMockResults(for: query, filter: selectedFilter)
-        searchResults = results
-        isSearching = false
-    }
-
-    private func generateMockResults(for query: String, filter: SearchFilterOption) -> SearchResults {
-        var results = SearchResults()
-
-        // Generate hashtag suggestions based on query
+        errorMessage = nil
         generateHashtagSuggestions(for: query)
-
-        // Mock people results using actual UserProfiles
-        if filter.apiKey == "all" || filter.apiKey == "company" {
-            let searchResults = MockUserProfiles.searchUserProfiles(query: query)
-            results.people = searchResults.map { profile in
+        do {
+            let page = try await userService.searchUsers(query: query, limit: 20, cursor: nil)
+            var results = SearchResults()
+            results.people = page.users.map { user in
                 SearchResultPerson(
-                    id: profile.id,
-                    name: profile.displayName ?? "Anonymous",
-                    username: profile.username,
-                    title: profile.jobTitle,
-                    company: profile.company,
-                    avatarURL: profile.profileImageURL
+                    id: user.id,
+                    backendId: user.backendId,
+                    name: user.displayName ?? user.handle,
+                    username: user.username ?? user.handle,
+                    title: "Member",
+                    company: user.company,
+                    avatarURL: user.profileImageURL
                 )
             }
 
-            // If no specific search results, show some default profiles
-            if results.people.isEmpty && !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                let defaultProfiles = Array(MockUserProfiles.profiles.prefix(3))
-                results.people = defaultProfiles.map { profile in
-                    SearchResultPerson(
-                        id: profile.id,
-                        name: profile.displayName ?? "Anonymous",
-                        username: profile.username,
-                        title: profile.jobTitle,
-                        company: profile.company,
-                        avatarURL: profile.profileImageURL
+            if selectedFilter.apiKey == "all" || selectedFilter.apiKey == "company" {
+                let loopMatches = MockSearchContent.loopCategories.filter { loop in
+                    query.isEmpty ? true : loop.title.localizedCaseInsensitiveContains(query) || loop.description.localizedCaseInsensitiveContains(query)
+                }
+
+                results.loops = loopMatches.map { loop in
+                    SearchResultLoop(
+                        id: loop.id,
+                        name: loop.title,
+                        description: loop.description,
+                        memberCount: loop.memberCount
                     )
                 }
             }
+
+            results.posts = []
+            searchResults = results
+        } catch {
+            errorMessage = error.localizedDescription
+            searchResults = SearchResults()
         }
-
-        // Mock posts results (placeholder for future API integration)
-        results.posts = []
-
-        // Mock loops results
-        if filter.apiKey == "all" || filter.apiKey == "company" {
-            let loopMatches = MockSearchContent.loopCategories.filter { loop in
-                query.isEmpty ? true : loop.title.localizedCaseInsensitiveContains(query) || loop.description.localizedCaseInsensitiveContains(query)
-            }
-
-            results.loops = loopMatches.map { loop in
-                SearchResultLoop(
-                    id: loop.id,
-                    name: loop.title,
-                    description: loop.description,
-                    memberCount: loop.memberCount
-                )
-            }
-        }
-
-        return results
+        isSearching = false
     }
 
     private func generateHashtagSuggestions(for query: String) {

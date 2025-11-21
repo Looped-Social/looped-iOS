@@ -6,90 +6,41 @@ enum UserProfileTab: String, CaseIterable {
 }
 
 struct UserProfileView: View {
-    let userProfile: UserProfile
-    @State private var selectedTab: UserProfileTab = .posts
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var viewModel: UserProfileViewModel
+    @StateObject private var postsViewModel: CollectionPostsViewModel
+    @StateObject private var commentsViewModel = UserCommentsViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
-    @State private var headerVisible = true
-    @State private var lastScrollOffset: CGFloat = 0
+    @State private var selectedTab: UserProfileTab = .posts
+    @State private var hasLoaded = false
 
-    private let headerHeight: CGFloat = 450
+    init(userId: Int, currentUserId: Int? = nil, preloadedProfile: UserProfile? = nil) {
+        _viewModel = StateObject(
+            wrappedValue: UserProfileViewModel(
+                userId: userId,
+                currentUserId: currentUserId,
+                initialProfile: preloadedProfile
+            )
+        )
+        _postsViewModel = StateObject(
+            wrappedValue: CollectionPostsViewModel(
+                collection: .user(userId: userId)
+            )
+        )
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
-            // ScrollView with content (bottom layer)
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    // Content based on selected tab - directly in LazyVStack
-                    switch selectedTab {
-                    case .posts:
-                        let posts = MockPosts.getPostsByUser(userProfile.id)
-                        ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
-                            PostCard(post: post)
-                                .padding(.horizontal, 16)
-                                .padding(.top, index == 0 ? 0 : 16)
-                        }
-
-                        if posts.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "text.bubble")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
-
-                                Text("No posts yet")
-                                    .font(.loopedBodyMedium)
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-                            .padding(.top, 60)
-                        }
-
-                    case .comments:
-                        VStack(spacing: 16) {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .font(.system(size: 48))
-                                .foregroundColor(.loopedTextSecondary.opacity(0.5))
-
-                            Text("Comments coming soon")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                        .padding(.top, 60)
-                    }
-
-                    // Bottom spacer to ensure content can scroll fully
-                    Color.clear.frame(height: 100)
+                    content
+                    Color.clear.frame(height: 80)
                 }
-                .background(
-                    GeometryReader { geo in
-                        Color.clear
-                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-                                handleScroll(newValue)
-                            }
-                    }
-                )
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: headerHeight)
             }
             .background(Color.loopedBackground.ignoresSafeArea())
+            .task { await loadIfNeeded() }
+            .refreshable { await reload() }
 
-            // Fixed collapsible header (middle layer)
-            VStack(spacing: 0) {
-                // Profile Info Section
-                UserProfileInfoSection(userProfile: userProfile)
-
-                // Tab Navigation
-                UserProfileTabsView(selectedTab: $selectedTab)
-            }
-            .background(
-                Color.loopedBackground
-                    .ignoresSafeArea(.all, edges: .top)
-            )
-            .offset(y: headerVisible ? 0 : -headerHeight)
-            .opacity(headerVisible ? 1 : 0)
-            .animation(.easeInOut(duration: 0.25), value: headerVisible)
-
-            // Non-collapsible back button header (top layer)
             VStack {
                 UserProfileHeader {
                     dismiss()
@@ -107,40 +58,92 @@ struct UserProfileView: View {
                 }
             }
         )
-        .onAppear {
-            headerVisible = true
-            lastScrollOffset = 0
+        .onChange(of: selectedTab) { newValue in
+            if newValue == .comments {
+                Task { await loadCommentsIfNeeded() }
+            }
         }
     }
 
-    private func handleScroll(_ offset: CGFloat) {
-        let delta = offset - lastScrollOffset
+    @ViewBuilder
+    private var content: some View {
+        if viewModel.isLoading && viewModel.profile == nil {
+            loadingState
+        } else if let error = viewModel.errorMessage, viewModel.profile == nil {
+            errorState(error)
+        } else if let profile = viewModel.profile {
+            VStack(spacing: 0) {
+                UserProfileInfoSection(userProfile: profile)
+                UserProfileTabsView(selectedTab: $selectedTab)
+                UserProfileContentView(
+                    userProfile: profile,
+                    selectedTab: selectedTab,
+                    postsViewModel: postsViewModel,
+                    commentsViewModel: commentsViewModel
+                )
+            }
+        } else {
+            Text("Profile unavailable")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+                .padding(.top, 120)
+        }
+    }
 
-        // Show header when near top
-        if offset >= -50 {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                headerVisible = true
-            }
+    private var loadingState: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .scaleEffect(1.2)
+            Text("Loading profile...")
+                .font(.loopedBody)
+                .foregroundColor(.loopedTextSecondary)
         }
-        // Hide when scrolling down significantly
-        else if delta < -30 && offset < -100 {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                headerVisible = false
-            }
-        }
-        // Show when scrolling up significantly
-        else if delta > 30 {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                headerVisible = true
-            }
-        }
+        .padding(.top, 80)
+    }
 
-        lastScrollOffset = offset
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Text(message)
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+                .multilineTextAlignment(.center)
+
+            Button("Retry") {
+                Task {
+                    await reload()
+                }
+            }
+            .font(.loopedBodyMedium)
+            .foregroundColor(.loopedPrimary)
+        }
+        .padding(.top, 80)
+        .padding(.horizontal, 24)
+    }
+
+    private func loadIfNeeded() async {
+        guard !hasLoaded else { return }
+        hasLoaded = true
+        await reload()
+    }
+
+    private func reload() async {
+        await viewModel.loadProfile()
+        if let backendId = viewModel.profile?.backendId {
+            commentsViewModel.setUser(id: backendId)
+        }
+        await postsViewModel.loadInitial()
+        if selectedTab == .comments {
+            await loadCommentsIfNeeded()
+        }
+    }
+
+    private func loadCommentsIfNeeded() async {
+        guard commentsViewModel.comments.isEmpty, viewModel.profile?.backendId != nil else { return }
+        await commentsViewModel.loadInitial()
     }
 
     private var commentsModalOverlay: some View {
         ZStack {
-            // Background dimming - covers entire screen including safe area
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .transition(.opacity)
@@ -148,16 +151,13 @@ struct UserProfileView: View {
                     commentsManager.dismissComments()
                 }
 
-            // Modal content with post above
             VStack(spacing: 0) {
                 Spacer()
 
-                // Post display above comments
                 if let post = commentsManager.currentPost {
                     VStack(spacing: 0) {
                         SimplifiedPostCard(post: post)
 
-                        // Separator line
                         Rectangle()
                             .frame(height: 1)
                             .foregroundColor(.loopedTextSecondary.opacity(0.1))
@@ -169,16 +169,13 @@ struct UserProfileView: View {
                     .padding(.bottom, 8)
                 }
 
-                // Comments modal
                 VStack(spacing: 0) {
-                    // Modal handle
                     RoundedRectangle(cornerRadius: 2.5)
                         .fill(Color.loopedTextSecondary.opacity(0.3))
                         .frame(width: 36, height: 5)
                         .padding(.top, 8)
                         .padding(.bottom, 12)
 
-                    // Comments content
                     if let post = commentsManager.currentPost {
                         CommentsView(
                             post: post,
@@ -219,8 +216,7 @@ struct UserProfileHeader: View {
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.top, 16)
     }
 }
 
@@ -230,9 +226,7 @@ struct UserProfileInfoSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Profile Picture with Name and Handle beside it
             HStack(spacing: 16) {
-                // Profile Picture
                 AsyncImage(url: URL(string: userProfile.profileImageURL ?? "")) { image in
                     image
                         .resizable()
@@ -250,7 +244,6 @@ struct UserProfileInfoSection: View {
                 .frame(width: 80, height: 80)
                 .clipShape(Circle())
 
-                // Name and Handle beside profile picture
                 VStack(alignment: .leading, spacing: 4) {
                     Text(userProfile.displayName ?? "Anonymous")
                         .font(.title2)
@@ -265,7 +258,6 @@ struct UserProfileInfoSection: View {
                 Spacer()
             }
 
-            // Job Title with Chevron
             HStack(spacing: 8) {
                 Text(userProfile.formattedJobTitle)
                     .font(.subheadline)
@@ -278,7 +270,6 @@ struct UserProfileInfoSection: View {
                 Spacer()
             }
 
-            // Bio
             if let bio = userProfile.bio, !bio.isEmpty {
                 Text(bio)
                     .font(.body)
@@ -287,7 +278,6 @@ struct UserProfileInfoSection: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Years in Loop and Company Info
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar")
@@ -302,26 +292,14 @@ struct UserProfileInfoSection: View {
                 }
 
                 HStack(spacing: 8) {
-                    // Company logo placeholder - use Google logo for Google, generic for others
-                    if userProfile.company.lowercased() == "google" {
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 16, height: 16)
-                            .overlay(
-                                Text("G")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
-                    } else {
-                        Circle()
-                            .fill(Color.loopedPrimary)
-                            .frame(width: 16, height: 16)
-                            .overlay(
-                                Text(String(userProfile.company.prefix(1)).uppercased())
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
-                    }
+                    Circle()
+                        .fill(Color.loopedPrimary)
+                        .frame(width: 16, height: 16)
+                        .overlay(
+                            Text(String(userProfile.company.prefix(1)).uppercased())
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                        )
 
                     Text("Works at \(userProfile.company)")
                         .font(.subheadline)
@@ -331,7 +309,6 @@ struct UserProfileInfoSection: View {
                 }
             }
 
-            // Follower Stats
             HStack(spacing: 16) {
                 Text("\(userProfile.followingCount)")
                     .font(.headline)
@@ -354,7 +331,6 @@ struct UserProfileInfoSection: View {
                 Spacer()
             }
 
-            // Action Buttons
             UserProfileActionButtons(userProfile: userProfile)
         }
         .padding(.horizontal, 16)
@@ -370,7 +346,7 @@ struct UserProfileActionButtons: View {
     var body: some View {
         HStack(spacing: 16) {
             Button(action: {
-                // TODO: Handle edit profile
+                // TODO: Handle edit profile / follow
             }) {
                 Text(userProfile.isCurrentUser ? "Edit Profile" : "Follow")
                     .font(.subheadline)
@@ -444,7 +420,6 @@ struct UserProfileTabsView: View {
             }
             .padding(.horizontal, 16)
 
-            // Full-width underlines
             HStack(spacing: 0) {
                 ForEach(UserProfileTab.allCases, id: \.self) { tab in
                     Rectangle()
@@ -461,14 +436,16 @@ struct UserProfileTabsView: View {
 struct UserProfileContentView: View {
     let userProfile: UserProfile
     let selectedTab: UserProfileTab
+    @ObservedObject var postsViewModel: CollectionPostsViewModel
+    @ObservedObject var commentsViewModel: UserCommentsViewModel
 
     var body: some View {
         LazyVStack(spacing: 0) {
             switch selectedTab {
             case .posts:
-                UserPostsList(userProfile: userProfile)
+                UserPostsList(viewModel: postsViewModel)
             case .comments:
-                UserCommentsList(userProfile: userProfile)
+                UserCommentsList(userProfile: userProfile, viewModel: commentsViewModel)
             }
         }
         .padding(.top, 16)
@@ -477,20 +454,49 @@ struct UserProfileContentView: View {
 
 // MARK: - Posts List
 struct UserPostsList: View {
-    let userProfile: UserProfile
-
-    var userPosts: [Post] {
-        MockPosts.getPostsByUser(userProfile.id)
-    }
+    @ObservedObject var viewModel: CollectionPostsViewModel
 
     var body: some View {
-        LazyVStack(spacing: 16) {
-            ForEach(userPosts) { post in
-                PostCard(post: post)
+        VStack(spacing: 16) {
+            if viewModel.isLoading {
+                ProgressView()
+                    .scaleEffect(1.1)
+                    .padding(.top, 32)
+            } else if !viewModel.posts.isEmpty {
+                ForEach(viewModel.posts) { post in
+                    PostCard(
+                        post: post,
+                        onBookmarkToggle: { isSaved in
+                            viewModel.handleBookmarkChange(for: post, isSaved: isSaved)
+                        }
+                    )
                     .padding(.horizontal, 16)
-            }
+                    .padding(.top, post.id == viewModel.posts.first?.id ? 0 : 16)
+                    .task {
+                        await viewModel.loadMoreIfNeeded(currentPost: post)
+                    }
+                }
 
-            if userPosts.isEmpty {
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .padding(.vertical, 16)
+                }
+            } else if let error = viewModel.errorMessage {
+                VStack(spacing: 8) {
+                    Text(error)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
+                    }
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedPrimary)
+                }
+                .padding(.top, 32)
+                .padding(.horizontal, 24)
+            } else {
                 VStack(spacing: 16) {
                     Image(systemName: "text.bubble")
                         .font(.system(size: 48))
@@ -510,23 +516,96 @@ struct UserPostsList: View {
 // MARK: - Comments List
 struct UserCommentsList: View {
     let userProfile: UserProfile
+    @ObservedObject var viewModel: UserCommentsViewModel
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 48))
-                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+            if viewModel.isLoading && viewModel.comments.isEmpty {
+                ProgressView()
+                    .scaleEffect(1.1)
+                    .padding(.top, 32)
+            } else if let error = viewModel.errorMessage, viewModel.comments.isEmpty {
+                VStack(spacing: 8) {
+                    Text(error)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
 
-            Text("Comments coming soon")
-                .font(.loopedBodyMedium)
-                .foregroundColor(.loopedTextSecondary)
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
+                    }
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedPrimary)
+                }
+                .padding(.top, 32)
+                .padding(.horizontal, 24)
+            } else if viewModel.comments.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+                    Text("No comments yet")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.top, 60)
+            } else {
+                ForEach(viewModel.comments) { comment in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(comment.content)
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextPrimary)
+                            .multilineTextAlignment(.leading)
+
+                        Text(comment.createdAt, style: .date)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .task {
+                        await viewModel.loadMoreIfNeeded(current: comment)
+                    }
+
+                    Divider()
+                        .padding(.leading, 16)
+                }
+
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .padding(.vertical, 16)
+                }
+            }
         }
-        .padding(.top, 60)
+        .padding(.bottom, 80)
     }
 }
 
 #Preview {
+    let sampleProfile = UserProfile(
+        id: UUID(),
+        backendId: 1,
+        username: "sample",
+        displayName: "Sample User",
+        handle: "sample",
+        company: "Looped",
+        jobTitle: "Team Member",
+        bio: "Profile preview",
+        profileImageURL: nil,
+        isVerified: true,
+        isAnonymous: false,
+        yearsInLoop: 1,
+        followingCount: 0,
+        followersCount: 0,
+        postsCount: 0,
+        commentsCount: 0,
+        isCurrentUser: false,
+        createdAt: Date(),
+        updatedAt: Date()
+    )
+
     NavigationView {
-        UserProfileView(userProfile: MockUserProfiles.profiles[0])
+        UserProfileView(userId: 1, preloadedProfile: sampleProfile)
     }
 }

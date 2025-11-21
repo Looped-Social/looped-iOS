@@ -32,6 +32,59 @@ class UserService: UserServiceProtocol {
     func verifyEmployment(verification: EmploymentVerification) async throws {
         let _: EmptyResponse = try await apiClient.post("/users/verify-employment", body: verification)
     }
+
+    func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage {
+        var endpoint = "/v1/users/search?query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)&limit=\(limit)"
+        if let cursor = cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: UserSearchResponseDTO = try await apiClient.get(endpoint)
+        let users = response.items.map { dto in
+            User(
+                id: UUID.fromBackendId(dto.id),
+                backendId: dto.id,
+                username: dto.username ?? dto.handle,
+                displayName: dto.displayName,
+                handle: dto.handle,
+                companyId: dto.companyId,
+                companyName: nil,
+            bio: dto.bio,
+            profileImageURL: dto.profileImageUrl,
+            isVerified: false,
+            isAnonymous: false,
+            createdAt: nil,
+            updatedAt: nil,
+            followerCount: nil,
+            followingCount: nil,
+            postsCount: nil,
+            commentsCount: nil
+        )
+    }
+        return UserSearchPage(users: users, nextCursor: response.nextCursor)
+    }
+
+    func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage {
+        var endpoint = "/v1/users/\(userId)/comments?limit=\(limit)"
+        if let cursor = cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: UserCommentsResponseDTO = try await apiClient.get(endpoint)
+        let comments = response.items.map { dto in
+            Comment(
+                id: UUID.fromBackendId(dto.id),
+                postId: UUID.fromBackendId(dto.postId),
+                content: dto.content,
+                authorId: UUID.fromBackendId(userId),
+                company: "",
+                createdAt: dto.createdAt,
+                updatedAt: dto.createdAt,
+                replyToCommentId: dto.parentId != nil ? UUID.fromBackendId(dto.parentId!) : nil
+            )
+        }
+        return UserCommentsPage(comments: comments, nextCursor: response.nextCursor)
+    }
 }
 
 enum UserServiceError: Error, LocalizedError {

@@ -32,11 +32,11 @@ class ProfileViewModel: ObservableObject {
         do {
             let fetchedUser = try await userService.getCurrentUser()
             user = fetchedUser
-            userProfile = UserProfile.from(user: fetchedUser)
+            userProfile = UserProfile.from(user: fetchedUser, isCurrentUser: true)
         } catch {
             errorMessage = error.localizedDescription
         }
-        
+
         isLoading = false
         await loadUserPosts()
     }
@@ -46,7 +46,7 @@ class ProfileViewModel: ObservableObject {
             let updatedUser = try await userService.updateProfile(displayName: displayName, bio: bio, isAnonymous: isAnonymous)
             user = updatedUser
 
-            userProfile = UserProfile.from(user: updatedUser)
+            userProfile = UserProfile.from(user: updatedUser, isCurrentUser: true)
 
             errorMessage = nil
         } catch {

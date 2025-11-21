@@ -13,9 +13,7 @@ struct ChatDetailsView: View {
     @State private var showImagePicker = false
     @State private var showLeaveGroupAlert = false
     @State private var showBlockUserAlert = false
-    @State private var showRemoveMemberAlert: UUID? = nil
     @State private var selectedImage: UIImage? = nil
-    @State private var selectedMemberProfile: UserProfile? = nil
     @State private var currentMemberIds: [UUID]
 
     private var isGroupChat: Bool {
@@ -32,13 +30,9 @@ struct ChatDetailsView: View {
         }
     }
 
-    private var memberIds: [UUID] {
-        return currentMemberIds
-    }
-
-    private var userProfile: UserProfile? {
+    private var profileUserBackendId: Int? {
         guard !isGroupChat, let conversation = conversation else { return nil }
-        return MockUserProfiles.getUserProfile(byId: conversation.userId)
+        return conversation.backendUserId ?? conversation.userId.backendInt
     }
 
     init(conversation: Conversation?, channel: Channel?) {
@@ -188,8 +182,8 @@ struct ChatDetailsView: View {
                             Divider().padding(.leading, 60)
                         } else {
                             // 1-on-1 actions
-                            if let userProfile = userProfile {
-                                NavigationLink(destination: UserProfileView(userProfile: userProfile)) {
+                            if let backendId = profileUserBackendId {
+                                NavigationLink(destination: UserProfileView(userId: backendId)) {
                                     ChatDetailsActionRow(
                                         icon: "person.circle",
                                         title: "View Profile",
@@ -224,40 +218,6 @@ struct ChatDetailsView: View {
                     .background(Color.loopedTextSecondary.opacity(0.05))
                     .cornerRadius(12)
                     .padding(.horizontal, 16)
-
-                    // Members Section (Group only)
-                    if isGroupChat && !currentMemberIds.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Members")
-                                .font(.loopedBodyStrong)
-                                .foregroundColor(.loopedTextPrimary)
-                                .padding(.horizontal, 16)
-
-                            VStack(spacing: 0) {
-                                ForEach(memberIds, id: \.self) { memberId in
-                                    if let profile = MockUserProfiles.getUserProfile(byId: memberId) {
-                                        ChatDetailsMemberRow(
-                                            profile: profile,
-                                            isCurrentUser: profile.isCurrentUser,
-                                            onTap: {
-                                                selectedMemberProfile = profile
-                                            },
-                                            onRemove: {
-                                                showRemoveMemberAlert = memberId
-                                            }
-                                        )
-
-                                        if memberId != memberIds.last {
-                                            Divider().padding(.leading, 68)
-                                        }
-                                    }
-                                }
-                            }
-                            .background(Color.loopedTextSecondary.opacity(0.05))
-                            .cornerRadius(12)
-                            .padding(.horizontal, 16)
-                        }
-                    }
 
                     // Danger Zone
                     if isGroupChat {
@@ -319,67 +279,6 @@ struct ChatDetailsView: View {
             }
         } message: {
             Text("Are you sure you want to block this user? They won't be able to message you.")
-        }
-        .alert("Remove Member", isPresented: .init(
-            get: { showRemoveMemberAlert != nil },
-            set: { if !$0 { showRemoveMemberAlert = nil } }
-        )) {
-            Button("Cancel", role: .cancel) {
-                showRemoveMemberAlert = nil
-            }
-            Button("Remove", role: .destructive) {
-                if let memberId = showRemoveMemberAlert {
-                    removeMember(memberId)
-                    showRemoveMemberAlert = nil
-                }
-            }
-        } message: {
-            Text("Are you sure you want to remove this member from the group?")
-        }
-        .sheet(item: $selectedMemberProfile) { profile in
-            GroupMemberDetailsView(profile: profile, onRemove: removeMember)
-        }
-    }
-
-    // MARK: - Helper Functions
-    private func removeMember(_ memberId: UUID) {
-        // Remove from local state
-        currentMemberIds.removeAll { $0 == memberId }
-
-        // Update the conversation in MockConversations if it exists
-        if let conversation = conversation,
-           let index = MockConversations.conversations.firstIndex(where: { $0.id == conversation.id }) {
-            var updatedConversation = MockConversations.conversations[index]
-
-            // Update member IDs
-            var updatedMemberIds = updatedConversation.memberIds ?? []
-            updatedMemberIds.removeAll { $0 == memberId }
-
-            // Update group name if needed (rebuild from remaining members)
-            if updatedMemberIds.count > 0 {
-                let memberNames = updatedMemberIds.compactMap { id in
-                    MockUserProfiles.getUserProfile(byId: id)?.displayName
-                }
-                let newGroupName = memberNames.joined(separator: ", ")
-
-                // Create updated conversation
-                let updated = Conversation(
-                    id: updatedConversation.id,
-                    userId: updatedConversation.userId,
-                    userName: newGroupName,
-                    userProfileImageUrl: updatedConversation.userProfileImageUrl,
-                    lastMessage: updatedConversation.lastMessage,
-                    lastMessageTimestamp: updatedConversation.lastMessageTimestamp,
-                    unreadCount: updatedConversation.unreadCount,
-                    hasTypingIndicator: updatedConversation.hasTypingIndicator,
-                    hasSpecialStatus: updatedConversation.hasSpecialStatus,
-                    isOnline: updatedConversation.isOnline,
-                    isGroup: updatedConversation.isGroup,
-                    memberIds: updatedMemberIds
-                )
-
-                MockConversations.conversations[index] = updated
-            }
         }
     }
 }
@@ -552,14 +451,22 @@ struct GroupMemberDetailsView: View {
 
                     // Actions Section
                     VStack(spacing: 0) {
-                        NavigationLink(destination: UserProfileView(userProfile: profile)) {
+                        if let backendId = profile.backendId {
+                            NavigationLink(destination: UserProfileView(userId: backendId)) {
+                                ChatDetailsActionRow(
+                                    icon: "person.circle",
+                                    title: "View Profile",
+                                    showChevron: true
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        } else {
                             ChatDetailsActionRow(
                                 icon: "person.circle",
                                 title: "View Profile",
-                                showChevron: true
+                                showChevron: false
                             )
                         }
-                        .buttonStyle(PlainButtonStyle())
 
                         Divider().padding(.leading, 60)
 

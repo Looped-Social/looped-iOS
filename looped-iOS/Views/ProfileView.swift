@@ -242,7 +242,7 @@ struct ProfileStatsView: View {
     private var resolvedProfile: UserProfile? {
         if let profile = userProfile { return profile }
         if let user = authViewModel.currentUser {
-            return UserProfile.from(user: user)
+            return UserProfile.from(user: user, isCurrentUser: true)
         }
         return nil
     }

@@ -70,10 +70,29 @@ GET /v1/users/{id}
 - 200 OK with the same payload shape as `/v1/me.user`
 - 403 if cross-company, 409 if caller isn’t provisioned, 404 if user not found
 
+PUT /v1/users/me (alias: /users/me)
+- Auth required
+- Request body: `{ "displayName": "optional", "bio": "optional", "isAnonymous": <bool> }`
+- Response: same shape as `/v1/me.user` with stats fields (`follower_count`, `following_count`, `posts_count`, `comments_count`) and `profile_image_url` when available
+
 GET /v1/users/{id}/posts?limit=&cursor=
 - Paginated posts authored by `{id}` (ASC by created_at/id)
 - Response: `{ "items": [post...], "next_cursor": "..." }`
 - Same pagination + auth rules as `/v1/feed`
+
+GET /v1/users/{id}/comments?limit=&cursor=
+- Paginated comments/replies authored by `{id}`
+- Response: `{ "items": [{ "id": 1, "post_id": 101, "content": "...", "created_at": "...", "parent_id": null }], "next_cursor": "..." }`
+- Same pagination + auth rules as `/v1/feed`
+
+### People Search / Directory
+
+GET /v1/users/search?query=&limit=&cursor=
+- Auth required, same-company scope; `query` required
+- Response: `{ "items": [{ "id": 12, "handle": "erin", "username": "erin", "display_name": "Erin", "bio": "...", "company_id": 5, "profile_image_url": "..." }], "next_cursor": "..." }`
+
+GET /v1/users?limit=&cursor=
+- Auth required, same-company scope; default directory/suggestions with the same item shape as search
 
 ### Feed & Posts
 
@@ -90,6 +109,8 @@ GET /v1/feed?limit=<int>&cursor=<string>
       "content": "hello",
       "media_asset_id": 77,          // nullable
       "likes_count": 3,
+      "comments_count": 0,
+      "share_count": 0,
       "created_at": "2024-01-02T03:04:05Z"
     }
   ],
@@ -121,6 +142,8 @@ GET /v1/posts/{id}
   "content": "hello",
   "media_asset_id": 77,     // nullable
   "likes_count": 3,
+  "comments_count": 0,
+  "share_count": 0,
   "created_at": "2024-01-02T03:04:05Z"
 }
 ```
@@ -195,6 +218,11 @@ POST /v1/verification/finish
 ```
 - 200 OK: `{ "verified": true }`
 
+POST /users/verify-employment (alias: /v1/users/verify-employment)
+- Auth required; delegates to verification start (method defaults to email)
+- Request body: `{ "method": "email|video|thirdparty" }`
+- 200 OK: same as `/v1/verification/start`
+
 ### Devices (APNs)
 
 POST /v1/devices
@@ -227,6 +255,48 @@ GET /v1/reports?status=open|resolved
 
 PUT /v1/reports/{id}/resolve
 - 200 OK `{ "status": "resolved" }` (scoped to reporter/company)
+
+### Messaging (Polling)
+
+GET /v1/conversations?limit=&cursor=
+- Auth required; returns DM conversations (same company)
+- Response items: `{ "id": 1, "other_user_profile": { "id": 12, "handle": "erin", "display_name": "Erin", "profile_image_url": "..." }, "last_message": "...", "last_message_timestamp": "...", "unread_count": 0 }`
+
+POST /v1/conversations
+- Auth required; starts or returns an existing DM
+- Request: `{ "participantUserId": <int> }`
+- Response: conversation DTO as above
+
+GET /v1/conversations/{id}/messages?limit=&cursor=
+- Auth required; returns `{ "items": [message...], "next_cursor": "..." }`
+- Message DTO: `{ "id": 1, "sender_id": 12, "content": "hi", "attachments": [], "created_at": "..." }`
+
+POST /v1/conversations/{id}/messages
+- Auth required
+- Request: `{ "content": "<text>", "attachments": [] }`
+- Response: message DTO
+
+### Channels (if used)
+
+GET /v1/channels?limit=&cursor=
+- Auth required; returns `{ "items": [{ "id": 1, "name": "General", "member_count": 10, "is_public": true }], "next_cursor": "..." }`
+
+GET /v1/channels/{id}/messages?limit=&cursor=
+- Same shape as DM messages
+
+POST /v1/channels/{id}/messages
+- Request: `{ "content": "<text>", "attachments": [] }`
+- Response: message DTO
+
+### Notifications (Polling)
+
+GET /v1/notifications?limit=&cursor=
+- Auth required
+- Response: `{ "items": [{ "id": 1, "type": "like", "created_at": "...", "unread": true, "payload": { ... } }], "next_cursor": "..." }`
+
+POST /v1/notifications/{id}/read
+- Auth required
+- Response: `{ "read": true }`
 
 ## Database Schema (MVP)
 
@@ -299,4 +369,3 @@ POST /v1/posts/{id}/save
 DELETE /v1/posts/{id}/save
 - Removes bookmark; `{ "post_id": 101, "saved": false }`
 - 404 if post doesn’t exist, 403 if cross-company
-

@@ -56,6 +56,7 @@ struct SearchFilterOption: Identifiable, Equatable {
 
 struct SearchResultPerson: Identifiable {
     let id: UUID
+    let backendId: Int?
     let name: String
     let username: String
     let title: String
@@ -64,6 +65,7 @@ struct SearchResultPerson: Identifiable {
 
     init(
         id: UUID = UUID(),
+        backendId: Int? = nil,
         name: String,
         username: String,
         title: String,
@@ -71,6 +73,7 @@ struct SearchResultPerson: Identifiable {
         avatarURL: String?
     ) {
         self.id = id
+        self.backendId = backendId
         self.name = name
         self.username = username
         self.title = title

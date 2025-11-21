@@ -33,6 +33,10 @@ struct SearchResultsView: View {
                         else if !viewModel.searchResults.isEmpty || !viewModel.hashtagSuggestions.isEmpty {
                             searchResultsSection
                         }
+                        // Errors
+                        else if let error = viewModel.errorMessage {
+                            errorState(error)
+                        }
                         // Show empty state when search has no results
                         else if !viewModel.isSearching && !viewModel.searchText.isEmpty {
                             emptySearchState
@@ -172,6 +176,25 @@ struct SearchResultsView: View {
                 .foregroundColor(.loopedTextSecondary)
         }
         .padding(.top, 40)
+    }
+
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 40))
+                .foregroundColor(.loopedTextSecondary.opacity(0.7))
+
+            Text("Something went wrong")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+
+            Text(message)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+        }
+        .padding(.top, 60)
     }
 }
 

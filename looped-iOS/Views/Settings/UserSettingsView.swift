@@ -1,21 +1,20 @@
 import SwiftUI
+import UIKit
 
 struct UserSettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
-    @State private var username: String
-    @State private var displayName: String
-    @State private var bio: String
+    private let userService: UserServiceProtocol = UserService()
+
+    @State private var username: String = ""
+    @State private var displayName: String = ""
+    @State private var bio: String = ""
     @State private var emailNotifications = true
     @State private var pushNotifications = true
-
-    init() {
-        let currentUser = MockUsers.currentUser
-        let currentProfile = MockUserProfiles.getCurrentUserProfile()
-        _username = State(initialValue: "@\(currentProfile?.handle ?? currentUser.handle)")
-        _displayName = State(initialValue: currentProfile?.displayName ?? currentUser.displayName ?? "")
-        _bio = State(initialValue: currentProfile?.bio ?? currentUser.bio ?? "")
-    }
+    @State private var hasLoadedUser = false
+    @State private var isSaving = false
+    @State private var saveError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -115,11 +114,11 @@ struct UserSettingsView: View {
                             .padding(.horizontal, 20)
 
                         VStack(spacing: 0) {
-                            UserSettingsInfoRow(label: "Company", value: MockUsers.currentUser.company)
+                            UserSettingsInfoRow(label: "Company", value: currentUserCompany)
                             Divider().padding(.horizontal, 20)
-                            UserSettingsInfoRow(label: "Position", value: MockUserProfiles.getCurrentUserProfile()?.jobTitle ?? "Team Member")
+                            UserSettingsInfoRow(label: "Position", value: currentUserPosition)
                             Divider().padding(.horizontal, 20)
-                            UserSettingsInfoRow(label: "Verified", value: MockUserProfiles.getCurrentUserProfile()?.isVerified == true ? "Yes" : "No")
+                            UserSettingsInfoRow(label: "Verified", value: currentUserVerified)
                         }
                         .background(Color.loopedTextSecondary.opacity(0.05))
                         .cornerRadius(8)
@@ -127,26 +126,43 @@ struct UserSettingsView: View {
                     }
 
                     // Save Button
-                    Button(action: {
-                        let impact = UIImpactFeedbackGenerator(style: .light)
-                        impact.impactOccurred()
-                        // TODO: Implement save functionality
-                    }) {
-                        Text("Save Changes")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.loopedPrimary)
-                            .cornerRadius(12)
+                    Button(action: saveProfile) {
+                        HStack {
+                            if isSaving {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            }
+                            Text(isSaving ? "Saving..." : "Save Changes")
+                                .font(.loopedBodyStrong)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(isSaving ? Color.loopedPrimary.opacity(0.7) : Color.loopedPrimary)
+                        .cornerRadius(12)
                     }
+                    .disabled(isSaving)
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
+
+                    if let saveError = saveError {
+                        Text(saveError)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 20)
+                    }
                 }
                 .padding(.bottom, 100)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .onAppear {
+            hydrateFromUser()
+        }
+        .onChange(of: authViewModel.currentUser?.id) { _ in
+            hasLoadedUser = false
+            hydrateFromUser()
+        }
         .navigationBarHidden(true)
     }
 }
@@ -172,6 +188,44 @@ struct UserSettingsInfoRow: View {
     }
 }
 
+private extension UserSettingsView {
+    var currentUser: User? { authViewModel.currentUser }
+    var currentUserCompany: String { currentUser?.company ?? "Looped" }
+    var currentUserPosition: String { "Team Member" }
+    var currentUserVerified: String { currentUser?.isVerified == true ? "Yes" : "No" }
+
+    func hydrateFromUser() {
+        guard let user = currentUser, !hasLoadedUser else { return }
+        username = "@\(user.handle)"
+        displayName = user.displayName ?? user.handle
+        bio = user.bio ?? ""
+        hasLoadedUser = true
+    }
+
+    func saveProfile() {
+        guard !isSaving else { return }
+        let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.impactOccurred()
+        saveError = nil
+        isSaving = true
+
+        Task {
+            defer { isSaving = false }
+            do {
+                _ = try await userService.updateProfile(
+                    displayName: displayName,
+                    bio: bio.isEmpty ? nil : bio,
+                    isAnonymous: false
+                )
+                await authViewModel.loadCurrentUser()
+            } catch {
+                saveError = error.localizedDescription
+            }
+        }
+    }
+}
+
 #Preview {
     UserSettingsView()
+        .environmentObject(AuthViewModel())
 }

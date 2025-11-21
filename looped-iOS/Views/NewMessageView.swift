@@ -8,7 +8,7 @@ struct NewMessageView: View {
     @State private var selectedRecipients: [UserProfile] = []
 
     private var suggestedContacts: [UserProfile] {
-        MockUserProfiles.profiles.filter { !$0.isCurrentUser }
+        []
     }
 
     private var suggestedGroups: [Conversation] {
@@ -16,11 +16,7 @@ struct NewMessageView: View {
     }
 
     private var filteredContacts: [UserProfile] {
-        if searchText.isEmpty {
-            return suggestedContacts
-        } else {
-            return MockUserProfiles.searchUserProfiles(query: searchText)
-        }
+        []
     }
 
     private var filteredGroups: [Conversation] {
@@ -138,7 +134,6 @@ struct NewMessageView: View {
 
                 // Contacts Section
                 if !filteredContacts.isEmpty {
-                    // Section Header
                     HStack {
                         Text(searchText.isEmpty ? "Suggested" : "Contacts")
                             .font(.loopedSubBodyMedium)
@@ -151,7 +146,6 @@ struct NewMessageView: View {
                     .padding(.vertical, 8)
                     .padding(.top, filteredGroups.isEmpty ? 0 : 16)
 
-                    // Contact Rows
                     ForEach(filteredContacts) { contact in
                         ContactRow(
                             contact: contact,
@@ -159,6 +153,18 @@ struct NewMessageView: View {
                             onTap: { toggleRecipient(contact) }
                         )
                     }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("People search isn't connected yet.")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        Text("You'll be able to pick coworkers once the backend directory is wired up.")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
                 }
             }
         }
