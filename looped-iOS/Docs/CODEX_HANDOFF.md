@@ -8,25 +8,28 @@
 - **Collections (Liked/Saved):** `CollectionPostsViewModel` hits `/v1/posts/liked` and `/v1/posts/saved`, with paging, refresh, and error states. Liked/Saved screens in the drawer are fully real now.
 - **Profile (self):** `ProfileViewModel` pulls profile info from `/v1/me` and posts via `/v1/users/{id}/posts`. UI shows placeholders (“Add your bio…”) while loading but no longer uses mock data.
 - **Other user profiles:** `UserProfileView` now fetches `/v1/users/{id}` and `/v1/users/{id}/posts` through `UserProfileViewModel` + `CollectionPostsViewModel`. `MockUserProfiles` was removed.
+- **People search:** `SearchResultsViewModel` calls `/v1/users/search` for people results; New Message search uses the same endpoint to start DMs.
+- **Messaging (polling):** Conversations/channels/messages are wired to `/v1/conversations` and `/v1/channels` endpoints. Mock conversations/messages removed; ChatView/ConversationRow use backend IDs.
+- **Notifications:** wired to `/v1/notifications` + `/v1/notifications/{id}/read` (polling). Mock notifications removed.
 - **Docs:** `Docs/API_REFERENCE.md` documents identity, profile, and collections endpoints per backend spec.
 
 ## What’s Still Mocked / To Do
-1. **User discovery/search UX:** Search results, “new message” pickers, and chat member lists still use placeholder content because there’s no backend people search/directory yet. Wire to real search/list endpoints once available so profile links can always launch the real `UserProfileView`.
-2. **Messaging/Search/Notifications:** messaging now calls real conversation/channel endpoints; notifications still mock/unwired.
-3. **Post interactions beyond like/save:** share counts, comment counts still use `MockPosts` helpers. Replace with real count fields or hide until backend provides them.
-4. **Followers/Following stats:** Profile pills currently show placeholder numbers (0). Once backend exposes these counts, map them in `UserProfile` / UI.
-5. **Replies/Saved tabs on profile:** still display “Coming soon.” Need endpoints for replies/comments history and saved posts per user.
-6. **User settings save flow:** update endpoints exist (`/users/me` PUT) but the Settings screen’s “Save changes” button is still a stub; wire it up.
-7. **WebSocket realtime:** `WebSocketService` currently uses mock data. Eventually connect to backend WS for messaging/notifications.
+1. **Comment counts/threads:** Feed/comment counts still come from mock helpers; profile comments list is wired, but feed counts aren’t. Add backend fields or hide until available.
+2. **Search loops/hashtags & static content:** loops/hashtags still use `MockSearchContent` (people search is real).
+3. **WebSocket realtime:** `WebSocketService` still mocky; messaging is HTTP polling only.
+4. **Followers/Following stats:** Profile pills still default to 0 unless backend fields provided.
+5. **Profile tabs:** Replies/Saved tabs still show “Coming soon.” Add endpoints for replies/comments history per user as needed.
+6. **Post interactions beyond like/save:** share/comment counts rely on `MockPosts` helpers; map backend counts when available.
 
 ## Suggested Next Steps for the Next Codex
-1. **Wire user discovery**
-   - Connect Search/New Message/Chat member lists to a real people search/list endpoint and feed backend user IDs through conversations so profile links can launch the real `UserProfileView`.
+1. **Feed/interactions cleanup**
+   - Replace mock comment/share counts in feed cards with backend fields (or hide until available).
 
-2. **Add save/unsave buttons wherever posts appear** (e.g., profile feed, grid view) using the new save APIs.
+2. **Notifications polish**
+   - Add UI for mark-read (already API-wired) and surface errors; consider pagination in the UI if needed.
 
-3. **Plan for messaging/search**
-   - Wire notifications polling (still pending).
+3. **Realtime plan**
+   - Decide on WebSocket strategy for messaging/notifications and update `WebSocketService` accordingly (currently mock).
 
 4. **Optional polish**
    - Skeleton loaders for Profile/Feed if desired.
