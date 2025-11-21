@@ -16,8 +16,7 @@ struct CreatePostView: View {
 
     init(feedViewModel: FeedViewModel) {
         self.feedViewModel = feedViewModel
-        let names = MockMessages.channels.map { $0.name }
-        self.channelNames = names.isEmpty ? ["general"] : names
+        self.channelNames = ["general"]
         _selectedChannel = State(initialValue: self.channelNames.first ?? "general")
     }
     

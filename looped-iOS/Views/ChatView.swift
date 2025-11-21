@@ -10,6 +10,7 @@ struct ChatView: View {
     @State private var messageText = ""
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var showChatDetails = false
+    @State private var conversationBackendId: Int?
 
     private var isGroupChat: Bool {
         return channel != nil
@@ -165,6 +166,7 @@ struct ChatView: View {
             ChatDetailsView(conversation: conversation, channel: channel)
         }
         .task {
+            configureIds()
             await loadMessages()
         }
     }
@@ -177,8 +179,8 @@ struct ChatView: View {
         Task {
             if let channel = channel {
                 await viewModel.sendMessage(messageText, to: channel)
-            } else if let conversation = conversation {
-                await viewModel.sendDirectMessage(messageText, to: conversation.userId)
+            } else {
+                await viewModel.sendDirectMessage(messageText)
             }
 
             messageText = ""
@@ -186,11 +188,20 @@ struct ChatView: View {
         }
     }
 
+    private func configureIds() {
+        if let conversation = conversation {
+            conversationBackendId = conversation.backendId
+            viewModel.configure(conversationBackendId: conversation.backendId, channelBackendId: nil)
+        } else if let channel = channel {
+            viewModel.configure(conversationBackendId: nil, channelBackendId: channel.backendId)
+        }
+    }
+
     private func loadMessages() async {
         if let channel = channel {
             await viewModel.loadMessages(for: channel)
-        } else if let conversation = conversation {
-            await viewModel.loadDirectMessages(with: conversation.userId)
+        } else {
+            await viewModel.loadDirectMessages()
         }
     }
 

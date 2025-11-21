@@ -35,10 +35,13 @@ struct PostReactionResponse {
 }
 
 protocol MessageServiceProtocol {
-    func getChannels() async throws -> [Channel]
-    func getMessages(channelId: UUID) async throws -> [Message]
-    func sendMessage(content: String, channelId: UUID) async throws -> Message
-    func sendDirectMessage(content: String, receiverId: UUID) async throws -> Message
+    func listConversations(cursor: String?) async throws -> ConversationPage
+    func startConversation(with participantBackendId: Int) async throws -> Conversation
+    func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage
+    func sendConversationMessage(conversationId: Int, content: String) async throws -> Message
+    func getChannels(cursor: String?) async throws -> ChannelPage
+    func getChannelMessages(channelBackendId: Int, cursor: String?) async throws -> MessagePage
+    func sendChannelMessage(channelBackendId: Int, content: String) async throws -> Message
 }
 
 protocol UserServiceProtocol {
@@ -49,6 +52,11 @@ protocol UserServiceProtocol {
     func verifyEmployment(verification: EmploymentVerification) async throws
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage
+}
+
+protocol NotificationServiceProtocol {
+    func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage
+    func markRead(notificationId: Int) async throws
 }
 
 protocol WebSocketServiceProtocol {

@@ -20,8 +20,8 @@ class MessagesViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let fetchedChannels = try await messageService.getChannels()
-            channels = fetchedChannels
+            let page = try await messageService.getChannels(cursor: nil)
+            channels = page.channels
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -33,11 +33,12 @@ class MessagesViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        // Simulate network delay for realistic loading experience
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-
-        // For now, use mock data. In production, this would call an API
-        conversations = MockConversations.conversations
+        do {
+            let page = try await messageService.listConversations(cursor: nil)
+            conversations = page.conversations
+        } catch {
+            errorMessage = error.localizedDescription
+        }
 
         isLoading = false
     }
@@ -56,6 +57,9 @@ class ChatViewModel: ObservableObject {
     private let messageService: MessageServiceProtocol
     private let webSocketService: WebSocketServiceProtocol
     private var cancellables = Set<AnyCancellable>()
+    private var conversationBackendId: Int?
+    private var channelBackendId: Int?
+    private var nextCursor: String?
     
     init(
         messageService: MessageServiceProtocol = MessageService(),
@@ -66,13 +70,18 @@ class ChatViewModel: ObservableObject {
         setupWebSocketListeners()
     }
     
+    func configure(conversationBackendId: Int? = nil, channelBackendId: Int? = nil) {
+        self.conversationBackendId = conversationBackendId
+        self.channelBackendId = channelBackendId
+    }
+    
     func loadMessages(for channel: Channel) async {
         isLoading = true
         errorMessage = nil
 
         do {
-            let fetchedMessages = try await messageService.getMessages(channelId: channel.id)
-            messages = fetchedMessages.sorted { $0.createdAt < $1.createdAt }
+            let page = try await messageService.getChannelMessages(channelBackendId: channel.backendId, cursor: nil)
+            messages = page.messages
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -80,28 +89,45 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
 
-    func loadDirectMessages(with userId: UUID) async {
+    func loadDirectMessages() async {
         isLoading = true
         errorMessage = nil
 
-        // For now, use mock data for direct messages
-        messages = MockMessages.getDirectMessages().sorted { $0.createdAt < $1.createdAt }
+        guard let conversationBackendId else {
+            errorMessage = "Direct messages require a conversation ID."
+            isLoading = false
+            return
+        }
+
+        do {
+            let page = try await messageService.getConversationMessages(conversationId: conversationBackendId, cursor: nil)
+            messages = page.messages
+        } catch {
+            errorMessage = error.localizedDescription
+        }
 
         isLoading = false
     }
 
     func sendMessage(_ content: String, to channel: Channel) async {
         do {
-            try await messageService.sendMessage(content: content, channelId: channel.id)
+            _ = try await messageService.sendChannelMessage(channelBackendId: channel.backendId, content: content)
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func sendDirectMessage(_ content: String, to userId: UUID) async {
-        // For now, simulate sending a direct message
-        let newMessage = MockMessages.sendDirectMessage(content: content, to: userId)
-        messages.append(newMessage)
+    func sendDirectMessage(_ content: String) async {
+        guard let conversationBackendId else {
+            errorMessage = "Direct messages require a conversation ID."
+            return
+        }
+        do {
+            let message = try await messageService.sendConversationMessage(conversationId: conversationBackendId, content: content)
+            messages.append(message)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
     
     private func setupWebSocketListeners() {

@@ -12,7 +12,7 @@
 
 ## What’s Still Mocked / To Do
 1. **User discovery/search UX:** Search results, “new message” pickers, and chat member lists still use placeholder content because there’s no backend people search/directory yet. Wire to real search/list endpoints once available so profile links can always launch the real `UserProfileView`.
-2. **Messaging/Search/Notifications:** still point at `MockConversations`, `MockMessages`, etc. Future wiring needed to Java backend endpoints/WebSocket.
+2. **Messaging/Search/Notifications:** messaging now calls real conversation/channel endpoints; notifications still mock/unwired.
 3. **Post interactions beyond like/save:** share counts, comment counts still use `MockPosts` helpers. Replace with real count fields or hide until backend provides them.
 4. **Followers/Following stats:** Profile pills currently show placeholder numbers (0). Once backend exposes these counts, map them in `UserProfile` / UI.
 5. **Replies/Saved tabs on profile:** still display “Coming soon.” Need endpoints for replies/comments history and saved posts per user.
@@ -26,7 +26,7 @@
 2. **Add save/unsave buttons wherever posts appear** (e.g., profile feed, grid view) using the new save APIs.
 
 3. **Plan for messaging/search**
-   - Inventory existing services/views that still depend on `MockMessages` and outline backend endpoints needed (channels list, conversation list, send message, etc.).
+   - Wire notifications polling (still pending).
 
 4. **Optional polish**
    - Skeleton loaders for Profile/Feed if desired.

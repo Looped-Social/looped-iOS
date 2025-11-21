@@ -5,27 +5,34 @@ import Combine
 class NotificationsViewModel: ObservableObject {
     @Published var notifications: [Notification] = []
     @Published var isLoading = false
-    @Published var error: Error?
+    @Published var errorMessage: String?
+
+    private let notificationService: NotificationServiceProtocol
+    private var nextCursor: String?
+
+    init(notificationService: NotificationServiceProtocol = NotificationService()) {
+        self.notificationService = notificationService
+    }
 
     // MARK: - Load Notifications
     func loadNotifications() async {
         isLoading = true
         defer { isLoading = false }
 
-        // Simulate API delay
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-
-        // Load mock data
-        notifications = MockNotifications.getAllNotifications()
+        do {
+            let page = try await notificationService.fetchNotifications(limit: 20, cursor: nil)
+            notifications = page.notifications
+            nextCursor = page.nextCursor
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     // MARK: - Refresh Notifications
     func refreshNotifications() async {
-        // Simulate API refresh
-        try? await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds
-
-        // Reload mock data
-        notifications = MockNotifications.getAllNotifications()
+        nextCursor = nil
+        await loadNotifications()
     }
 
     // MARK: - Handle Notification Tap
@@ -63,19 +70,24 @@ class NotificationsViewModel: ObservableObject {
 
     // MARK: - Mark As Read
     private func markAsRead(_ notification: Notification) {
-        if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
-            notifications[index] = Notification(
-                id: notifications[index].id,
-                type: notifications[index].type,
-                actorId: notifications[index].actorId,
-                actorName: notifications[index].actorName,
-                actorProfileImageUrl: notifications[index].actorProfileImageUrl,
-                additionalActors: notifications[index].additionalActors,
-                targetId: notifications[index].targetId,
-                targetContent: notifications[index].targetContent,
-                isRead: true,
-                createdAt: notifications[index].createdAt
-            )
+        Task {
+            if let backendId = notification.id.backendInt {
+                try? await notificationService.markRead(notificationId: backendId)
+            }
+            if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
+                notifications[index] = Notification(
+                    id: notifications[index].id,
+                    type: notifications[index].type,
+                    actorId: notifications[index].actorId,
+                    actorName: notifications[index].actorName,
+                    actorProfileImageUrl: notifications[index].actorProfileImageUrl,
+                    additionalActors: notifications[index].additionalActors,
+                    targetId: notifications[index].targetId,
+                    targetContent: notifications[index].targetContent,
+                    isRead: true,
+                    createdAt: notifications[index].createdAt
+                )
+            }
         }
     }
 

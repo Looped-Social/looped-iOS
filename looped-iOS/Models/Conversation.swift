@@ -2,6 +2,7 @@ import Foundation
 
 struct Conversation: Codable, Identifiable {
     let id: UUID
+    let backendId: Int
     let userId: UUID
     let backendUserId: Int?
     let userName: String
@@ -17,6 +18,7 @@ struct Conversation: Codable, Identifiable {
 
     init(
         id: UUID = UUID(),
+        backendId: Int = 0,
         userId: UUID,
         backendUserId: Int? = nil,
         userName: String,
@@ -31,6 +33,7 @@ struct Conversation: Codable, Identifiable {
         memberIds: [UUID]? = nil
     ) {
         self.id = id
+        self.backendId = backendId
         self.userId = userId
         self.backendUserId = backendUserId
         self.userName = userName

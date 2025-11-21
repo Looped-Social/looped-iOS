@@ -12,35 +12,21 @@ struct ConversationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Profile Picture or Group Icon
-            if MockConversations.isGroupConversation(conversation) {
-                // Group icon
+            AsyncImage(url: URL(string: conversation.userProfileImageUrl ?? "")) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
                 Circle()
-                    .fill(Color.purple)
-                    .frame(width: 50, height: 50)
+                    .fill(Color.loopedPrimary.opacity(0.3))
                     .overlay(
-                        Text(groupInitials)
+                        Text(String(conversation.userName.prefix(1)).uppercased())
                             .font(.loopedBodyMedium)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedPrimary)
                     )
-            } else {
-                // Individual profile picture
-                AsyncImage(url: URL(string: conversation.userProfileImageUrl ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedPrimary.opacity(0.3))
-                        .overlay(
-                            Text(String(conversation.userName.prefix(1)).uppercased())
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedPrimary)
-                        )
-                }
-                .frame(width: 50, height: 50)
-                .clipShape(Circle())
             }
+            .frame(width: 50, height: 50)
+            .clipShape(Circle())
 
             // Content: Name and Last Message
             VStack(alignment: .leading, spacing: 4) {

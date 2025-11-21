@@ -102,11 +102,13 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
                let senderDisplayName = wsMessage.payload["senderDisplayName"] {
                 let message = Message(
                     id: UUID(),
+                    backendId: Int.random(in: 1...Int.max),
                     content: content,
                     senderId: UUID(uuidString: senderId) ?? UUID(),
                     senderDisplayName: senderDisplayName,
                     receiverId: nil,
-                    channelId: UUID(uuidString: wsMessage.payload["channelId"] ?? "") ?? UUID(),
+                    conversationBackendId: nil,
+                    channelBackendId: nil,
                     messageType: .channel,
                     isRead: false,
                     attachments: nil,
@@ -150,4 +152,3 @@ private struct WebSocketMessage: Codable {
         self.payload = payload
     }
 }
-

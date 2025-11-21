@@ -41,6 +41,20 @@ enum MediaType: String, Codable, CaseIterable {
     case gif = "gif"
 }
 
+extension MediaAttachment {
+    init(dto: MediaAttachmentDTO) {
+        self.id = UUID()
+        self.type = MediaType(rawValue: dto.type ?? "image") ?? .image
+        self.url = dto.url
+        self.thumbnailUrl = dto.thumbnailUrl
+        self.width = dto.width
+        self.height = dto.height
+        self.duration = dto.durationSeconds
+        self.fileSize = dto.sizeBytes
+        self.createdAt = Date()
+    }
+}
+
 // MARK: - Local Media Selection (before upload)
 struct LocalMediaItem: Identifiable, Equatable {
     let id: UUID

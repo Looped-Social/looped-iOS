@@ -6,25 +6,11 @@ struct NewMessageView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var selectedRecipients: [UserProfile] = []
-
-    private var suggestedContacts: [UserProfile] {
-        []
-    }
-
-    private var suggestedGroups: [Conversation] {
-        MockConversations.getGroupConversations()
-    }
+    @StateObject private var searchViewModel = NewMessageSearchViewModel()
+    private let messageService: MessageServiceProtocol = MessageService()
 
     private var filteredContacts: [UserProfile] {
-        []
-    }
-
-    private var filteredGroups: [Conversation] {
-        if searchText.isEmpty {
-            return suggestedGroups
-        } else {
-            return suggestedGroups.filter { $0.userName.localizedCaseInsensitiveContains(searchText) }
-        }
+        searchViewModel.results.map { UserProfile.from(user: $0, isCurrentUser: false) }
     }
 
     var body: some View {
@@ -58,6 +44,9 @@ struct NewMessageView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onChange(of: searchText) { newValue in
+            Task { await searchViewModel.search(query: newValue) }
+        }
     }
 
     // MARK: - To Field Section
@@ -109,30 +98,6 @@ struct NewMessageView: View {
     private var contactsList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                // Groups Section
-                if !filteredGroups.isEmpty {
-                    // Section Header
-                    HStack {
-                        Text(searchText.isEmpty ? "Group Chats" : "Groups")
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedTextSecondary)
-                            .textCase(.uppercase)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-
-                    // Group Rows
-                    ForEach(filteredGroups) { group in
-                        GroupRow(
-                            group: group,
-                            onTap: { navigateToGroup(group) }
-                        )
-                    }
-                }
-
-                // Contacts Section
                 if !filteredContacts.isEmpty {
                     HStack {
                         Text(searchText.isEmpty ? "Suggested" : "Contacts")
@@ -144,7 +109,6 @@ struct NewMessageView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .padding(.top, filteredGroups.isEmpty ? 0 : 16)
 
                     ForEach(filteredContacts) { contact in
                         ContactRow(
@@ -153,15 +117,23 @@ struct NewMessageView: View {
                             onTap: { toggleRecipient(contact) }
                         )
                     }
-                } else {
+                } else if searchText.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("People search isn't connected yet.")
+                        Text("Search coworkers to start a conversation.")
                             .font(.loopedBodyMedium)
                             .foregroundColor(.loopedTextPrimary)
-
-                        Text("You'll be able to pick coworkers once the backend directory is wired up.")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+                } else if searchViewModel.isSearching {
+                    ProgressView("Searching...")
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 16)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("No results")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedTextPrimary)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
@@ -183,66 +155,21 @@ struct NewMessageView: View {
         selectedRecipients.removeAll { $0.id == recipient.id }
     }
 
-    private func navigateToGroup(_ group: Conversation) {
-        // Convert group conversation to channel and navigate (pass both for member info)
-        if let channel = MockConversations.getChannelForGroupConversation(group) {
-            onChatSelected(group, channel)
-        }
-        dismiss()
-    }
-
     private func handleNextButtonTap() {
         guard !selectedRecipients.isEmpty else { return }
 
-        if selectedRecipients.count == 1 {
-            // Single recipient: navigate to 1-on-1 conversation
-            let recipientId = selectedRecipients[0].id
-
-            // Check if conversation already exists with this user
-            let existingConversation = MockConversations.conversations.first { conversation in
-                !conversation.isGroup && conversation.userId == recipientId
-            }
-
-            if let existing = existingConversation {
-                // Use existing conversation
-                onChatSelected(existing, nil)
-            } else {
-                // Create new conversation
-                let recipient = selectedRecipients[0]
-                let newConversation = Conversation(
-                    userId: recipientId,
-                    userName: recipient.displayName ?? "Unknown",
-                    userProfileImageUrl: recipient.profileImageURL,
-                    lastMessage: "",
-                    lastMessageTimestamp: Date(),
-                    unreadCount: 0,
-                    isGroup: false
-                )
-                // Add to conversations list
-                MockConversations.conversations.insert(newConversation, at: 0)
-                onChatSelected(newConversation, nil)
-            }
-        } else {
-            // Multiple recipients: check for existing group or create new one
-            let memberIds = selectedRecipients.map { $0.id }
-            // Add current user to the member IDs for group matching
-            let allMemberIds = memberIds + [MockUsers.currentUser.id]
-
-            if let existingGroup = MockConversations.findGroupByMembers(allMemberIds) {
-                // Group already exists: navigate to it (pass both for member info)
-                if let channel = MockConversations.getChannelForGroupConversation(existingGroup) {
-                    onChatSelected(existingGroup, channel)
-                }
-            } else {
-                // No existing group: create new one (pass both for member info)
-                let newGroup = MockConversations.createGroup(withMembers: selectedRecipients)
-                if let channel = MockConversations.getChannelForGroupConversation(newGroup) {
-                    onChatSelected(newGroup, channel)
+        if selectedRecipients.count == 1, let backendId = selectedRecipients[0].backendId {
+            Task {
+                do {
+                    let conversation = try await messageService.startConversation(with: backendId)
+                    onChatSelected(conversation, nil)
+                    dismiss()
+                } catch {
+                    // Simple alert fallback
+                    print("Failed to start conversation: \(error.localizedDescription)")
                 }
             }
         }
-
-        dismiss()
     }
 }
 
@@ -267,49 +194,6 @@ struct RecipientChip: View {
         .padding(.vertical, 4)
         .background(Color.loopedPrimary.opacity(0.1))
         .clipShape(Capsule())
-    }
-}
-
-// MARK: - Group Row
-struct GroupRow: View {
-    let group: Conversation
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                // Group Icon
-                Circle()
-                    .fill(Color.loopedPrimary.opacity(0.2))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.loopedPrimary)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(group.userName)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    if let memberCount = group.memberIds?.count {
-                        Text("\(memberCount) members")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -367,6 +251,35 @@ struct ContactRow: View {
             .padding(.vertical, 8)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Search ViewModel
+@MainActor
+final class NewMessageSearchViewModel: ObservableObject {
+    @Published var results: [User] = []
+    @Published var isSearching = false
+    private let userService: UserServiceProtocol
+    
+    init(userService: UserServiceProtocol = UserService()) {
+        self.userService = userService
+    }
+    
+    func search(query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            results = []
+            isSearching = false
+            return
+        }
+        isSearching = true
+        do {
+            let page = try await userService.searchUsers(query: trimmed, limit: 20, cursor: nil)
+            results = page.users
+        } catch {
+            results = []
+        }
+        isSearching = false
     }
 }
 

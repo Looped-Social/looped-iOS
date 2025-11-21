@@ -43,12 +43,7 @@ struct MessagesView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(filteredConversations) { conversation in
                         Button(action: {
-                            if MockConversations.isGroupConversation(conversation) {
-                                // Pass both conversation and channel for groups (to access memberIds)
-                                onChatSelected(conversation, MockConversations.getChannelForGroupConversation(conversation))
-                            } else {
-                                onChatSelected(conversation, nil)
-                            }
+                            onChatSelected(conversation, nil)
                         }) {
                             ConversationRow(conversation: conversation)
                         }
