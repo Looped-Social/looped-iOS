@@ -9,21 +9,20 @@
 - **Profile (self):** `ProfileViewModel` pulls profile info from `/v1/me` and posts via `/v1/users/{id}/posts`. UI shows placeholders (“Add your bio…”) while loading but no longer uses mock data.
 - **Other user profiles:** `UserProfileView` now fetches `/v1/users/{id}` and `/v1/users/{id}/posts` through `UserProfileViewModel` + `CollectionPostsViewModel`. `MockUserProfiles` was removed.
 - **People search:** `SearchResultsViewModel` calls `/v1/users/search` for people results; New Message search uses the same endpoint to start DMs.
+- **Loop/hashtag search:** Search results now call `/v1/loops/search` and `/v1/hashtags/search` with cursor paging.
 - **Messaging (polling):** Conversations/channels/messages are wired to `/v1/conversations` and `/v1/channels` endpoints. Mock conversations/messages removed; ChatView/ConversationRow use backend IDs.
 - **Notifications:** wired to `/v1/notifications` + `/v1/notifications/{id}/read` (polling). Mock notifications removed.
-- **Docs:** `Docs/API_REFERENCE.md` documents identity, profile, and collections endpoints per backend spec.
+- **Comments:** Feed/post comments now hit `/v1/posts/{id}/comments` (list/create) and `/v1/comments/{id}/like`; replies load via `/v1/comments/{id}/replies`. Counts come from backend.
+- **Docs:** `Docs/API_REFERENCE.md` documents identity, profile, collections, comments, and discovery endpoints per backend spec.
 
 ## What’s Still Mocked / To Do
-1. **Comment counts/threads:** Feed/comment counts still come from mock helpers; profile comments list is wired, but feed counts aren’t. Add backend fields or hide until available.
-2. **Search loops/hashtags & static content:** loops/hashtags still use `MockSearchContent` (people search is real).
-3. **WebSocket realtime:** `WebSocketService` still mocky; messaging is HTTP polling only.
-4. **Followers/Following stats:** Profile pills still default to 0 unless backend fields provided.
-5. **Profile tabs:** Replies/Saved tabs still show “Coming soon.” Add endpoints for replies/comments history per user as needed.
-6. **Post interactions beyond like/save:** share/comment counts rely on `MockPosts` helpers; map backend counts when available.
+1. **WebSocket realtime:** `WebSocketService` still mocky; messaging is HTTP polling only.
+2. **Profile tabs:** Replies/Saved tabs still show “Coming soon.” Add endpoints for replies/comments history per user as needed.
+3. **Post interactions beyond like/save:** Share counts now read from backend `share_count`, but there’s no share endpoint/action wired.
 
 ## Suggested Next Steps for the Next Codex
-1. **Feed/interactions cleanup**
-   - Replace mock comment/share counts in feed cards with backend fields (or hide until available).
+1. **Comments polish**
+   - Consider showing reply counts if backend exposes them; add toasts/error UI for comment failures.
 
 2. **Notifications polish**
    - Add UI for mark-read (already API-wired) and surface errors; consider pagination in the UI if needed.

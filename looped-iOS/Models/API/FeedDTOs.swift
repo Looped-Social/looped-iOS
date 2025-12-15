@@ -12,6 +12,8 @@ struct PostDTO: Codable {
     let content: String
     let mediaAssetId: Int?
     let likesCount: Int
+    let commentsCount: Int?
+    let shareCount: Int?
     let createdAt: Date
     let isSaved: Bool?
 }

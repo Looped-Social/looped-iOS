@@ -3,15 +3,40 @@ import SwiftUI
 struct CommentRow: View {
     let comment: Comment
     let nestingLevel: Int
-    @State private var isLiked = false
-    @State private var showReplies = false
-    @State private var visibleRepliesCount = 5
+    let replies: [Comment]
+    let isExpanded: Bool
+    let isLoadingReplies: Bool
+    let isLoadingMoreReplies: Bool
+    let hasMoreReplies: Bool
+    let onReply: ((Comment) -> Void)?
+    let onToggleReplies: ((Comment) -> Void)?
+    let onLoadMoreReplies: ((Comment) -> Void)?
+    let onLike: ((Comment) -> Void)?
 
-    private let repliesPerPage = 5
-
-    init(comment: Comment, nestingLevel: Int = 0) {
+    init(
+        comment: Comment,
+        nestingLevel: Int = 0,
+        replies: [Comment] = [],
+        isExpanded: Bool = false,
+        isLoadingReplies: Bool = false,
+        isLoadingMoreReplies: Bool = false,
+        hasMoreReplies: Bool = false,
+        onReply: ((Comment) -> Void)? = nil,
+        onToggleReplies: ((Comment) -> Void)? = nil,
+        onLoadMoreReplies: ((Comment) -> Void)? = nil,
+        onLike: ((Comment) -> Void)? = nil
+    ) {
         self.comment = comment
         self.nestingLevel = nestingLevel
+        self.replies = replies
+        self.isExpanded = isExpanded
+        self.isLoadingReplies = isLoadingReplies
+        self.isLoadingMoreReplies = isLoadingMoreReplies
+        self.hasMoreReplies = hasMoreReplies
+        self.onReply = onReply
+        self.onToggleReplies = onToggleReplies
+        self.onLoadMoreReplies = onLoadMoreReplies
+        self.onLike = onLike
     }
     
     private var displayName: String {
@@ -19,13 +44,6 @@ struct CommentRow: View {
             return "Anonymous"
         }
         return comment.authorDisplayName ?? "User"
-    }
-    
-    private var handle: String {
-        if comment.isAnonymous {
-            return ""
-        }
-        return "@\(comment.authorDisplayName?.lowercased().replacingOccurrences(of: " ", with: "_") ?? "user")"
     }
 
     private var formattedTimestamp: String {
@@ -47,22 +65,6 @@ struct CommentRow: View {
         }
     }
     
-    private var allReplies: [Comment] {
-        MockComments.getRepliesForComment(comment.id)
-    }
-
-    private var totalRepliesCount: Int {
-        allReplies.count
-    }
-
-    private var displayedReplies: [Comment] {
-        Array(allReplies.prefix(visibleRepliesCount))
-    }
-
-    private var hasMoreReplies: Bool {
-        totalRepliesCount > visibleRepliesCount
-    }
-
     private var profileSize: CGFloat {
         nestingLevel == 0 ? 36 : 32
     }
@@ -118,7 +120,9 @@ struct CommentRow: View {
                             .font(.loopedSmallText)
                             .foregroundColor(.loopedTextSecondary)
 
-                        Button(action: {}) {
+                        Button(action: {
+                            onReply?(comment)
+                        }) {
                             Text("Reply")
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
@@ -128,15 +132,15 @@ struct CommentRow: View {
 
                         // Like button with count
                         Button(action: {
-                            isLiked.toggle()
+                            onLike?(comment)
                         }) {
                             HStack(spacing: 4) {
-                                Image(systemName: isLiked ? "heart.fill" : "heart")
+                                Image(systemName: comment.userLiked ? "heart.fill" : "heart")
                                     .font(.system(size: 14))
-                                    .foregroundColor(isLiked ? .red : .loopedTextSecondary)
+                                    .foregroundColor(comment.userLiked ? .red : .loopedTextSecondary)
 
-                                if comment.likeCount > 0 || isLiked {
-                                    Text("\(comment.likeCount + (isLiked ? 1 : 0))")
+                                if comment.likeCount > 0 {
+                                    Text("\(comment.likeCount)")
                                         .font(.loopedSmallText)
                                         .foregroundColor(.loopedTextSecondary)
                                 }
@@ -144,91 +148,81 @@ struct CommentRow: View {
                         }
                     }
                     .padding(.top, 4)
-
-                    // View/Hide replies buttons
-                    if totalRepliesCount > 0 {
-                        HStack(spacing: 12) {
-                            // View replies button
-                            Button(action: {
-                                withAnimation {
-                                    showReplies.toggle()
-                                }
-                            }) {
+                    
+                    // Replies toggle/loading
+                    if onToggleReplies != nil {
+                        HStack(spacing: 8) {
+                            Button(action: { onToggleReplies?(comment) }) {
                                 HStack(spacing: 4) {
-                                    Text("-- View \(totalRepliesCount) \(totalRepliesCount == 1 ? "reply" : "replies")")
+                                    Text(isExpanded ? "Hide replies" : "View replies")
                                         .font(.loopedSmallText)
                                         .foregroundColor(.loopedTextSecondary)
-
-                                    Image(systemName: showReplies ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundColor(.loopedTextSecondary)
-                                }
-                            }
-
-                            // Hide button (only show when replies are visible)
-                            if showReplies {
-                                Button(action: {
-                                    withAnimation {
-                                        showReplies = false
-                                        visibleRepliesCount = repliesPerPage
+                                    if isLoadingReplies {
+                                        ProgressView()
+                                            .scaleEffect(0.6)
+                                    } else {
+                                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundColor(.loopedTextSecondary)
                                     }
-                                }) {
-                                    Text("Hide")
-                                        .font(.loopedSmallText)
-                                        .foregroundColor(.loopedTextSecondary)
                                 }
                             }
+                            
+                            Spacer()
                         }
                         .padding(.top, 8)
                     }
 
-                    // Replies section (when expanded)
-                    if showReplies {
+                    // Replies list
+                    if isExpanded {
                         VStack(spacing: 0) {
-                            ForEach(displayedReplies) { reply in
-                                CommentRow(comment: reply, nestingLevel: nestingLevel + 1)
+                            if replies.isEmpty && !isLoadingReplies {
+                                Text("No replies yet")
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.leading, nestingLevel > 0 ? 44 : 48)
+                                    .padding(.vertical, 8)
+                            } else {
+                                ForEach(replies) { reply in
+                                    CommentRow(
+                                        comment: reply,
+                                        nestingLevel: nestingLevel + 1,
+                                        replies: [],
+                                        isExpanded: false,
+                                        isLoadingReplies: false,
+                                        isLoadingMoreReplies: false,
+                                        hasMoreReplies: false,
+                                        onReply: onReply,
+                                        onToggleReplies: nil,
+                                        onLoadMoreReplies: nil,
+                                        onLike: onLike
+                                    )
 
-                                // Divider between replies
-                                if reply.id != displayedReplies.last?.id || hasMoreReplies {
-                                    Rectangle()
-                                        .frame(height: 1)
-                                        .foregroundColor(.loopedTextSecondary.opacity(0.05))
-                                        .padding(.leading, nestingLevel > 0 ? 44 : 48)
+                                    if reply.id != replies.last?.id {
+                                        Rectangle()
+                                            .frame(height: 1)
+                                            .foregroundColor(.loopedTextSecondary.opacity(0.05))
+                                            .padding(.leading, nestingLevel > 0 ? 44 : 48)
+                                    }
                                 }
                             }
 
-                            // Show more and Hide buttons
-                            if hasMoreReplies {
-                                HStack(spacing: 12) {
-                                    Button(action: {
-                                        withAnimation {
-                                            visibleRepliesCount += repliesPerPage
-                                        }
-                                    }) {
-                                        HStack(spacing: 4) {
-                                            Text("-- Show more replies (\(totalRepliesCount - visibleRepliesCount) remaining)")
-                                                .font(.loopedSmallText)
-                                                .foregroundColor(.loopedTextSecondary)
-
-                                            Image(systemName: "chevron.down")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundColor(.loopedTextSecondary)
-                                        }
-                                    }
-
-                                    Button(action: {
-                                        withAnimation {
-                                            showReplies = false
-                                            visibleRepliesCount = repliesPerPage
-                                        }
-                                    }) {
-                                        Text("Hide")
+                            if isLoadingMoreReplies {
+                                ProgressView()
+                                    .padding(.vertical, 8)
+                            } else if hasMoreReplies {
+                                Button(action: { onLoadMoreReplies?(comment) }) {
+                                    HStack(spacing: 4) {
+                                        Text("Show more replies")
                                             .font(.loopedSmallText)
+                                            .foregroundColor(.loopedTextSecondary)
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 10, weight: .medium))
                                             .foregroundColor(.loopedTextSecondary)
                                     }
                                 }
-                                .padding(.leading, nestingLevel > 0 ? 44 : 48)
-                                .padding(.vertical, 12)
+                                .padding(.vertical, 8)
                             }
                         }
                         .padding(.top, 8)
@@ -238,9 +232,6 @@ struct CommentRow: View {
             .padding(.horizontal, nestingLevel == 0 ? 16 : 0)
             .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 12) : 0)
             .padding(.vertical, 12)
-        }
-        .onAppear {
-            isLiked = comment.userLiked
         }
     }
 }

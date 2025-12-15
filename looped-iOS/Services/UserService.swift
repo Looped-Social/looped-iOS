@@ -16,7 +16,13 @@ class UserService: UserServiceProtocol {
         guard let userDTO = identity.user else {
             throw UserServiceError.userNotProvisioned
         }
-        return User(dto: userDTO, profile: userDTO.profile)
+        // /v1/me may omit follower/following stats; fetch full user if counts are missing
+        let baseUser = User(dto: userDTO, profile: userDTO.profile)
+        if baseUser.followerCount == nil || baseUser.followingCount == nil || baseUser.postsCount == nil || baseUser.commentsCount == nil {
+            let fullDTO: UserDTO = try await apiClient.get("/v1/users/\(userDTO.id)")
+            return User(dto: fullDTO, profile: fullDTO.profile)
+        }
+        return baseUser
     }
     
     func getUser(by id: Int) async throws -> User {
@@ -74,9 +80,12 @@ class UserService: UserServiceProtocol {
         let comments = response.items.map { dto in
             Comment(
                 id: UUID.fromBackendId(dto.id),
+                backendId: dto.id,
                 postId: UUID.fromBackendId(dto.postId),
+                postBackendId: dto.postId,
                 content: dto.content,
                 authorId: UUID.fromBackendId(userId),
+                authorBackendId: userId,
                 company: "",
                 createdAt: dto.createdAt,
                 updatedAt: dto.createdAt,

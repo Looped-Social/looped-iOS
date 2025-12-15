@@ -151,7 +151,7 @@ struct MiniaturePostCard: View {
                     Image(systemName: "bubble.left")
                         .font(.system(size: 8))
                         .foregroundColor(.loopedTextSecondary)
-                    Text("\(MockComments.getCommentCount(for: post.id))")
+                    Text("\(post.commentsCount)")
                         .font(.system(size: 7))
                         .foregroundColor(.loopedTextSecondary)
                 }

@@ -54,6 +54,18 @@ protocol UserServiceProtocol {
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage
 }
 
+protocol CommentsServiceProtocol {
+    func fetchComments(postId: Int, limit: Int, cursor: String?) async throws -> CommentPage
+    func fetchReplies(commentId: Int, limit: Int, cursor: String?) async throws -> CommentPage
+    func createComment(postId: Int, content: String, parentId: Int?) async throws -> Comment
+    func likeComment(commentId: Int) async throws -> CommentLikeResponse
+}
+
+protocol DiscoveryServiceProtocol {
+    func searchLoops(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<LoopDTO>
+    func searchHashtags(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<HashtagDTO>
+}
+
 protocol NotificationServiceProtocol {
     func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage
     func markRead(notificationId: Int) async throws

@@ -78,7 +78,7 @@ struct SearchResultsView: View {
         VStack(spacing: 0) {
             SearchResultsBar(
                 searchText: $viewModel.searchText,
-                placeholder: "Search in \(MockSearchContent.companyFilterTitle)",
+                placeholder: "Search Looped",
                 onCancel: {
                     dismiss()
                 },

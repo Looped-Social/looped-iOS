@@ -28,10 +28,6 @@ struct PostCard: View {
         post.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
     }
 
-    private var commentCount: Int {
-        MockComments.getCommentCount(for: post.id)
-    }
-
     private var formattedTimeAgo: String {
         let now = Date()
         let timeInterval = now.timeIntervalSince(post.createdAt)
@@ -155,33 +151,33 @@ struct PostCard: View {
 
                 // Comment button
                 Button(action: {
-                    commentsManager.showComments(for: post)
-                }) {
-                    HStack(spacing: 4) {
-                        Image("comment-icon")
-                            .resizable()
-                            .renderingMode(.template)
-                            .frame(width: 18, height: 18)
-                            .foregroundColor(.loopedTextSecondary)
-                        Text("\(commentCount)")
-                            .font(.caption)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
-                }
+            commentsManager.showComments(for: post)
+        }) {
+            HStack(spacing: 4) {
+                Image("comment-icon")
+                    .resizable()
+                    .renderingMode(.template)
+                    .frame(width: 18, height: 18)
+                    .foregroundColor(.loopedTextSecondary)
+                Text("\(post.commentsCount)")
+                    .font(.caption)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+        }
 
                 // Share button
                 Button(action: { showShareSheet = true }) {
                     HStack(spacing: 4) {
                         Image("send-icon")
-                            .resizable()
-                            .renderingMode(.template)
-                            .frame(width: 19, height: 19)
-                            .foregroundColor(.loopedTextSecondary)
-                        Text("Share")
-                            .font(.caption)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
-                }
+                    .resizable()
+                    .renderingMode(.template)
+                    .frame(width: 19, height: 19)
+                    .foregroundColor(.loopedTextSecondary)
+                Text(post.shareCount > 0 ? "\(post.shareCount)" : "Share")
+                    .font(.caption)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+        }
 
                 Spacer()
 

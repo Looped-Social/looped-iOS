@@ -159,6 +159,76 @@ POST /v1/posts/{id}/like
 { "post_id": 101, "likes_count": 4 }
 ```
 
+### Comments
+
+GET /v1/posts/{postId}/comments?limit=&cursor=
+- Auth required; company‑scoped, paginated oldest-first
+- 200 OK
+```
+{
+  "items": [
+    {
+      "id": 1,
+      "post_id": 101,
+      "parent_id": null,
+      "author": {
+        "id": 12,
+        "display_name": "Erin",
+        "username": "erin",
+        "handle": "erin",
+        "company_id": 5,
+        "profile_image_url": "https://..."
+      },
+      "is_anonymous": false,
+      "content": "Nice post!",
+      "likes_count": 3,
+      "user_liked": true,          // for caller
+      "liked_by_creator": false,   // post author liked
+      "created_at": "2024-01-02T03:04:05Z"
+    }
+  ],
+  "next_cursor": "opaque-cursor"
+}
+```
+
+POST /v1/posts/{postId}/comments
+- Auth required; body `{ "content": "text", "parentId": 123? }`
+- 201 with the same payload shape as GET items
+- 422 if parent belongs to another post, 404 if parent missing, 403 on cross-company, 409 if caller not provisioned
+
+GET /v1/comments/{id}/replies?limit=&cursor=
+- Auth required; replies for a comment, same payload/ordering/next_cursor rules
+
+POST /v1/comments/{id}/like
+- Auth required; 201 on first like otherwise 200
+- Response: `{ "comment_id": 1, "likes_count": 4, "user_liked": true, "liked_by_creator": false }`
+
+### Discovery
+
+GET /v1/loops/search?query=&limit=&cursor=
+- Auth required; same-company scope; 422 if `query` missing, 409 if caller not provisioned
+- Response
+```
+{
+  "items": [
+    { "id": 12, "name": "Engineering", "description": "Tech discussions", "member_count": 1250 }
+  ],
+  "next_cursor": "..."
+}
+```
+
+GET /v1/hashtags/search?query=&limit=&cursor=
+- Auth required; same-company scope; 422 if `query` missing, 409 if caller not provisioned
+- Response
+```
+{
+  "items": [
+    { "name": "#shipping", "usage_count": 42 }
+  ],
+  "next_cursor": "..."
+}
+```
+
 ### Media
 
 POST /v1/media/presign

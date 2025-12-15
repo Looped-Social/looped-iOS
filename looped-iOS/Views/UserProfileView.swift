@@ -178,11 +178,11 @@ struct UserProfileView: View {
 
                     if let post = commentsManager.currentPost {
                         CommentsView(
-                            post: post,
-                            comments: commentsManager.currentComments
+                            post: post
                         ) {
                             commentsManager.dismissComments()
                         }
+                        .environmentObject(commentsManager)
                     }
                 }
                 .frame(maxHeight: UIScreen.main.bounds.height * 0.75)

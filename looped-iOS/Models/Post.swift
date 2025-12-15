@@ -10,6 +10,8 @@ struct Post: Codable, Identifiable {
     let company: String
     let isAnonymous: Bool
     let reactionCount: Int
+    let commentsCount: Int
+    let shareCount: Int
     let userReaction: ReactionType?
     let mediaAssetId: Int?
     let attachments: [MediaAttachment]?
@@ -27,6 +29,8 @@ struct Post: Codable, Identifiable {
         company: String,
         isAnonymous: Bool,
         reactionCount: Int,
+        commentsCount: Int = 0,
+        shareCount: Int = 0,
         userReaction: ReactionType? = nil,
         mediaAssetId: Int? = nil,
         attachments: [MediaAttachment]? = nil,
@@ -43,6 +47,8 @@ struct Post: Codable, Identifiable {
         self.company = company
         self.isAnonymous = isAnonymous
         self.reactionCount = reactionCount
+        self.commentsCount = commentsCount
+        self.shareCount = shareCount
         self.userReaction = userReaction
         self.mediaAssetId = mediaAssetId
         self.attachments = attachments
@@ -73,6 +79,8 @@ extension Post {
             company: "",
             isAnonymous: false,
             reactionCount: dto.likesCount,
+            commentsCount: dto.commentsCount ?? 0,
+            shareCount: dto.shareCount ?? 0,
             userReaction: nil,
             mediaAssetId: dto.mediaAssetId,
             attachments: nil,
@@ -85,6 +93,8 @@ extension Post {
     func updating(
         backendId: Int? = nil,
         reactionCount: Int? = nil,
+        commentsCount: Int? = nil,
+        shareCount: Int? = nil,
         userReaction: ReactionType?? = nil,
         isSaved: Bool? = nil,
         updatedAt: Date? = nil
@@ -99,6 +109,8 @@ extension Post {
             company: company,
             isAnonymous: isAnonymous,
             reactionCount: reactionCount ?? self.reactionCount,
+            commentsCount: commentsCount ?? self.commentsCount,
+            shareCount: shareCount ?? self.shareCount,
             userReaction: userReaction ?? self.userReaction,
             mediaAssetId: mediaAssetId,
             attachments: attachments,

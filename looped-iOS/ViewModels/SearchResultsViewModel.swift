@@ -15,12 +15,18 @@ class SearchResultsViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let searchDebounceTime: TimeInterval = 0.3
     private let userService: UserServiceProtocol
+    private let discoveryService: DiscoveryServiceProtocol
 
-    init(userService: UserServiceProtocol = UserService()) {
+    private let defaultFilters: [SearchFilterOption] = [
+        SearchFilterOption(title: "All", apiKey: "all"),
+        SearchFilterOption(title: "Company", apiKey: "company")
+    ]
+
+    init(userService: UserServiceProtocol = UserService(), discoveryService: DiscoveryServiceProtocol = DiscoveryService()) {
         self.userService = userService
-        let availableFilters = MockSearchContent.filterOptions
-        filters = availableFilters
-        selectedFilter = availableFilters.first ?? SearchFilterOption(title: "All Loops", apiKey: "all")
+        self.discoveryService = discoveryService
+        filters = defaultFilters
+        selectedFilter = defaultFilters.first ?? SearchFilterOption(title: "All", apiKey: "all")
         loadRecentSearches()
         setupSearchDebouncing()
     }
@@ -50,9 +56,12 @@ class SearchResultsViewModel: ObservableObject {
 
         isSearching = true
         errorMessage = nil
-        generateHashtagSuggestions(for: query)
         do {
-            let page = try await userService.searchUsers(query: query, limit: 20, cursor: nil)
+            async let peoplePage = userService.searchUsers(query: query, limit: 20, cursor: nil)
+            async let loopsPage = discoveryService.searchLoops(query: query, limit: 20, cursor: nil)
+            async let hashtagPage = discoveryService.searchHashtags(query: query, limit: 5, cursor: nil)
+
+            let (page, loopResults, hashtags) = try await (peoplePage, loopsPage, hashtagPage)
             var results = SearchResults()
             results.people = page.users.map { user in
                 SearchResultPerson(
@@ -67,49 +76,25 @@ class SearchResultsViewModel: ObservableObject {
             }
 
             if selectedFilter.apiKey == "all" || selectedFilter.apiKey == "company" {
-                let loopMatches = MockSearchContent.loopCategories.filter { loop in
-                    query.isEmpty ? true : loop.title.localizedCaseInsensitiveContains(query) || loop.description.localizedCaseInsensitiveContains(query)
-                }
-
-                results.loops = loopMatches.map { loop in
+                results.loops = loopResults.items.map { loop in
                     SearchResultLoop(
-                        id: loop.id,
-                        name: loop.title,
+                        id: UUID.fromBackendId(loop.id),
+                        backendId: loop.id,
+                        name: loop.name,
                         description: loop.description,
                         memberCount: loop.memberCount
                     )
                 }
             }
 
-            results.posts = []
+            hashtagSuggestions = hashtags.items.map { "#\($0.name.trimmingCharacters(in: .whitespacesAndNewlines))" }
             searchResults = results
         } catch {
             errorMessage = error.localizedDescription
             searchResults = SearchResults()
+            hashtagSuggestions = []
         }
         isSearching = false
-    }
-
-    private func generateHashtagSuggestions(for query: String) {
-        // Mock hashtag suggestions that relate to the search query
-        let allHashtags = MockSearchContent.popularHashtags
-
-        // Filter hashtags based on query or show popular ones
-        if query.isEmpty {
-            hashtagSuggestions = []
-        } else {
-            hashtagSuggestions = allHashtags.filter { hashtag in
-                hashtag.lowercased().contains(query.lowercased()) ||
-                query.lowercased().contains(hashtag.dropFirst().lowercased())
-            }
-
-            // If no matching hashtags, show some popular ones
-            if hashtagSuggestions.isEmpty {
-                hashtagSuggestions = Array(allHashtags.prefix(3))
-            } else {
-                hashtagSuggestions = Array(hashtagSuggestions.prefix(5))
-            }
-        }
     }
 
     // MARK: - Filter Management
@@ -150,8 +135,7 @@ class SearchResultsViewModel: ObservableObject {
     }
 
     private func loadRecentSearches() {
-        // Mock recent searches for now
-        recentSearches = MockSearchContent.defaultRecentSearches
+        recentSearches = []
     }
 
     private func saveRecentSearches() {

@@ -45,11 +45,14 @@ struct FilterTab: View {
 }
 
 #Preview {
-    @State var selectedFilter: SearchFilterOption = MockSearchContent.filterOptions[1]
+    @State var selectedFilter: SearchFilterOption = SearchFilterOption(title: "All", apiKey: "all")
 
     return VStack(spacing: 20) {
         SearchFilterTabs(
-            filters: MockSearchContent.filterOptions,
+            filters: [
+                SearchFilterOption(title: "All", apiKey: "all"),
+                SearchFilterOption(title: "Company", apiKey: "company")
+            ],
             selectedFilter: $selectedFilter,
             onFilterChange: { filter in
                 print("Selected filter: \(filter.title)")
