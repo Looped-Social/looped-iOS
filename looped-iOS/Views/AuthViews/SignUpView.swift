@@ -6,6 +6,7 @@ struct SignUpView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var username = ""
+    @State private var isPasswordVisible = false
 
     var body: some View {
         ZStack {
@@ -41,7 +42,7 @@ struct SignUpView: View {
                         VStack(spacing: 16) {
                             inputField(title: "Work Email", placeholder: "you@company.com", text: $email, keyboard: .emailAddress)
                             inputField(title: "Username", placeholder: "looped handle", text: $username, keyboard: .default)
-                            secureField(title: "Password", placeholder: "Create a password", text: $password)
+                            passwordField(title: "Password", placeholder: "Create a password", text: $password)
                         }
                         .padding()
                         .background(Color.white)
@@ -107,18 +108,38 @@ struct SignUpView: View {
         }
     }
 
-    private func secureField(title: String, placeholder: String, text: Binding<String>) -> some View {
+    private func passwordField(title: String, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.loopedSubBodyMedium)
                 .foregroundColor(.loopedTextSecondary)
 
-            SecureField(placeholder, text: text)
-                .font(.loopedBody)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(Color.loopedMutedBackground.opacity(0.6))
-                .cornerRadius(12)
+            HStack(spacing: 12) {
+                Group {
+                    if isPasswordVisible {
+                        TextField(placeholder, text: text)
+                    } else {
+                        SecureField(placeholder, text: text)
+                    }
+                }
+                .textInputAutocapitalization(.none)
+                .autocorrectionDisabled()
+                .textContentType(.newPassword)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button(isPasswordVisible ? "Hide" : "Show") {
+                    isPasswordVisible.toggle()
+                }
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedSecondary)
+                .buttonStyle(.plain)
+                .accessibilityLabel(isPasswordVisible ? "Hide password" : "Show password")
+            }
+            .font(.loopedBody)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.loopedMutedBackground.opacity(0.6))
+            .cornerRadius(12)
         }
     }
 }

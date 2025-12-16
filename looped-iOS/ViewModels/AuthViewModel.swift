@@ -72,6 +72,10 @@ class AuthViewModel: ObservableObject {
         
         isLoading = false
     }
+
+    func sendPasswordReset(email: String) async throws {
+        try await authService.sendPasswordReset(email: email)
+    }
     
     // MARK: - Google Sign-In (triggered from View)
     func signInWithGoogle() async {

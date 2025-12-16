@@ -8,6 +8,7 @@ protocol AuthServiceProtocol {
     
     func login(email: String, password: String) async throws
     func signUp(email: String, password: String, username: String) async throws
+    func sendPasswordReset(email: String) async throws
     func signOut()
     func refreshToken() async throws
     var isAuthenticated: Bool { get }

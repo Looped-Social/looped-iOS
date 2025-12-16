@@ -64,6 +64,22 @@ class AuthService: AuthServiceProtocol {
         throw AuthError.networkError
         #endif
     }
+
+    func sendPasswordReset(email: String) async throws {
+        #if canImport(FirebaseAuth)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            Auth.auth().sendPasswordReset(withEmail: email) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: ())
+            }
+        }
+        #else
+        throw AuthError.networkError
+        #endif
+    }
     
     func signOut() {
         #if canImport(FirebaseAuth)

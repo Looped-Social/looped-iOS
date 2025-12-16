@@ -5,6 +5,8 @@ struct LoginView: View {
     let onBack: () -> Void
     @State private var email = ""
     @State private var password = ""
+    @State private var isPasswordVisible = false
+    @State private var isForgotPasswordPresented = false
 
     var body: some View {
         ZStack {
@@ -41,7 +43,17 @@ struct LoginView: View {
 
                     VStack(spacing: 16) {
                         inputField(title: "Email", placeholder: "you@company.com", text: $email, isSecure: false, keyboard: .emailAddress)
-                        inputField(title: "Password", placeholder: "Enter your password", text: $password, isSecure: true)
+                        passwordField(title: "Password", placeholder: "Enter your password", text: $password)
+
+                        HStack {
+                            Spacer()
+                            Button("Forgot password?") {
+                                isForgotPasswordPresented = true
+                            }
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedSecondary)
+                            .buttonStyle(.plain)
+                        }
                     }
                     .padding()
                     .background(Color.white)
@@ -82,6 +94,15 @@ struct LoginView: View {
                 Spacer()
             }
         }
+        .sheet(isPresented: $isForgotPasswordPresented) {
+            ForgotPasswordView(
+                initialEmail: email,
+                onDismiss: { isForgotPasswordPresented = false },
+                sendResetLink: { email in
+                    try await viewModel.sendPasswordReset(email: email)
+                }
+            )
+        }
     }
 
     private func inputField(title: String, placeholder: String, text: Binding<String>, isSecure: Bool, keyboard: UIKeyboardType = .default) -> some View {
@@ -97,7 +118,44 @@ struct LoginView: View {
                     TextField(placeholder, text: text)
                         .keyboardType(keyboard)
                         .textInputAutocapitalization(.none)
+                        .autocorrectionDisabled()
+                        .textContentType(.emailAddress)
                 }
+            }
+            .font(.loopedBody)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.loopedMutedBackground.opacity(0.6))
+            .cornerRadius(12)
+        }
+    }
+
+    private func passwordField(title: String, placeholder: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+
+            HStack(spacing: 12) {
+                Group {
+                    if isPasswordVisible {
+                        TextField(placeholder, text: text)
+                    } else {
+                        SecureField(placeholder, text: text)
+                    }
+                }
+                .textInputAutocapitalization(.none)
+                .autocorrectionDisabled()
+                .textContentType(.password)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button(isPasswordVisible ? "Hide" : "Show") {
+                    isPasswordVisible.toggle()
+                }
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedSecondary)
+                .buttonStyle(.plain)
+                .accessibilityLabel(isPasswordVisible ? "Hide password" : "Show password")
             }
             .font(.loopedBody)
             .padding(.horizontal, 14)
