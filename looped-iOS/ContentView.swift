@@ -42,6 +42,11 @@ struct ContentView: View {
                 AuthView(authViewModel: authViewModel)
             }
         }
+        .alert("Onboarding Not Ready", isPresented: $authViewModel.showDeferredOnboardingAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This account isn’t fully onboarded yet — we’ll figure it out later.")
+        }
     }
 }
 

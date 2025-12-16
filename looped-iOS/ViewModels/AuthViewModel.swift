@@ -11,6 +11,8 @@ class AuthViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: User?
     @Published var onboardingComplete = false
+    @Published var showDeferredOnboardingAlert = false
+    @Published var shouldEnterOnboardingFlow = true
     
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol
@@ -29,6 +31,7 @@ class AuthViewModel: ObservableObject {
             .sink { [weak self] isAuthenticated in
                 self?.isAuthenticated = isAuthenticated
                 if isAuthenticated {
+                    guard self?.shouldEnterOnboardingFlow == true else { return }
                     Task { await self?.loadCurrentUser() }
                 } else {
                     self?.currentUser = nil
@@ -42,12 +45,30 @@ class AuthViewModel: ObservableObject {
     }
     
     func login(email: String, password: String) async {
+        shouldEnterOnboardingFlow = false
         isLoading = true
         errorMessage = nil
         
         do {
             try await authService.login(email: email, password: password)
-            await loadCurrentUser()
+
+            do {
+                let user = try await userService.getCurrentUser()
+                currentUser = user
+                onboardingComplete = true
+                if user.isVerified == false {
+                    showDeferredOnboardingAlert = true
+                }
+            } catch UserServiceError.userNotProvisioned {
+                showDeferredOnboardingAlert = true
+                currentUser = nil
+                onboardingComplete = true
+            } catch {
+                // Login succeeded; if user fetch fails (network/server), keep them signed in.
+                showDeferredOnboardingAlert = true
+                currentUser = nil
+                onboardingComplete = true
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -56,6 +77,7 @@ class AuthViewModel: ObservableObject {
     }
     
     func signUp(email: String, password: String, username: String) async {
+        shouldEnterOnboardingFlow = true
         isLoading = true
         errorMessage = nil
         
@@ -79,6 +101,7 @@ class AuthViewModel: ObservableObject {
     
     // MARK: - Google Sign-In (triggered from View)
     func signInWithGoogle() async {
+        shouldEnterOnboardingFlow = true
         isLoading = true
         errorMessage = nil
         do {
@@ -104,6 +127,7 @@ class AuthViewModel: ObservableObject {
     }
 
     func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) async {
+        shouldEnterOnboardingFlow = true
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -129,12 +153,14 @@ class AuthViewModel: ObservableObject {
         authService.signOut()
         currentUser = nil
         onboardingComplete = false
+        shouldEnterOnboardingFlow = true
     }
 
     func loadCurrentUser() async {
         do {
             let user = try await userService.getCurrentUser()
             currentUser = user
+            onboardingComplete = user.isVerified
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

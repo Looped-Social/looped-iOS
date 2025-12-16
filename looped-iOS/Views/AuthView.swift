@@ -60,12 +60,12 @@ struct AuthView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .onReceive(authViewModel.$isAuthenticated) { isAuthed in
-            if isAuthed && !authViewModel.onboardingComplete {
+            if isAuthed && !authViewModel.onboardingComplete && authViewModel.shouldEnterOnboardingFlow {
                 currentScreen = .selectCompany
             }
         }
         .onAppear {
-            if authViewModel.isAuthenticated && !authViewModel.onboardingComplete {
+            if authViewModel.isAuthenticated && !authViewModel.onboardingComplete && authViewModel.shouldEnterOnboardingFlow {
                 currentScreen = .selectCompany
             }
         }
