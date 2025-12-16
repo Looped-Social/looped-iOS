@@ -270,6 +270,7 @@ private struct StatPill: View {
 
 struct ProfileActionButtons: View {
     @ObservedObject var viewModel: ProfileViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
     let userProfile: UserProfile?
 
     var body: some View {
@@ -289,7 +290,7 @@ struct ProfileActionButtons: View {
                 }
                 .buttonStyle(PlainButtonStyle())
 
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
                     Text("Settings")
                         .font(.subheadline)
                         .fontWeight(.medium)

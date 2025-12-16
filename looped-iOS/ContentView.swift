@@ -35,7 +35,7 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authViewModel.isAuthenticated {
+            if authViewModel.isAuthenticated && authViewModel.onboardingComplete {
                 MainTabView()
                     .environmentObject(authViewModel)
             } else {

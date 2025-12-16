@@ -10,6 +10,7 @@ class AuthViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isAuthenticated = false
     @Published var currentUser: User?
+    @Published var onboardingComplete = false
     
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol
@@ -54,7 +55,7 @@ class AuthViewModel: ObservableObject {
         isLoading = false
     }
     
-    func signUp(email: String, password: String, username: String, company: String) async {
+    func signUp(email: String, password: String, username: String) async {
         isLoading = true
         errorMessage = nil
         
@@ -62,8 +63,7 @@ class AuthViewModel: ObservableObject {
             try await authService.signUp(
                 email: email,
                 password: password,
-                username: username,
-                company: company
+                username: username
             )
             await loadCurrentUser()
         } catch {
@@ -124,6 +124,7 @@ class AuthViewModel: ObservableObject {
     func signOut() {
         authService.signOut()
         currentUser = nil
+        onboardingComplete = false
     }
 
     func loadCurrentUser() async {

@@ -7,105 +7,66 @@ struct LoginView: View {
     @State private var password = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Navigation header
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.loopedTextPrimary)
+        ZStack {
+            Color.loopedBackground.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Navigation/header
+                HStack {
+                    Button(action: onBack) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.loopedTextPrimary)
+                            .padding(10)
+                            .background(Color.white.opacity(0.85))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 56)
 
-                Spacer()
+                Spacer().frame(height: 12)
 
-                Text("Log In")
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                // Invisible spacer for balance
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .opacity(0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 60)
-            .padding(.bottom, 40)
-
-            // Main content
-            VStack(spacing: 32) {
-                VStack(spacing: 24) {
-                    Text("Welcome Back")
+                VStack(spacing: 18) {
+                    Text("Welcome back")
                         .font(.loopedHeading)
                         .foregroundColor(.loopedTextPrimary)
-                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text("Sign in with your work email or continue with Google/Apple.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     VStack(spacing: 16) {
-                        // Email field
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Email")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-
-                            TextField("Enter your email", text: $email)
-                                .font(.loopedBody)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(Color.white)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                )
-                                .cornerRadius(12)
-                                .keyboardType(.emailAddress)
-                                .autocapitalization(.none)
-                        }
-
-                        // Password field
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Password")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-
-                            SecureField("Enter your password", text: $password)
-                                .font(.loopedBody)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(Color.white)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                )
-                                .cornerRadius(12)
-                        }
+                        inputField(title: "Email", placeholder: "you@company.com", text: $email, isSecure: false, keyboard: .emailAddress)
+                        inputField(title: "Password", placeholder: "Enter your password", text: $password, isSecure: true)
                     }
-                }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(18)
+                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
 
-                // Login button
-                Button(action: {
-                    Task {
-                        await viewModel.login(email: email, password: password)
+                    Button(action: {
+                        Task { await viewModel.login(email: email, password: password) }
+                    }) {
+                        Text("Log In")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                (email.isEmpty || password.isEmpty || viewModel.isLoading) ?
+                                Color.loopedTextSecondary.opacity(0.3) : Color.loopedPrimary
+                            )
+                            .cornerRadius(14)
                     }
-                }) {
-                    Text("Log In")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(
-                            (email.isEmpty || password.isEmpty || viewModel.isLoading) ?
-                            Color.loopedTextSecondary.opacity(0.3) : Color.loopedPrimary
-                        )
-                        .cornerRadius(25)
-                }
-                .disabled(email.isEmpty || password.isEmpty || viewModel.isLoading)
+                    .disabled(email.isEmpty || password.isEmpty || viewModel.isLoading)
 
-                // Loading and error states
-                VStack(spacing: 12) {
                     if viewModel.isLoading {
                         ProgressView()
-                            .scaleEffect(1.2)
+                            .tint(.loopedPrimary)
                     }
 
                     if let error = viewModel.errorMessage {
@@ -113,12 +74,36 @@ struct LoginView: View {
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.red)
                             .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
                     }
                 }
-            }
-            .padding(.horizontal, 32)
+                .padding(.horizontal, 24)
 
-            Spacer()
+                Spacer()
+            }
+        }
+    }
+
+    private func inputField(title: String, placeholder: String, text: Binding<String>, isSecure: Bool, keyboard: UIKeyboardType = .default) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+
+            Group {
+                if isSecure {
+                    SecureField(placeholder, text: text)
+                } else {
+                    TextField(placeholder, text: text)
+                        .keyboardType(keyboard)
+                        .textInputAutocapitalization(.none)
+                }
+            }
+            .font(.loopedBody)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.loopedMutedBackground.opacity(0.6))
+            .cornerRadius(12)
         }
     }
 }

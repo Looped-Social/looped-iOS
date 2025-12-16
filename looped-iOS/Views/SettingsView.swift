@@ -9,7 +9,7 @@ enum IconSource {
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var authViewModel = AuthViewModel()
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     // Toggle states
     @State private var showFollowerCount = true
@@ -415,4 +415,5 @@ struct ConnectedAccountRow: View {
 
 #Preview {
     SettingsView()
+        .environmentObject(AuthViewModel())
 }

@@ -18,7 +18,7 @@ struct OrganizationSelectionView: View {
             // Header with back button and title
             HStack {
                 Button(action: {
-                    onNavigate(.employmentStatus)
+                    onNavigate(.onboarding)
                 }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 18, weight: .medium))

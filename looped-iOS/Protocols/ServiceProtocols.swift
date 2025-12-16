@@ -7,7 +7,7 @@ protocol AuthServiceProtocol {
     var authStateChanged: AnyPublisher<Bool, Never> { get }
     
     func login(email: String, password: String) async throws
-    func signUp(email: String, password: String, username: String, company: String) async throws
+    func signUp(email: String, password: String, username: String) async throws
     func signOut()
     func refreshToken() async throws
     var isAuthenticated: Bool { get }

@@ -71,7 +71,7 @@ struct VerificationIntroView: View {
                         .foregroundColor(.loopedTextSecondary)
 
                     Button("Verify Later") {
-                        onNavigate(.signUp)
+                        onNavigate(.verificationConfirmation)
                     }
                     .font(.loopedSubBodyMedium)
                     .foregroundColor(.loopedSecondary)

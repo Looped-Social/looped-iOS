@@ -342,6 +342,7 @@ struct UserProfileInfoSection: View {
 // MARK: - Action Buttons
 struct UserProfileActionButtons: View {
     let userProfile: UserProfile
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
         HStack(spacing: 16) {
@@ -362,7 +363,7 @@ struct UserProfileActionButtons: View {
             .buttonStyle(PlainButtonStyle())
 
             if userProfile.isCurrentUser {
-                NavigationLink(destination: SettingsView()) {
+                NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
                     Text("Settings")
                         .font(.subheadline)
                         .fontWeight(.medium)

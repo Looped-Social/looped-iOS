@@ -42,7 +42,7 @@ struct OnboardingView: View {
                 VStack(spacing: 12) {
                     // Get Started button
                     Button(action: {
-                        onNavigate(.employmentStatus)
+                        onNavigate(.signUp)
                     }) {
                         Text("Get Started")
                             .font(.loopedBodyMedium)
@@ -83,7 +83,7 @@ struct OnboardingView: View {
                     .disabled(authViewModel.isLoading)
 
                     // Continue with Apple button (auto style per mode)
-                    SignInWithAppleButton(.signIn) { request in
+                    SignInWithAppleButton(.continue) { request in
                         authViewModel.configureAppleRequest(request)
                     } onCompletion: { result in
                         Task { await authViewModel.handleAppleCompletion(result) }

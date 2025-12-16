@@ -197,7 +197,7 @@ struct EditProfileView: View {
                                 .font(.loopedSubBodyMedium)
                                 .foregroundColor(.loopedTextPrimary)
 
-                            NavigationLink(destination: SettingsView()) {
+                            NavigationLink(destination: SettingsView().environmentObject(AuthViewModel())) {
                                 HStack {
                                     Text(viewModel.user?.company ?? "")
                                         .font(.loopedBody)

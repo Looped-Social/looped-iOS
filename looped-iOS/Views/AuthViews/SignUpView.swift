@@ -6,151 +6,73 @@ struct SignUpView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var username = ""
-    @State private var company = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Navigation header
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.loopedTextPrimary)
+        ZStack {
+            Color.loopedBackground.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Button(action: onBack) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.loopedTextPrimary)
+                            .padding(10)
+                            .background(Color.white.opacity(0.85))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 56)
 
-                Spacer()
-
-                Text("Get Started")
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                // Invisible spacer for balance
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .opacity(0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 60)
-            .padding(.bottom, 40)
-
-            // Main content
-            ScrollView {
-                VStack(spacing: 32) {
-                    VStack(spacing: 24) {
-                        Text("Join Your Company")
+                ScrollView {
+                    VStack(spacing: 20) {
+                        Text("Create your Looped account")
                             .font(.loopedHeading)
                             .foregroundColor(.loopedTextPrimary)
-                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Text("Use your work email. You can set company and profile details later.")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(spacing: 16) {
-                            // Work Email field
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Work Email")
-                                    .font(.loopedSubBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-
-                                TextField("Enter your work email", text: $email)
-                                    .font(.loopedBody)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
-                                    .background(Color.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                    )
-                                    .cornerRadius(12)
-                                    .keyboardType(.emailAddress)
-                                    .autocapitalization(.none)
-                            }
-
-                            // Username field
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Username")
-                                    .font(.loopedSubBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-
-                                TextField("Choose a username", text: $username)
-                                    .font(.loopedBody)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
-                                    .background(Color.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                    )
-                                    .cornerRadius(12)
-                                    .autocapitalization(.none)
-                            }
-
-                            // Company field
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Company")
-                                    .font(.loopedSubBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-
-                                TextField("Enter your company name", text: $company)
-                                    .font(.loopedBody)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
-                                    .background(Color.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                    )
-                                    .cornerRadius(12)
-                            }
-
-                            // Password field
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Password")
-                                    .font(.loopedSubBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-
-                                SecureField("Create a password", text: $password)
-                                    .font(.loopedBody)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
-                                    .background(Color.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                    )
-                                    .cornerRadius(12)
-                            }
+                            inputField(title: "Work Email", placeholder: "you@company.com", text: $email, keyboard: .emailAddress)
+                            inputField(title: "Username", placeholder: "looped handle", text: $username, keyboard: .default)
+                            secureField(title: "Password", placeholder: "Create a password", text: $password)
                         }
-                    }
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(18)
+                        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
 
-                    // Sign Up button
-                    Button(action: {
-                        Task {
-                            await viewModel.signUp(
-                                email: email,
-                                password: password,
-                                username: username,
-                                company: company
-                            )
+                        Button(action: {
+                            Task {
+                                await viewModel.signUp(
+                                    email: email,
+                                    password: password,
+                                    username: username
+                                )
+                            }
+                        }) {
+                            Text("Create Account")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(
+                                    (email.isEmpty || password.isEmpty || username.isEmpty || viewModel.isLoading) ?
+                                    Color.loopedTextSecondary.opacity(0.3) : Color.loopedPrimary
+                                )
+                                .cornerRadius(14)
                         }
-                    }) {
-                        Text("Create Account")
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(
-                                (email.isEmpty || password.isEmpty || username.isEmpty || company.isEmpty || viewModel.isLoading) ?
-                                Color.loopedTextSecondary.opacity(0.3) : Color.loopedPrimary
-                            )
-                            .cornerRadius(25)
-                    }
-                    .disabled(email.isEmpty || password.isEmpty || username.isEmpty || company.isEmpty || viewModel.isLoading)
+                        .disabled(email.isEmpty || password.isEmpty || username.isEmpty || viewModel.isLoading)
 
-                    // Loading and error states
-                    VStack(spacing: 12) {
                         if viewModel.isLoading {
                             ProgressView()
-                                .scaleEffect(1.2)
+                                .tint(.loopedPrimary)
                         }
 
                         if let error = viewModel.errorMessage {
@@ -158,11 +80,45 @@ struct SignUpView: View {
                                 .font(.loopedSubBodyRegular)
                                 .foregroundColor(.red)
                                 .multilineTextAlignment(.center)
+                                .padding(.horizontal, 8)
                         }
                     }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 32)
                 }
-                .padding(.horizontal, 32)
             }
+        }
+    }
+
+    private func inputField(title: String, placeholder: String, text: Binding<String>, keyboard: UIKeyboardType) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+
+            TextField(placeholder, text: text)
+                .font(.loopedBody)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.loopedMutedBackground.opacity(0.6))
+                .cornerRadius(12)
+                .keyboardType(keyboard)
+                .textInputAutocapitalization(.none)
+        }
+    }
+
+    private func secureField(title: String, placeholder: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+
+            SecureField(placeholder, text: text)
+                .font(.loopedBody)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.loopedMutedBackground.opacity(0.6))
+                .cornerRadius(12)
         }
     }
 }

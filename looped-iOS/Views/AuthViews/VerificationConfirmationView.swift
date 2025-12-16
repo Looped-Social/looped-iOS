@@ -2,7 +2,7 @@ import SwiftUI
 
 struct VerificationConfirmationView: View {
     @ObservedObject var authViewModel: AuthViewModel
-    let onNavigate: (AuthScreen) -> Void
+    let onComplete: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
@@ -54,10 +54,7 @@ struct VerificationConfirmationView: View {
 
                 // Continue button
                 Button(action: {
-                    Task {
-                        // Mock login to complete the flow and enter the app
-                        await authViewModel.login(email: "user@company.com", password: "password")
-                    }
+                    onComplete()
                 }) {
                     Text("Continue")
                         .font(.loopedBodyMedium)
@@ -72,17 +69,11 @@ struct VerificationConfirmationView: View {
 
                 Spacer()
 
-                // Loading state
-                if authViewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                        .padding(.bottom, 50)
-                }
             }
         }
     }
 }
 
 #Preview {
-    VerificationConfirmationView(authViewModel: AuthViewModel()) { _ in }
+    VerificationConfirmationView(authViewModel: AuthViewModel(), onComplete: { })
 }

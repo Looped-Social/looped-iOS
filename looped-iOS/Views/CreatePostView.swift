@@ -200,6 +200,7 @@ struct CreatePostView: View {
         .navigationViewStyle(.stack)
         .sheet(isPresented: $showSettings) {
             SettingsView()
+                .environmentObject(AuthViewModel())
         }
         .sheet(isPresented: $showMediaPicker) {
             MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 4)

@@ -11,10 +11,6 @@ struct AuthView: View {
                 OnboardingView(authViewModel: authViewModel) { screen in
                     currentScreen = screen
                 }
-            case .employmentStatus:
-                EmploymentStatusView { screen in
-                    currentScreen = screen
-                }
             case .selectCompany:
                 OrganizationSelectionView(
                     title: "Where do you work?",
@@ -46,9 +42,12 @@ struct AuthView: View {
                     currentScreen = screen
                 }
             case .verificationConfirmation:
-                VerificationConfirmationView(authViewModel: authViewModel) { screen in
-                    currentScreen = screen
-                }
+                VerificationConfirmationView(
+                    authViewModel: authViewModel,
+                    onComplete: {
+                        authViewModel.onboardingComplete = true
+                    }
+                )
             case .login:
                 LoginView(viewModel: authViewModel) {
                     currentScreen = .onboarding
@@ -60,12 +59,21 @@ struct AuthView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .onReceive(authViewModel.$isAuthenticated) { isAuthed in
+            if isAuthed && !authViewModel.onboardingComplete {
+                currentScreen = .selectCompany
+            }
+        }
+        .onAppear {
+            if authViewModel.isAuthenticated && !authViewModel.onboardingComplete {
+                currentScreen = .selectCompany
+            }
+        }
     }
 }
 
 enum AuthScreen {
     case onboarding
-    case employmentStatus
     case selectCompany
     case selectSchool
     case verificationIntro(isStudent: Bool)
