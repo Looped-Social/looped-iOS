@@ -126,7 +126,7 @@ struct SearchResultsView: View {
                 )
 
                 // Divider between hashtags and profiles if we have both
-                if !viewModel.searchResults.people.isEmpty {
+                if !viewModel.searchResults.people.isEmpty || !viewModel.searchResults.loops.isEmpty {
                     Divider()
                         .padding(.horizontal, 16)
                 }

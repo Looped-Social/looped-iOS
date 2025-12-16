@@ -87,7 +87,13 @@ class SearchResultsViewModel: ObservableObject {
                 }
             }
 
-            hashtagSuggestions = hashtags.items.map { "#\($0.name.trimmingCharacters(in: .whitespacesAndNewlines))" }
+            results.hashtags = hashtags.items.map { tag in
+                SearchResultHashtag(
+                    name: tag.name.hasPrefix("#") ? tag.name : "#\(tag.name)",
+                    usageCount: tag.usageCount
+                )
+            }
+            hashtagSuggestions = results.hashtags.map { $0.name }
             searchResults = results
         } catch {
             errorMessage = error.localizedDescription
@@ -149,8 +155,9 @@ struct SearchResults {
     var people: [SearchResultPerson] = []
     var posts: [SearchResultPost] = []
     var loops: [SearchResultLoop] = []
+    var hashtags: [SearchResultHashtag] = []
 
     var isEmpty: Bool {
-        people.isEmpty && posts.isEmpty && loops.isEmpty
+        people.isEmpty && posts.isEmpty && loops.isEmpty && hashtags.isEmpty
     }
 }

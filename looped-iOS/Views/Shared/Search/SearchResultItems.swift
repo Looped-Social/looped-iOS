@@ -196,6 +196,35 @@ struct SearchResultsSection: View {
                         .padding(.horizontal, 16)
                 }
             }
+
+            // Hashtag results (listed after loops)
+            ForEach(results.hashtags) { tag in
+                Button(action: {
+                    // Handled upstream via hashtag suggestions tap
+                }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "number")
+                            .foregroundColor(.loopedTextSecondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tag.name)
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
+                            Text("\(tag.usageCount) uses")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                if tag.id != results.hashtags.last?.id {
+                    Divider()
+                        .padding(.horizontal, 16)
+                }
+            }
         }
     }
 }
