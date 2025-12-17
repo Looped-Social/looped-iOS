@@ -41,19 +41,47 @@ struct MessagesView: View {
             // Content (both Messages and Groups use same list structure)
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(filteredConversations) { conversation in
-                        Button(action: {
-                            onChatSelected(conversation, nil)
-                        }) {
-                            ConversationRow(conversation: conversation)
+                    if viewModel.isLoading && viewModel.conversations.isEmpty {
+                        ForEach(0..<10, id: \.self) { _ in
+                            ConversationRowSkeleton()
+                            Rectangle()
+                                .frame(height: 1)
+                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                .padding(.leading, 78)
                         }
-                        .buttonStyle(PlainButtonStyle())
+                    } else if filteredConversations.isEmpty {
+                        if searchText.isEmpty {
+                            EmptyMessagesView(
+                                title: selectedTab == .messages ? "No messages yet" : "No groups yet",
+                                subtitle: selectedTab == .messages
+                                    ? "It’s quiet in here. Start a new chat and make it awkward on purpose."
+                                    : "Nothing to see here… yet. Start a conversation and it’ll show up.",
+                                buttonTitle: selectedTab == .messages ? "Start a new message" : "Start a new chat",
+                                onButtonTap: { showNewMessage = true }
+                            )
+                        } else {
+                            EmptyMessagesView(
+                                title: "No matches",
+                                subtitle: "We looked everywhere for “\(searchText)”.",
+                                buttonTitle: "Clear search",
+                                onButtonTap: { searchText = "" }
+                            )
+                        }
+                    } else {
+                        ForEach(filteredConversations) { conversation in
+                            Button(action: {
+                                onChatSelected(conversation, nil)
+                            }) {
+                                ConversationRow(conversation: conversation)
+                            }
+                            .buttonStyle(PlainButtonStyle())
 
-                        // Divider line
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                            .padding(.leading, 78) // Indent to align with text content
+                            // Divider line
+                            Rectangle()
+                                .frame(height: 1)
+                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                .padding(.leading, 78) // Indent to align with text content
+                        }
                     }
                 }
             }
@@ -67,10 +95,7 @@ struct MessagesView: View {
             await viewModel.loadConversations()
         }
         .sheet(isPresented: $showNewMessage) {
-            // TODO: New message composition view
-            Text("New Message")
-                .font(.loopedHeading)
-                .padding()
+            NewMessageView(onChatSelected: onChatSelected)
         }
     }
 }

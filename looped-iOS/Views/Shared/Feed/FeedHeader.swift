@@ -29,16 +29,6 @@ struct FeedHeader: View {
             Spacer()
             
             HStack(spacing: 10) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(displayName)
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    Text(handleText)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
                 Button(action: {
                     onProfileTap()
                 }) {
@@ -56,15 +46,6 @@ struct FeedHeader: View {
         }
         .padding(.horizontal, 16)
 //        .padding(.vertical, 2)
-    }
-
-    private var displayName: String {
-        authViewModel.currentUser?.displayName ?? "Looped User"
-    }
-
-    private var handleText: String {
-        let handle = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle
-        return handle.map { "@\($0)" } ?? "@looped"
     }
 
     private var initials: String {
