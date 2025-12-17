@@ -19,22 +19,34 @@ struct FeedView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(viewModel.posts) { post in
-                            PostCard(post: post)
-                                .onAppear {
-                                    Task {
-                                        await viewModel.loadMoreIfNeeded(currentPost: post)
+                        if viewModel.isLoading && viewModel.posts.isEmpty {
+                            ForEach(0..<6, id: \.self) { index in
+                                PostCardSkeleton(showsMedia: index % 3 != 0)
+
+                                Rectangle()
+                                    .frame(height: 1)
+                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                            }
+                        } else if viewModel.posts.isEmpty {
+                            EmptyFeedView()
+                        } else {
+                            ForEach(viewModel.posts) { post in
+                                PostCard(post: post)
+                                    .onAppear {
+                                        Task {
+                                            await viewModel.loadMoreIfNeeded(currentPost: post)
+                                        }
                                     }
-                                }
 
-                            Rectangle()
-                                .frame(height: 1)
-                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                        }
+                                Rectangle()
+                                    .frame(height: 1)
+                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                            }
 
-                        if viewModel.isLoadingMore {
-                            ProgressView()
-                                .padding()
+                            if viewModel.isLoadingMore {
+                                ProgressView()
+                                    .padding()
+                            }
                         }
                     }
                     .background(
