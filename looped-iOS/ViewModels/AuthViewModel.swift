@@ -12,7 +12,7 @@ class AuthViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var onboardingComplete = false
     @Published var showDeferredOnboardingAlert = false
-    @Published var shouldEnterOnboardingFlow = true
+    @Published var shouldEnterOnboardingFlow = false
     
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol
@@ -31,7 +31,6 @@ class AuthViewModel: ObservableObject {
             .sink { [weak self] isAuthenticated in
                 self?.isAuthenticated = isAuthenticated
                 if isAuthenticated {
-                    guard self?.shouldEnterOnboardingFlow == true else { return }
                     Task { await self?.loadCurrentUser() }
                 } else {
                     self?.currentUser = nil
@@ -76,17 +75,13 @@ class AuthViewModel: ObservableObject {
         isLoading = false
     }
     
-    func signUp(email: String, password: String, username: String) async {
+    func signUp(email: String, password: String) async {
         shouldEnterOnboardingFlow = true
         isLoading = true
         errorMessage = nil
         
         do {
-            try await authService.signUp(
-                email: email,
-                password: password,
-                username: username
-            )
+            try await authService.signUp(email: email, password: password)
             await loadCurrentUser()
         } catch {
             errorMessage = error.localizedDescription
@@ -160,7 +155,9 @@ class AuthViewModel: ObservableObject {
         do {
             let user = try await userService.getCurrentUser()
             currentUser = user
-            onboardingComplete = user.isVerified
+            if shouldEnterOnboardingFlow == false {
+                onboardingComplete = true
+            }
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

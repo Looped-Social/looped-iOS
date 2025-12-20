@@ -2,74 +2,77 @@ import SwiftUI
 
 struct VerificationConfirmationView: View {
     @ObservedObject var authViewModel: AuthViewModel
+    let currentStep: Int
+    let totalSteps: Int
     let onComplete: () -> Void
+
+    init(
+        authViewModel: AuthViewModel,
+        currentStep: Int = 4,
+        totalSteps: Int = 5,
+        onComplete: @escaping () -> Void
+    ) {
+        self.authViewModel = authViewModel
+        self.currentStep = currentStep
+        self.totalSteps = totalSteps
+        self.onComplete = onComplete
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            VStack {
-                Spacer()
-                    .frame(height: geometry.size.height * 0.08)
+            VStack(spacing: 0) {
+                VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                    .padding(.top, 8)
 
-                // Logo
                 HStack(spacing: 2) {
                     Image("logo")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(height: 32)
+                        .frame(height: 68)
 
                     Text("ooped")
-                        .font(.loopedLogo)
+                        .font(.loopedSuperLargeHeading)
                         .foregroundColor(.loopedTextPrimary)
                 }
-                .padding(.bottom, 40)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
 
-                // Confirmation illustration
                 Image("confirm-verify")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(height: geometry.size.height * 0.35)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 40)
+                    .frame(maxHeight: geometry.size.height * 0.36)
+                    .padding(.horizontal, 28)
 
-                // Title and message
-                VStack(spacing: 16) {
+                VStack(spacing: 10) {
                     Text("Thanks for submitting!")
                         .font(.loopedSubheadMedium)
                         .foregroundColor(.loopedTextPrimary)
-                        .fontWeight(.semibold)
 
-                    VStack(spacing: 4) {
-                        Text("Give us 24 Hours to process your verification,")
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextSecondary)
-                            .multilineTextAlignment(.center)
-                        Text("you're on your way to your first loop!")
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextSecondary)
-                            .multilineTextAlignment(.center)
-                    }
+                    Text("Give us 24 Hours to process your verification,\nyou're on your way to your first loop!")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 50)
+                .padding(.horizontal, 28)
+                .padding(.top, 12)
 
-                // Continue button
-                Button(action: {
-                    onComplete()
-                }) {
+                Spacer()
+
+                Button(action: onComplete) {
                     Text("Continue")
                         .font(.loopedBodyMedium)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Color.loopedPrimary)
-                        .cornerRadius(25)
+                        .frame(height: 52)
+                        .background(Color.black)
+                        .clipShape(Capsule())
                 }
                 .padding(.horizontal, 32)
+                .padding(.bottom, 28)
                 .disabled(authViewModel.isLoading)
-
-                Spacer()
-
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color.loopedBackground.ignoresSafeArea())
         }
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TrendingPostCard: View {
     let imageName: String
@@ -7,15 +8,9 @@ struct TrendingPostCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Image placeholder with aspect ratio matching design
-            Rectangle()
-                .fill(Color.loopedMutedBackground)
+            // Image with loading placeholder (supports either asset name or remote URL string)
+            trendingImage
                 .aspectRatio(1.6, contentMode: .fit)
-                .overlay(
-                    Image(systemName: "photo")
-                        .font(.system(size: 40))
-                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
-                )
 
             // Content overlay at bottom
             VStack(alignment: .leading, spacing: 4) {
@@ -37,6 +32,46 @@ struct TrendingPostCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+    }
+
+    private var trendingImage: some View {
+        Group {
+            if let url = URL(string: imageName), url.scheme != nil {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        imagePlaceholder(shimmer: false)
+                    case .empty:
+                        imagePlaceholder(shimmer: true)
+                    @unknown default:
+                        imagePlaceholder(shimmer: true)
+                    }
+                }
+            } else if let uiImage = UIImage(named: imageName) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                imagePlaceholder(shimmer: false)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .clipped()
+    }
+
+    private func imagePlaceholder(shimmer: Bool) -> some View {
+        Rectangle()
+            .fill(Color.loopedMutedBackground)
+            .overlay(
+                Image(systemName: "photo")
+                    .font(.system(size: 40))
+                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
+            )
+            .shimmering(shimmer)
     }
 }
 

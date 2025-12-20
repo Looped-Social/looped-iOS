@@ -49,7 +49,7 @@ class AuthService: AuthServiceProtocol {
         #endif
     }
     
-    func signUp(email: String, password: String, username: String) async throws {
+    func signUp(email: String, password: String) async throws {
         #if canImport(FirebaseAuth)
         do {
             try await Auth.auth().createUser(withEmail: email, password: password)

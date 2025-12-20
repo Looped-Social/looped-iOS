@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var postText: String = ""
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
     @State private var selectedChannel: String
@@ -27,6 +28,9 @@ struct CreatePostView: View {
         let hasMedia = !selectedMedia.isEmpty
         let isTextValid = postText.count <= characterLimit
         return (hasText || hasMedia) && isTextValid
+    }
+    private var canPost: Bool {
+        authViewModel.currentUser?.isVerified == true
     }
     
     var body: some View {
@@ -61,6 +65,22 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+                    }
+
+                    if !canPost {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "checkmark.seal")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.loopedSecondary)
+
+                            Text("Verification is required to post. You can still browse all posts.")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.loopedMutedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     
                     // Text input area
@@ -192,15 +212,15 @@ struct CreatePostView: View {
                             await submitPost()
                         }
                     }
-                    .disabled(!isPostValid || isSubmitting)
-                    .foregroundColor((isPostValid && !isSubmitting) ? .loopedPrimary : .loopedTextSecondary)
+                    .disabled(!isPostValid || isSubmitting || !canPost)
+                    .foregroundColor((isPostValid && !isSubmitting && canPost) ? .loopedPrimary : .loopedTextSecondary)
                 }
             }
         }
         .navigationViewStyle(.stack)
         .sheet(isPresented: $showSettings) {
             SettingsView()
-                .environmentObject(AuthViewModel())
+                .environmentObject(authViewModel)
         }
         .sheet(isPresented: $showMediaPicker) {
             MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 4)
@@ -218,6 +238,7 @@ struct CreatePostView: View {
     }
     
     private func submitPost() async {
+        guard canPost else { return }
         guard !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
         isSubmitting = true
@@ -235,4 +256,5 @@ struct CreatePostView: View {
 
 #Preview {
     CreatePostView(feedViewModel: FeedViewModel())
+        .environmentObject(AuthViewModel())
 }

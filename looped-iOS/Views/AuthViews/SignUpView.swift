@@ -5,7 +5,6 @@ struct SignUpView: View {
     let onBack: () -> Void
     @State private var email = ""
     @State private var password = ""
-    @State private var username = ""
     @State private var isPasswordVisible = false
 
     var body: some View {
@@ -34,14 +33,13 @@ struct SignUpView: View {
                             .foregroundColor(.loopedTextPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Text("Use your work email. You can set company and profile details later.")
+                        Text("Use your work email. You'll finish setting up your profile next.")
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedTextSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(spacing: 16) {
                             inputField(title: "Work Email", placeholder: "you@company.com", text: $email, keyboard: .emailAddress)
-                            inputField(title: "Username", placeholder: "looped handle", text: $username, keyboard: .default)
                             passwordField(title: "Password", placeholder: "Create a password", text: $password)
                         }
                         .padding()
@@ -53,8 +51,7 @@ struct SignUpView: View {
                             Task {
                                 await viewModel.signUp(
                                     email: email,
-                                    password: password,
-                                    username: username
+                                    password: password
                                 )
                             }
                         }) {
@@ -64,12 +61,12 @@ struct SignUpView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
                                 .background(
-                                    (email.isEmpty || password.isEmpty || username.isEmpty || viewModel.isLoading) ?
+                                    (email.isEmpty || password.isEmpty || viewModel.isLoading) ?
                                     Color.loopedTextSecondary.opacity(0.3) : Color.loopedPrimary
                                 )
                                 .cornerRadius(14)
                         }
-                        .disabled(email.isEmpty || password.isEmpty || username.isEmpty || viewModel.isLoading)
+                        .disabled(email.isEmpty || password.isEmpty || viewModel.isLoading)
 
                         if viewModel.isLoading {
                             ProgressView()

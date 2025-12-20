@@ -35,22 +35,27 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authViewModel.isAuthenticated && authViewModel.onboardingComplete {
-                MainTabView()
-                    .environmentObject(authViewModel)
+            if authViewModel.isAuthenticated {
+                if authViewModel.shouldEnterOnboardingFlow && !authViewModel.onboardingComplete {
+                    AuthView(authViewModel: authViewModel)
+                } else {
+                    MainTabView()
+                        .environmentObject(authViewModel)
+                }
             } else {
                 AuthView(authViewModel: authViewModel)
             }
         }
-        .alert("Onboarding Not Ready", isPresented: $authViewModel.showDeferredOnboardingAlert) {
+        .alert("Verification Required", isPresented: $authViewModel.showDeferredOnboardingAlert) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("This account isn’t fully onboarded yet — we’ll figure it out later.")
+            Text("You can browse all posts, but posting is only available after verification.")
         }
     }
 }
 
 struct MainTabView: View {
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var selectedTab: TabItem = .home
     @State private var showCreatePost = false
     @State private var showNewMessage = false
@@ -61,6 +66,7 @@ struct MainTabView: View {
     @State private var menuDestination: MenuDestination?
     @StateObject private var feedViewModel = FeedViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
+    @State private var showPostVerificationAlert = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -200,7 +206,11 @@ struct MainTabView: View {
                                 if selectedTab == .messages {
                                     showNewMessage = true
                                 } else {
-                                    showCreatePost = true
+                                    if canCreatePost {
+                                        showCreatePost = true
+                                    } else {
+                                        showPostVerificationAlert = true
+                                    }
                                 }
                             }
                             .padding(.trailing, 20)
@@ -258,6 +268,11 @@ struct MainTabView: View {
                 destinationView(for: destination)
             }
             .navigationViewStyle(.stack)
+        }
+        .alert("Verification Required", isPresented: $showPostVerificationAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You can browse all posts, but posting is only available after verification.")
         }
     }
 
@@ -338,6 +353,10 @@ struct MainTabView: View {
             }
             .transition(.move(edge: .bottom))
         }
+    }
+
+    private var canCreatePost: Bool {
+        authViewModel.currentUser?.isVerified == true
     }
 }
 

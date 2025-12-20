@@ -1,87 +1,113 @@
 import SwiftUI
 
 struct VerificationIntroView: View {
-    let isStudent: Bool
-    let onNavigate: (AuthScreen) -> Void
+    let loopName: String
+    let currentStep: Int
+    let totalSteps: Int
+    let onBack: () -> Void
+    let onContinue: () -> Void
+    let onHowItWorks: () -> Void
+
+    init(
+        loopName: String = "your loop",
+        currentStep: Int = 1,
+        totalSteps: Int = 5,
+        onBack: @escaping () -> Void,
+        onContinue: @escaping () -> Void,
+        onHowItWorks: @escaping () -> Void = {}
+    ) {
+        self.loopName = loopName
+        self.currentStep = currentStep
+        self.totalSteps = totalSteps
+        self.onBack = onBack
+        self.onContinue = onContinue
+        self.onHowItWorks = onHowItWorks
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            VStack {
+            VStack(spacing: 0) {
+                header
+                    .padding(.top, 8)
+                    .padding(.horizontal, 16)
+
                 Spacer()
-                    .frame(height: geometry.size.height * 0.08)
+                    .frame(height: geometry.size.height * 0.04)
 
-                // Logo
-                HStack(spacing: 2) {
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 68)
-
-                    Text("ooped")
-                        .font(.loopedSuperLargeHeading)
-                        .foregroundColor(.loopedTextPrimary)
-                }
-                .padding(.bottom, 20)
-
-                // Verification illustration
                 Image("teal-verify")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(height: geometry.size.height * 0.42)
-                    .padding(.bottom, 4)
+                    .frame(maxHeight: geometry.size.height * 0.36)
+                    .padding(.horizontal, 28)
 
-                // Title and subtitle
-                VStack(spacing: 16) {
-                    Text("We're Built On Truth")
-                        .font(.loopedSubheadMedium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .fontWeight(.semibold)
+                VStack(spacing: 12) {
+                    Text("Verify Your Identity\nto join \(loopName)")
+                        .font(.loopedHeading)
+                        .foregroundColor(.loopedContrast)
+                        .multilineTextAlignment(.center)
 
-                    VStack(spacing: 4) {
-                        Text("thats why all posts")
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextSecondary)
-                        Text("are from verified accounts")
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
-                }
-                .padding(.bottom, 12)
-
-                // Verify button
-                Button(action: {
-                    onNavigate(isStudent ? .waysToVerifyStudent : .waysToVerifyCompany)
-                }) {
-                    Text("Verify")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: 152)
-                        .frame(height: 46)
-                        .background(Color.loopedPrimary)
-                        .cornerRadius(25)
-                }
-                .padding(.horizontal, 32)
-
-                Spacer(minLength: 20)
-
-                // Verify later link
-                VStack(spacing: 4) {
-                    Text("Don't have anything to say?")
+                    Text("We require verification to post in communities\nto keep your experience authentic")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
-
-                    Button("Verify Later") {
-                        onNavigate(.verificationConfirmation)
-                    }
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedSecondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.bottom, 50)
+                .padding(.horizontal, 28)
+                .padding(.top, 16)
+
+                Spacer()
+
+                VStack(spacing: 14) {
+                    Button(action: onContinue) {
+                        Text("Continue")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Color.black)
+                            .clipShape(Capsule())
+                    }
+
+                    Button(action: onHowItWorks) {
+                        Text("How Verification Works")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedSecondary)
+                    }
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 24)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color.loopedBackground.ignoresSafeArea())
+        }
+    }
+}
+
+private extension VerificationIntroView {
+    var header: some View {
+        ZStack {
+            HStack {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.loopedTextPrimary)
+                        .frame(width: 40, height: 40)
+                }
+
+                Spacer()
+            }
+
+            if totalSteps > 1 {
+                VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
             }
         }
     }
 }
 
 #Preview {
-    VerificationIntroView(isStudent: false) { _ in }
+    VerificationIntroView(
+        loopName: "Looped",
+        onBack: {},
+        onContinue: {},
+        onHowItWorks: {}
+    )
 }
