@@ -17,6 +17,7 @@ struct UserDTO: Codable {
     let profile: UserProfileDTO?
     let stats: UserStatsDTO?
     let profileImageUrl: String?
+    let showFollowerCount: Bool?
     let createdAt: Date?
     let updatedAt: Date?
 }
@@ -38,6 +39,7 @@ struct UserProfileDTO: Codable {
     let followingCount: Int?
     let postsCount: Int?
     let commentsCount: Int?
+    let showFollowerCount: Bool?
 }
 
 struct UserStatsDTO: Codable {

@@ -32,6 +32,7 @@ enum MenuDestination: Identifiable {
 
 struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
+    @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
 
     var body: some View {
         Group {
@@ -50,6 +51,13 @@ struct ContentView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("You can browse all posts, but posting is only available after verification.")
+        }
+        .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
+            Button("OK", role: .cancel) {
+                showAccountDeletedAlert = false
+            }
+        } message: {
+            Text("Your account and anonymous profile have been deleted.")
         }
     }
 }

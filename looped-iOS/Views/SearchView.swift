@@ -41,31 +41,40 @@ struct SearchView: View {
                             }
                             .padding(.horizontal, 16)
 
-                            VStack(spacing: 12) {
-                                // Snap-to-center trending posts with TabView
-                                TabView(selection: $viewModel.selectedTrendingIndex) {
-                                    ForEach(Array(viewModel.trendingPosts.enumerated()), id: \.element.id) { index, post in
-                                        TrendingPostCard(
-                                            imageName: post.imageName,
-                                            title: post.title,
-                                            subtitle: post.subtitle
-                                        )
-                                        .padding(.horizontal, 16)
-                                        .tag(index)
+                            if viewModel.trendingPosts.isEmpty {
+                                Text("No trending posts yet.")
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .padding(.horizontal, 16)
+                            } else {
+                                VStack(spacing: 12) {
+                                    // Snap-to-center trending posts with TabView
+                                    TabView(selection: $viewModel.selectedTrendingIndex) {
+                                        ForEach(Array(viewModel.trendingPosts.enumerated()), id: \.element.id) { index, post in
+                                            TrendingPostCard(
+                                                imageName: post.imageURL ?? "",
+                                                title: post.title,
+                                                subtitle: post.subtitle
+                                            )
+                                            .padding(.horizontal, 16)
+                                            .tag(index)
+                                        }
                                     }
-                                }
-                                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                                .frame(height: 200)
+                                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                                    .frame(height: 200)
 
-                                // Custom page indicator dots positioned lower
-                                HStack(spacing: 8) {
-                                    ForEach(0..<viewModel.trendingPosts.count, id: \.self) { index in
-                                        Circle()
-                                            .fill(index == viewModel.selectedTrendingIndex ? Color.loopedTextSecondary : Color.loopedTextSecondary.opacity(0.3))
-                                            .frame(width: 8, height: 8)
+                                    if viewModel.trendingPosts.count > 1 {
+                                        // Custom page indicator dots positioned lower
+                                        HStack(spacing: 8) {
+                                            ForEach(0..<viewModel.trendingPosts.count, id: \.self) { index in
+                                                Circle()
+                                                    .fill(index == viewModel.selectedTrendingIndex ? Color.loopedTextSecondary : Color.loopedTextSecondary.opacity(0.3))
+                                                    .frame(width: 8, height: 8)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity)
                                     }
                                 }
-                                .frame(maxWidth: .infinity)
                             }
                         }
 

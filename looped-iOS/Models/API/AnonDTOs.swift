@@ -32,6 +32,11 @@ struct AnonRevokeRequestDTO: Codable {
     let anonSig: String
 }
 
+struct AnonRevokeResponseDTO: Codable {
+    let revoked: Bool
+    let alreadyRevoked: Bool?
+}
+
 struct AnonIssuerResponseDTO: Codable {
     let publicKeyPem: String
     let kid: String?

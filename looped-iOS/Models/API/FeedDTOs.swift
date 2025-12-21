@@ -5,6 +5,30 @@ struct FeedResponseDTO: Codable {
     let nextCursor: String?
 }
 
+struct TrendingFeedResponseDTO: Codable {
+    let items: [TrendingPostDTO]
+}
+
+struct TrendingPostDTO: Codable {
+    let id: Int
+    let authorId: Int
+    let companyId: Int
+    let communityId: Int?
+    let content: String
+    let mediaAssetId: Int?
+    let likesCount: Int
+    let commentsCount: Int?
+    let shareCount: Int?
+    let createdAt: Date
+    let isSaved: Bool?
+    let isAnonymous: Bool?
+    let communityName: String?
+    let communityKind: String?
+    let title: String?
+    let mediaUrl: String?
+    let cdnUrl: String?
+}
+
 struct PostDTO: Codable {
     let id: Int
     let authorId: Int

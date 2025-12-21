@@ -23,6 +23,17 @@ enum AnonAction {
     case unsave(postId: Int)
 }
 
+enum AnonServiceError: Error, LocalizedError {
+    case missingIdentity
+
+    var errorDescription: String? {
+        switch self {
+        case .missingIdentity:
+            return "No anonymous identity found on this device."
+        }
+    }
+}
+
 actor AnonService {
     static let shared = AnonService()
 
@@ -119,8 +130,19 @@ actor AnonService {
     }
 
     func revoke() async throws {
-        let identity = try await ensureIdentity()
-        let privateKey = try loadOrCreatePrivateKey()
+        let revoked = try await revokeIfPresent()
+        if !revoked {
+            throw AnonServiceError.missingIdentity
+        }
+    }
+
+    @discardableResult
+    func revokeIfPresent() async throws -> Bool {
+        guard let identity = store.loadIdentity(),
+              let privateKey = store.loadPrivateKey() else {
+            store.clearAll()
+            return false
+        }
         let signature = try sign(message: "revoke|v1|\(identity.profileId)", privateKey: privateKey)
         let request = AnonRevokeRequestDTO(
             anonProfileId: identity.profileId,
@@ -128,8 +150,9 @@ actor AnonService {
             anonCertKid: identity.certKid,
             anonSig: signature
         )
-        let _: EmptyResponse = try await apiClient.post("/anon/revoke", body: request)
+        let _: AnonRevokeResponseDTO = try await apiClient.post("/anon/revoke", body: request)
         store.clearAll()
+        return true
     }
 
     func clearIdentity() {

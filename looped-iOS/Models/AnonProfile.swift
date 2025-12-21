@@ -40,6 +40,7 @@ extension AnonProfile {
             followersCount: followerCount ?? 0,
             postsCount: postsCount ?? 0,
             commentsCount: 0,
+            showFollowerCount: false,
             isCurrentUser: true,
             createdAt: createdAt,
             updatedAt: updatedAt ?? now

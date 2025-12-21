@@ -25,6 +25,7 @@ protocol AuthServiceProtocol {
 
 protocol FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage
+    func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
     func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
@@ -54,7 +55,7 @@ protocol UserServiceProtocol {
     func getIdentity() async throws -> IdentityResponseDTO
     func getCurrentUser() async throws -> User
     func getUser(by id: Int) async throws -> User
-    func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User
+    func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool, showFollowerCount: Bool?) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
     func deleteAccount(mode: DeleteAccountMode) async throws
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage

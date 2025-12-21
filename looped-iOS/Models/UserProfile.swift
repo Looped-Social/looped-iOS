@@ -17,6 +17,7 @@ struct UserProfile: Codable, Identifiable {
     let followersCount: Int
     let postsCount: Int
     let commentsCount: Int
+    let showFollowerCount: Bool
     let isCurrentUser: Bool
     let createdAt: Date
     let updatedAt: Date
@@ -76,6 +77,7 @@ extension UserProfile {
             followersCount: user.followerCount ?? 0,
             postsCount: user.postsCount ?? 0,
             commentsCount: user.commentsCount ?? 0,
+            showFollowerCount: user.showFollowerCount ?? true,
             isCurrentUser: isCurrentUser,
             createdAt: createdAt,
             updatedAt: user.updatedAt ?? now

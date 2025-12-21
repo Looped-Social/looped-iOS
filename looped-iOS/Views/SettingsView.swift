@@ -23,16 +23,14 @@ struct SettingsView: View {
 
     // Alert states
     @State private var showLogoutAlert = false
-    @State private var showDeleteAccountAlert = false
-    @State private var showDeleteErrorAlert = false
-    @State private var deleteErrorMessage = ""
-    @State private var isDeletingAccount = false
-    @State private var showAnonDeleteAlert = false
-    @State private var isDeletingAnon = false
     @State private var showAnonErrorAlert = false
     @State private var anonErrorMessage = ""
     @State private var showLinkErrorAlert = false
     @State private var linkErrorMessage = ""
+    @State private var showFollowerUpdateAlert = false
+    @State private var followerUpdateError = ""
+    @State private var isUpdatingFollowerCount = false
+    @State private var skipFollowerToggleUpdate = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -127,13 +125,11 @@ struct SettingsView: View {
                     SettingsSection(title: "Actions") {
                         SettingsRow(icon: .system("flag"), title: "Report a problem")
                         SettingsRow(icon: .system("building.2"), title: "Change Workplace/Position")
-                        SettingsRow(icon: .system("theatermasks"), title: "Delete Anonymous Account") {
-                            showAnonDeleteAlert = true
+                        NavigationLink(destination: DeleteAccountIntroView()) {
+                            SettingsNavigationRow(icon: .system("trash"), title: "Delete Account")
                         }
-                        SettingsRow(icon: .system("trash"), title: "Delete Account") {
-                            showDeleteAccountAlert = true
-                        }
-                        SettingsRow(icon: .asset("log-out-icon"), title: "Log out", textColor: .red) {
+                        .buttonStyle(PlainButtonStyle())
+                        SettingsRow(icon: .asset("log-out-icon"), title: "Log out") {
                             let impact = UIImpactFeedbackGenerator(style: .light)
                             impact.impactOccurred()
                             showLogoutAlert = true
@@ -164,6 +160,18 @@ struct SettingsView: View {
         .onChange(of: anonymousMode) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }
         }
+        .onReceive(authViewModel.$currentUser) { user in
+            guard let user else { return }
+            skipFollowerToggleUpdate = true
+            showFollowerCount = user.showFollowerCount ?? true
+        }
+        .onChange(of: showFollowerCount) { oldValue, newValue in
+            if skipFollowerToggleUpdate {
+                skipFollowerToggleUpdate = false
+                return
+            }
+            Task { await updateFollowerCount(oldValue: oldValue, newValue: newValue) }
+        }
         .alert("Log out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Log out", role: .destructive) {
@@ -172,53 +180,15 @@ struct SettingsView: View {
         } message: {
             Text("Are you sure you want to log out?")
         }
-        .alert("Delete Account", isPresented: $showDeleteAccountAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                guard !isDeletingAccount else { return }
-                isDeletingAccount = true
-                Task {
-                    defer { isDeletingAccount = false }
-                    do {
-                        try await userService.deleteAccount(mode: .hard)
-                        authViewModel.signOut()
-                    } catch {
-                        deleteErrorMessage = error.localizedDescription
-                        showDeleteErrorAlert = true
-                    }
-                }
-            }
-        } message: {
-            Text("Are you sure you want to permanently delete your account? This action cannot be undone.")
-        }
-        .alert("Delete Failed", isPresented: $showDeleteErrorAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(deleteErrorMessage)
-        }
-        .alert("Delete Anonymous Account", isPresented: $showAnonDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                guard !isDeletingAnon else { return }
-                isDeletingAnon = true
-                Task {
-                    defer { isDeletingAnon = false }
-                    do {
-                        try await anonService.revoke()
-                        anonymousMode = false
-                    } catch {
-                        anonErrorMessage = error.localizedDescription
-                        showAnonErrorAlert = true
-                    }
-                }
-            }
-        } message: {
-            Text("This revokes your anonymous persona. Existing anonymous posts will remain visible.")
-        }
         .alert("Anonymous Mode Failed", isPresented: $showAnonErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(anonErrorMessage)
+        }
+        .alert("Update Failed", isPresented: $showFollowerUpdateAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(followerUpdateError)
         }
         .alert("Connection Failed", isPresented: $showLinkErrorAlert) {
             Button("OK", role: .cancel) { }
@@ -267,6 +237,27 @@ private extension SettingsView {
                 linkErrorMessage = error.localizedDescription
                 showLinkErrorAlert = true
             }
+        }
+    }
+
+    func updateFollowerCount(oldValue: Bool, newValue: Bool) async {
+        guard !isUpdatingFollowerCount else { return }
+        guard let user = authViewModel.currentUser else { return }
+        isUpdatingFollowerCount = true
+        defer { isUpdatingFollowerCount = false }
+        do {
+            _ = try await userService.updateProfile(
+                displayName: nil,
+                bio: nil,
+                isAnonymous: user.isAnonymous,
+                showFollowerCount: newValue
+            )
+            await authViewModel.loadCurrentUser()
+        } catch {
+            followerUpdateError = error.localizedDescription
+            showFollowerUpdateAlert = true
+            skipFollowerToggleUpdate = true
+            showFollowerCount = oldValue
         }
     }
 }

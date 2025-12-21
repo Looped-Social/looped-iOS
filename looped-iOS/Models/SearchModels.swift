@@ -1,16 +1,50 @@
 import Foundation
 
 struct TrendingPost: Identifiable {
-    let id: UUID
-    let imageName: String
+    let id: Int
+    let imageURL: String?
     let title: String
     let subtitle: String
 
-    init(id: UUID = UUID(), imageName: String, title: String, subtitle: String) {
+    init(id: Int, imageURL: String?, title: String, subtitle: String) {
         self.id = id
-        self.imageName = imageName
+        self.imageURL = imageURL
         self.title = title
         self.subtitle = subtitle
+    }
+}
+
+extension TrendingPost {
+    init(dto: TrendingPostDTO) {
+        let trimmedTitle = dto.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let fallbackTitle = TrendingPost.snippet(from: dto.content)
+        let title = trimmedTitle.isEmpty ? fallbackTitle : trimmedTitle
+        let subtitle: String
+        if let communityName = dto.communityName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !communityName.isEmpty {
+            subtitle = "Trending in \(communityName)"
+        } else if let communityKind = dto.communityKind?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !communityKind.isEmpty {
+            subtitle = "Trending in \(communityKind.capitalized)"
+        } else {
+            subtitle = "Trending on Looped"
+        }
+
+        self.init(
+            id: dto.id,
+            imageURL: dto.cdnUrl ?? dto.mediaUrl,
+            title: title,
+            subtitle: subtitle
+        )
+    }
+
+    private static func snippet(from content: String) -> String {
+        let collapsed = content.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        let trimmed = collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count > 80 {
+            return String(trimmed.prefix(80)) + "..."
+        }
+        return trimmed
     }
 }
 

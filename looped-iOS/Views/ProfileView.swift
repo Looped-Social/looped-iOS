@@ -299,28 +299,30 @@ struct ProfileStatsView: View {
                 }
             }
 
-            if let followingCount = followingCount, let followersCount = followersCount {
-                HStack(spacing: 12) {
-                    Text("\(followingCount)")
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.loopedTextPrimary)
-                    Text("Following")
+            if showFollowerStats {
+                if let followingCount = followingCount, let followersCount = followersCount {
+                    HStack(spacing: 12) {
+                        Text("\(followingCount)")
+                            .font(.loopedBodyStrong)
+                            .foregroundColor(.loopedTextPrimary)
+                        Text("Following")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        Text("\(followersCount)")
+                            .font(.loopedBodyStrong)
+                            .foregroundColor(.loopedTextPrimary)
+                        Text("Followers")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        Spacer()
+                    }
+                } else {
+                    Text("Follower stats not available")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
-
-                    Text("\(followersCount)")
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.loopedTextPrimary)
-                    Text("Followers")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-
-                    Spacer()
                 }
-            } else {
-                Text("Follower stats not available")
-                    .font(.loopedSubBodyRegular)
-                    .foregroundColor(.loopedTextSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -358,6 +360,12 @@ struct ProfileStatsView: View {
         if let profile = userProfile { return profile.followersCount }
         if isAnonymous { return nil }
         return authViewModel.currentUser?.followerCount
+    }
+
+    private var showFollowerStats: Bool {
+        if isAnonymous { return false }
+        if let profile = userProfile { return profile.showFollowerCount }
+        return authViewModel.currentUser?.showFollowerCount ?? true
     }
 }
 

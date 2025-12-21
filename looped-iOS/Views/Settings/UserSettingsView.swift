@@ -218,7 +218,8 @@ private extension UserSettingsView {
                 _ = try await userService.updateProfile(
                     displayName: displayName,
                     bio: bio.isEmpty ? nil : bio,
-                    isAnonymous: false
+                    isAnonymous: false,
+                    showFollowerCount: nil
                 )
                 await authViewModel.loadCurrentUser()
             } catch {

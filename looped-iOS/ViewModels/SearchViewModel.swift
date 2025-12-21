@@ -11,17 +11,24 @@ class SearchViewModel: ObservableObject {
     @Published var professionsError: String?
 
     private let communityService: CommunityServiceProtocol
+    private let feedService: FeedServiceProtocol
 
-    init(communityService: CommunityServiceProtocol = CommunityService()) {
+    init(
+        communityService: CommunityServiceProtocol = CommunityService(),
+        feedService: FeedServiceProtocol = FeedService()
+    ) {
         self.communityService = communityService
-        loadMockData()
+        self.feedService = feedService
+        loadStaticContent()
         Task {
             await loadProfessions()
         }
+        Task {
+            await loadTrendingPosts()
+        }
     }
 
-    private func loadMockData() {
-        trendingPosts = MockSearchContent.trendingPosts
+    private func loadStaticContent() {
         loops = MockSearchContent.loopCategories
         professions = MockSearchContent.professions
     }
@@ -33,6 +40,15 @@ class SearchViewModel: ObservableObject {
             professionsError = nil
         } catch {
             professionsError = error.localizedDescription
+        }
+    }
+
+    func loadTrendingPosts() async {
+        do {
+            trendingPosts = try await feedService.fetchTrendingPosts(limit: 3, communityId: nil)
+            selectedTrendingIndex = 0
+        } catch {
+            trendingPosts = []
         }
     }
 }

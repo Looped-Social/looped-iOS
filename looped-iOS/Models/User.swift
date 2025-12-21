@@ -18,6 +18,7 @@ struct User: Codable, Identifiable {
     let followingCount: Int?
     let postsCount: Int?
     let commentsCount: Int?
+    let showFollowerCount: Bool?
     
     init(
         id: UUID,
@@ -36,7 +37,8 @@ struct User: Codable, Identifiable {
         followerCount: Int? = nil,
         followingCount: Int? = nil,
         postsCount: Int? = nil,
-        commentsCount: Int? = nil
+        commentsCount: Int? = nil,
+        showFollowerCount: Bool? = nil
     ) {
         self.id = id
         self.backendId = backendId
@@ -55,6 +57,7 @@ struct User: Codable, Identifiable {
         self.followingCount = followingCount
         self.postsCount = postsCount
         self.commentsCount = commentsCount
+        self.showFollowerCount = showFollowerCount
     }
 }
 
@@ -78,6 +81,7 @@ extension User {
         self.followingCount = stats?.followingCount ?? profile?.followingCount
         self.postsCount = stats?.postsCount ?? profile?.postsCount
         self.commentsCount = stats?.commentsCount ?? profile?.commentsCount
+        self.showFollowerCount = profile?.showFollowerCount ?? dto.showFollowerCount
     }
 
     init(
@@ -95,7 +99,8 @@ extension User {
         followerCount: Int? = nil,
         followingCount: Int? = nil,
         postsCount: Int? = nil,
-        commentsCount: Int? = nil
+        commentsCount: Int? = nil,
+        showFollowerCount: Bool? = nil
     ) {
         self.init(
             id: id,
@@ -114,7 +119,8 @@ extension User {
             followerCount: followerCount,
             followingCount: followingCount,
             postsCount: postsCount,
-            commentsCount: commentsCount
+            commentsCount: commentsCount,
+            showFollowerCount: showFollowerCount
         )
     }
 

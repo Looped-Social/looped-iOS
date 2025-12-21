@@ -3,17 +3,20 @@ import Foundation
 struct MockSearchContent {
     static let trendingPosts: [TrendingPost] = [
         TrendingPost(
-            imageName: "trending1",
+            id: 1,
+            imageURL: "trending1",
             title: "Remote work productivity tips that actually work",
             subtitle: "Trending in Business"
         ),
         TrendingPost(
-            imageName: "trending2",
+            id: 2,
+            imageURL: "trending2",
             title: "Latest iOS development best practices",
             subtitle: "Trending in Tech"
         ),
         TrendingPost(
-            imageName: "trending3",
+            id: 3,
+            imageURL: "trending3",
             title: "Design system updates and new components",
             subtitle: "Trending in Design"
         )

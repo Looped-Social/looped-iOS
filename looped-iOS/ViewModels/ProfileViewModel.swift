@@ -77,9 +77,14 @@ class ProfileViewModel: ObservableObject {
         }
     }
     
-    func updateProfile(displayName: String?, bio: String? = nil, isAnonymous: Bool) async {
+    func updateProfile(displayName: String?, bio: String? = nil, isAnonymous: Bool, showFollowerCount: Bool?) async {
         do {
-            let updatedUser = try await userService.updateProfile(displayName: displayName, bio: bio, isAnonymous: isAnonymous)
+            let updatedUser = try await userService.updateProfile(
+                displayName: displayName,
+                bio: bio,
+                isAnonymous: isAnonymous,
+                showFollowerCount: showFollowerCount
+            )
             user = updatedUser
 
             userProfile = UserProfile.from(user: updatedUser, isCurrentUser: true)

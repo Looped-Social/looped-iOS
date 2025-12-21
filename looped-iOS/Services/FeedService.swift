@@ -14,6 +14,16 @@ class FeedService: FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage {
         try await fetchPosts(from: "/v1/feed", limit: limit, cursor: cursor, communityId: communityId)
     }
+
+    func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost] {
+        let resolvedLimit = limit > 0 ? limit : 3
+        var endpoint = "/v1/feed/trending?limit=\(resolvedLimit)"
+        if let communityId {
+            endpoint += "&communityId=\(communityId)"
+        }
+        let response: TrendingFeedResponseDTO = try await apiClient.get(endpoint)
+        return response.items.map(TrendingPost.init(dto:))
+    }
     
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post {
         var request = CreatePostRequestDTO(

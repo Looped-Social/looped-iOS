@@ -307,26 +307,28 @@ struct UserProfileInfoSection: View {
                 }
             }
 
-            HStack(spacing: 16) {
-                Text("\(userProfile.followingCount)")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.loopedTextPrimary)
-                +
-                Text(" Following")
-                    .font(.subheadline)
-                    .foregroundColor(.loopedTextSecondary)
+            if userProfile.showFollowerCount {
+                HStack(spacing: 16) {
+                    Text("\(userProfile.followingCount)")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.loopedTextPrimary)
+                    +
+                    Text(" Following")
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
 
-                Text("\(userProfile.followersCount)")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.loopedTextPrimary)
-                +
-                Text(" Followers")
-                    .font(.subheadline)
-                    .foregroundColor(.loopedTextSecondary)
+                    Text("\(userProfile.followersCount)")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.loopedTextPrimary)
+                    +
+                    Text(" Followers")
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
 
-                Spacer()
+                    Spacer()
+                }
             }
 
             UserProfileActionButtons(userProfile: userProfile)
@@ -608,6 +610,7 @@ struct UserCommentsList: View {
         followersCount: 0,
         postsCount: 0,
         commentsCount: 0,
+        showFollowerCount: true,
         isCurrentUser: false,
         createdAt: Date(),
         updatedAt: Date()

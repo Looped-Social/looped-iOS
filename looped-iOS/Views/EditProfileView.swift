@@ -282,8 +282,7 @@ struct EditProfileView: View {
                 displayName = viewModel.user?.displayName ?? ""
                 handle = viewModel.user?.handle ?? ""
                 bio = viewModel.user?.bio ?? ""
-                // TODO: Load showFollowerCount from user preferences
-                showFollowerCount = true
+                showFollowerCount = viewModel.user?.showFollowerCount ?? true
             }
         }
     }
@@ -292,15 +291,12 @@ struct EditProfileView: View {
         isSaving = true
         showSuccessMessage = false
 
-        // TODO: Update ProfileViewModel.updateProfile to accept handle and showFollowerCount
         await viewModel.updateProfile(
             displayName: displayName.isEmpty ? nil : displayName,
             bio: bio.isEmpty ? nil : bio,
-            isAnonymous: viewModel.user?.isAnonymous ?? false
+            isAnonymous: viewModel.user?.isAnonymous ?? false,
+            showFollowerCount: showFollowerCount
         )
-
-        // TODO: Save handle and showFollowerCount preferences
-        // For now, these would need to be added to the updateProfile method
 
         isSaving = false
 
