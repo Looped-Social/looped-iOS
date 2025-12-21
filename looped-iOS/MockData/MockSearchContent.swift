@@ -57,6 +57,17 @@ struct MockSearchContent {
         SearchGroup(title: "Analytics", iconName: "chart.bar", memberCount: 450)
     ]
 
+    static let professions: [CommunitySearchResult] = [
+        CommunitySearchResult(id: 1, name: "Design", description: "UX, UI, and product design", kind: .profession, memberCount: 1800),
+        CommunitySearchResult(id: 2, name: "Engineering", description: "Build, ship, and debug", kind: .profession, memberCount: 2500),
+        CommunitySearchResult(id: 3, name: "Marketing", description: "Growth and campaigns", kind: .profession, memberCount: 1200),
+        CommunitySearchResult(id: 4, name: "Sales", description: "Pipeline and playbooks", kind: .profession, memberCount: 980),
+        CommunitySearchResult(id: 5, name: "HR", description: "People and culture", kind: .profession, memberCount: 760),
+        CommunitySearchResult(id: 6, name: "Finance", description: "Planning and strategy", kind: .profession, memberCount: 860),
+        CommunitySearchResult(id: 7, name: "Legal", description: "Policy and compliance", kind: .profession, memberCount: 420),
+        CommunitySearchResult(id: 8, name: "Operations", description: "Execution and ops", kind: .profession, memberCount: 640)
+    ]
+
     static let defaultRecentSearches: [String] = [
         "elevator broken",
         "Lunch Break Shortened",

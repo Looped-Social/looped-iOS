@@ -31,6 +31,12 @@ class CommunityService: CommunityServiceProtocol {
         return SearchResultPage(items: items, nextCursor: response.nextCursor)
     }
 
+    func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult] {
+        let endpoint = "/v1/communities/search?kind=profession&limit=\(limit > 0 ? limit : defaultLimit)"
+        let response: CommunitySearchResponseDTO = try await apiClient.get(endpoint)
+        return response.items.map(CommunitySearchResult.init(dto:))
+    }
+
     func followCommunity(id: Int) async throws {
         let _: EmptyResponse = try await apiClient.post("/v1/communities/\(id)/follow", body: EmptyBody())
     }

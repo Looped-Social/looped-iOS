@@ -3,6 +3,7 @@ import Foundation
 enum CommunityKind: String, Codable {
     case company
     case school
+    case profession
     case unknown
 
     init(from decoder: Decoder) throws {

@@ -93,10 +93,10 @@ struct SearchView: View {
                             }
                         }
 
-                        // Groups Section
+                        // Professions Section
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
-                                Text("Groups")
+                                Text("Professions")
                                     .font(.loopedSubheadMedium)
                                     .foregroundColor(.loopedTextPrimary)
                                 Spacer()
@@ -104,11 +104,10 @@ struct SearchView: View {
                             .padding(.horizontal, 16)
 
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-                                ForEach(viewModel.groups) { group in
-                                    GroupIcon(
-                                        title: group.title,
-                                        iconName: group.iconName,
-                                        memberCount: group.memberCount
+                                ForEach(viewModel.professions) { profession in
+                                    ProfessionIcon(
+                                        name: profession.name,
+                                        memberCount: profession.memberCount
                                     )
                                 }
                             }

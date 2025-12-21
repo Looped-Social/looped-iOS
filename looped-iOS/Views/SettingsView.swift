@@ -15,6 +15,7 @@ struct SettingsView: View {
     // Toggle states
     @State private var showFollowerCount = true
     @AppStorage("anonymousMode") private var anonymousMode = true
+    @State private var showCommunityRequest = false
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -59,6 +60,13 @@ struct SettingsView: View {
                         SettingsRow(icon: .asset("help-icon"), title: "Help & Support")
                         SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Terms and Policies")
                         SettingsRow(icon: .asset("user-agreement-icon"), title: "User Agreement")
+                    }
+
+                    // Community Section
+                    SettingsSection(title: "Community") {
+                        SettingsRow(icon: .system("person.3"), title: "Request new community") {
+                            showCommunityRequest = true
+                        }
                     }
 
                     // Content Interactions Section
@@ -133,6 +141,9 @@ struct SettingsView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .fullScreenCover(isPresented: $showCommunityRequest) {
+            CommunityRequestFlowView()
+        }
         .alert("Log out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Log out", role: .destructive) {

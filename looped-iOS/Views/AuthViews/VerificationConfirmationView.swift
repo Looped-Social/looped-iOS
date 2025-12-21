@@ -60,7 +60,7 @@ struct VerificationConfirmationView: View {
 
                 Button(action: onComplete) {
                     Text("Continue")
-                        .font(.loopedBodyMedium)
+                        .font(.loopedHeadingMedium)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)

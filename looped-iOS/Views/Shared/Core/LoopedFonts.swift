@@ -20,6 +20,8 @@ extension Font {
     
     
     static let loopedHeadingMedium32 = Font.custom("Poppins-Medium", size: 32)
+    
+    static let loopedHeadingMedium28 = Font.custom("Poppins-Medium", size: 28)
 
     /// Body text (16pt, Regular) - Main content, paragraphs
     static let loopedBody = Font.custom("Poppins-Regular", size: 16)
@@ -36,6 +38,7 @@ extension Font {
     static let loopedSubBodyRegular = Font.custom("Poppins-Regular", size: 14)
 
     static let loopedSmallText = Font.custom("Poppins-Regular", size: 12)
+    static let loopedSmallTextMedium = Font.custom("Poppins-Medium", size: 12)
 
     /// Body strong text (16pt, SemiBold) - Strong emphasized body text
     static let loopedBodyStrong = Font.custom("Poppins-SemiBold", size: 16)

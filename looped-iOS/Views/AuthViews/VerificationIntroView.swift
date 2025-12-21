@@ -59,7 +59,7 @@ struct VerificationIntroView: View {
                 VStack(spacing: 14) {
                     Button(action: onContinue) {
                         Text("Continue")
-                            .font(.loopedBodyMedium)
+                            .font(.loopedHeadingMedium)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
