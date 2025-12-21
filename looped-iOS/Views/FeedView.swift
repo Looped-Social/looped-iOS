@@ -103,6 +103,7 @@ struct FeedView: View {
         }
     }
 
+
     private func handleScroll(_ offset: CGFloat) {
         let delta = offset - lastScrollOffset
 

@@ -8,6 +8,9 @@ struct PostCard: View {
     @State private var isBookmarked = false
     @State private var bookmarkInitialized = false
     @State private var isBookmarkLoading = false
+    @State private var showHeartBurst = false
+    @State private var heartScale: CGFloat = 0.6
+    @State private var heartOpacity: Double = 0
     @State private var showShareSheet = false
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
@@ -48,8 +51,9 @@ struct PostCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        ZStack {
             VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                 // Header with user info
                 HStack(alignment: .top, spacing: 12) {
                     // Avatar (hidden for anonymous posts)
@@ -134,82 +138,92 @@ struct PostCard: View {
                     .padding(.top, 8)
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) {
-                handleDoubleTapLike()
-            }
-
-            // Engagement buttons
-            HStack(spacing: 24) {
-                // Like button
-                Button(action: { handleLikeToggle() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .resizable()
-                            .renderingMode(.template)
-                            .frame(width: 20, height: 20)
-                            .foregroundColor(isLiked ? .red : .loopedTextSecondary)
-                        Text("\(post.reactionCount + (isLiked ? 1 : 0))")
-                            .font(.caption)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) {
+                    handleDoubleTapLike()
                 }
 
-                // Comment button
-                Button(action: {
-            commentsManager.showComments(for: post)
-        }) {
-            HStack(spacing: 4) {
-                Image("comment-icon")
-                    .resizable()
-                    .renderingMode(.template)
-                    .frame(width: 18, height: 18)
-                    .foregroundColor(.loopedTextSecondary)
-                Text("\(post.commentsCount)")
-                    .font(.caption)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-        }
-
-                // Share button
-                Button(action: { showShareSheet = true }) {
-                    HStack(spacing: 4) {
-                        Image("send-icon")
-                    .resizable()
-                    .renderingMode(.template)
-                    .frame(width: 19, height: 19)
-                    .foregroundColor(.loopedTextSecondary)
-                Text(post.shareCount > 0 ? "\(post.shareCount)" : "Share")
-                    .font(.caption)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-        }
-
-                Spacer()
-
-                // Bookmark button
-                Button(action: { toggleBookmark() }) {
-                    HStack(spacing: 4) {
-                        Image("save-icon")
-                            .resizable()
-                            .renderingMode(.template)
-                            .frame(width: 18, height: 18)
-                            .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
-                            .opacity(isBookmarkLoading ? 0.6 : 1)
-                        Text(isBookmarked ? "Saved" : "Save")
-                            .font(.caption)
-                            .foregroundColor(.loopedTextSecondary)
+                // Engagement buttons
+                HStack(spacing: 24) {
+                    // Like button
+                    Button(action: { handleLikeToggle() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: isLiked ? "heart.fill" : "heart")
+                                .resizable()
+                                .renderingMode(.template)
+                                .frame(width: 20, height: 20)
+                                .foregroundColor(isLiked ? .red : .loopedTextSecondary)
+                            Text("\(post.reactionCount + (isLiked ? 1 : 0))")
+                                .font(.caption)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
                     }
+
+                    // Comment button
+                    Button(action: {
+                        commentsManager.showComments(for: post)
+                    }) {
+                        HStack(spacing: 4) {
+                            Image("comment-icon")
+                                .resizable()
+                                .renderingMode(.template)
+                                .frame(width: 18, height: 18)
+                                .foregroundColor(.loopedTextSecondary)
+                            Text("\(post.commentsCount)")
+                                .font(.caption)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
+
+                    // Share button
+                    Button(action: { showShareSheet = true }) {
+                        HStack(spacing: 4) {
+                            Image("send-icon")
+                                .resizable()
+                                .renderingMode(.template)
+                                .frame(width: 19, height: 19)
+                                .foregroundColor(.loopedTextSecondary)
+                            Text(post.shareCount > 0 ? "\(post.shareCount)" : "Share")
+                                .font(.caption)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Bookmark button
+                    Button(action: { toggleBookmark() }) {
+                        HStack(spacing: 4) {
+                            Image("save-icon")
+                                .resizable()
+                                .renderingMode(.template)
+                                .frame(width: 18, height: 18)
+                                .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
+                                .opacity(isBookmarkLoading ? 0.6 : 1)
+                            Text(isBookmarked ? "Saved" : "Save")
+                                .font(.caption)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
+                    .disabled(isBookmarkLoading || post.backendId == nil)
                 }
-                .disabled(isBookmarkLoading || post.backendId == nil)
+
+                // Timestamp at bottom
+                HStack {
+                    Text(formattedTimeAgo)
+                        .font(.subheadline)
+                        .foregroundColor(.loopedTextSecondary)
+                    Spacer()
+                }
             }
 
-            // Timestamp at bottom
-            HStack {
-                Text(formattedTimeAgo)
-                    .font(.subheadline)
-                    .foregroundColor(.loopedTextSecondary)
-                Spacer()
+            if showHeartBurst {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 72, weight: .bold))
+                    .foregroundColor(.red)
+                    .scaleEffect(heartScale)
+                    .opacity(heartOpacity)
+                    .allowsHitTesting(false)
             }
         }
         .padding(16)
@@ -331,12 +345,39 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle() {
-        isLiked.toggle()
+        let nextValue = !isLiked
+        isLiked = nextValue
+        if nextValue {
+            triggerHeartBurst()
+        }
     }
 
     private func handleDoubleTapLike() {
         if !isLiked {
             isLiked = true
+        }
+        triggerHeartBurst()
+    }
+
+    private func triggerHeartBurst() {
+        showHeartBurst = true
+        heartScale = 0.6
+        heartOpacity = 0
+
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+            heartScale = 1.2
+            heartOpacity = 1
+        }
+
+        withAnimation(.easeOut(duration: 0.25).delay(0.2)) {
+            heartScale = 1.4
+            heartOpacity = 0
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            showHeartBurst = false
+            heartScale = 0.6
+            heartOpacity = 0
         }
     }
 }
