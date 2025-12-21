@@ -1,42 +1,37 @@
 import SwiftUI
+import UIKit
 
 struct MenuContent: View {
     let onMenuItemTap: (MenuDestination) -> Void
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymous = false
 
     var body: some View {
         VStack(alignment: .center, spacing: 0) {
             // Profile Header Section
-            VStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .center, spacing: 12) {
                 // Profile Avatar
                 Circle()
-                    .fill(Color.loopedTextSecondary.opacity(0.1))
-                    .frame(width: 80, height: 80)
+                    .fill(isAnonymous ? Color.loopedSecondary : Color.loopedPrimary)
+                    .frame(width: 72, height: 72)
                     .overlay(
-                        Text(avatarInitials)
-                            .font(.system(size: 34, weight: .semibold))
-                            .foregroundColor(.loopedTextPrimary)
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 30, weight: .semibold))
+                            .foregroundColor(.white)
                     )
-                    .padding(.top, 60)
+                    .padding(.top, 72)
 
                 // Display Name
                 Text(displayName)
                     .font(.loopedBodyStrong32)
                     .foregroundColor(.loopedContrast)
 
-                Text(handleText)
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
+                AnonymousStatusPill(isOn: $isAnonymous)
 
-                // Hearts Metric
-                if let company = companyText {
-                    Text(company)
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedTextSecondary)
-                }
+                HeartsRow(text: totalHeartsText)
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 32)
+            .padding(.bottom, 24)
 
             // Menu Items
             VStack(alignment: .leading, spacing: 0) {
@@ -52,55 +47,29 @@ struct MenuContent: View {
                 MenuItemButton(icon: "doc.text", title: "Drafts") {
                     onMenuItemTap(.drafts)
                 }
-                MenuItemButton(icon: "chart.bar", title: "Analytics") {
-                    onMenuItemTap(.analytics)
-                }
                 MenuItemButton(icon: "questionmark.circle", title: "FAQ") {
                     onMenuItemTap(.faq)
+                }
+                MenuItemButton(icon: "gearshape.fill", title: "Settings") {
+                    onMenuItemTap(.settings)
                 }
             }
             .padding(.horizontal, 24)
 
             Spacer()
-
-            // Settings Button (Bottom Right)
-            HStack {
-                Spacer()
-                Button(action: {
-                    onMenuItemTap(.settings)
-                }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.loopedTextSecondary)
-                        .padding(20)
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color.loopedBackground.ignoresSafeArea(.all))
+        .background(Color.loopedBackground)
+        .clipShape(SideDrawerShape(radius: 44))
+        .ignoresSafeArea(.all)
     }
     
     private var displayName: String {
         authViewModel.currentUser?.displayName ?? "Looped User"
     }
     
-    private var handleText: String {
-        let handle = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle
-        return handle.map { "@\($0)" } ?? "@looped"
-    }
-    
-    private var companyText: String? {
-        let company = authViewModel.currentUser?.company
-        return company?.isEmpty == false ? company : nil
-    }
-    
-    private var avatarInitials: String {
-        if let name = authViewModel.currentUser?.displayName,
-           let first = name.split(separator: " ").first?.first {
-            return String(first).uppercased()
-        }
-        return "LU"
+    private var totalHeartsText: String {
+        return "Hearts not available"
     }
 }
 
@@ -123,14 +92,56 @@ struct MenuItemButton: View {
                     .foregroundColor(.loopedTextPrimary)
 
                 Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+private struct AnonymousStatusPill: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button(action: { isOn.toggle() }) {
+            Text("Anonymous Status: \(isOn ? "ON" : "OFF")")
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(isOn ? .loopedSecondary : .loopedTextSecondary)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(isOn ? Color.loopedSecondary : Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+private struct HeartsRow: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "heart.fill")
+                .foregroundColor(.red)
+            Text(text)
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+        }
+    }
+}
+
+private struct SideDrawerShape: Shape {
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: [.topLeft, .bottomLeft],
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
     }
 }
 
@@ -170,7 +181,7 @@ struct LikedPostsView: View {
             // Posts List
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    CollectionPostsContent(viewModel: likedViewModel, emptyMessage: "No liked posts yet", emptyIcon: "heart")
+                    LikedPostsFeedList(viewModel: likedViewModel)
                 }
             }
         }
@@ -280,6 +291,60 @@ private struct CollectionPostsContent: View {
                         Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                     }
             }
+            if viewModel.isLoadingMore {
+                ProgressView()
+                    .padding()
+            }
+        }
+    }
+}
+
+private struct LikedPostsFeedList: View {
+    @ObservedObject var viewModel: CollectionPostsViewModel
+    @EnvironmentObject private var commentsManager: CommentsModalManager
+
+    var body: some View {
+        if viewModel.isLoading && viewModel.posts.isEmpty {
+            ForEach(0..<6, id: \.self) { index in
+                PostCardSkeleton(showsMedia: index % 3 != 0)
+
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+            }
+        } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
+            VStack(spacing: 12) {
+                Text(error)
+                    .font(.loopedBody)
+                    .foregroundColor(.red)
+                Button("Retry") {
+                    Task { await viewModel.loadInitial() }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.top, 60)
+        } else if viewModel.posts.isEmpty {
+            VStack(spacing: 16) {
+                Image(systemName: "heart")
+                    .font(.system(size: 48))
+                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                Text("No liked posts yet")
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .padding(.top, 60)
+        } else {
+            ForEach(viewModel.posts) { post in
+                PostCard(post: post)
+                    .onAppear {
+                        Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
+                    }
+
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+            }
+
             if viewModel.isLoadingMore {
                 ProgressView()
                     .padding()

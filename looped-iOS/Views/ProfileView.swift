@@ -12,8 +12,9 @@ struct ProfileView: View {
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
+    @State private var isAnonymousPreview = false
 
-    private let headerHeight: CGFloat = 350
+    private let headerHeight: CGFloat = 300
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -56,14 +57,23 @@ struct ProfileView: View {
                 ProfileHeaderView(
                     userProfile: viewModel.userProfile,
                     isLoading: viewModel.isLoading,
-                    errorMessage: viewModel.errorMessage
+                    errorMessage: viewModel.errorMessage,
+                    isAnonymous: isAnonymousPreview
                 )
 
                 // Stats Section
-                ProfileStatsView(userProfile: viewModel.userProfile, isLoading: viewModel.isLoading)
+                ProfileStatsView(
+                    userProfile: viewModel.userProfile,
+                    isLoading: viewModel.isLoading,
+                    isAnonymous: isAnonymousPreview
+                )
 
                 // Action Buttons
-                ProfileActionButtons(viewModel: viewModel, userProfile: viewModel.userProfile)
+                ProfileActionButtons(
+                    viewModel: viewModel,
+                    userProfile: viewModel.userProfile,
+                    isAnonymous: $isAnonymousPreview
+                )
 
                 // Tab Navigation
                 ProfileTabsView(selectedTab: $selectedTab)
@@ -121,23 +131,20 @@ struct ProfileHeaderView: View {
     let userProfile: UserProfile?
     let isLoading: Bool
     let errorMessage: String?
+    let isAnonymous: Bool
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
-        Group {
-            if isLoading {
-                headerSkeleton
-            } else {
-                headerContent
-            }
-        }
+        headerContent
     }
 
     private var displayName: String {
-        resolvedProfile?.resolvedDisplayName ?? "Looped User"
+        if isAnonymous { return "Anonymous" }
+        return resolvedProfile?.resolvedDisplayName ?? "Looped User"
     }
 
     private var handle: String {
+        if isAnonymous { return "@Anonymous123" }
         if let handle = resolvedProfile?.formattedHandle { return handle }
         if let username = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle {
             let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -146,20 +153,6 @@ struct ProfileHeaderView: View {
         return "@looped"
     }
 
-    private var bioDisplay: (text: String, isPlaceholder: Bool) {
-        if let error = errorMessage, !error.isEmpty {
-            return ("Bio unavailable", true)
-        }
-
-        let rawBio = resolvedProfile?.bio ?? ""
-        let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            return ("No bio yet", true)
-        }
-
-        return (trimmed, false)
-    }
-
     private var resolvedProfile: UserProfile? {
         if let profile = userProfile { return profile }
         if let user = authViewModel.currentUser {
@@ -168,148 +161,131 @@ struct ProfileHeaderView: View {
         return nil
     }
 
-    private var headerContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Profile Avatar with Name and Handle beside it
-            HStack(spacing: 16) {
-                AsyncImage(url: URL(string: resolvedProfile?.profileImageURL ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.1))
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 32))
-                                .foregroundColor(.loopedTextSecondary)
-                        )
-                }
-                .frame(width: 80, height: 80)
-                .clipShape(Circle())
+    private var resolvedBio: String {
+        if isAnonymous { return "" }
+        if let error = errorMessage, !error.isEmpty {
+            return "Bio not available"
+        }
+        let rawBio = userProfile?.bio ?? authViewModel.currentUser?.bio ?? ""
+        let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Bio not available" : trimmed
+    }
 
-                // Name and Handle beside profile picture
-                VStack(alignment: .leading, spacing: 4) {
+    private var isBioAvailable: Bool {
+        let trimmed = resolvedBio.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed != "Bio not available"
+    }
+
+    private var headerContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(isAnonymous ? Color.loopedSecondary : Color.loopedPrimary)
+                    .frame(width: 64, height: 64)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
                     Text(displayName)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.loopedTextPrimary)
+                        .font(.loopedSubheadMedium)
+                        .foregroundColor(isAnonymous ? .loopedSecondary : .loopedTextPrimary)
 
                     Text(handle)
-                        .font(.subheadline)
+                        .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                 }
 
                 Spacer()
             }
 
-            // Bio - left aligned
-            Text(bioDisplay.text)
-                .font(.body)
-                .foregroundColor(bioDisplay.isPlaceholder ? .loopedTextSecondary : .loopedTextPrimary)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 20)
-        .padding(.horizontal, 16)
-    }
-
-    private var headerSkeleton: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 16) {
-                Circle()
-                    .fill(Color.loopedTextSecondary.opacity(0.18))
-                    .frame(width: 80, height: 80)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.loopedTextSecondary.opacity(0.18))
-                        .frame(width: 160, height: 18)
-
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.loopedTextSecondary.opacity(0.14))
-                        .frame(width: 110, height: 14)
-                }
-
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.loopedTextSecondary.opacity(0.16))
-                    .frame(height: 14)
-
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.loopedTextSecondary.opacity(0.14))
-                    .frame(height: 14)
-
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.loopedTextSecondary.opacity(0.12))
-                    .frame(width: 220, height: 14)
+            if !resolvedBio.isEmpty {
+                Text(resolvedBio)
+                    .font(.loopedBody)
+                    .foregroundColor(isBioAvailable ? .loopedTextPrimary : .loopedTextSecondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 20)
+        .padding(.vertical, 16)
         .padding(.horizontal, 16)
-        .shimmering()
-        .accessibilityHidden(true)
     }
 }
 
 struct ProfileStatsView: View {
     let userProfile: UserProfile?
     let isLoading: Bool
+    let isAnonymous: Bool
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Years in Loop and Company - left aligned
-            if let profile = resolvedProfile, !isLoading {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                if let yearsText = yearsInLoopText, !isAnonymous {
                     HStack(spacing: 8) {
                         Image(systemName: "calendar")
                             .foregroundColor(.loopedTextSecondary)
                             .font(.system(size: 16))
-                        
-                        Text(profile.formattedYearsInLoop)
-                            .font(.subheadline)
+
+                        Text(yearsText)
+                            .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedTextSecondary)
-                        
+
                         Spacer()
                     }
-                    
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color.loopedPrimary)
-                            .frame(width: 16, height: 16)
-                            .overlay(
-                                Text(String(profile.resolvedCompany.prefix(1)).uppercased())
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
-                        
-                        Text(profile.formattedJobTitle)
-                            .font(.subheadline)
-                            .foregroundColor(.loopedTextSecondary)
-                        
-                        Spacer()
-                    }
+                } else if !isAnonymous {
+                    Text("Years in the Loop not available")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
                 }
-                
-                // Follower Stats placeholder
-                HStack(spacing: 16) {
-                    StatPill(title: "Following", value: profile.followingCount)
-                    StatPill(title: "Followers", value: profile.followersCount)
+
+                if let companyName = companyName {
+                    HStack(spacing: 8) {
+                        CompanyIconView(company: companyName)
+
+                        Text("Works at \(companyName)")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        Spacer()
+                    }
+                } else {
+                    Text("Workplace not available")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+            }
+
+            if let followingCount = followingCount, let followersCount = followersCount {
+                HStack(spacing: 12) {
+                    Text("\(followingCount)")
+                        .font(.loopedBodyStrong)
+                        .foregroundColor(.loopedTextPrimary)
+                    Text("Following")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+
+                    Text("\(followersCount)")
+                        .font(.loopedBodyStrong)
+                        .foregroundColor(.loopedTextPrimary)
+                    Text("Followers")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+
                     Spacer()
                 }
             } else {
-                statsSkeleton
+                Text("Follower stats not available")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
-        .padding(.bottom, 16)
+        .padding(.bottom, 8)
     }
     
     private var resolvedProfile: UserProfile? {
@@ -320,51 +296,53 @@ struct ProfileStatsView: View {
         return nil
     }
 
-    private var statsSkeleton: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color.loopedTextSecondary.opacity(0.16))
-                .frame(width: 170, height: 12)
+    private var companyName: String? {
+        let rawCompany = userProfile?.company ?? authViewModel.currentUser?.companyName ?? ""
+        let trimmed = rawCompany.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color.loopedTextSecondary.opacity(0.14))
-                .frame(width: 220, height: 12)
+    private var yearsInLoopText: String? {
+        if let profile = userProfile { return profile.formattedYearsInLoop }
+        return nil
+    }
 
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.loopedTextSecondary.opacity(0.12))
-                    .frame(width: 90, height: 24)
+    private var followingCount: Int? {
+        if let profile = userProfile { return profile.followingCount }
+        return authViewModel.currentUser?.followingCount
+    }
 
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.loopedTextSecondary.opacity(0.12))
-                    .frame(width: 90, height: 24)
-
-                Spacer()
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .shimmering()
-        .accessibilityHidden(true)
+    private var followersCount: Int? {
+        if let profile = userProfile { return profile.followersCount }
+        return authViewModel.currentUser?.followerCount
     }
 }
 
-private struct StatPill: View {
-    let title: String
-    let value: Int
-    
+private struct CompanyIconView: View {
+    let company: String
+
+    private var usesGoogleLogo: Bool {
+        company.lowercased().contains("google")
+    }
+
     var body: some View {
-        HStack(spacing: 4) {
-            Text("\(value)")
-                .font(.headline)
-                .foregroundColor(.loopedTextPrimary)
-            Text(title)
-                .font(.subheadline)
-                .foregroundColor(.loopedTextSecondary)
+        Group {
+            if usesGoogleLogo {
+                Image("google-logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 16, height: 16)
+            } else {
+                Circle()
+                    .fill(Color.loopedPrimary)
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        Text(String(company.prefix(1)).uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.loopedMutedBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -372,72 +350,81 @@ struct ProfileActionButtons: View {
     @ObservedObject var viewModel: ProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
     let userProfile: UserProfile?
+    @Binding var isAnonymous: Bool
 
     var body: some View {
-        HStack(spacing: 64) {
+        HStack(spacing: 12) {
             if userProfile?.isCurrentUser ?? true {
                 NavigationLink(destination: EditProfileView(viewModel: viewModel)) {
-                    Text("Edit Profile")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                        )
+                    ProfileActionButton(title: "Edit Profile", style: .outline)
                 }
                 .buttonStyle(PlainButtonStyle())
 
                 NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
-                    Text("Settings")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                        )
+                    ProfileActionButton(title: "Settings", style: .outline)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Button(action: {
+                    isAnonymous.toggle()
+                }) {
+                    ProfileActionButton(
+                        title: "Anonymous",
+                        style: isAnonymous ? .filled : .outline
+                    )
                 }
                 .buttonStyle(PlainButtonStyle())
             } else {
                 Button(action: {
                     // TODO: Implement follow action
                 }) {
-                    Text("Follow")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                        )
+                    ProfileActionButton(title: "Follow", style: .outline)
                 }
                 .buttonStyle(PlainButtonStyle())
 
                 Button(action: {
                     // TODO: Implement message action
                 }) {
-                    Text("Message")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                        )
+                    ProfileActionButton(title: "Message", style: .outline)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
         }
-        .padding(.top, 10)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+    }
+}
+
+private enum ProfileActionButtonStyle {
+    case outline
+    case filled
+}
+
+private struct ProfileActionButton: View {
+    let title: String
+    let style: ProfileActionButtonStyle
+
+    var body: some View {
+        Text(title)
+            .font(.loopedSubBodyMedium)
+            .foregroundColor(style == .filled ? .white : .loopedTextPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                Group {
+                    if style == .filled {
+                        Color.loopedSecondary
+                    } else {
+                        Color.clear
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: style == .filled ? 0 : 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -513,8 +500,10 @@ struct PostsList: View {
         } else {
             ForEach(posts) { post in
                 PostCard(post: post)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
             }
         }
     }
