@@ -53,10 +53,14 @@ struct ProfileView: View {
             // Fixed collapsible header (middle layer)
             VStack(spacing: 0) {
                 // Profile Header
-                ProfileHeaderView(userProfile: viewModel.userProfile)
+                ProfileHeaderView(
+                    userProfile: viewModel.userProfile,
+                    isLoading: viewModel.isLoading,
+                    errorMessage: viewModel.errorMessage
+                )
 
                 // Stats Section
-                ProfileStatsView(userProfile: viewModel.userProfile)
+                ProfileStatsView(userProfile: viewModel.userProfile, isLoading: viewModel.isLoading)
 
                 // Action Buttons
                 ProfileActionButtons(viewModel: viewModel, userProfile: viewModel.userProfile)
@@ -115,13 +119,60 @@ struct ProfileView: View {
 
 struct ProfileHeaderView: View {
     let userProfile: UserProfile?
+    let isLoading: Bool
+    let errorMessage: String?
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
+        Group {
+            if isLoading {
+                headerSkeleton
+            } else {
+                headerContent
+            }
+        }
+    }
+
+    private var displayName: String {
+        resolvedProfile?.resolvedDisplayName ?? "Looped User"
+    }
+
+    private var handle: String {
+        if let handle = resolvedProfile?.formattedHandle { return handle }
+        if let username = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle {
+            let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            return "@\(trimmed.isEmpty ? "looped" : trimmed)"
+        }
+        return "@looped"
+    }
+
+    private var bioDisplay: (text: String, isPlaceholder: Bool) {
+        if let error = errorMessage, !error.isEmpty {
+            return ("Bio unavailable", true)
+        }
+
+        let rawBio = resolvedProfile?.bio ?? ""
+        let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return ("No bio yet", true)
+        }
+
+        return (trimmed, false)
+    }
+
+    private var resolvedProfile: UserProfile? {
+        if let profile = userProfile { return profile }
+        if let user = authViewModel.currentUser {
+            return UserProfile.from(user: user, isCurrentUser: true)
+        }
+        return nil
+    }
+
+    private var headerContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Profile Avatar with Name and Handle beside it
             HStack(spacing: 16) {
-                AsyncImage(url: URL(string: userProfile?.profileImageURL ?? "")) { image in
+                AsyncImage(url: URL(string: resolvedProfile?.profileImageURL ?? "")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -153,9 +204,9 @@ struct ProfileHeaderView: View {
             }
 
             // Bio - left aligned
-            Text(bioPlaceholder)
+            Text(bioDisplay.text)
                 .font(.body)
-                .foregroundColor(.loopedTextPrimary)
+                .foregroundColor(bioDisplay.isPlaceholder ? .loopedTextSecondary : .loopedTextPrimary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -164,34 +215,57 @@ struct ProfileHeaderView: View {
         .padding(.horizontal, 16)
     }
 
-    private var displayName: String {
-        userProfile?.displayName ?? authViewModel.currentUser?.displayName ?? "Looped User"
-    }
+    private var headerSkeleton: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 16) {
+                Circle()
+                    .fill(Color.loopedTextSecondary.opacity(0.18))
+                    .frame(width: 80, height: 80)
 
-    private var handle: String {
-        if let handle = userProfile?.formattedHandle { return handle }
-        if let username = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle {
-            return "@\(username)"
-        }
-        return "@looped"
-    }
+                VStack(alignment: .leading, spacing: 8) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.loopedTextSecondary.opacity(0.18))
+                        .frame(width: 160, height: 18)
 
-    private var bioPlaceholder: String {
-        if let bio = userProfile?.bio ?? authViewModel.currentUser?.bio, !bio.isEmpty {
-            return bio
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.loopedTextSecondary.opacity(0.14))
+                        .frame(width: 110, height: 14)
+                }
+
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.loopedTextSecondary.opacity(0.16))
+                    .frame(height: 14)
+
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.loopedTextSecondary.opacity(0.14))
+                    .frame(height: 14)
+
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.loopedTextSecondary.opacity(0.12))
+                    .frame(width: 220, height: 14)
+            }
         }
-        return "Add your bio in Settings"
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 20)
+        .padding(.horizontal, 16)
+        .shimmering()
+        .accessibilityHidden(true)
     }
 }
 
 struct ProfileStatsView: View {
     let userProfile: UserProfile?
+    let isLoading: Bool
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Years in Loop and Company - left aligned
-            if let profile = resolvedProfile {
+            if let profile = resolvedProfile, !isLoading {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: "calendar")
@@ -210,7 +284,7 @@ struct ProfileStatsView: View {
                             .fill(Color.loopedPrimary)
                             .frame(width: 16, height: 16)
                             .overlay(
-                                Text(String(profile.company.prefix(1)).uppercased())
+                                Text(String(profile.resolvedCompany.prefix(1)).uppercased())
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
                             )
@@ -230,8 +304,7 @@ struct ProfileStatsView: View {
                     Spacer()
                 }
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                statsSkeleton
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -245,6 +318,33 @@ struct ProfileStatsView: View {
             return UserProfile.from(user: user, isCurrentUser: true)
         }
         return nil
+    }
+
+    private var statsSkeleton: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.loopedTextSecondary.opacity(0.16))
+                .frame(width: 170, height: 12)
+
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.loopedTextSecondary.opacity(0.14))
+                .frame(width: 220, height: 12)
+
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.loopedTextSecondary.opacity(0.12))
+                    .frame(width: 90, height: 24)
+
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.loopedTextSecondary.opacity(0.12))
+                    .frame(width: 90, height: 24)
+
+                Spacer()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .shimmering()
+        .accessibilityHidden(true)
     }
 }
 

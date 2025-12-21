@@ -75,13 +75,13 @@ struct UserSettingsView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    // Display Name Section
+                    // Full Name Section
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Display Name")
+                        Text("Full Name")
                             .font(.loopedBodyStrong)
                             .foregroundColor(.loopedTextPrimary)
 
-                        TextField("Display Name", text: $displayName)
+                        TextField("Full Name", text: $displayName)
                             .font(.loopedBody)
                             .foregroundColor(.loopedTextPrimary)
                             .padding(12)
@@ -106,15 +106,15 @@ struct UserSettingsView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    // Workplace Info Section
+                    // Workplace/School Info Section
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Workplace Information")
+                        Text("\(organizationLabel) Information")
                             .font(.loopedBodyStrong)
                             .foregroundColor(.loopedTextPrimary)
                             .padding(.horizontal, 20)
 
                         VStack(spacing: 0) {
-                            UserSettingsInfoRow(label: "Company", value: currentUserCompany)
+                            UserSettingsInfoRow(label: organizationLabel, value: currentOrganizationName)
                             Divider().padding(.horizontal, 20)
                             UserSettingsInfoRow(label: "Position", value: currentUserPosition)
                             Divider().padding(.horizontal, 20)
@@ -191,12 +191,15 @@ struct UserSettingsInfoRow: View {
 private extension UserSettingsView {
     var currentUser: User? { authViewModel.currentUser }
     var currentUserCompany: String { currentUser?.company ?? "Looped" }
-    var currentUserPosition: String { "Team Member" }
+    var currentOrganizationName: String { authViewModel.selectedOrganization?.name ?? currentUserCompany }
+    var organizationKind: OrganizationKind { authViewModel.selectedOrganization?.kind ?? .company }
+    var organizationLabel: String { organizationKind == .school ? "School" : "Workplace" }
+    var currentUserPosition: String { organizationKind == .school ? "Student" : "Team Member" }
     var currentUserVerified: String { currentUser?.isVerified == true ? "Yes" : "No" }
 
     func hydrateFromUser() {
         guard let user = currentUser, !hasLoadedUser else { return }
-        username = "@\(user.handle)"
+        username = user.username ?? user.handle
         displayName = user.displayName ?? user.handle
         bio = user.bio ?? ""
         hasLoadedUser = true

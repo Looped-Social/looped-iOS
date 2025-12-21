@@ -245,7 +245,7 @@ struct UserProfileInfoSection: View {
                 .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(userProfile.displayName ?? "Anonymous")
+                    Text(userProfile.resolvedDisplayName)
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.loopedTextPrimary)
@@ -270,13 +270,11 @@ struct UserProfileInfoSection: View {
                 Spacer()
             }
 
-            if let bio = userProfile.bio, !bio.isEmpty {
-                Text(bio)
-                    .font(.body)
-                    .foregroundColor(.loopedTextPrimary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            Text(bioDisplay.text)
+                .font(.body)
+                .foregroundColor(bioDisplay.isPlaceholder ? .loopedTextSecondary : .loopedTextPrimary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -296,12 +294,12 @@ struct UserProfileInfoSection: View {
                         .fill(Color.loopedPrimary)
                         .frame(width: 16, height: 16)
                         .overlay(
-                            Text(String(userProfile.company.prefix(1)).uppercased())
+                            Text(String(userProfile.resolvedCompany.prefix(1)).uppercased())
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.white)
                         )
 
-                    Text("Works at \(userProfile.company)")
+                    Text("Works at \(userProfile.resolvedCompany)")
                         .font(.subheadline)
                         .foregroundColor(.loopedTextSecondary)
 
@@ -336,6 +334,15 @@ struct UserProfileInfoSection: View {
         .padding(.horizontal, 16)
         .padding(.top, 50)
         .padding(.bottom, 20)
+    }
+
+    private var bioDisplay: (text: String, isPlaceholder: Bool) {
+        let rawBio = userProfile.bio ?? ""
+        let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return ("No bio yet", true)
+        }
+        return (trimmed, false)
     }
 }
 

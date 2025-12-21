@@ -35,6 +35,10 @@ class UserService: UserServiceProtocol {
         return try await apiClient.put("/users/me", body: request)
     }
     
+    func deleteAccount(mode: DeleteAccountMode = .hard) async throws {
+        try await apiClient.delete("/v1/users/me?mode=\(mode.rawValue)")
+    }
+
     func verifyEmployment(verification: EmploymentVerification) async throws {
         let _: EmptyResponse = try await apiClient.post("/users/verify-employment", body: verification)
     }

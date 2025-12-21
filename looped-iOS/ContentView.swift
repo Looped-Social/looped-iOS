@@ -237,6 +237,11 @@ struct MainTabView: View {
 
             }
         }
+        .task {
+            await feedViewModel.loadFollowedCommunities()
+        }
+        .environmentObject(feedViewModel)
+        .environmentObject(commentsManager)
         // MODAL OVERLAY - Completely separate from main content
         .overlay(
             Group {
@@ -356,7 +361,7 @@ struct MainTabView: View {
     }
 
     private var canCreatePost: Bool {
-        authViewModel.currentUser?.isVerified == true
+        feedViewModel.followedCommunities.contains { $0.canPost }
     }
 }
 

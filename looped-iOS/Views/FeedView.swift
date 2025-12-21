@@ -65,14 +65,23 @@ struct FeedView: View {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         headerVisible = true
                     }
-                    await viewModel.loadPosts()
+                    await viewModel.loadInitial()
                 }
             }
 
             // Fixed header with proper safe area handling
             VStack(spacing: 0) {
                 FeedHeader(onProfileTap: onProfileTap)
-                FeedTabs()
+                FeedTabs(
+                    communities: viewModel.followedCommunities,
+                    selectedCommunityId: viewModel.selectedCommunity?.id,
+                    onSelectCommunity: { community in
+                        Task { await viewModel.selectCommunity(community) }
+                    },
+                    onSelectAll: {
+                        Task { await viewModel.selectAllCommunities() }
+                    }
+                )
             }
             .frame(height: headerHeight)
             .background(
@@ -86,7 +95,7 @@ struct FeedView: View {
         .background(Color.loopedBackground)
         .navigationBarHidden(true)
         .task {
-            await viewModel.loadPosts()
+            await viewModel.loadInitial()
         }
         .onAppear {
             headerVisible = true

@@ -20,8 +20,8 @@ protocol AuthServiceProtocol {
 }
 
 protocol FeedServiceProtocol {
-    func fetchFeed(limit: Int, cursor: String?) async throws -> FeedPage
-    func createPost(content: String, isAnonymous: Bool) async throws -> Post
+    func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage
+    func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
     func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
@@ -51,8 +51,14 @@ protocol UserServiceProtocol {
     func getUser(by id: Int) async throws -> User
     func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
+    func deleteAccount(mode: DeleteAccountMode) async throws
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage
+}
+
+enum DeleteAccountMode: String {
+    case hard
+    case soft
 }
 
 protocol CommentsServiceProtocol {
@@ -60,6 +66,13 @@ protocol CommentsServiceProtocol {
     func fetchReplies(commentId: Int, limit: Int, cursor: String?) async throws -> CommentPage
     func createComment(postId: Int, content: String, parentId: Int?) async throws -> Comment
     func likeComment(commentId: Int) async throws -> CommentLikeResponse
+}
+
+protocol CommunityServiceProtocol {
+    func fetchFollowedCommunities(limit: Int, cursor: String?) async throws -> CommunityPage
+    func searchCommunities(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult>
+    func followCommunity(id: Int) async throws
+    func unfollowCommunity(id: Int) async throws
 }
 
 protocol DiscoveryServiceProtocol {

@@ -5,120 +5,102 @@ import SwiftUI
 struct OrganizationSelectionView: View {
     let title: String
     let organizations: [Organization]
+    let onSelect: (Organization) -> Void
     let onNavigate: (AuthScreen) -> Void
 
     @State private var searchText = ""
 
-    private var isStudentFlow: Bool {
-        title.contains("school")
+    private var filteredOrganizations: [Organization] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return organizations }
+        let query = trimmed.lowercased()
+        return organizations.filter { org in
+            org.name.lowercased().contains(query) || org.logoText.lowercased().contains(query)
+        }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with back button and title
-            HStack {
-                Button(action: {
-                    onNavigate(.profileSetup)
-                }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.loopedPrimary)
-                }
-
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
                 Spacer()
+                    .frame(height: geometry.size.height * 0.08)
 
                 Text(title)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
+                    .font(.loopedHeadingMedium)
+                    .foregroundColor(.loopedContrast)
+                    .multilineTextAlignment(.center)
 
-                Spacer()
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.loopedTextSecondary)
 
-                // Invisible spacer for balance
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .medium))
-                    .opacity(0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 60)
-            .padding(.bottom, 24)
-
-            // Search bar
-            VStack {
-                TextField("", text: $searchText)
-                    .font(.loopedBody)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.white)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.loopedPrimary.opacity(0.6), lineWidth: 1.5)
-                    )
-                    .cornerRadius(8)
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
-
-            // Popular section
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("Popular:")
-                        .font(.loopedBodyMedium)
+                    TextField("", text: $searchText)
+                        .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
-                    Spacer()
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                )
+                .cornerRadius(22)
+                .padding(.horizontal, 32)
+                .padding(.top, 16)
 
-                // Organizations list
                 ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(organizations) { org in
-                            OrganizationRow(organization: org) {
-                                onNavigate(.verificationIntro(isStudent: isStudentFlow))
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredOrganizations) { organization in
+                            OrganizationListRow(organization: organization) {
+                                onSelect(organization)
+                                onNavigate(.communitySelection(isStudent: organization.kind == .school))
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
                 }
-            }
 
-            Spacer()
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color.loopedBackground.ignoresSafeArea())
         }
     }
 }
 
-// MARK: - Organization Row
-
-struct OrganizationRow: View {
+private struct OrganizationListRow: View {
     let organization: Organization
-    let onTap: () -> Void
+    let onSelect: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        Button(action: onSelect) {
             HStack(spacing: 12) {
-                // Logo circle
                 Circle()
-                    .fill(Color(red: 0.2, green: 0.4, blue: 0.7)) // Blue color matching design
+                    .fill(Color.loopedMutedBackground)
                     .frame(width: 48, height: 48)
                     .overlay(
                         Text(organization.logoText)
-                            .font(.system(size: 8, weight: .medium))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedContrast)
                     )
 
-                // Name and category
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(organization.name)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    Text(organization.category)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                }
+                Text(organization.name)
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextPrimary)
 
                 Spacer()
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.white)
+            .cornerRadius(14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+            )
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -127,6 +109,7 @@ struct OrganizationRow: View {
 #Preview {
     OrganizationSelectionView(
         title: "Where do you work?",
-        organizations: MockOrganizations.companies
+        organizations: MockOrganizations.companies,
+        onSelect: { _ in }
     ) { _ in }
 }

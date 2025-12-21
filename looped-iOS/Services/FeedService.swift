@@ -9,12 +9,12 @@ class FeedService: FeedServiceProtocol {
         self.defaultLimit = defaultLimit
     }
     
-    func fetchFeed(limit: Int, cursor: String?) async throws -> FeedPage {
-        try await fetchPosts(from: "/v1/feed", limit: limit, cursor: cursor)
+    func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage {
+        try await fetchPosts(from: "/v1/feed", limit: limit, cursor: cursor, communityId: communityId)
     }
     
-    func createPost(content: String, isAnonymous: Bool) async throws -> Post {
-        let request = CreatePostRequestDTO(content: content, mediaAssetId: nil)
+    func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post {
+        let request = CreatePostRequestDTO(content: content, mediaAssetId: nil, communityId: communityId)
         let headers = ["Idempotency-Key": UUID().uuidString]
         let dto: PostDTO = try await apiClient.postWithHeaders("/v1/posts", body: request, headers: headers)
         return Post(dto: dto)
@@ -28,15 +28,15 @@ class FeedService: FeedServiceProtocol {
     }
     
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
-        try await fetchPosts(from: "/v1/users/\(userId)/posts", limit: limit, cursor: cursor)
+        try await fetchPosts(from: "/v1/users/\(userId)/posts", limit: limit, cursor: cursor, communityId: nil)
     }
     
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
-        try await fetchPosts(from: "/v1/posts/liked", limit: limit, cursor: cursor)
+        try await fetchPosts(from: "/v1/posts/liked", limit: limit, cursor: cursor, communityId: nil)
     }
     
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
-        try await fetchPosts(from: "/v1/posts/saved", limit: limit, cursor: cursor)
+        try await fetchPosts(from: "/v1/posts/saved", limit: limit, cursor: cursor, communityId: nil)
     }
     
     func savePost(postId: Int) async throws -> Bool {
@@ -49,8 +49,11 @@ class FeedService: FeedServiceProtocol {
         return !response.saved
     }
     
-    private func fetchPosts(from basePath: String, limit: Int, cursor: String?) async throws -> FeedPage {
+    private func fetchPosts(from basePath: String, limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage {
         var endpoint = "\(basePath)?limit=\(limit > 0 ? limit : defaultLimit)"
+        if let communityId {
+            endpoint += "&communityId=\(communityId)"
+        }
         if let cursor = cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"

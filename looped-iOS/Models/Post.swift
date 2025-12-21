@@ -8,6 +8,7 @@ struct Post: Codable, Identifiable {
     let authorId: UUID
     let authorDisplayName: String?
     let company: String
+    let communityId: Int?
     let isAnonymous: Bool
     let reactionCount: Int
     let commentsCount: Int
@@ -27,6 +28,7 @@ struct Post: Codable, Identifiable {
         authorId: UUID,
         authorDisplayName: String? = nil,
         company: String,
+        communityId: Int? = nil,
         isAnonymous: Bool,
         reactionCount: Int,
         commentsCount: Int = 0,
@@ -45,6 +47,7 @@ struct Post: Codable, Identifiable {
         self.authorId = authorId
         self.authorDisplayName = authorDisplayName
         self.company = company
+        self.communityId = communityId
         self.isAnonymous = isAnonymous
         self.reactionCount = reactionCount
         self.commentsCount = commentsCount
@@ -77,6 +80,7 @@ extension Post {
             authorId: UUID.fromBackendId(dto.authorId),
             authorDisplayName: nil,
             company: "",
+            communityId: dto.communityId,
             isAnonymous: false,
             reactionCount: dto.likesCount,
             commentsCount: dto.commentsCount ?? 0,
@@ -107,6 +111,7 @@ extension Post {
             authorId: authorId,
             authorDisplayName: authorDisplayName,
             company: company,
+            communityId: communityId,
             isAnonymous: isAnonymous,
             reactionCount: reactionCount ?? self.reactionCount,
             commentsCount: commentsCount ?? self.commentsCount,

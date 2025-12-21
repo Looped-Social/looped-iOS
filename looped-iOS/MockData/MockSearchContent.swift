@@ -68,6 +68,17 @@ struct MockSearchContent {
         "#project", "#deadline", "#coffee", "#team", "#collaboration", "#innovation"
     ]
 
+    static let communities: [SearchResultLoop] = [
+        SearchResultLoop(name: "Finance", description: "Markets, comp, and insights", memberCount: 1200),
+        SearchResultLoop(name: "New Hires", description: "Onboarding tips and questions", memberCount: 640),
+        SearchResultLoop(name: "Engineering", description: "Build, ship, and debug", memberCount: 980),
+        SearchResultLoop(name: "Product", description: "Roadmaps and strategy", memberCount: 540),
+        SearchResultLoop(name: "Design", description: "UX feedback and inspiration", memberCount: 430),
+        SearchResultLoop(name: "Company Culture", description: "Events and happenings", memberCount: 760),
+        SearchResultLoop(name: "Benefits & HR", description: "Policies and resources", memberCount: 390),
+        SearchResultLoop(name: "Sales", description: "Pipeline and playbooks", memberCount: 420)
+    ]
+
     static var filterOptions: [SearchFilterOption] {
         [
             SearchFilterOption(title: "All Loops", apiKey: "all"),

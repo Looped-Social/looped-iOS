@@ -10,6 +10,7 @@ enum IconSource {
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
+    private let userService: UserServiceProtocol = UserService()
 
     // Toggle states
     @State private var showFollowerCount = true
@@ -18,6 +19,9 @@ struct SettingsView: View {
     // Alert states
     @State private var showLogoutAlert = false
     @State private var showDeleteAccountAlert = false
+    @State private var showDeleteErrorAlert = false
+    @State private var deleteErrorMessage = ""
+    @State private var isDeletingAccount = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -140,10 +144,26 @@ struct SettingsView: View {
         .alert("Delete Account", isPresented: $showDeleteAccountAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                // TODO: Implement delete account functionality
+                guard !isDeletingAccount else { return }
+                isDeletingAccount = true
+                Task {
+                    defer { isDeletingAccount = false }
+                    do {
+                        try await userService.deleteAccount(mode: .hard)
+                        authViewModel.signOut()
+                    } catch {
+                        deleteErrorMessage = error.localizedDescription
+                        showDeleteErrorAlert = true
+                    }
+                }
             }
         } message: {
             Text("Are you sure you want to permanently delete your account? This action cannot be undone.")
+        }
+        .alert("Delete Failed", isPresented: $showDeleteErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(deleteErrorMessage)
         }
     }
 }

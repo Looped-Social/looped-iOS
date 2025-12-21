@@ -5,21 +5,14 @@ enum FeedTab: String, CaseIterable {
     case hot = "Latest"
 }
 
-enum FilterTag: String, CaseIterable {
-    case allLoops = "All Loops"
-    case jpMorgan = "Jp Morgan"
-    case finance = "Finance"
-    case laborDay = "Interns"
-    
-    var displayName: String {
-        return self.rawValue
-    }
-}
-
 struct FeedTabs: View {
     @State private var selectedTab: FeedTab = .forYou
-    @State private var selectedFilter: FilterTag = .allLoops // Default selected
     @State private var isPlus: Bool = false
+
+    let communities: [CommunitySummary]
+    let selectedCommunityId: Int?
+    let onSelectCommunity: (CommunitySummary) -> Void
+    let onSelectAll: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -86,27 +79,55 @@ struct FeedTabs: View {
                     .buttonStyle(PlainButtonStyle())
 
                     if !isPlus {
-                        ForEach(FilterTag.allCases, id: \.self) { filter in
+                        Group {
                             Button(action: {
                                 let impact = UIImpactFeedbackGenerator(style: .light)
                                 impact.impactOccurred()
-                                selectedFilter = filter
+                                onSelectAll()
                             }) {
-                                Text(filter.displayName)
+                                Text("All Loops")
                                     .font(.subheadline)
                                     .fontWeight(.medium)
-                                    .foregroundColor(selectedFilter == filter ? .white : .loopedTextSecondary)
-                                    .padding(.horizontal,8)
+                                    .foregroundColor(selectedCommunityId == nil ? .white : .loopedTextSecondary)
+                                    .padding(.horizontal, 8)
                                     .padding(.vertical, 8)
-                                    .background(selectedFilter == filter ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.1))
+                                    .background(
+                                        selectedCommunityId == nil
+                                        ? Color.loopedPrimary
+                                        : Color.loopedTextSecondary.opacity(0.1)
+                                    )
                                     .cornerRadius(20)
                             }
                             .buttonStyle(PlainButtonStyle())
+
+                            ForEach(communities) { community in
+                                Button(action: {
+                                    let impact = UIImpactFeedbackGenerator(style: .light)
+                                    impact.impactOccurred()
+                                    onSelectCommunity(community)
+                                }) {
+                                    Text(community.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(selectedCommunityId == community.id ? .white : .loopedTextSecondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            selectedCommunityId == community.id
+                                            ? Color.loopedPrimary
+                                            : Color.loopedTextSecondary.opacity(0.1)
+                                        )
+                                        .cornerRadius(20)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
                         }
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .leading).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
+                        .transition(
+                            .asymmetric(
+                                insertion: .move(edge: .leading).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            )
+                        )
                     }
                 }
                 .padding(.horizontal, 16)
@@ -120,7 +141,12 @@ struct FeedTabs: View {
 #Preview {
     VStack {
         FeedHeader()
-        FeedTabs()
+        FeedTabs(
+            communities: [],
+            selectedCommunityId: nil,
+            onSelectCommunity: { _ in },
+            onSelectAll: {}
+        )
         Spacer()
     }
     .background(Color.loopedBackground.ignoresSafeArea())

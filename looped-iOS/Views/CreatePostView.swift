@@ -5,20 +5,17 @@ struct CreatePostView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var postText: String = ""
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
-    @State private var selectedChannel: String
+    @State private var selectedCommunityId: Int?
     @State private var isSubmitting: Bool = false
     @State private var showSettings: Bool = false
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var showMediaPicker: Bool = false
     @State private var showCamera: Bool = false
 
-    let feedViewModel: FeedViewModel
-    private let channelNames: [String]
+    @ObservedObject var feedViewModel: FeedViewModel
 
     init(feedViewModel: FeedViewModel) {
         self.feedViewModel = feedViewModel
-        self.channelNames = ["general"]
-        _selectedChannel = State(initialValue: self.channelNames.first ?? "general")
     }
     
     private var characterLimit: Int { 280 }
@@ -29,8 +26,31 @@ struct CreatePostView: View {
         let isTextValid = postText.count <= characterLimit
         return (hasText || hasMedia) && isTextValid
     }
+    private var verifiedCommunities: [CommunitySummary] {
+        feedViewModel.followedCommunities.filter { $0.canPost }
+    }
+
+    private var selectedCommunity: CommunitySummary? {
+        verifiedCommunities.first { $0.id == selectedCommunityId }
+    }
+
+    private var selectedCommunityName: String {
+        selectedCommunity?.name ?? "Select community"
+    }
+
     private var canPost: Bool {
-        authViewModel.currentUser?.isVerified == true
+        selectedCommunity != nil
+    }
+
+    private var defaultCommunityId: Int? {
+        if let lastId = feedViewModel.lastPostedCommunityId,
+           verifiedCommunities.contains(where: { $0.id == lastId }) {
+            return lastId
+        }
+        if let selected = feedViewModel.selectedCommunity, selected.canPost {
+            return selected.id
+        }
+        return verifiedCommunities.first?.id
     }
     
     var body: some View {
@@ -38,32 +58,45 @@ struct CreatePostView: View {
             VStack(spacing: 0) {
                 // Main content
                 VStack(alignment: .leading, spacing: 16) {
-                    // Channel selector
+                    // Community selector
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Channel")
+                        Text("Community")
                             .font(.loopedSubBodyMedium)
                             .foregroundColor(.loopedTextSecondary)
-                        
-                        Menu {
-                            ForEach(channelNames, id: \.self) { channel in
-                                Button(channel) {
-                                    selectedChannel = channel
-                                }
-                            }
-                        } label: {
+
+                        if verifiedCommunities.isEmpty {
                             HStack {
-                                Text(selectedChannel)
+                                Text("No verified communities yet")
                                     .font(.loopedBody)
-                                    .foregroundColor(.loopedTextPrimary)
-                                Spacer()
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 12, weight: .medium))
                                     .foregroundColor(.loopedTextSecondary)
+                                Spacer()
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } else {
+                            Menu {
+                                ForEach(verifiedCommunities) { community in
+                                    Button(community.name) {
+                                        selectedCommunityId = community.id
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(selectedCommunityName)
+                                        .font(.loopedBody)
+                                        .foregroundColor(.loopedTextPrimary)
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(Color.loopedMutedBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
                         }
                     }
 
@@ -73,7 +106,7 @@ struct CreatePostView: View {
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.loopedSecondary)
 
-                            Text("Verification is required to post. You can still browse all posts.")
+                            Text("Verification is required to post in a community.")
                                 .font(.loopedSubBodyRegular)
                                 .foregroundColor(.loopedTextSecondary)
                         }
@@ -235,10 +268,19 @@ struct CreatePostView: View {
                 }
             ))
         }
+        .onAppear {
+            syncSelectedCommunity()
+        }
+        .onChange(of: feedViewModel.selectedCommunity?.id) { _ in
+            syncSelectedCommunity()
+        }
+        .onChange(of: feedViewModel.followedCommunities) { _ in
+            syncSelectedCommunity()
+        }
     }
     
     private func submitPost() async {
-        guard canPost else { return }
+        guard let communityId = selectedCommunity?.id else { return }
         guard !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
         isSubmitting = true
@@ -246,11 +288,19 @@ struct CreatePostView: View {
         await feedViewModel.createPost(
             content: postText.trimmingCharacters(in: .whitespacesAndNewlines),
             isAnonymous: isAnonymous,
-            channel: selectedChannel
+            communityId: communityId
         )
         
         isSubmitting = false
         dismiss()
+    }
+
+    private func syncSelectedCommunity() {
+        if let selectedCommunityId,
+           verifiedCommunities.contains(where: { $0.id == selectedCommunityId }) {
+            return
+        }
+        selectedCommunityId = defaultCommunityId
     }
 }
 

@@ -4,11 +4,20 @@ struct CommentsView: View {
     let post: Post
     let onDismiss: () -> Void
     @EnvironmentObject var commentsManager: CommentsModalManager
+    @EnvironmentObject private var feedViewModel: FeedViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var commentText: String = ""
     @State private var keyboardHeight: CGFloat = 0
 
     private var comments: [Comment] {
         commentsManager.currentComments
+    }
+
+    private var canComment: Bool {
+        guard let communityId = post.communityId else {
+            return authViewModel.currentUser?.isVerified == true
+        }
+        return feedViewModel.followedCommunities.first(where: { $0.id == communityId })?.canPost == true
     }
 
     var body: some View {
@@ -158,6 +167,19 @@ private extension CommentsView {
                 .padding(.horizontal, 4)
             }
 
+            if !canComment {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "checkmark.seal")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.loopedSecondary)
+
+                    Text("Verification is required to comment in this community.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.horizontal, 4)
+            }
+
             HStack(alignment: .bottom, spacing: 12) {
                 // User avatar placeholder
                 AsyncImage(url: URL(string: "https://via.placeholder.com/32")) { image in
@@ -182,9 +204,11 @@ private extension CommentsView {
                 }
                 .background(Color.loopedMutedBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
+                .disabled(!canComment)
 
                 Button(action: {
                     Task {
+                        guard canComment else { return }
                         let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmed.isEmpty else { return }
                         await commentsManager.postComment(content: trimmed)
@@ -194,12 +218,12 @@ private extension CommentsView {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 26, weight: .semibold))
                         .foregroundColor(
-                            commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting
+                            commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting || !canComment
                             ? .loopedTextSecondary
                             : .loopedPrimary
                         )
                 }
-                .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting)
+                .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting || !canComment)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -267,4 +291,6 @@ private extension CommentsView {
 
     return CommentsView(post: samplePost) {}
         .environmentObject(manager)
+        .environmentObject(FeedViewModel())
+        .environmentObject(AuthViewModel())
 }

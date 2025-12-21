@@ -3,6 +3,7 @@ import SwiftUI
 struct AuthView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var currentScreen: AuthScreen = .onboarding
+    @State private var selectedLoopName: String = "Looped"
 
     var body: some View {
         Group {
@@ -13,25 +14,42 @@ struct AuthView: View {
                 }
             case .selectCompany:
                 OrganizationSelectionView(
-                    title: "Where do you work?",
-                    organizations: MockOrganizations.companies
+                    title: "Search for your school or\nplace of work",
+                    organizations: MockOrganizations.companies + MockOrganizations.schools,
+                    onSelect: { organization in
+                        authViewModel.selectedOrganization = organization
+                    }
                 ) { screen in
                     currentScreen = screen
                 }
             case .selectSchool:
                 OrganizationSelectionView(
                     title: "Select your school",
-                    organizations: MockOrganizations.schools
+                    organizations: MockOrganizations.schools,
+                    onSelect: { organization in
+                        authViewModel.selectedOrganization = organization
+                    }
                 ) { screen in
                     currentScreen = screen
                 }
+            case .communitySelection(let isStudent):
+                CommunitySelectionView(communities: MockSearchContent.communities) { selected in
+                    if let first = selected.first {
+                        selectedLoopName = first.name
+                    }
+                    if selected.isEmpty {
+                        authViewModel.onboardingComplete = true
+                    } else {
+                        currentScreen = .verificationIntro(isStudent: isStudent)
+                    }
+                }
             case .verificationIntro(let isStudent):
                 VerificationIntroView(
-                    loopName: "Looped",
+                    loopName: selectedLoopName,
                     currentStep: 1,
                     totalSteps: 5,
                     onBack: {
-                        currentScreen = isStudent ? .selectSchool : .selectCompany
+                        currentScreen = .communitySelection(isStudent: isStudent)
                     },
                     onContinue: {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
@@ -93,7 +111,7 @@ struct AuthView: View {
                 )
             case .verificationNotifications:
                 VerificationNotificationsView(
-                    loopName: "Looped",
+                    loopName: selectedLoopName,
                     currentStep: 5,
                     totalSteps: 5,
                     onEnableNotifications: { _ in
@@ -136,6 +154,7 @@ enum AuthScreen {
     case profileSetup
     case selectCompany
     case selectSchool
+    case communitySelection(isStudent: Bool)
     case verificationIntro(isStudent: Bool)
     case waysToVerifyCompany
     case waysToVerifyStudent

@@ -13,6 +13,7 @@ class AuthViewModel: ObservableObject {
     @Published var onboardingComplete = false
     @Published var showDeferredOnboardingAlert = false
     @Published var shouldEnterOnboardingFlow = false
+    @Published var selectedOrganization: Organization?
     
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol

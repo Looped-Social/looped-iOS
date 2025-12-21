@@ -22,21 +22,23 @@ enum TabItem: String, CaseIterable {
             return "profile-icon"
         }
     }
-    
-    var iconSize: CGSize {
+
+    var selectedIconName: String {
         switch self {
         case .home:
-            return CGSize(width: 35, height: 35)
+            return "home-selected"
         case .messages:
-            return CGSize(width: 27, height: 27)
+            return "messages-selected"
         case .search:
-            return CGSize(width: 30, height: 30)
+            return "search-selected"
         case .notifications:
-            return CGSize(width: 35, height: 35)
+            return "bell-selected"
         case .profile:
-            return CGSize(width: 30, height: 30)
+            return "profile-selected"
         }
     }
+    
+    static let iconSize = CGSize(width: 28, height: 28)
 }
 
 // MARK: - Custom Tab Bar View
@@ -77,16 +79,17 @@ struct TabBarButton: View {
         Button(action: action) {
             VStack(spacing: 0) {
                 Group {
-                        Image(tab.iconName)
-                            .resizable()
-                            .renderingMode(.template)
-                            .frame(width: tab.iconSize.width, height: tab.iconSize.height)
-                   
+                    Image(isSelected ? tab.selectedIconName : tab.iconName)
+                        .resizable()
+                        .renderingMode(isSelected ? .original : .template)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: TabItem.iconSize.width, height: TabItem.iconSize.height)
+                        .foregroundColor(isSelected ? nil : .loopedTextSecondary)
                 }
-                .foregroundColor(isSelected ? .loopedPrimary : .loopedTextSecondary)
                 .padding(.top, 4)
             }
             .frame(maxWidth: .infinity)
+            .animation(nil, value: isSelected)
         }
         .buttonStyle(PlainButtonStyle())
     }
