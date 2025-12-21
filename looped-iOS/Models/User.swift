@@ -60,6 +60,7 @@ struct User: Codable, Identifiable {
 
 extension User {
     init(dto: UserDTO, profile: UserProfileDTO?) {
+        let stats = dto.stats
         self.id = UUID.fromBackendId(dto.id)
         self.backendId = dto.id
         self.username = profile?.username
@@ -68,15 +69,15 @@ extension User {
         self.companyId = dto.companyId
         self.companyName = nil
         self.bio = profile?.bio
-        self.profileImageURL = profile?.profileImageUrl
+        self.profileImageURL = profile?.profileImageUrl ?? dto.profileImageUrl
         self.isVerified = dto.verification?.verified ?? false
         self.isAnonymous = false
-        self.createdAt = profile?.createdAt
-        self.updatedAt = profile?.updatedAt
-        self.followerCount = profile?.followerCount
-        self.followingCount = profile?.followingCount
-        self.postsCount = profile?.postsCount
-        self.commentsCount = profile?.commentsCount
+        self.createdAt = profile?.createdAt ?? dto.createdAt
+        self.updatedAt = profile?.updatedAt ?? dto.updatedAt
+        self.followerCount = stats?.followerCount ?? profile?.followerCount
+        self.followingCount = stats?.followingCount ?? profile?.followingCount
+        self.postsCount = stats?.postsCount ?? profile?.postsCount
+        self.commentsCount = stats?.commentsCount ?? profile?.commentsCount
     }
 
     init(

@@ -11,11 +11,13 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     private let userService: UserServiceProtocol = UserService()
+    private let anonService = AnonService.shared
 
     // Toggle states
     @State private var showFollowerCount = true
     @AppStorage("anonymousMode") private var anonymousMode = true
     @State private var showCommunityRequest = false
+    @State private var isEnrollingAnon = false
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -23,6 +25,10 @@ struct SettingsView: View {
     @State private var showDeleteErrorAlert = false
     @State private var deleteErrorMessage = ""
     @State private var isDeletingAccount = false
+    @State private var showAnonDeleteAlert = false
+    @State private var isDeletingAnon = false
+    @State private var showAnonErrorAlert = false
+    @State private var anonErrorMessage = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -102,6 +108,10 @@ struct SettingsView: View {
                         )
                         SettingsRow(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
                         SettingsRow(icon: .asset("blocked-icon"), title: "Manage Blocked Accounts\nand Communities")
+                        NavigationLink(destination: AnonymousRecoveryView()) {
+                            SettingsNavigationRow(icon: .system("key.fill"), title: "Anonymous Recovery")
+                        }
+                        .buttonStyle(PlainButtonStyle())
                         SettingsToggleRow(
                             icon: .system("theatermasks"),
                             title: "Anonymous Mode",
@@ -113,6 +123,9 @@ struct SettingsView: View {
                     SettingsSection(title: "Actions") {
                         SettingsRow(icon: .system("flag"), title: "Report a problem")
                         SettingsRow(icon: .system("building.2"), title: "Change Workplace/Position")
+                        SettingsRow(icon: .system("theatermasks"), title: "Delete Anonymous Account") {
+                            showAnonDeleteAlert = true
+                        }
                         SettingsRow(icon: .system("trash"), title: "Delete Account") {
                             showDeleteAccountAlert = true
                         }
@@ -143,6 +156,9 @@ struct SettingsView: View {
         .navigationBarHidden(true)
         .fullScreenCover(isPresented: $showCommunityRequest) {
             CommunityRequestFlowView()
+        }
+        .onChange(of: anonymousMode) { _, newValue in
+            Task { await handleAnonToggle(isOn: newValue) }
         }
         .alert("Log out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
@@ -175,6 +191,45 @@ struct SettingsView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(deleteErrorMessage)
+        }
+        .alert("Delete Anonymous Account", isPresented: $showAnonDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                guard !isDeletingAnon else { return }
+                isDeletingAnon = true
+                Task {
+                    defer { isDeletingAnon = false }
+                    do {
+                        try await anonService.revoke()
+                        anonymousMode = false
+                    } catch {
+                        anonErrorMessage = error.localizedDescription
+                        showAnonErrorAlert = true
+                    }
+                }
+            }
+        } message: {
+            Text("This revokes your anonymous persona. Existing anonymous posts will remain visible.")
+        }
+        .alert("Anonymous Mode Failed", isPresented: $showAnonErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(anonErrorMessage)
+        }
+    }
+}
+
+private extension SettingsView {
+    func handleAnonToggle(isOn: Bool) async {
+        guard isOn, !isEnrollingAnon else { return }
+        isEnrollingAnon = true
+        defer { isEnrollingAnon = false }
+        do {
+            _ = try await anonService.ensureIdentity()
+        } catch {
+            anonErrorMessage = error.localizedDescription
+            showAnonErrorAlert = true
+            anonymousMode = false
         }
     }
 }

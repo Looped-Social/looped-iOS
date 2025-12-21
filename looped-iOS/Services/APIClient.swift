@@ -28,6 +28,16 @@ class APIClient {
         
         return try await performRequest(request)
     }
+
+    func getData(_ endpoint: String) async throws -> Data {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        await addAuthHeader(&request)
+
+        return try await performRequestData(request)
+    }
     
     func post<T: Codable, U: Codable>(_ endpoint: String, body: T) async throws -> U {
         let url = makeURL(for: endpoint)
@@ -73,7 +83,7 @@ class APIClient {
     func delete(_ endpoint: String) async throws {
         let _: EmptyResponse = try await delete(endpoint, expecting: EmptyResponse.self)
     }
-    
+
     func delete<T: Codable>(_ endpoint: String, expecting: T.Type) async throws -> T {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
@@ -81,6 +91,18 @@ class APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         await addAuthHeader(&request)
         
+        return try await performRequest(request)
+    }
+
+    func delete<T: Codable, U: Codable>(_ endpoint: String, body: T) async throws -> U {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        await addAuthHeader(&request)
+
+        request.httpBody = try JSONEncoder().encode(body)
         return try await performRequest(request)
     }
     
@@ -142,6 +164,32 @@ class APIClient {
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             
             return try decoder.decode(T.self, from: data)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            throw APIError.networkError(error)
+        }
+    }
+
+    private func performRequestData(_ request: URLRequest) async throws -> Data {
+        do {
+            let (data, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+
+            guard 200...299 ~= httpResponse.statusCode else {
+                if httpResponse.statusCode == 401 {
+                    throw APIError.unauthorized
+                }
+                if let errorPayload = try? JSONDecoder().decode(ServerError.self, from: data) {
+                    throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
+                }
+                throw APIError.serverError(httpResponse.statusCode)
+            }
+
+            return data
         } catch let error as APIError {
             throw error
         } catch {

@@ -12,7 +12,9 @@ struct ProfileView: View {
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
-    @State private var isAnonymousPreview = false
+    @AppStorage("anonymousMode") private var isAnonymous = false
+    @State private var showAnonError = false
+    @State private var anonErrorMessage = ""
 
     private let headerHeight: CGFloat = 300
 
@@ -55,24 +57,25 @@ struct ProfileView: View {
             VStack(spacing: 0) {
                 // Profile Header
                 ProfileHeaderView(
-                    userProfile: viewModel.userProfile,
+                    userProfile: displayProfile,
                     isLoading: viewModel.isLoading,
                     errorMessage: viewModel.errorMessage,
-                    isAnonymous: isAnonymousPreview
+                    isAnonymous: isAnonymous,
+                    anonHandle: viewModel.anonProfile?.formattedHandle
                 )
 
                 // Stats Section
                 ProfileStatsView(
-                    userProfile: viewModel.userProfile,
+                    userProfile: displayProfile,
                     isLoading: viewModel.isLoading,
-                    isAnonymous: isAnonymousPreview
+                    isAnonymous: isAnonymous
                 )
 
                 // Action Buttons
                 ProfileActionButtons(
                     viewModel: viewModel,
-                    userProfile: viewModel.userProfile,
-                    isAnonymous: $isAnonymousPreview
+                    userProfile: displayProfile,
+                    isAnonymous: $isAnonymous
                 )
 
                 // Tab Navigation
@@ -91,13 +94,34 @@ struct ProfileView: View {
         .environmentObject(commentsManager)
         .task {
             await viewModel.loadUserProfile()
+            if isAnonymous {
+                await viewModel.loadAnonymousProfile()
+            }
         }
         .refreshable {
             await viewModel.loadUserProfile()
+            if isAnonymous {
+                await viewModel.loadAnonymousProfile()
+            }
         }
         .onAppear {
             headerVisible = true
             lastScrollOffset = 0
+        }
+        .onChange(of: isAnonymous) { _, newValue in
+            Task {
+                await viewModel.handleAnonymousModeChange(isEnabled: newValue)
+                if let error = viewModel.anonErrorMessage, newValue {
+                    anonErrorMessage = error
+                    showAnonError = true
+                    isAnonymous = false
+                }
+            }
+        }
+        .alert("Anonymous Mode Failed", isPresented: $showAnonError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(anonErrorMessage)
         }
     }
 
@@ -127,11 +151,22 @@ struct ProfileView: View {
     }
 }
 
+private extension ProfileView {
+    var displayProfile: UserProfile? {
+        if isAnonymous, let anonProfile = viewModel.anonProfile {
+            let companyName = viewModel.user?.companyName ?? viewModel.user?.company
+            return anonProfile.asUserProfile(companyName: companyName)
+        }
+        return viewModel.userProfile
+    }
+}
+
 struct ProfileHeaderView: View {
     let userProfile: UserProfile?
     let isLoading: Bool
     let errorMessage: String?
     let isAnonymous: Bool
+    let anonHandle: String?
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
@@ -144,7 +179,11 @@ struct ProfileHeaderView: View {
     }
 
     private var handle: String {
-        if isAnonymous { return "@Anonymous123" }
+        if isAnonymous {
+            let trimmed = (anonHandle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return "@anonymous" }
+            return trimmed.hasPrefix("@") ? trimmed : "@\(trimmed)"
+        }
         if let handle = resolvedProfile?.formattedHandle { return handle }
         if let username = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle {
             let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,6 +194,7 @@ struct ProfileHeaderView: View {
 
     private var resolvedProfile: UserProfile? {
         if let profile = userProfile { return profile }
+        if isAnonymous { return nil }
         if let user = authViewModel.currentUser {
             return UserProfile.from(user: user, isCurrentUser: true)
         }
@@ -290,6 +330,7 @@ struct ProfileStatsView: View {
     
     private var resolvedProfile: UserProfile? {
         if let profile = userProfile { return profile }
+        if isAnonymous { return nil }
         if let user = authViewModel.currentUser {
             return UserProfile.from(user: user, isCurrentUser: true)
         }
@@ -297,7 +338,7 @@ struct ProfileStatsView: View {
     }
 
     private var companyName: String? {
-        let rawCompany = userProfile?.company ?? authViewModel.currentUser?.companyName ?? ""
+        let rawCompany = userProfile?.company ?? (isAnonymous ? "" : (authViewModel.currentUser?.companyName ?? ""))
         let trimmed = rawCompany.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -309,11 +350,13 @@ struct ProfileStatsView: View {
 
     private var followingCount: Int? {
         if let profile = userProfile { return profile.followingCount }
+        if isAnonymous { return nil }
         return authViewModel.currentUser?.followingCount
     }
 
     private var followersCount: Int? {
         if let profile = userProfile { return profile.followersCount }
+        if isAnonymous { return nil }
         return authViewModel.currentUser?.followerCount
     }
 }

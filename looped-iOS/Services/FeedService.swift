@@ -3,10 +3,12 @@ import Foundation
 class FeedService: FeedServiceProtocol {
     private let apiClient: APIClient
     private let defaultLimit: Int
+    private let anonService: AnonService
     
-    init(apiClient: APIClient = APIClient(), defaultLimit: Int = 20) {
+    init(apiClient: APIClient = APIClient(), defaultLimit: Int = 20, anonService: AnonService = .shared) {
         self.apiClient = apiClient
         self.defaultLimit = defaultLimit
+        self.anonService = anonService
     }
     
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage {
@@ -14,15 +16,57 @@ class FeedService: FeedServiceProtocol {
     }
     
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post {
-        let request = CreatePostRequestDTO(content: content, mediaAssetId: nil, communityId: communityId)
-        let headers = ["Idempotency-Key": UUID().uuidString]
+        var request = CreatePostRequestDTO(
+            content: content,
+            mediaAssetId: nil,
+            communityId: communityId,
+            isAnon: nil,
+            anonProfileId: nil,
+            anonCert: nil,
+            anonCertKid: nil,
+            anonSig: nil,
+            anonCompanyId: nil,
+            anonTimestamp: nil
+        )
+        var headers = ["Idempotency-Key": UUID().uuidString]
+
+        if isAnonymous {
+            let anonContext = try await anonService.postContext(content: content, communityId: communityId)
+            request = CreatePostRequestDTO(
+                content: content,
+                mediaAssetId: nil,
+                communityId: communityId,
+                isAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature,
+                anonCompanyId: anonContext.companyId,
+                anonTimestamp: anonContext.timestamp
+            )
+            headers = [:]
+        }
+
         let dto: PostDTO = try await apiClient.postWithHeaders("/v1/posts", body: request, headers: headers)
-        return Post(dto: dto)
+        return Post(dto: dto, isAnonymousOverride: isAnonymous)
     }
     
     func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse {
         // Backend currently supports "like" only. Ignore other reactions for now.
         _ = reaction
+        if anonService.isAnonymousEnabled {
+            let anonContext = try await anonService.actionContext(for: .like(postId: postId))
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: PostLikeResponseDTO = try await apiClient.post("/v1/posts/\(postId)/like", body: request)
+            return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
+        }
+
         let response: PostLikeResponseDTO = try await apiClient.post("/v1/posts/\(postId)/like", body: EmptyBody())
         return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
     }
@@ -40,11 +84,37 @@ class FeedService: FeedServiceProtocol {
     }
     
     func savePost(postId: Int) async throws -> Bool {
+        if anonService.isAnonymousEnabled {
+            let anonContext = try await anonService.actionContext(for: .save(postId: postId))
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: PostSaveResponseDTO = try await apiClient.post("/v1/posts/\(postId)/save", body: request)
+            return response.saved
+        }
+
         let response: PostSaveResponseDTO = try await apiClient.post("/v1/posts/\(postId)/save", body: EmptyBody())
         return response.saved
     }
     
     func removeSavedPost(postId: Int) async throws -> Bool {
+        if anonService.isAnonymousEnabled {
+            let anonContext = try await anonService.actionContext(for: .unsave(postId: postId))
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: PostSaveResponseDTO = try await apiClient.delete("/v1/posts/\(postId)/save", body: request)
+            return !response.saved
+        }
+
         let response: PostSaveResponseDTO = try await apiClient.delete("/v1/posts/\(postId)/save", expecting: PostSaveResponseDTO.self)
         return !response.saved
     }
@@ -59,7 +129,7 @@ class FeedService: FeedServiceProtocol {
             endpoint += "&cursor=\(encoded)"
         }
         let response: FeedResponseDTO = try await apiClient.get(endpoint)
-        let posts = response.items.map(Post.init(dto:))
+        let posts = response.items.map { Post(dto: $0) }
         return FeedPage(posts: posts, nextCursor: response.nextCursor)
     }
 }

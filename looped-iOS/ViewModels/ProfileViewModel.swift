@@ -5,24 +5,30 @@ import Combine
 class ProfileViewModel: ObservableObject {
     @Published var user: User?
     @Published var userProfile: UserProfile?
+    @Published var anonProfile: AnonProfile?
     @Published var userPosts: [Post] = []
     @Published var isLoading = false
     @Published var isLoadingPosts = false
+    @Published var isLoadingAnonymous = false
     @Published var errorMessage: String?
+    @Published var anonErrorMessage: String?
     
     private let userService: UserServiceProtocol
     private let feedService: FeedServiceProtocol
     private let authService: AuthServiceProtocol
+    private let anonService: AnonService
     private var cancellables = Set<AnyCancellable>()
     
     init(
         userService: UserServiceProtocol = UserService(),
         feedService: FeedServiceProtocol = FeedService(),
-        authService: AuthServiceProtocol = AuthService()
+        authService: AuthServiceProtocol = AuthService(),
+        anonService: AnonService = .shared
     ) {
         self.userService = userService
         self.feedService = feedService
         self.authService = authService
+        self.anonService = anonService
     }
     
     func loadUserProfile() async {
@@ -39,6 +45,36 @@ class ProfileViewModel: ObservableObject {
 
         isLoading = false
         await loadUserPosts()
+    }
+
+    func loadAnonymousProfile() async {
+        guard !isLoadingAnonymous else { return }
+        isLoadingAnonymous = true
+        anonErrorMessage = nil
+
+        do {
+            anonProfile = try await anonService.fetchProfile()
+        } catch {
+            anonErrorMessage = error.localizedDescription
+            anonProfile = nil
+        }
+
+        isLoadingAnonymous = false
+    }
+
+    func handleAnonymousModeChange(isEnabled: Bool) async {
+        if isEnabled {
+            do {
+                _ = try await anonService.ensureIdentity()
+                await loadAnonymousProfile()
+            } catch {
+                anonErrorMessage = error.localizedDescription
+                anonProfile = nil
+            }
+        } else {
+            anonProfile = nil
+            anonErrorMessage = nil
+        }
     }
     
     func updateProfile(displayName: String?, bio: String? = nil, isAnonymous: Bool) async {

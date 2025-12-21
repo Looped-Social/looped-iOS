@@ -5,6 +5,10 @@ struct MenuContent: View {
     let onMenuItemTap: (MenuDestination) -> Void
     @EnvironmentObject private var authViewModel: AuthViewModel
     @AppStorage("anonymousMode") private var isAnonymous = false
+    @State private var showAnonError = false
+    @State private var anonErrorMessage = ""
+    @State private var isEnrollingAnon = false
+    private let anonService = AnonService.shared
 
     var body: some View {
         VStack(alignment: .center, spacing: 0) {
@@ -62,14 +66,38 @@ struct MenuContent: View {
         .background(Color.loopedBackground)
         .clipShape(SideDrawerShape(radius: 44))
         .ignoresSafeArea(.all)
+        .onChange(of: isAnonymous) { _, newValue in
+            Task { await handleAnonToggle(isOn: newValue) }
+        }
+        .alert("Anonymous Mode Failed", isPresented: $showAnonError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(anonErrorMessage)
+        }
     }
     
     private var displayName: String {
-        authViewModel.currentUser?.displayName ?? "Looped User"
+        if isAnonymous { return "Anonymous" }
+        return authViewModel.currentUser?.displayName ?? "Looped User"
     }
     
     private var totalHeartsText: String {
         return "Hearts not available"
+    }
+}
+
+private extension MenuContent {
+    func handleAnonToggle(isOn: Bool) async {
+        guard isOn, !isEnrollingAnon else { return }
+        isEnrollingAnon = true
+        defer { isEnrollingAnon = false }
+        do {
+            _ = try await anonService.ensureIdentity()
+        } catch {
+            anonErrorMessage = error.localizedDescription
+            showAnonError = true
+            isAnonymous = false
+        }
     }
 }
 

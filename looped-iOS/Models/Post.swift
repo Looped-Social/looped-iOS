@@ -71,7 +71,7 @@ enum ReactionType: String, Codable, CaseIterable {
 }
 
 extension Post {
-    init(dto: PostDTO) {
+    init(dto: PostDTO, isAnonymousOverride: Bool? = nil) {
         self.init(
             id: UUID(),
             backendId: dto.id,
@@ -81,7 +81,7 @@ extension Post {
             authorDisplayName: nil,
             company: "",
             communityId: dto.communityId,
-            isAnonymous: false,
+            isAnonymous: isAnonymousOverride ?? dto.isAnonymous ?? false,
             reactionCount: dto.likesCount,
             commentsCount: dto.commentsCount ?? 0,
             shareCount: dto.shareCount ?? 0,

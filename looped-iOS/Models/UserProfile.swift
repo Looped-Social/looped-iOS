@@ -54,7 +54,12 @@ struct UserProfile: Codable, Identifiable {
 
 extension UserProfile {
     static func from(user: User, isCurrentUser: Bool = false) -> UserProfile {
-        UserProfile(
+        let now = Date()
+        let createdAt = user.createdAt ?? now
+        let calendar = Calendar.current
+        let yearsInLoop = max(0, calendar.component(.year, from: now) - calendar.component(.year, from: createdAt))
+
+        return UserProfile(
             id: user.id,
             backendId: user.backendId,
             username: user.username ?? user.handle,
@@ -66,14 +71,14 @@ extension UserProfile {
             profileImageURL: user.profileImageURL,
             isVerified: user.isVerified,
             isAnonymous: user.isAnonymous,
-            yearsInLoop: 1,
+            yearsInLoop: yearsInLoop,
             followingCount: user.followingCount ?? 0,
             followersCount: user.followerCount ?? 0,
             postsCount: user.postsCount ?? 0,
             commentsCount: user.commentsCount ?? 0,
             isCurrentUser: isCurrentUser,
-            createdAt: user.createdAt ?? Date(),
-            updatedAt: user.updatedAt ?? Date()
+            createdAt: createdAt,
+            updatedAt: user.updatedAt ?? now
         )
     }
 }

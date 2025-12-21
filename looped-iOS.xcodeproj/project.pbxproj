@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4F0E15DD2EF865B500A2341F /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15DC2EF865B500A2341F /* BigInt */; };
+		4F0E15E82EF86D1B00A2341F /* Clibsodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15E72EF86D1B00A2341F /* Clibsodium */; };
+		4F0E15EA2EF86D1B00A2341F /* Sodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15E92EF86D1B00A2341F /* Sodium */; };
 		4F898B9D2EC4F9510025BA27 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4F898B9C2EC4F9510025BA27 /* FirebaseCore */; };
 		4F898B9F2EC4F9600025BA27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4F898B9E2EC4F9600025BA27 /* FirebaseAuth */; };
 		4F898BA42EC517F10025BA27 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 4F898BA32EC517F10025BA27 /* GoogleSignIn */; };
@@ -72,10 +75,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4F0E15DD2EF865B500A2341F /* BigInt in Frameworks */,
 				4F898B9D2EC4F9510025BA27 /* FirebaseCore in Frameworks */,
 				4F898B9F2EC4F9600025BA27 /* FirebaseAuth in Frameworks */,
 				4F898BA42EC517F10025BA27 /* GoogleSignIn in Frameworks */,
+				4F0E15EA2EF86D1B00A2341F /* Sodium in Frameworks */,
 				4F898BA62EC517F80025BA27 /* GoogleSignInSwift in Frameworks */,
+				4F0E15E82EF86D1B00A2341F /* Clibsodium in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -148,6 +154,9 @@
 				4F898B9E2EC4F9600025BA27 /* FirebaseAuth */,
 				4F898BA32EC517F10025BA27 /* GoogleSignIn */,
 				4F898BA52EC517F80025BA27 /* GoogleSignInSwift */,
+				4F0E15DC2EF865B500A2341F /* BigInt */,
+				4F0E15E72EF86D1B00A2341F /* Clibsodium */,
+				4F0E15E92EF86D1B00A2341F /* Sodium */,
 			);
 			productName = "looped-iOS";
 			productReference = 4F4C188E2E6B3D150043DD49 /* looped-iOS.app */;
@@ -234,6 +243,8 @@
 			packageReferences = (
 				4FC0E56E2EB828810057CEA6 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				4F898BA22EC517C50025BA27 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				4F0E15DB2EF8650300A2341F /* XCRemoteSwiftPackageReference "BigInt" */,
+				4F0E15E62EF86C8F00A2341F /* XCRemoteSwiftPackageReference "swift-sodium" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4F4C188F2E6B3D150043DD49 /* Products */;
@@ -607,6 +618,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		4F0E15DB2EF8650300A2341F /* XCRemoteSwiftPackageReference "BigInt" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/attaswift/BigInt.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.1.0;
+			};
+		};
+		4F0E15E62EF86C8F00A2341F /* XCRemoteSwiftPackageReference "swift-sodium" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jedisct1/swift-sodium.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.1;
+			};
+		};
 		4F898BA22EC517C50025BA27 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
@@ -626,6 +653,21 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		4F0E15DC2EF865B500A2341F /* BigInt */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F0E15DB2EF8650300A2341F /* XCRemoteSwiftPackageReference "BigInt" */;
+			productName = BigInt;
+		};
+		4F0E15E72EF86D1B00A2341F /* Clibsodium */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F0E15E62EF86C8F00A2341F /* XCRemoteSwiftPackageReference "swift-sodium" */;
+			productName = Clibsodium;
+		};
+		4F0E15E92EF86D1B00A2341F /* Sodium */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F0E15E62EF86C8F00A2341F /* XCRemoteSwiftPackageReference "swift-sodium" */;
+			productName = Sodium;
+		};
 		4F898B9C2EC4F9510025BA27 /* FirebaseCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4FC0E56E2EB828810057CEA6 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

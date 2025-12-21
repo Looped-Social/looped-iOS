@@ -150,6 +150,8 @@ class AuthViewModel: ObservableObject {
         currentUser = nil
         onboardingComplete = false
         shouldEnterOnboardingFlow = true
+        Task { await AnonService.shared.clearIdentity() }
+        UserDefaults.standard.set(false, forKey: "anonymousMode")
     }
 
     func loadCurrentUser() async {

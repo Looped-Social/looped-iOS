@@ -17,12 +17,20 @@ struct PostDTO: Codable {
     let shareCount: Int?
     let createdAt: Date
     let isSaved: Bool?
+    let isAnonymous: Bool?
 }
 
 struct CreatePostRequestDTO: Codable {
     let content: String
     let mediaAssetId: Int?
     let communityId: Int
+    let isAnon: Bool?
+    let anonProfileId: Int?
+    let anonCert: String?
+    let anonCertKid: String?
+    let anonSig: String?
+    let anonCompanyId: Int?
+    let anonTimestamp: Int?
 }
 
 struct PostLikeResponseDTO: Codable {
@@ -33,4 +41,12 @@ struct PostLikeResponseDTO: Codable {
 struct PostSaveResponseDTO: Codable {
     let postId: Int
     let saved: Bool
+}
+
+struct AnonActionRequestDTO: Codable {
+    let asAnon: Bool
+    let anonProfileId: Int
+    let anonCert: String
+    let anonCertKid: String
+    let anonSig: String
 }

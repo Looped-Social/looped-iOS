@@ -15,6 +15,10 @@ struct UserDTO: Codable {
     let companyId: Int
     let verification: VerificationDTO?
     let profile: UserProfileDTO?
+    let stats: UserStatsDTO?
+    let profileImageUrl: String?
+    let createdAt: Date?
+    let updatedAt: Date?
 }
 
 struct VerificationDTO: Codable {
@@ -30,6 +34,13 @@ struct UserProfileDTO: Codable {
     let createdAt: Date?
     let updatedAt: Date?
     let profileImageUrl: String?
+    let followerCount: Int?
+    let followingCount: Int?
+    let postsCount: Int?
+    let commentsCount: Int?
+}
+
+struct UserStatsDTO: Codable {
     let followerCount: Int?
     let followingCount: Int?
     let postsCount: Int?
