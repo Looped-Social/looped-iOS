@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var isEnrollingAnon = false
     @State private var isLinkingGoogle = false
     @State private var isLinkingApple = false
+    @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -42,11 +43,11 @@ struct SettingsView: View {
             // Scrollable content
             ScrollView {
                     VStack(spacing: 0) {
-                        // Account Section
-                        SettingsSection(title: "Account") {
-                            NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
-                                SettingsNavigationRow(icon: .asset("user-settings-icon"), title: "User settings")
-                            }
+                    // Account Section
+                    SettingsSection(title: "Account") {
+                        NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
+                            SettingsNavigationRow(icon: .asset("user-settings-icon"), title: "User settings")
+                        }
                             .buttonStyle(PlainButtonStyle())
 
                             NavigationLink(destination: SecurityView()) {
@@ -59,14 +60,18 @@ struct SettingsView: View {
                             }
                             .buttonStyle(PlainButtonStyle())
 
-                            SettingsRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
-                        }
+                        SettingsRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
+                    }
+
+                    // Appearance Section
+                    SettingsSection(title: "Appearance") {
+                        AppearanceModeRow(selection: $appearanceMode)
+                    }
 
                     // Support & About Section
                     SettingsSection(title: "Support & About") {
-                        SettingsRow(icon: .asset("rules-icon"), title: "Looped Rules")
-                        SettingsRow(icon: .asset("help-icon"), title: "Help & Support")
-                        SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Terms and Policies")
+                        SettingsRow(icon: .asset("rules-icon"), title: "Content Policy")
+                        SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Privacy Policy")
                         SettingsRow(icon: .asset("user-agreement-icon"), title: "User Agreement")
                     }
 
@@ -75,12 +80,6 @@ struct SettingsView: View {
                         SettingsRow(icon: .system("person.3"), title: "Request new community") {
                             showCommunityRequest = true
                         }
-                    }
-
-                    // Content Interactions Section
-                    SettingsSection(title: "Content Interactions") {
-                        SettingsRow(title: "Liked post", isIndented: true)
-                        SettingsRow(title: "Personal content", isIndented: true)
                     }
 
                     // Connected Accounts Section
@@ -109,7 +108,7 @@ struct SettingsView: View {
                             isOn: $showFollowerCount
                         )
                         SettingsRow(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
-                        SettingsRow(icon: .asset("blocked-icon"), title: "Manage Blocked Accounts\nand Communities")
+                        SettingsRow(icon: .asset("blocked-icon"), title: "Blocked")
                         NavigationLink(destination: AnonymousRecoveryView()) {
                             SettingsNavigationRow(icon: .system("key.fill"), title: "Anonymous Recovery")
                         }
@@ -136,18 +135,6 @@ struct SettingsView: View {
                         }
                     }
 
-                    // Language Section
-                    SettingsSection(title: "Language") {
-                        SettingsRow(icon: .system("globe"), title: "Display language")
-                        SettingsRow(icon: .system("shield.checkered"), title: "Content language")
-                    }
-
-                    // Content viewer policy Section
-                    SettingsSection(title: "Content viewer policy") {
-                        SettingsRow(icon: .system("doc.text"), title: "Blocked")
-                        SettingsRow(icon: .system("questionmark.circle"), title: "Profanity")
-                        SettingsRow(icon: .system("info.circle"), title: "Content Preferences")
-                    }
                 }
                 .padding(.bottom, 100)
             }
@@ -380,6 +367,36 @@ struct SettingsRow: View {
             .padding(.vertical, 8)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Appearance Mode Row
+struct AppearanceModeRow: View {
+    @Binding var selection: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "circle.lefthalf.filled")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.loopedTextSecondary)
+                .frame(width: 20, height: 20)
+
+            Text("Theme")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+
+            Spacer()
+
+            Picker("", selection: $selection) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 220)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 }
 

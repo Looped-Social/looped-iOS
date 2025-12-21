@@ -33,9 +33,11 @@ struct looped_iOSApp: App {
         LoopedFontLoader.registerFonts()
     }
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(AppearanceMode.from(rawValue: appearanceMode).colorScheme)
         }
     }
 }
