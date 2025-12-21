@@ -152,41 +152,25 @@ struct LikedPostsView: View {
     @StateObject private var likedViewModel = CollectionPostsViewModel(collection: .liked)
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
-                Spacer()
-
-                Text("Liked Posts")
-                    .font(.loopedHeadingMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                // Invisible spacer for centering
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(.clear)
+        List {
+            Section {
+                LikedPostsFeedList(viewModel: likedViewModel)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 15)
-            .padding(.bottom, 12)
-
-            // Posts List
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    LikedPostsFeedList(viewModel: likedViewModel)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Liked Posts")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    dismiss()
                 }
+                .foregroundColor(.loopedPrimary)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
         .environmentObject(commentsManager)
         .task {
             await likedViewModel.loadInitial()
@@ -204,41 +188,25 @@ struct SavedPostsView: View {
     @StateObject private var savedViewModel = CollectionPostsViewModel(collection: .saved)
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
-                Spacer()
-
-                Text("Saved Posts")
-                    .font(.loopedHeadingMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                // Invisible spacer for centering
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(.clear)
+        List {
+            Section {
+                CollectionPostsContent(viewModel: savedViewModel, emptyMessage: "No saved posts yet", emptyIcon: "bookmark")
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 15)
-            .padding(.bottom, 12)
-
-            // Posts List
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    CollectionPostsContent(viewModel: savedViewModel, emptyMessage: "No saved posts yet", emptyIcon: "bookmark")
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Saved Posts")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    dismiss()
                 }
+                .foregroundColor(.loopedPrimary)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
         .environmentObject(commentsManager)
         .task {
             await savedViewModel.loadInitial()
@@ -367,15 +335,55 @@ struct PrivacyView: View {
 }
 
 struct DraftsView: View {
+    @Environment(\.dismiss) private var dismiss
+    private let drafts: [DraftPreview] = DraftPreview.samples
+
     var body: some View {
-        VStack {
-            Text("Drafts")
-                .font(.loopedHeadingMedium)
-                .foregroundColor(.loopedTextPrimary)
+        List {
+            Section {
+                Text("Drafts are saved locally so you can finish them later.")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            if drafts.isEmpty {
+                Section {
+                    VStack(spacing: 12) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 48))
+                            .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                        Text("No drafts yet")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedTextSecondary)
+                        Text("Start a post and save it as a draft to see it here.")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                }
+            } else {
+                Section {
+                    ForEach(drafts) { draft in
+                        DraftListRow(draft: draft)
+                    }
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.loopedBackground.ignoresSafeArea())
+        .listStyle(.insetGrouped)
+        .navigationTitle("Drafts")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    dismiss()
+                }
+                .foregroundColor(.loopedPrimary)
+            }
+        }
+        .background(Color.loopedBackground.ignoresSafeArea())
     }
 }
 
@@ -402,6 +410,71 @@ struct FAQView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct DraftPreview: Identifiable {
+    let id: UUID
+    let content: String
+    let updatedAt: Date
+
+    static let samples: [DraftPreview] = [
+        DraftPreview(
+            id: UUID(),
+            content: "Working on a post about our onboarding redesign. Key points: simplify flow, add clarity, focus on retention.",
+            updatedAt: Date().addingTimeInterval(-3600)
+        ),
+        DraftPreview(
+            id: UUID(),
+            content: "Drafting a question about benefits updates and how to navigate the new policies without losing coverage.",
+            updatedAt: Date().addingTimeInterval(-86400 * 2)
+        )
+    ]
+}
+
+private struct DraftListRow: View {
+    let draft: DraftPreview
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Draft")
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedTextSecondary)
+
+                Spacer()
+
+                Text(relativeTime)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            Text(draft.content)
+                .font(.loopedBody)
+                .foregroundColor(.loopedTextPrimary)
+                .lineLimit(3)
+
+            HStack {
+                Text("\(draft.content.count) characters")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+
+                Spacer()
+
+                Button("Continue") {
+                    // TODO: Wire up draft editing flow.
+                }
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedPrimary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var relativeTime: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: draft.updatedAt, relativeTo: Date())
     }
 }
 
