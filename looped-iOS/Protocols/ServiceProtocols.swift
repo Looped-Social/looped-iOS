@@ -28,6 +28,7 @@ protocol FeedServiceProtocol {
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
     func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func savePost(postId: Int) async throws -> Bool

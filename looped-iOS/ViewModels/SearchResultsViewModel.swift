@@ -4,8 +4,9 @@ import Combine
 @MainActor
 class SearchResultsViewModel: ObservableObject {
     @Published var searchText = ""
-    @Published var filters: [SearchFilterOption] = []
-    @Published var selectedFilter: SearchFilterOption
+    @Published var followedCommunities: [CommunitySummary] = []
+    @Published var selectedCommunityId: Int?
+    @Published var isLoadingCommunities = false
     @Published var isSearching = false
     @Published var recentSearches: [String] = []
     @Published var searchResults: SearchResults = SearchResults()
@@ -16,19 +17,22 @@ class SearchResultsViewModel: ObservableObject {
     private let searchDebounceTime: TimeInterval = 0.3
     private let userService: UserServiceProtocol
     private let discoveryService: DiscoveryServiceProtocol
+    private let communityService: CommunityServiceProtocol
+    private let recentSearchesKey = "recentSearches"
+    private let recentSearchesLimit = 5
 
-    private let defaultFilters: [SearchFilterOption] = [
-        SearchFilterOption(title: "All", apiKey: "all"),
-        SearchFilterOption(title: "Company", apiKey: "company")
-    ]
-
-    init(userService: UserServiceProtocol = UserService(), discoveryService: DiscoveryServiceProtocol = DiscoveryService()) {
+    init(
+        userService: UserServiceProtocol = UserService(),
+        discoveryService: DiscoveryServiceProtocol = DiscoveryService(),
+        communityService: CommunityServiceProtocol = CommunityService()
+    ) {
         self.userService = userService
         self.discoveryService = discoveryService
-        filters = defaultFilters
-        selectedFilter = defaultFilters.first ?? SearchFilterOption(title: "All", apiKey: "all")
+        self.communityService = communityService
+        selectedCommunityId = nil
         loadRecentSearches()
         setupSearchDebouncing()
+        Task { await loadFollowedCommunities() }
     }
 
     // MARK: - Search Debouncing
@@ -59,7 +63,9 @@ class SearchResultsViewModel: ObservableObject {
         do {
             async let peoplePage = userService.searchUsers(query: query, limit: 20, cursor: nil)
             async let loopsPage = discoveryService.searchLoops(query: query, limit: 20, cursor: nil)
-            async let hashtagPage = discoveryService.searchHashtags(query: query, limit: 5, cursor: nil)
+            let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hashtagQuery = trimmedQuery.hasPrefix("#") ? String(trimmedQuery.dropFirst()) : trimmedQuery
+            async let hashtagPage = discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
 
             let (page, loopResults, hashtags) = try await (peoplePage, loopsPage, hashtagPage)
             var results = SearchResults()
@@ -75,16 +81,14 @@ class SearchResultsViewModel: ObservableObject {
                 )
             }
 
-            if selectedFilter.apiKey == "all" || selectedFilter.apiKey == "company" {
-                results.loops = loopResults.items.map { loop in
-                    SearchResultLoop(
-                        id: UUID.fromBackendId(loop.id),
-                        backendId: loop.id,
-                        name: loop.name,
-                        description: loop.description,
-                        memberCount: loop.memberCount
-                    )
-                }
+            results.loops = loopResults.items.map { loop in
+                SearchResultLoop(
+                    id: UUID.fromBackendId(loop.id),
+                    backendId: loop.id,
+                    name: loop.name,
+                    description: loop.description,
+                    memberCount: loop.memberCount
+                )
             }
 
             results.hashtags = hashtags.items.map { tag in
@@ -103,11 +107,24 @@ class SearchResultsViewModel: ObservableObject {
         isSearching = false
     }
 
-    // MARK: - Filter Management
-    func selectFilter(_ filter: SearchFilterOption) {
-        selectedFilter = filter
-        Task {
-            await performSearch(query: searchText)
+    // MARK: - Community Filter Management
+    func selectCommunity(_ community: CommunitySummary) {
+        selectedCommunityId = community.id
+    }
+
+    func selectAllCommunities() {
+        selectedCommunityId = nil
+    }
+
+    func loadFollowedCommunities() async {
+        guard !isLoadingCommunities else { return }
+        isLoadingCommunities = true
+        defer { isLoadingCommunities = false }
+        do {
+            let page = try await communityService.fetchFollowedCommunities(limit: 50, cursor: nil)
+            followedCommunities = page.items
+        } catch {
+            followedCommunities = []
         }
     }
 
@@ -123,8 +140,8 @@ class SearchResultsViewModel: ObservableObject {
         recentSearches.insert(trimmedQuery, at: 0)
 
         // Keep only latest 10
-        if recentSearches.count > 10 {
-            recentSearches = Array(recentSearches.prefix(10))
+        if recentSearches.count > recentSearchesLimit {
+            recentSearches = Array(recentSearches.prefix(recentSearchesLimit))
         }
 
         saveRecentSearches()
@@ -141,12 +158,11 @@ class SearchResultsViewModel: ObservableObject {
     }
 
     private func loadRecentSearches() {
-        recentSearches = []
+        recentSearches = UserDefaults.standard.stringArray(forKey: recentSearchesKey) ?? []
     }
 
     private func saveRecentSearches() {
-        // In real app, save to UserDefaults or Core Data
-        // UserDefaults.standard.set(recentSearches, forKey: "recentSearches")
+        UserDefaults.standard.set(recentSearches, forKey: recentSearchesKey)
     }
 }
 

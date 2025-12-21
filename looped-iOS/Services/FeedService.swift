@@ -74,6 +74,14 @@ class FeedService: FeedServiceProtocol {
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
         try await fetchPosts(from: "/v1/users/\(userId)/posts", limit: limit, cursor: cursor, communityId: nil)
     }
+
+    func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage {
+        let trimmed = hashtag.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+        let encoded = cleaned.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? cleaned
+        let base = "/v1/hashtags/\(encoded)/posts"
+        return try await fetchPosts(from: base, limit: limit, cursor: cursor, communityId: nil)
+    }
     
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
         try await fetchPosts(from: "/v1/posts/liked", limit: limit, cursor: cursor, communityId: nil)
