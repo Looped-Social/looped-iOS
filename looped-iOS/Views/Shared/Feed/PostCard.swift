@@ -49,94 +49,100 @@ struct PostCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header with user info
-            HStack(alignment: .top, spacing: 12) {
-                // Avatar (hidden for anonymous posts)
-                if !post.isAnonymous {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.2))
-                        .overlay(
-                            Text(initials(from: post.authorDisplayName))
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.loopedTextPrimary)
-                        )
-                        .frame(width: 40, height: 40)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 8) {
-                        // Name and handle
-                        Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
-                            .font(.headline)
-                            .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
-
-                        if !post.isAnonymous {
-                            Text("@\(post.authorDisplayName?.lowercased().replacingOccurrences(of: " ", with: "") ?? "user")")
-                                .font(.subheadline)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-
-                        Spacer()
-
-                        // More button
-                        Button(action: {}) {
-                            Image(systemName: "ellipsis")
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                    }
-
-                    // Job title and company (only for non-anonymous posts)
+            VStack(alignment: .leading, spacing: 12) {
+                // Header with user info
+                HStack(alignment: .top, spacing: 12) {
+                    // Avatar (hidden for anonymous posts)
                     if !post.isAnonymous {
-                        HStack(spacing: 4) {
-                            Text(post.company)
-                                .font(.subheadline)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
+                        Circle()
+                            .fill(Color.loopedTextSecondary.opacity(0.2))
+                            .overlay(
+                                Text(initials(from: post.authorDisplayName))
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.loopedTextPrimary)
+                            )
+                            .frame(width: 40, height: 40)
                     }
-                }
-            }
-            
-            // Post content with tappable hashtags
-            if !post.content.isEmpty {
-                HashtagText(
-                    text: post.content,
-                    font: .body,
-                    textColor: .loopedTextPrimary,
-                    hashtagColor: .loopedPrimary
-                ) { hashtag in
-                    selectedHashtag = hashtag
-                    showHashtagFeed = true
-                }
-                .multilineTextAlignment(.leading)
-            }
 
-            // Media attachments
-            if let attachments = post.attachments, !attachments.isEmpty {
-                PostedMediaGrid(
-                    attachments: attachments,
-                    maxHeight: 350,
-                    onImageTap: { url in
-                        guard !url.isEmpty, URL(string: url) != nil else { return }
-                        // Find the index of the tapped image among all images
-                        if let index = imageUrls.firstIndex(of: url) {
-                            selectedImageIndex = index
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            // Name and handle
+                            Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
+                                .font(.headline)
+                                .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+
+                            if !post.isAnonymous {
+                                Text("@\(post.authorDisplayName?.lowercased().replacingOccurrences(of: " ", with: "") ?? "user")")
+                                    .font(.subheadline)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+
+                            Spacer()
+
+                            // More button
+                            Button(action: {}) {
+                                Image(systemName: "ellipsis")
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
                         }
-                        selectedImageUrl = url
-                        showImageViewer = true
-                    },
-                    onVideoTap: { url in
-                        guard !url.isEmpty, URL(string: url) != nil else { return }
-                        selectedVideoUrl = url
-                        showVideoPlayer = true
+
+                        // Job title and company (only for non-anonymous posts)
+                        if !post.isAnonymous {
+                            HStack(spacing: 4) {
+                                Text(post.company)
+                                    .font(.subheadline)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                        }
                     }
-                )
-                .padding(.top, 8)
+                }
+
+                // Post content with tappable hashtags
+                if !post.content.isEmpty {
+                    HashtagText(
+                        text: post.content,
+                        font: .body,
+                        textColor: .loopedTextPrimary,
+                        hashtagColor: .loopedPrimary
+                    ) { hashtag in
+                        selectedHashtag = hashtag
+                        showHashtagFeed = true
+                    }
+                    .multilineTextAlignment(.leading)
+                }
+
+                // Media attachments
+                if let attachments = post.attachments, !attachments.isEmpty {
+                    PostedMediaGrid(
+                        attachments: attachments,
+                        maxHeight: 350,
+                        onImageTap: { url in
+                            guard !url.isEmpty, URL(string: url) != nil else { return }
+                            // Find the index of the tapped image among all images
+                            if let index = imageUrls.firstIndex(of: url) {
+                                selectedImageIndex = index
+                            }
+                            selectedImageUrl = url
+                            showImageViewer = true
+                        },
+                        onVideoTap: { url in
+                            guard !url.isEmpty, URL(string: url) != nil else { return }
+                            selectedVideoUrl = url
+                            showVideoPlayer = true
+                        }
+                    )
+                    .padding(.top, 8)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                handleDoubleTapLike()
             }
 
             // Engagement buttons
             HStack(spacing: 24) {
                 // Like button
-                Button(action: { isLiked.toggle() }) {
+                Button(action: { handleLikeToggle() }) {
                     HStack(spacing: 4) {
                         Image(systemName: isLiked ? "heart.fill" : "heart")
                             .resizable()
@@ -322,6 +328,16 @@ struct PostCard: View {
             return "U"
         }
         return String(first).uppercased()
+    }
+
+    private func handleLikeToggle() {
+        isLiked.toggle()
+    }
+
+    private func handleDoubleTapLike() {
+        if !isLiked {
+            isLiked = true
+        }
     }
 }
 

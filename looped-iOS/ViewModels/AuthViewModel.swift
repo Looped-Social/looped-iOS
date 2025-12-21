@@ -3,6 +3,9 @@ import Combine
 import UIKit
 import AuthenticationServices
 import CryptoKit
+#if canImport(FirebaseAuth)
+import FirebaseAuth
+#endif
 
 @MainActor
 class AuthViewModel: ObservableObject {
@@ -14,6 +17,7 @@ class AuthViewModel: ObservableObject {
     @Published var showDeferredOnboardingAlert = false
     @Published var shouldEnterOnboardingFlow = false
     @Published var selectedOrganization: Organization?
+    @Published private(set) var linkedProviders: Set<String> = []
     
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol
@@ -36,12 +40,14 @@ class AuthViewModel: ObservableObject {
                 } else {
                     self?.currentUser = nil
                 }
+                self?.updateLinkedProviders()
             }
             .store(in: &cancellables)
 
         if authService.isAuthenticated {
             Task { await loadCurrentUser() }
         }
+        updateLinkedProviders()
     }
     
     func login(email: String, password: String) async {
@@ -152,6 +158,7 @@ class AuthViewModel: ObservableObject {
         shouldEnterOnboardingFlow = true
         Task { await AnonService.shared.clearIdentity() }
         UserDefaults.standard.set(false, forKey: "anonymousMode")
+        linkedProviders = []
     }
 
     func loadCurrentUser() async {
@@ -162,9 +169,34 @@ class AuthViewModel: ObservableObject {
                 onboardingComplete = true
             }
             errorMessage = nil
+            updateLinkedProviders()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func linkGoogle() async throws {
+        guard let vc = UIHelpers.topViewController() else {
+            throw AuthError.networkError
+        }
+        try await authService.linkWithGoogle(presenting: vc)
+        updateLinkedProviders()
+    }
+
+    func linkApple() async throws {
+        guard let anchor = UIHelpers.currentPresentationAnchor() else {
+            throw AuthError.networkError
+        }
+        try await authService.linkWithApple(presentationAnchor: anchor)
+        updateLinkedProviders()
+    }
+
+    var isGoogleLinked: Bool {
+        linkedProviders.contains("google.com")
+    }
+
+    var isAppleLinked: Bool {
+        linkedProviders.contains("apple.com")
     }
 }
 
@@ -195,5 +227,14 @@ private extension AuthViewModel {
             }
         }
         return result
+    }
+
+    func updateLinkedProviders() {
+        #if canImport(FirebaseAuth)
+        let providers = Auth.auth().currentUser?.providerData.map { $0.providerID } ?? []
+        linkedProviders = Set(providers)
+        #else
+        linkedProviders = []
+        #endif
     }
 }

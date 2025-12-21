@@ -18,6 +18,8 @@ struct SettingsView: View {
     @AppStorage("anonymousMode") private var anonymousMode = true
     @State private var showCommunityRequest = false
     @State private var isEnrollingAnon = false
+    @State private var isLinkingGoogle = false
+    @State private var isLinkingApple = false
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -29,6 +31,8 @@ struct SettingsView: View {
     @State private var isDeletingAnon = false
     @State private var showAnonErrorAlert = false
     @State private var anonErrorMessage = ""
+    @State private var showLinkErrorAlert = false
+    @State private var linkErrorMessage = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -86,17 +90,17 @@ struct SettingsView: View {
                         ConnectedAccountRow(
                             icon: .asset("google-logo"),
                             title: "Google",
-                            buttonText: "Connect",
-                            buttonColor: .loopedSecondary,
-                            isConnected: false
-                        )
+                            isConnected: authViewModel.isGoogleLinked
+                        ) {
+                            connectGoogle()
+                        }
                         ConnectedAccountRow(
                             icon: .asset("apple-logo"),
                             title: "Apple",
-                            buttonText: "Disconnect",
-                            buttonColor: .loopedSecondary,
-                            isConnected: true
-                        )
+                            isConnected: authViewModel.isAppleLinked
+                        ) {
+                            connectApple()
+                        }
                     }
 
                     // Safety Section
@@ -216,6 +220,11 @@ struct SettingsView: View {
         } message: {
             Text(anonErrorMessage)
         }
+        .alert("Connection Failed", isPresented: $showLinkErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(linkErrorMessage)
+        }
     }
 }
 
@@ -230,6 +239,34 @@ private extension SettingsView {
             anonErrorMessage = error.localizedDescription
             showAnonErrorAlert = true
             anonymousMode = false
+        }
+    }
+
+    func connectGoogle() {
+        guard !isLinkingGoogle, !authViewModel.isGoogleLinked else { return }
+        isLinkingGoogle = true
+        Task {
+            defer { isLinkingGoogle = false }
+            do {
+                try await authViewModel.linkGoogle()
+            } catch {
+                linkErrorMessage = error.localizedDescription
+                showLinkErrorAlert = true
+            }
+        }
+    }
+
+    func connectApple() {
+        guard !isLinkingApple, !authViewModel.isAppleLinked else { return }
+        isLinkingApple = true
+        Task {
+            defer { isLinkingApple = false }
+            do {
+                try await authViewModel.linkApple()
+            } catch {
+                linkErrorMessage = error.localizedDescription
+                showLinkErrorAlert = true
+            }
         }
     }
 }
@@ -448,22 +485,19 @@ struct SettingsNavigationRow: View {
 struct ConnectedAccountRow: View {
     let icon: IconSource
     let title: String
-    let buttonText: String
-    let buttonColor: Color
     let isConnected: Bool
+    let action: () -> Void
 
     init(
         icon: IconSource,
         title: String,
-        buttonText: String,
-        buttonColor: Color,
-        isConnected: Bool
+        isConnected: Bool,
+        action: @escaping () -> Void
     ) {
         self.icon = icon
         self.title = title
-        self.buttonText = buttonText
-        self.buttonColor = buttonColor
         self.isConnected = isConnected
+        self.action = action
     }
 
     var body: some View {
@@ -488,11 +522,12 @@ struct ConnectedAccountRow: View {
 
             Spacer()
 
-            Button(buttonText) {
-                // Handle connection/disconnection
+            Button(isConnected ? "Connected" : "Connect") {
+                action()
             }
             .font(.loopedSubBodyMedium)
             .foregroundColor(isConnected ? .loopedTextSecondary : .loopedSecondary)
+            .disabled(isConnected)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)

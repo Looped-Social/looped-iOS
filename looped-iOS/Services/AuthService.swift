@@ -118,6 +118,26 @@ class AuthService: AuthServiceProtocol {
         #endif
     }
 
+    func linkWithGoogle(presenting: UIViewController) async throws {
+        #if canImport(GoogleSignIn)
+        guard let user = Auth.auth().currentUser else {
+            throw AuthError.invalidCredentials
+        }
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenting)
+        guard let idToken = result.user.idToken?.tokenString else {
+            throw AuthError.invalidCredentials
+        }
+        let accessToken = result.user.accessToken.tokenString
+        let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
+        _ = try await user.link(with: credential)
+        if let token = try await currentIDToken() {
+            tokenStorage.token = token
+        }
+        #else
+        throw AuthError.networkError
+        #endif
+    }
+
     // MARK: - Sign in with Apple
     func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws {
         let nonce = randomNonceString()
@@ -139,6 +159,34 @@ class AuthService: AuthServiceProtocol {
         )
         _ = try await Auth.auth().signIn(with: oauthCredential)
         _isAuthenticated = true
+        if let token = try await currentIDToken() {
+            tokenStorage.token = token
+        }
+    }
+
+    func linkWithApple(presentationAnchor: ASPresentationAnchor) async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw AuthError.invalidCredentials
+        }
+        let nonce = randomNonceString()
+        let hashedNonce = sha256(nonce)
+
+        let appleIDProvider = ASAuthorizationAppleIDProvider()
+        let request = appleIDProvider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = hashedNonce
+
+        let credential = try await performAppleAuthorization(request: request, anchor: presentationAnchor)
+        guard let appleIDToken = credential.identityToken,
+              let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+            throw AuthError.invalidCredentials
+        }
+        let oauthCredential = OAuthProvider.appleCredential(
+            withIDToken: idTokenString,
+            rawNonce: nonce,
+            fullName: credential.fullName
+        )
+        _ = try await user.link(with: oauthCredential)
         if let token = try await currentIDToken() {
             tokenStorage.token = token
         }

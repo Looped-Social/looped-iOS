@@ -17,6 +17,10 @@ protocol AuthServiceProtocol {
     func signInWithGoogle(presenting: UIViewController) async throws
     func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws
     func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws
+
+    // Link providers
+    func linkWithGoogle(presenting: UIViewController) async throws
+    func linkWithApple(presentationAnchor: ASPresentationAnchor) async throws
 }
 
 protocol FeedServiceProtocol {
