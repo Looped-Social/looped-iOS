@@ -62,7 +62,7 @@ class SearchResultsViewModel: ObservableObject {
         errorMessage = nil
         do {
             async let peoplePage = userService.searchUsers(query: query, limit: 20, cursor: nil)
-            async let loopsPage = discoveryService.searchLoops(query: query, limit: 20, cursor: nil)
+            async let loopsPage = communityService.searchCommunities(query: query, limit: 20, cursor: nil)
             let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
             let hashtagQuery = trimmedQuery.hasPrefix("#") ? String(trimmedQuery.dropFirst()) : trimmedQuery
             async let hashtagPage = discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
@@ -87,7 +87,8 @@ class SearchResultsViewModel: ObservableObject {
                     backendId: loop.id,
                     name: loop.name,
                     description: loop.description,
-                    memberCount: loop.memberCount
+                    memberCount: loop.memberCount,
+                    imageUrl: loop.imageUrl
                 )
             }
 

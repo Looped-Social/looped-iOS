@@ -4,6 +4,7 @@ enum CommunityKind: String, Codable {
     case company
     case school
     case profession
+    case sector
     case unknown
 
     init(from decoder: Decoder) throws {
@@ -35,6 +36,26 @@ struct CommunitySearchResult: Identifiable, Equatable {
     let description: String
     let kind: CommunityKind
     let memberCount: Int
+    let imageUrl: String?
+    let isFollowing: Bool?
+
+    init(
+        id: Int,
+        name: String,
+        description: String,
+        kind: CommunityKind,
+        memberCount: Int,
+        imageUrl: String? = nil,
+        isFollowing: Bool? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.kind = kind
+        self.memberCount = memberCount
+        self.imageUrl = imageUrl
+        self.isFollowing = isFollowing
+    }
 }
 
 extension CommunitySummary {
@@ -56,5 +77,17 @@ extension CommunitySearchResult {
         description = dto.description
         kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
         memberCount = dto.memberCount ?? 0
+        imageUrl = dto.imageUrl
+        isFollowing = nil
+    }
+
+    init(dto: CommunityRecommendedDTO) {
+        id = dto.id
+        name = dto.name
+        description = dto.description
+        kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
+        memberCount = dto.memberCount ?? 0
+        imageUrl = dto.imageUrl
+        isFollowing = dto.isFollowing
     }
 }

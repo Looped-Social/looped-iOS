@@ -144,19 +144,22 @@ struct SearchResultLoop: Identifiable {
     let name: String
     let description: String
     let memberCount: Int
+    let imageUrl: String?
 
     init(
         id: UUID = UUID(),
         backendId: Int? = nil,
         name: String,
         description: String,
-        memberCount: Int
+        memberCount: Int,
+        imageUrl: String? = nil
     ) {
         self.id = id
         self.backendId = backendId
         self.name = name
         self.description = description
         self.memberCount = memberCount
+        self.imageUrl = imageUrl
     }
 }
 

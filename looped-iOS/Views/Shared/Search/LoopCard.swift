@@ -1,37 +1,30 @@
 import SwiftUI
+import UIKit
 
 struct LoopCard: View {
     let title: String
     let description: String
     let memberCount: Int
+    let imageURL: String?
 
     var body: some View {
         VStack(spacing: 8) {
-            // Profile icon circle - made larger
-            Circle()
-                .fill(Color.loopedMutedBackground)
-                .frame(width: 80, height: 80)
-                .overlay(
-                    Image(systemName: "person")
-                        .font(.system(size: 32))
-                        .foregroundColor(.loopedTextSecondary)
-                )
+            bannerImage
+                .frame(height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(spacing: 4) {
-                // Title - larger font
                 Text(title)
                     .font(.loopedSubheadMedium)
                     .foregroundColor(.loopedTextPrimary)
                     .lineLimit(1)
 
-                // Description - smaller than title
                 Text(description)
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
 
-                // Member count - smallest
                 Text("\(memberCount) members")
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
@@ -46,6 +39,45 @@ struct LoopCard: View {
                 .stroke(Color.loopedMutedBackground, lineWidth: 1)
         )
     }
+
+    private var bannerImage: some View {
+        Group {
+            if let imageURL, let url = URL(string: imageURL), url.scheme != nil {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        placeholderImage
+                    case .empty:
+                        placeholderImage
+                    @unknown default:
+                        placeholderImage
+                    }
+                }
+            } else if let imageURL, let localImage = UIImage(named: imageURL) {
+                Image(uiImage: localImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                placeholderImage
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .clipped()
+    }
+
+    private var placeholderImage: some View {
+        Rectangle()
+            .fill(Color.loopedMutedBackground)
+            .overlay(
+                Image(systemName: "person.3")
+                    .font(.system(size: 20))
+                    .foregroundColor(.loopedTextSecondary.opacity(0.6))
+            )
+    }
 }
 
 #Preview {
@@ -53,19 +85,22 @@ struct LoopCard: View {
         LoopCard(
             title: "Engineering",
             description: "Tech discussions and career tips",
-            memberCount: 1250
+            memberCount: 1250,
+            imageURL: "trending1"
         )
 
         LoopCard(
             title: "Design",
             description: "UX/UI design inspiration",
-            memberCount: 890
+            memberCount: 890,
+            imageURL: "trending2"
         )
 
         LoopCard(
             title: "Marketing",
             description: "Growth and strategy insights",
-            memberCount: 640
+            memberCount: 640,
+            imageURL: "trending3"
         )
     }
     .padding()

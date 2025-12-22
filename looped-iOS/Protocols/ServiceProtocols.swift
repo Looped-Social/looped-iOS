@@ -76,6 +76,7 @@ protocol CommentsServiceProtocol {
 
 protocol CommunityServiceProtocol {
     func fetchFollowedCommunities(limit: Int, cursor: String?) async throws -> CommunityPage
+    func fetchRecommendedCommunities(limit: Int) async throws -> [CommunitySearchResult]
     func searchCommunities(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult>
     func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult]
     func followCommunity(id: Int) async throws

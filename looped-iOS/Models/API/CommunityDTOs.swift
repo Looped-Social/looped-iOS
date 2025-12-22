@@ -26,4 +26,19 @@ struct CommunitySearchDTO: Codable {
     let description: String
     let kind: String?
     let memberCount: Int?
+    let imageUrl: String?
+}
+
+struct CommunityRecommendedResponseDTO: Codable {
+    let items: [CommunityRecommendedDTO]
+}
+
+struct CommunityRecommendedDTO: Codable {
+    let id: Int
+    let name: String
+    let description: String
+    let kind: String?
+    let memberCount: Int?
+    let isFollowing: Bool?
+    let imageUrl: String?
 }

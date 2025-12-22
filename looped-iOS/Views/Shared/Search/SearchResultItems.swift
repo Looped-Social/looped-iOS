@@ -120,15 +120,9 @@ struct LoopSearchResultItem: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Loop icon
-                Circle()
-                    .fill(Color.loopedMutedBackground)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Image(systemName: "person.3.fill")
-                            .foregroundColor(.loopedTextSecondary)
-                            .font(.system(size: 16))
-                    )
+                loopImage
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(loop.name)
@@ -152,6 +146,42 @@ struct LoopSearchResultItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var loopImage: some View {
+        Group {
+            if let imageUrl = loop.imageUrl,
+               let url = URL(string: imageUrl),
+               url.scheme != nil {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        placeholderImage
+                    case .empty:
+                        placeholderImage
+                    @unknown default:
+                        placeholderImage
+                    }
+                }
+            } else {
+                placeholderImage
+            }
+        }
+        .clipped()
+    }
+
+    private var placeholderImage: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color.loopedMutedBackground)
+            .overlay(
+                Image(systemName: "person.3.fill")
+                    .foregroundColor(.loopedTextSecondary)
+                    .font(.system(size: 16))
+            )
     }
 }
 

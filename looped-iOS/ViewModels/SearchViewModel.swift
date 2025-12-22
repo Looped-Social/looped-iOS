@@ -6,7 +6,7 @@ class SearchViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var selectedTrendingIndex = 0
     @Published var trendingPosts: [TrendingPost] = []
-    @Published var loops: [LoopCategory] = []
+    @Published var recommendedCommunities: [CommunitySearchResult] = []
     @Published var professions: [CommunitySearchResult] = []
     @Published var professionsError: String?
 
@@ -24,12 +24,14 @@ class SearchViewModel: ObservableObject {
             await loadProfessions()
         }
         Task {
+            await loadRecommendedCommunities()
+        }
+        Task {
             await loadTrendingPosts()
         }
     }
 
     private func loadStaticContent() {
-        loops = MockSearchContent.loopCategories
         professions = MockSearchContent.professions
     }
 
@@ -49,6 +51,14 @@ class SearchViewModel: ObservableObject {
             selectedTrendingIndex = 0
         } catch {
             trendingPosts = []
+        }
+    }
+
+    func loadRecommendedCommunities() async {
+        do {
+            recommendedCommunities = try await communityService.fetchRecommendedCommunities(limit: 8)
+        } catch {
+            recommendedCommunities = []
         }
     }
 }

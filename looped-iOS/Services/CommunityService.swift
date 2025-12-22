@@ -20,6 +20,12 @@ class CommunityService: CommunityServiceProtocol {
         return CommunityPage(items: items, nextCursor: response.nextCursor)
     }
 
+    func fetchRecommendedCommunities(limit: Int) async throws -> [CommunitySearchResult] {
+        let endpoint = "/v1/communities/recommended?limit=\(limit > 0 ? limit : defaultLimit)"
+        let response: CommunityRecommendedResponseDTO = try await apiClient.get(endpoint)
+        return response.items.map(CommunitySearchResult.init(dto:))
+    }
+
     func searchCommunities(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult> {
         var endpoint = "/v1/communities/search?query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)&limit=\(limit > 0 ? limit : defaultLimit)"
         if let cursor, !cursor.isEmpty {

@@ -78,23 +78,29 @@ struct SearchView: View {
                             }
                         }
 
-                        // Loops Section
-                        VStack(alignment: .leading, spacing: 16) {
+                        // Communities Section
+                        VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Text("Loops")
+                                Text("Communities")
                                     .font(.loopedSubheadMedium)
                                     .foregroundColor(.loopedTextPrimary)
                                 Spacer()
                             }
                             .padding(.horizontal, 16)
 
+                            Text("Recommended communities for you")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                                .padding(.horizontal, 16)
+
                             ScrollView(.horizontal, showsIndicators: false) {
                                 LazyHStack(spacing: 16) {
-                                    ForEach(viewModel.loops) { loop in
+                                    ForEach(viewModel.recommendedCommunities) { community in
                                         LoopCard(
-                                            title: loop.title,
-                                            description: loop.description,
-                                            memberCount: loop.memberCount
+                                            title: community.name,
+                                            description: community.description,
+                                            memberCount: community.memberCount,
+                                            imageURL: community.imageUrl
                                         )
                                     }
                                 }
