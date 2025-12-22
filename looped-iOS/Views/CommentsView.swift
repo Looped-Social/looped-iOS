@@ -8,6 +8,8 @@ struct CommentsView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var commentText: String = ""
     @State private var keyboardHeight: CGFloat = 0
+    @State private var selectedHashtag: String?
+    @State private var showHashtagFeed = false
 
     private var comments: [Comment] {
         commentsManager.currentComments
@@ -65,6 +67,14 @@ struct CommentsView: View {
         .onDisappear {
             removeKeyboardObservers()
         }
+        .fullScreenCover(isPresented: $showHashtagFeed, onDismiss: {
+            selectedHashtag = nil
+        }) {
+            if let hashtag = selectedHashtag {
+                HashtagFeedView(hashtag: hashtag)
+                    .environmentObject(commentsManager)
+            }
+        }
     }
 }
 
@@ -121,7 +131,8 @@ private extension CommentsView {
                                     Task {
                                         await commentsManager.toggleLike(for: tappedComment)
                                     }
-                                }
+                                },
+                                onHashtagTap: handleHashtagTap
                             )
                             .onAppear {
                                 Task { await commentsManager.loadMoreIfNeeded(current: comment) }
@@ -265,6 +276,14 @@ private extension CommentsView {
             return "Anonymous"
         }
         return comment.authorDisplayName ?? "User"
+    }
+
+    func handleHashtagTap(_ hashtag: String) {
+        let trimmed = hashtag.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanHashtag = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+        guard !cleanHashtag.isEmpty else { return }
+        selectedHashtag = cleanHashtag
+        showHashtagFeed = true
     }
 }
 

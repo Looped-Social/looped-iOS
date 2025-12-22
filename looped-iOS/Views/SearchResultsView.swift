@@ -119,10 +119,7 @@ struct SearchResultsView: View {
                     onHashtagTap: { hashtag in
                         let impact = UIImpactFeedbackGenerator(style: .light)
                         impact.impactOccurred()
-                        // Remove # if present
-                        let cleanHashtag = hashtag.hasPrefix("#") ? String(hashtag.dropFirst()) : hashtag
-                        selectedHashtag = cleanHashtag
-                        showHashtagFeed = true
+                        handleHashtagTap(hashtag)
                     }
                 )
 
@@ -143,7 +140,8 @@ struct SearchResultsView: View {
                 onLoopTap: { loop in
                     // Navigate to loop
                     print("Tapped loop: \(loop.name)")
-                }
+                },
+                onHashtagTap: handleHashtagTap
             )
         }
     }
@@ -196,6 +194,14 @@ struct SearchResultsView: View {
                 .padding(.horizontal, 24)
         }
         .padding(.top, 60)
+    }
+
+    private func handleHashtagTap(_ hashtag: String) {
+        let trimmed = hashtag.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanHashtag = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+        guard !cleanHashtag.isEmpty else { return }
+        selectedHashtag = cleanHashtag
+        showHashtagFeed = true
     }
 }
 

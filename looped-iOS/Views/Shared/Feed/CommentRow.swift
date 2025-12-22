@@ -12,6 +12,7 @@ struct CommentRow: View {
     let onToggleReplies: ((Comment) -> Void)?
     let onLoadMoreReplies: ((Comment) -> Void)?
     let onLike: ((Comment) -> Void)?
+    let onHashtagTap: ((String) -> Void)?
 
     init(
         comment: Comment,
@@ -24,7 +25,8 @@ struct CommentRow: View {
         onReply: ((Comment) -> Void)? = nil,
         onToggleReplies: ((Comment) -> Void)? = nil,
         onLoadMoreReplies: ((Comment) -> Void)? = nil,
-        onLike: ((Comment) -> Void)? = nil
+        onLike: ((Comment) -> Void)? = nil,
+        onHashtagTap: ((String) -> Void)? = nil
     ) {
         self.comment = comment
         self.nestingLevel = nestingLevel
@@ -37,6 +39,7 @@ struct CommentRow: View {
         self.onToggleReplies = onToggleReplies
         self.onLoadMoreReplies = onLoadMoreReplies
         self.onLike = onLike
+        self.onHashtagTap = onHashtagTap
     }
     
     private var displayName: String {
@@ -99,12 +102,17 @@ struct CommentRow: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     // Comment text
-                    Text(comment.content)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextPrimary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HashtagText(
+                        text: comment.content,
+                        font: .loopedSubBodyRegular,
+                        textColor: .loopedTextPrimary,
+                        hashtagColor: .loopedPrimary
+                    ) { hashtag in
+                        onHashtagTap?(hashtag)
+                    }
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     // "Liked by creator" badge
                     if comment.isLikedByCreator {
@@ -196,7 +204,8 @@ struct CommentRow: View {
                                         onReply: onReply,
                                         onToggleReplies: nil,
                                         onLoadMoreReplies: nil,
-                                        onLike: onLike
+                                        onLike: onLike,
+                                        onHashtagTap: onHashtagTap
                                     )
 
                                     if reply.id != replies.last?.id {

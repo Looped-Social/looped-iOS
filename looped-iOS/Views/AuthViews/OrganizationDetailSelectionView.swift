@@ -1,22 +1,17 @@
 import SwiftUI
 
-// MARK: - Organization Selection View
-
-struct OrganizationSelectionView: View {
+struct OrganizationDetailSelectionView: View {
     let title: String
-    let organizations: [Organization]
-    let onSelect: (Organization) -> Void
-    let onNavigate: (AuthScreen) -> Void
+    let items: [String]
+    let onSelect: (String) -> Void
 
     @State private var searchText = ""
 
-    private var filteredOrganizations: [Organization] {
+    private var filteredItems: [String] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return organizations }
+        guard !trimmed.isEmpty else { return items }
         let query = trimmed.lowercased()
-        return organizations.filter { org in
-            org.name.lowercased().contains(query) || org.logoText.lowercased().contains(query)
-        }
+        return items.filter { $0.lowercased().contains(query) }
     }
 
     var body: some View {
@@ -28,7 +23,6 @@ struct OrganizationSelectionView: View {
                 Text(title)
                     .font(.loopedHeadingMedium)
                     .foregroundColor(.loopedContrast)
-                    .multilineTextAlignment(.center)
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
@@ -52,19 +46,15 @@ struct OrganizationSelectionView: View {
 
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(filteredOrganizations) { organization in
-                            OrganizationListRow(organization: organization) {
-                                onSelect(organization)
-                                if organization.kind == .school {
-                                    onNavigate(.degreeSelection)
-                                } else {
-                                    onNavigate(.departmentSelection)
-                                }
+                        ForEach(filteredItems, id: \.self) { item in
+                            OrganizationDetailRow(title: item) {
+                                onSelect(item)
                             }
                         }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
+                    .padding(.bottom, 20)
                 }
 
                 Spacer()
@@ -75,24 +65,15 @@ struct OrganizationSelectionView: View {
     }
 }
 
-private struct OrganizationListRow: View {
-    let organization: Organization
+private struct OrganizationDetailRow: View {
+    let title: String
     let onSelect: () -> Void
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(Color.loopedMutedBackground)
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        Text(organization.logoText)
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedContrast)
-                    )
-
-                Text(organization.name)
-                    .font(.loopedBodyMedium)
+            HStack {
+                Text(title)
+                    .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
 
                 Spacer()
@@ -111,9 +92,9 @@ private struct OrganizationListRow: View {
 }
 
 #Preview {
-    OrganizationSelectionView(
-        title: "Where do you work?",
-        organizations: MockOrganizations.companies,
+    OrganizationDetailSelectionView(
+        title: "Department",
+        items: MockOnboardingDetails.departments,
         onSelect: { _ in }
-    ) { _ in }
+    )
 }

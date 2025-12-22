@@ -43,6 +43,20 @@ struct AuthView: View {
                         currentScreen = .verificationIntro(isStudent: isStudent)
                     }
                 }
+            case .departmentSelection:
+                OrganizationDetailSelectionView(
+                    title: "Department",
+                    items: MockOnboardingDetails.departments
+                ) { _ in
+                    currentScreen = .communitySelection(isStudent: false)
+                }
+            case .degreeSelection:
+                OrganizationDetailSelectionView(
+                    title: "Degree",
+                    items: MockOnboardingDetails.degrees
+                ) { _ in
+                    currentScreen = .communitySelection(isStudent: true)
+                }
             case .verificationIntro(let isStudent):
                 VerificationIntroView(
                     loopName: selectedLoopName,
@@ -154,6 +168,8 @@ enum AuthScreen {
     case profileSetup
     case selectCompany
     case selectSchool
+    case departmentSelection
+    case degreeSelection
     case communitySelection(isStudent: Bool)
     case verificationIntro(isStudent: Bool)
     case waysToVerifyCompany

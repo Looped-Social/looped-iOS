@@ -190,6 +190,7 @@ struct SearchResultsSection: View {
     let results: SearchResults
     let onPostTap: (SearchResultPost) -> Void
     let onLoopTap: (SearchResultLoop) -> Void
+    let onHashtagTap: (String) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -230,7 +231,7 @@ struct SearchResultsSection: View {
             // Hashtag results (listed after loops)
             ForEach(results.hashtags) { tag in
                 Button(action: {
-                    // Handled upstream via hashtag suggestions tap
+                    onHashtagTap(tag.name)
                 }) {
                     HStack(spacing: 12) {
                         Image(systemName: "number")
@@ -278,7 +279,8 @@ struct SearchResultsSection: View {
     return SearchResultsSection(
         results: mockResults,
         onPostTap: { _ in },
-        onLoopTap: { _ in }
+        onLoopTap: { _ in },
+        onHashtagTap: { _ in }
     )
     .background(Color.loopedBackground)
 }
