@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 @MainActor
 class NotificationsViewModel: ObservableObject {
@@ -8,10 +9,16 @@ class NotificationsViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let notificationService: NotificationServiceProtocol
+    private let userService: UserServiceProtocol
     private var nextCursor: String?
+    private var actorCache: [Int: ActorProfile] = [:]
 
-    init(notificationService: NotificationServiceProtocol = NotificationService()) {
+    init(
+        notificationService: NotificationServiceProtocol = NotificationService(),
+        userService: UserServiceProtocol = UserService()
+    ) {
         self.notificationService = notificationService
+        self.userService = userService
     }
 
     // MARK: - Load Notifications
@@ -24,6 +31,7 @@ class NotificationsViewModel: ObservableObject {
             notifications = page.notifications
             nextCursor = page.nextCursor
             errorMessage = nil
+            await hydrateActorProfiles(for: page.notifications)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -47,7 +55,15 @@ class NotificationsViewModel: ObservableObject {
             navigateToPost(notification.targetId)
         case .follow:
             // Navigate to user profile
-            navigateToUserProfile(notification.actorId)
+            if let actorId = notification.actorId {
+                navigateToUserProfile(actorId)
+            }
+        case .postFromFollowed:
+            navigateToPost(notification.targetId)
+        case .announcement, .system:
+            if !openDeeplink(notification.deeplink) {
+                print("No deeplink for notification: \(notification.id)")
+            }
         case .loopInvite, .groupInvite:
             // Navigate to loop/group
             navigateToGroup(notification.targetId)
@@ -58,7 +74,9 @@ class NotificationsViewModel: ObservableObject {
     func handleActionButtonTap(_ notification: Notification) {
         switch notification.type {
         case .follow:
-            followUser(notification.actorId)
+            if let actorId = notification.actorId {
+                followUser(actorId)
+            }
         case .loopInvite:
             joinLoop(notification.targetId)
         case .groupInvite:
@@ -75,38 +93,14 @@ class NotificationsViewModel: ObservableObject {
                 try? await notificationService.markRead(notificationId: backendId)
             }
             if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
-                notifications[index] = Notification(
-                    id: notifications[index].id,
-                    type: notifications[index].type,
-                    actorId: notifications[index].actorId,
-                    actorName: notifications[index].actorName,
-                    actorProfileImageUrl: notifications[index].actorProfileImageUrl,
-                    additionalActors: notifications[index].additionalActors,
-                    targetId: notifications[index].targetId,
-                    targetContent: notifications[index].targetContent,
-                    isRead: true,
-                    createdAt: notifications[index].createdAt
-                )
+                notifications[index] = notifications[index].markingRead()
             }
         }
     }
 
     // MARK: - Mark All As Read
     func markAllAsRead() {
-        notifications = notifications.map { notification in
-            Notification(
-                id: notification.id,
-                type: notification.type,
-                actorId: notification.actorId,
-                actorName: notification.actorName,
-                actorProfileImageUrl: notification.actorProfileImageUrl,
-                additionalActors: notification.additionalActors,
-                targetId: notification.targetId,
-                targetContent: notification.targetContent,
-                isRead: true,
-                createdAt: notification.createdAt
-            )
-        }
+        notifications = notifications.map { $0.markingRead() }
     }
 
     // MARK: - Navigation Helpers (TODO: Implement actual navigation)
@@ -140,4 +134,55 @@ class NotificationsViewModel: ObservableObject {
         print("Joining group: \(groupId?.uuidString ?? "unknown")")
         // TODO: Implement join group API call
     }
+
+    private func openDeeplink(_ deeplink: String?) -> Bool {
+        guard let deeplink, let url = URL(string: deeplink) else { return false }
+        UIApplication.shared.open(url)
+        return true
+    }
+
+    private func hydrateActorProfiles(for notifications: [Notification]) async {
+        let idsToFetch = Set(notifications.compactMap { $0.actorId?.backendInt })
+            .subtracting(actorCache.keys)
+        guard !idsToFetch.isEmpty else { return }
+
+        var fetchedProfiles: [Int: ActorProfile] = [:]
+        await withTaskGroup(of: (Int, ActorProfile)?.self) { group in
+            for backendId in idsToFetch {
+                group.addTask { [userService] in
+                    do {
+                        let user = try await userService.getUser(by: backendId)
+                        let name = user.displayName ?? user.username ?? user.handle
+                        return (backendId, ActorProfile(name: name, profileImageUrl: user.profileImageURL))
+                    } catch {
+                        return nil
+                    }
+                }
+            }
+
+            for await result in group {
+                if let (id, profile) = result {
+                    fetchedProfiles[id] = profile
+                }
+            }
+        }
+
+        if fetchedProfiles.isEmpty { return }
+        actorCache.merge(fetchedProfiles) { _, new in new }
+        self.notifications = self.notifications.map { notification in
+            guard
+                let backendId = notification.actorId?.backendInt,
+                let profile = actorCache[backendId],
+                notification.actorIsAnonymous == false
+            else {
+                return notification
+            }
+            return notification.updatingActor(name: profile.name, profileImageUrl: profile.profileImageUrl)
+        }
+    }
+}
+
+private struct ActorProfile {
+    let name: String
+    let profileImageUrl: String?
 }

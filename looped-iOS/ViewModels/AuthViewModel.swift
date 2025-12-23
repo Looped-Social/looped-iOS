@@ -175,6 +175,22 @@ class AuthViewModel: ObservableObject {
         }
     }
 
+    func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO {
+        try await userService.checkUsernameAvailability(username)
+    }
+
+    func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: Date) async throws {
+        let dob = dateOfBirth.yyyyMMddString()
+        let user = try await userService.onboardUser(
+            username: username,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dob
+        )
+        currentUser = user
+        updateLinkedProviders()
+    }
+
     func linkGoogle() async throws {
         guard let vc = UIHelpers.topViewController() else {
             throw AuthError.networkError

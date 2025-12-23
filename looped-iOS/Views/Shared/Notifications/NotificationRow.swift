@@ -20,9 +20,16 @@ struct NotificationRow: View {
                 Circle()
                     .fill(Color.loopedPrimary.opacity(0.2))
                     .overlay(
-                        Text(String(notification.actorName.prefix(1)).uppercased())
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedPrimary)
+                        Group {
+                            if notification.actorIsAnonymous && notification.type != .announcement && notification.type != .system {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                            } else {
+                                Text(actorInitial)
+                                    .font(.loopedBodyMedium)
+                            }
+                        }
+                        .foregroundColor(.loopedPrimary)
                     )
             }
             .frame(width: 40, height: 40)
@@ -55,8 +62,8 @@ struct NotificationRow: View {
                 }
 
                 // Content Preview (for post/comment notifications)
-                if let targetContent = notification.targetContent, !targetContent.isEmpty {
-                    Text(targetContent)
+                if let previewText = notification.previewText, !previewText.isEmpty {
+                    Text(previewText)
                         .font(.loopedSmallText)
                         .lineLimit(2)
                         .padding(.vertical, 6)
@@ -102,6 +109,13 @@ struct NotificationRow: View {
         }
 
         return text
+    }
+
+    private var actorInitial: String {
+        guard let first = notification.actorName.trimmingCharacters(in: .whitespacesAndNewlines).first else {
+            return "?"
+        }
+        return String(first).uppercased()
     }
 }
 

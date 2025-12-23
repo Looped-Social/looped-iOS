@@ -1,11 +1,18 @@
 import SwiftUI
 
 struct ProfileSetupView: View {
-    let onContinue: (ProfileSetupData) -> Void
+    @ObservedObject var authViewModel: AuthViewModel
+    let onContinue: () -> Void
 
     @State private var username = ""
-    @State private var fullName = ""
+    @State private var firstName = ""
+    @State private var lastName = ""
     @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    @State private var usernameState: UsernameAvailabilityState = .idle
+    @State private var isCheckingUsername = false
+    @State private var isSubmitting = false
+    @State private var submitError: String?
+    @State private var usernameCheckTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -32,7 +39,20 @@ struct ProfileSetupView: View {
 
                         VStack(spacing: 16) {
                             inputField(title: "Username", placeholder: "looped handle", text: $username, keyboard: .default)
-                            inputField(title: "Full Name", placeholder: "First and last name", text: $fullName, keyboard: .default)
+                                .onChange(of: username) { _, newValue in
+                                    handleUsernameChange(newValue)
+                                }
+
+                            if let statusText = usernameStatusText {
+                                Text(statusText)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(usernameStatusColor)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 6)
+                            }
+
+                            inputField(title: "First Name", placeholder: "First name", text: $firstName, keyboard: .default)
+                            inputField(title: "Last Name", placeholder: "Last name", text: $lastName, keyboard: .default)
                             dateField(title: "Date of Birth", date: $dateOfBirth)
                         }
                         .padding()
@@ -49,7 +69,20 @@ struct ProfileSetupView: View {
                                 .background(isFormValid ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.3))
                                 .cornerRadius(14)
                         }
-                        .disabled(!isFormValid)
+                        .disabled(!isFormValid || isSubmitting)
+
+                        if isCheckingUsername || isSubmitting {
+                            ProgressView()
+                                .tint(.loopedPrimary)
+                        }
+
+                        if let submitError {
+                            Text(submitError)
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 8)
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 32)
@@ -59,15 +92,71 @@ struct ProfileSetupView: View {
     }
 
     private var isFormValid: Bool {
-        !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !normalizedUsername.isEmpty
+            && usernameState.isAvailable
+            && !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func handleContinue() {
-        let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedName = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let data = ProfileSetupData(username: trimmedUsername, fullName: trimmedName, dateOfBirth: dateOfBirth)
-        onContinue(data)
+        guard isFormValid else { return }
+        let trimmedUsername = normalizedUsername
+        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        isSubmitting = true
+        submitError = nil
+        Task {
+            defer { isSubmitting = false }
+            do {
+                try await authViewModel.onboardUser(
+                    username: trimmedUsername,
+                    firstName: trimmedFirstName,
+                    lastName: trimmedLastName,
+                    dateOfBirth: dateOfBirth
+                )
+                onContinue()
+            } catch {
+                submitError = error.localizedDescription
+            }
+        }
+    }
+
+    private func handleUsernameChange(_ value: String) {
+        if value != value.lowercased() {
+            username = value.lowercased()
+        }
+        usernameCheckTask?.cancel()
+        submitError = nil
+
+        let normalized = normalizedUsername
+        guard !normalized.isEmpty else {
+            usernameState = .idle
+            return
+        }
+        guard isUsernameValid(normalized) else {
+            usernameState = .invalid
+            return
+        }
+
+        usernameState = .checking
+        usernameCheckTask = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            await checkUsernameAvailability(for: normalized)
+        }
+    }
+
+    private func checkUsernameAvailability(for value: String) async {
+        guard value == normalizedUsername else { return }
+        isCheckingUsername = true
+        defer { isCheckingUsername = false }
+        do {
+            let availability = try await authViewModel.checkUsernameAvailability(value)
+            guard value == normalizedUsername else { return }
+            usernameState = availability.available ? .available(availability.username) : .unavailable
+        } catch {
+            guard value == normalizedUsername else { return }
+            usernameState = .error
+        }
     }
 
     private func inputField(title: String, placeholder: String, text: Binding<String>, keyboard: UIKeyboardType) -> some View {
@@ -105,12 +194,59 @@ struct ProfileSetupView: View {
     }
 }
 
-struct ProfileSetupData {
-    let username: String
-    let fullName: String
-    let dateOfBirth: Date
+#Preview {
+    ProfileSetupView(authViewModel: AuthViewModel(), onContinue: { })
 }
 
-#Preview {
-    ProfileSetupView(onContinue: { _ in })
+private extension ProfileSetupView {
+    enum UsernameAvailabilityState: Equatable {
+        case idle
+        case checking
+        case available(String)
+        case unavailable
+        case invalid
+        case error
+
+        var isAvailable: Bool {
+            if case .available = self { return true }
+            return false
+        }
+    }
+
+    var normalizedUsername: String {
+        username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    var usernameStatusText: String? {
+        switch usernameState {
+        case .idle:
+            return nil
+        case .checking:
+            return "Checking availability..."
+        case .available(let normalized):
+            return "Available: @\(normalized)"
+        case .unavailable:
+            return "That username is taken."
+        case .invalid:
+            return "Use 3-30 lowercase letters, numbers, or underscores."
+        case .error:
+            return "Couldn't check username right now."
+        }
+    }
+
+    var usernameStatusColor: Color {
+        switch usernameState {
+        case .available:
+            return .green
+        case .checking:
+            return .loopedTextSecondary
+        default:
+            return .red
+        }
+    }
+
+    func isUsernameValid(_ value: String) -> Bool {
+        let pattern = "^[a-z0-9_]{3,30}$"
+        return value.range(of: pattern, options: .regularExpression) != nil
+    }
 }

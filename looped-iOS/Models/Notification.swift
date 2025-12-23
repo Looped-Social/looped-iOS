@@ -4,24 +4,36 @@ import Foundation
 struct Notification: Codable, Identifiable {
     let id: UUID
     let type: NotificationType
-    let actorId: UUID
+    let actorId: UUID?
     let actorName: String
     let actorProfileImageUrl: String?
+    let actorIsAnonymous: Bool
     let additionalActors: [NotificationActor]? // For grouped notifications
     let targetId: UUID? // Post/Comment/User ID that was affected
+    let targetCommentId: UUID?
     let targetContent: String? // Preview of post/comment content
+    let title: String?
+    let body: String?
+    let deeplink: String?
+    let mentionContext: NotificationMentionContext?
     let isRead: Bool
     let createdAt: Date
 
     init(
         id: UUID = UUID(),
         type: NotificationType,
-        actorId: UUID,
+        actorId: UUID? = nil,
         actorName: String,
         actorProfileImageUrl: String? = nil,
+        actorIsAnonymous: Bool = false,
         additionalActors: [NotificationActor]? = nil,
         targetId: UUID? = nil,
+        targetCommentId: UUID? = nil,
         targetContent: String? = nil,
+        title: String? = nil,
+        body: String? = nil,
+        deeplink: String? = nil,
+        mentionContext: NotificationMentionContext? = nil,
         isRead: Bool = false,
         createdAt: Date = Date()
     ) {
@@ -30,9 +42,15 @@ struct Notification: Codable, Identifiable {
         self.actorId = actorId
         self.actorName = actorName
         self.actorProfileImageUrl = actorProfileImageUrl
+        self.actorIsAnonymous = actorIsAnonymous
         self.additionalActors = additionalActors
         self.targetId = targetId
+        self.targetCommentId = targetCommentId
         self.targetContent = targetContent
+        self.title = title
+        self.body = body
+        self.deeplink = deeplink
+        self.mentionContext = mentionContext
         self.isRead = isRead
         self.createdAt = createdAt
     }
@@ -45,9 +63,17 @@ enum NotificationType: String, Codable {
     case reply          // Someone replied to your comment
     case mention        // Someone mentioned you
     case follow         // Someone followed you
+    case postFromFollowed = "post_from_followed"
+    case announcement
+    case system
     case loopInvite     // Someone invited you to a loop
     case groupInvite    // Someone added you to a group
     case repost         // Someone reposted your post
+}
+
+enum NotificationMentionContext: String, Codable {
+    case post
+    case comment
 }
 
 // MARK: - Additional Actor (for grouped notifications)
@@ -99,9 +125,24 @@ extension Notification {
         case .reply:
             return "\(actorText) replied to your comment"
         case .mention:
+            if mentionContext == .comment {
+                return "\(actorText) mentioned you in a comment"
+            }
             return "\(actorText) mentioned you in a post"
         case .follow:
             return "\(actorText) started following you"
+        case .postFromFollowed:
+            return "\(actorText) shared a new post"
+        case .announcement:
+            if let title, !title.isEmpty {
+                return "\(actorText): \(title)"
+            }
+            return "\(actorText) posted an announcement"
+        case .system:
+            if let title, !title.isEmpty {
+                return "System: \(title)"
+            }
+            return "System notification"
         case .loopInvite:
             return "\(actorText) invited you to join a loop"
         case .groupInvite:
@@ -147,6 +188,12 @@ extension Notification {
             return "at"
         case .follow:
             return "person.fill.badge.plus"
+        case .postFromFollowed:
+            return "person.2.fill"
+        case .announcement:
+            return "megaphone.fill"
+        case .system:
+            return "gearshape.fill"
         case .loopInvite:
             return "person.2.fill"
         case .groupInvite:
@@ -178,5 +225,57 @@ extension Notification {
         default:
             return ""
         }
+    }
+
+    var previewText: String? {
+        if let targetContent, !targetContent.isEmpty {
+            return targetContent
+        }
+        if let body, !body.isEmpty {
+            return body
+        }
+        return nil
+    }
+
+    func updatingActor(name: String, profileImageUrl: String?) -> Notification {
+        Notification(
+            id: id,
+            type: type,
+            actorId: actorId,
+            actorName: name,
+            actorProfileImageUrl: profileImageUrl,
+            actorIsAnonymous: actorIsAnonymous,
+            additionalActors: additionalActors,
+            targetId: targetId,
+            targetCommentId: targetCommentId,
+            targetContent: targetContent,
+            title: title,
+            body: body,
+            deeplink: deeplink,
+            mentionContext: mentionContext,
+            isRead: isRead,
+            createdAt: createdAt
+        )
+    }
+
+    func markingRead() -> Notification {
+        Notification(
+            id: id,
+            type: type,
+            actorId: actorId,
+            actorName: actorName,
+            actorProfileImageUrl: actorProfileImageUrl,
+            actorIsAnonymous: actorIsAnonymous,
+            additionalActors: additionalActors,
+            targetId: targetId,
+            targetCommentId: targetCommentId,
+            targetContent: targetContent,
+            title: title,
+            body: body,
+            deeplink: deeplink,
+            mentionContext: mentionContext,
+            isRead: true,
+            createdAt: createdAt
+        )
     }
 }

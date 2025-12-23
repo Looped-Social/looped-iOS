@@ -56,10 +56,13 @@ protocol UserServiceProtocol {
     func getCurrentUser() async throws -> User
     func getUser(by id: Int) async throws -> User
     func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool, showFollowerCount: Bool?) async throws -> User
+    func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
     func deleteAccount(mode: DeleteAccountMode) async throws
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage
+    func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO
+    func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
 }
 
 enum DeleteAccountMode: String {
@@ -91,6 +94,8 @@ protocol DiscoveryServiceProtocol {
 protocol NotificationServiceProtocol {
     func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage
     func markRead(notificationId: Int) async throws
+    func fetchPreferences() async throws -> NotificationPreferencesDTO
+    func updatePreferences(_ update: NotificationPreferencesUpdateRequest) async throws -> NotificationPreferencesDTO
 }
 
 protocol WebSocketServiceProtocol {

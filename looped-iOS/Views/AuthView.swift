@@ -136,7 +136,7 @@ struct AuthView: View {
                     }
                 )
             case .profileSetup:
-                ProfileSetupView { _ in
+                ProfileSetupView(authViewModel: authViewModel) {
                     currentScreen = .selectCompany
                 }
             case .login:

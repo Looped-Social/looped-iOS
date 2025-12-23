@@ -15,6 +15,7 @@ struct ProfileView: View {
     @AppStorage("anonymousMode") private var isAnonymous = false
     @State private var showAnonError = false
     @State private var anonErrorMessage = ""
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     private let headerHeight: CGFloat = 300
 
@@ -73,7 +74,6 @@ struct ProfileView: View {
 
                 // Action Buttons
                 ProfileActionButtons(
-                    viewModel: viewModel,
                     userProfile: displayProfile,
                     isAnonymous: $isAnonymous
                 )
@@ -88,6 +88,21 @@ struct ProfileView: View {
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.25), value: headerVisible)
+        }
+        .overlay(alignment: .topTrailing) {
+            if displayProfile?.isCurrentUser ?? true {
+                NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.loopedTextPrimary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("Settings")
+                .padding(.top, 10)
+                .padding(.trailing, 16)
+            }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
@@ -398,7 +413,6 @@ private struct CompanyIconView: View {
 }
 
 struct ProfileActionButtons: View {
-    @ObservedObject var viewModel: ProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
     let userProfile: UserProfile?
     @Binding var isAnonymous: Bool
@@ -406,13 +420,8 @@ struct ProfileActionButtons: View {
     var body: some View {
         HStack(spacing: 12) {
             if userProfile?.isCurrentUser ?? true {
-                NavigationLink(destination: EditProfileView(viewModel: viewModel)) {
+                NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
                     ProfileActionButton(title: "Edit Profile", style: .outline)
-                }
-                .buttonStyle(PlainButtonStyle())
-
-                NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
-                    ProfileActionButton(title: "Settings", style: .outline)
                 }
                 .buttonStyle(PlainButtonStyle())
 

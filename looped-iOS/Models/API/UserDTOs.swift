@@ -12,6 +12,10 @@ struct IdentityResponseDTO: Codable {
 struct UserDTO: Codable {
     let id: Int
     let handle: String
+    let username: String?
+    let firstName: String?
+    let lastName: String?
+    let dateOfBirth: String?
     let companyId: Int
     let verification: VerificationDTO?
     let profile: UserProfileDTO?
@@ -31,6 +35,9 @@ struct VerificationDTO: Codable {
 struct UserProfileDTO: Codable {
     let displayName: String?
     let username: String?
+    let firstName: String?
+    let lastName: String?
+    let dateOfBirth: String?
     let bio: String?
     let createdAt: Date?
     let updatedAt: Date?

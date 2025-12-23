@@ -8,13 +8,16 @@ struct UserSettingsView: View {
     private let userService: UserServiceProtocol = UserService()
 
     @State private var username: String = ""
-    @State private var displayName: String = ""
+    @State private var firstName: String = ""
+    @State private var lastName: String = ""
+    @State private var dateOfBirth: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     @State private var bio: String = ""
     @State private var emailNotifications = true
     @State private var pushNotifications = true
     @State private var hasLoadedUser = false
     @State private var isSaving = false
     @State private var saveError: String?
+    @State private var usernameError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,19 +75,64 @@ struct UserSettingsView: View {
                             .padding(12)
                             .background(Color.loopedTextSecondary.opacity(0.1))
                             .cornerRadius(8)
+                            .textInputAutocapitalization(.none)
+                            .autocorrectionDisabled()
+                            .onChange(of: username) { _, newValue in
+                                if newValue != newValue.lowercased() {
+                                    username = newValue.lowercased()
+                                }
+                                usernameError = usernameValidationMessage(for: normalizedUsername)
+                            }
+
+                        if let usernameError {
+                            Text(usernameError)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.red)
+                        }
                     }
                     .padding(.horizontal, 20)
 
-                    // Full Name Section
+                    // First Name Section
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Full Name")
+                        Text("First Name")
                             .font(.loopedBodyStrong)
                             .foregroundColor(.loopedTextPrimary)
 
-                        TextField("Full Name", text: $displayName)
+                        TextField("First Name", text: $firstName)
                             .font(.loopedBody)
                             .foregroundColor(.loopedTextPrimary)
                             .padding(12)
+                            .background(Color.loopedTextSecondary.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    .padding(.horizontal, 20)
+
+                    // Last Name Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Last Name")
+                            .font(.loopedBodyStrong)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        TextField("Last Name", text: $lastName)
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextPrimary)
+                            .padding(12)
+                            .background(Color.loopedTextSecondary.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    .padding(.horizontal, 20)
+
+                    // Date of Birth Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Date of Birth")
+                            .font(.loopedBodyStrong)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        DatePicker("", selection: $dateOfBirth, in: ...Date(), displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.loopedTextSecondary.opacity(0.1))
                             .cornerRadius(8)
                     }
@@ -138,10 +186,10 @@ struct UserSettingsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(isSaving ? Color.loopedPrimary.opacity(0.7) : Color.loopedPrimary)
+                        .background(saveButtonColor)
                         .cornerRadius(12)
                     }
-                    .disabled(isSaving)
+                    .disabled(isSaving || !isFormValid)
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
 
@@ -200,13 +248,19 @@ private extension UserSettingsView {
     func hydrateFromUser() {
         guard let user = currentUser, !hasLoadedUser else { return }
         username = user.username ?? user.handle
-        displayName = user.displayName ?? user.handle
+        usernameError = usernameValidationMessage(for: normalizedUsername)
+        firstName = user.firstName ?? ""
+        lastName = user.lastName ?? ""
+        if let dob = user.dateOfBirth?.yyyyMMddDate() {
+            dateOfBirth = dob
+        }
         bio = user.bio ?? ""
         hasLoadedUser = true
     }
 
     func saveProfile() {
         guard !isSaving else { return }
+        guard isFormValid else { return }
         let impact = UIImpactFeedbackGenerator(style: .light)
         impact.impactOccurred()
         saveError = nil
@@ -215,6 +269,17 @@ private extension UserSettingsView {
         Task {
             defer { isSaving = false }
             do {
+                let trimmedUsername = normalizedUsername
+                let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+                let displayName = "\(trimmedFirstName) \(trimmedLastName)"
+
+                _ = try await userService.updateIdentity(
+                    username: trimmedUsername,
+                    firstName: trimmedFirstName,
+                    lastName: trimmedLastName,
+                    dateOfBirth: dateOfBirth.yyyyMMddString()
+                )
                 _ = try await userService.updateProfile(
                     displayName: displayName,
                     bio: bio.isEmpty ? nil : bio,
@@ -226,6 +291,32 @@ private extension UserSettingsView {
                 saveError = error.localizedDescription
             }
         }
+    }
+
+    var normalizedUsername: String {
+        username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    var isFormValid: Bool {
+        !normalizedUsername.isEmpty
+            && usernameValidationMessage(for: normalizedUsername) == nil
+            && !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var saveButtonColor: Color {
+        isSaving || !isFormValid ? Color.loopedPrimary.opacity(0.7) : Color.loopedPrimary
+    }
+
+    func usernameValidationMessage(for value: String) -> String? {
+        guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "Username is required."
+        }
+        let pattern = "^[a-z0-9_]{3,30}$"
+        if value.range(of: pattern, options: .regularExpression) == nil {
+            return "Use 3-30 lowercase letters, numbers, or underscores."
+        }
+        return nil
     }
 }
 

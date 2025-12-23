@@ -39,6 +39,17 @@ class UserService: UserServiceProtocol {
         )
         return try await apiClient.put("/users/me", body: request)
     }
+
+    func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User {
+        let request = UserIdentityUpdateRequestDTO(
+            username: username,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dateOfBirth
+        )
+        let dto: UserDTO = try await apiClient.put("/v1/users/me", body: request)
+        return User(dto: dto, profile: dto.profile)
+    }
     
     func deleteAccount(mode: DeleteAccountMode = .hard) async throws {
         try await apiClient.delete("/v1/users/me?mode=\(mode.rawValue)")
@@ -77,6 +88,22 @@ class UserService: UserServiceProtocol {
         )
     }
         return UserSearchPage(users: users, nextCursor: response.nextCursor)
+    }
+
+    func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO {
+        let encoded = username.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? username
+        return try await apiClient.get("/v1/users/username/availability?username=\(encoded)")
+    }
+
+    func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User {
+        let request = UserOnboardRequestDTO(
+            username: username,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dateOfBirth
+        )
+        let dto: UserDTO = try await apiClient.post("/v1/users/onboard", body: request)
+        return User(dto: dto, profile: dto.profile)
     }
 
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage {

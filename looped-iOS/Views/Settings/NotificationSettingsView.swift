@@ -2,23 +2,7 @@ import SwiftUI
 
 struct NotificationSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-
-    // Push Notifications
-    @State private var pushNotificationsEnabled = true
-    @State private var postReplies = true
-    @State private var directMessages = true
-    @State private var mentions = true
-    @State private var newFollowers = false
-    @State private var postLikes = false
-
-    // Email Notifications
-    @State private var emailNotificationsEnabled = true
-    @State private var emailDigest = true
-    @State private var emailMarketing = false
-
-    // In-App Notifications
-    @State private var inAppSounds = true
-    @State private var inAppBadges = true
+    @StateObject private var viewModel = NotificationPreferencesViewModel()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,123 +34,41 @@ struct NotificationSettingsView: View {
             // Scrollable content
             ScrollView {
                 VStack(spacing: 0) {
-                    // Push Notifications Section
-                    NotificationSection(title: "Push Notifications") {
-                        NotificationToggleRow(
-                            icon: "bell.fill",
-                            title: "Enable Push Notifications",
-                            subtitle: "Receive notifications on this device",
-                            isOn: $pushNotificationsEnabled,
-                            isPrimary: true
-                        )
-
-                        if pushNotificationsEnabled {
-                            Divider().padding(.horizontal, 16)
-
-                            NotificationToggleRow(
-                                icon: "bubble.left.and.bubble.right",
-                                title: "Post Replies",
-                                subtitle: "When someone replies to your post",
-                                isOn: $postReplies
-                            )
-
-                            Divider().padding(.horizontal, 16)
-
-                            NotificationToggleRow(
-                                icon: "envelope.fill",
-                                title: "Direct Messages",
-                                subtitle: "When you receive a new message",
-                                isOn: $directMessages
-                            )
-
-                            Divider().padding(.horizontal, 16)
-
-                            NotificationToggleRow(
-                                icon: "at",
-                                title: "Mentions",
-                                subtitle: "When someone mentions you",
-                                isOn: $mentions
-                            )
-
-                            Divider().padding(.horizontal, 16)
-
-                            NotificationToggleRow(
-                                icon: "person.badge.plus",
-                                title: "New Followers",
-                                subtitle: "When someone follows you",
-                                isOn: $newFollowers
-                            )
-
-                            Divider().padding(.horizontal, 16)
-
-                            NotificationToggleRow(
-                                icon: "heart.fill",
-                                title: "Post Likes",
-                                subtitle: "When someone likes your post",
-                                isOn: $postLikes
-                            )
-                        }
+                    if viewModel.isLoading && viewModel.preferences == nil {
+                        ProgressView()
+                            .padding(.top, 24)
                     }
 
-                    // Email Notifications Section
-                    NotificationSection(title: "Email Notifications") {
-                        NotificationToggleRow(
-                            icon: "envelope.circle.fill",
-                            title: "Enable Email Notifications",
-                            subtitle: "Receive updates via email",
-                            isOn: $emailNotificationsEnabled,
-                            isPrimary: true
-                        )
-
-                        if emailNotificationsEnabled {
-                            Divider().padding(.horizontal, 16)
-
-                            NotificationToggleRow(
-                                icon: "calendar",
-                                title: "Daily Digest",
-                                subtitle: "Summary of activity",
-                                isOn: $emailDigest
-                            )
-
-                            Divider().padding(.horizontal, 16)
-
-                            NotificationToggleRow(
-                                icon: "megaphone",
-                                title: "Marketing & Updates",
-                                subtitle: "Product news and features",
-                                isOn: $emailMarketing
-                            )
-                        }
+                    if let errorMessage = viewModel.errorMessage {
+                        Text(errorMessage)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 12)
                     }
 
-                    // In-App Preferences Section
-                    NotificationSection(title: "In-App Preferences") {
-                        NotificationToggleRow(
-                            icon: "speaker.wave.2.fill",
-                            title: "Notification Sounds",
-                            subtitle: "Play sound for new notifications",
-                            isOn: $inAppSounds
+                    if viewModel.preferences != nil {
+                        channelSection(
+                            title: "In-App Notifications",
+                            channel: .inApp,
+                            primaryIcon: "app.badge",
+                            primarySubtitle: "Show notifications inside the app"
                         )
 
-                        Divider().padding(.horizontal, 16)
-
-                        NotificationToggleRow(
-                            icon: "app.badge",
-                            title: "Badge Count",
-                            subtitle: "Show unread count on app icon",
-                            isOn: $inAppBadges
+                        channelSection(
+                            title: "Push Notifications",
+                            channel: .push,
+                            primaryIcon: "bell.fill",
+                            primarySubtitle: "Receive notifications on this device"
                         )
-                    }
 
-                    // Quiet Hours Section
-                    NotificationSection(title: "Quiet Hours") {
-                        NotificationActionRow(
-                            icon: "moon.fill",
-                            title: "Do Not Disturb",
-                            subtitle: "Set quiet hours schedule"
-                        ) {
-                            // TODO: Navigate to quiet hours settings
-                        }
+                        channelSection(
+                            title: "Email Notifications",
+                            channel: .email,
+                            primaryIcon: "envelope.circle.fill",
+                            primarySubtitle: "Receive updates via email"
+                        )
                     }
                 }
                 .padding(.bottom, 100)
@@ -174,6 +76,131 @@ struct NotificationSettingsView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .task {
+            await viewModel.loadPreferences()
+        }
+    }
+}
+
+private extension NotificationSettingsView {
+    struct NotificationTypeDescriptor: Identifiable {
+        let id: NotificationPreferenceType
+        let icon: String
+        let title: String
+        let subtitle: String
+        let isSystem: Bool
+    }
+
+    var typeDescriptors: [NotificationTypeDescriptor] {
+        [
+            NotificationTypeDescriptor(
+                id: .follow,
+                icon: "person.badge.plus",
+                title: "New Followers",
+                subtitle: "When someone follows you",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .like,
+                icon: "heart.fill",
+                title: "Post Likes",
+                subtitle: "When someone likes your post",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .comment,
+                icon: "bubble.left.fill",
+                title: "Comments",
+                subtitle: "When someone comments on your post",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .mention,
+                icon: "at",
+                title: "Mentions",
+                subtitle: "When someone mentions you",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .postFromFollowed,
+                icon: "person.2.fill",
+                title: "Posts From Followed",
+                subtitle: "When someone you follow posts",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .announcement,
+                icon: "megaphone.fill",
+                title: "Announcements",
+                subtitle: "Company updates and broadcasts",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .system,
+                icon: "gearshape.fill",
+                title: "System",
+                subtitle: "Important system alerts",
+                isSystem: true
+            )
+        ]
+    }
+
+    @ViewBuilder
+    func channelSection(
+        title: String,
+        channel: NotificationPreferenceChannel,
+        primaryIcon: String,
+        primarySubtitle: String
+    ) -> some View {
+        let isLoaded = viewModel.preferences != nil
+        let isEnabled = viewModel.preferences?.channels.channel(channel).enabled ?? false
+        NotificationSection(title: title) {
+            NotificationToggleRow(
+                icon: primaryIcon,
+                title: "Enable \(title)",
+                subtitle: primarySubtitle,
+                isOn: channelEnabledBinding(channel),
+                isPrimary: true,
+                isDisabled: !isLoaded
+            )
+
+            if isEnabled {
+                ForEach(typeDescriptors.indices, id: \.self) { index in
+                    let descriptor = typeDescriptors[index]
+                    Divider().padding(.horizontal, 16)
+                    NotificationToggleRow(
+                        icon: descriptor.icon,
+                        title: descriptor.title,
+                        subtitle: descriptor.subtitle,
+                        isOn: typeBinding(channel: channel, type: descriptor.id),
+                        isDisabled: !isLoaded || descriptor.isSystem
+                    )
+                }
+            }
+        }
+    }
+
+    func channelEnabledBinding(_ channel: NotificationPreferenceChannel) -> Binding<Bool> {
+        Binding(
+            get: { viewModel.preferences?.channels.channel(channel).enabled ?? false },
+            set: { newValue in
+                Task { await viewModel.setChannelEnabled(channel, isOn: newValue) }
+            }
+        )
+    }
+
+    func typeBinding(
+        channel: NotificationPreferenceChannel,
+        type: NotificationPreferenceType
+    ) -> Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.preferences?.channels.channel(channel).types.value(for: type) ?? false
+            },
+            set: { newValue in
+                Task { await viewModel.setTypeEnabled(channel: channel, type: type, isOn: newValue) }
+            }
+        )
     }
 }
 
@@ -215,6 +242,7 @@ struct NotificationToggleRow: View {
     let subtitle: String
     @Binding var isOn: Bool
     var isPrimary: Bool = false
+    var isDisabled: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -238,12 +266,16 @@ struct NotificationToggleRow: View {
             Toggle("", isOn: $isOn)
                 .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.4, green: 0.7, blue: 0.6)))
                 .onChange(of: isOn) { _ in
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
+                    if !isDisabled {
+                        let impact = UIImpactFeedbackGenerator(style: .light)
+                        impact.impactOccurred()
+                    }
                 }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.6 : 1)
     }
 }
 

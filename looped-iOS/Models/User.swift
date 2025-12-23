@@ -5,6 +5,9 @@ struct User: Codable, Identifiable {
     let backendId: Int
     let username: String?
     let displayName: String?
+    let firstName: String?
+    let lastName: String?
+    let dateOfBirth: String?
     let handle: String
     let companyId: Int
     let companyName: String?
@@ -25,6 +28,9 @@ struct User: Codable, Identifiable {
         backendId: Int,
         username: String?,
         displayName: String?,
+        firstName: String? = nil,
+        lastName: String? = nil,
+        dateOfBirth: String? = nil,
         handle: String,
         companyId: Int,
         companyName: String?,
@@ -44,6 +50,9 @@ struct User: Codable, Identifiable {
         self.backendId = backendId
         self.username = username
         self.displayName = displayName
+        self.firstName = firstName
+        self.lastName = lastName
+        self.dateOfBirth = dateOfBirth
         self.handle = handle
         self.companyId = companyId
         self.companyName = companyName
@@ -64,10 +73,19 @@ struct User: Codable, Identifiable {
 extension User {
     init(dto: UserDTO, profile: UserProfileDTO?) {
         let stats = dto.stats
+        let resolvedFirstName = dto.firstName ?? profile?.firstName
+        let resolvedLastName = dto.lastName ?? profile?.lastName
+        let resolvedFullName = [resolvedFirstName, resolvedLastName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
         self.id = UUID.fromBackendId(dto.id)
         self.backendId = dto.id
-        self.username = profile?.username
-        self.displayName = profile?.displayName
+        self.username = dto.username ?? profile?.username
+        self.displayName = profile?.displayName ?? (resolvedFullName.isEmpty ? nil : resolvedFullName)
+        self.firstName = resolvedFirstName
+        self.lastName = resolvedLastName
+        self.dateOfBirth = dto.dateOfBirth ?? profile?.dateOfBirth
         self.handle = dto.handle
         self.companyId = dto.companyId
         self.companyName = nil
@@ -88,6 +106,9 @@ extension User {
         id: UUID,
         username: String?,
         displayName: String?,
+        firstName: String? = nil,
+        lastName: String? = nil,
+        dateOfBirth: String? = nil,
         handle: String,
         company: String,
         bio: String?,
@@ -107,6 +128,9 @@ extension User {
             backendId: 0,
             username: username,
             displayName: displayName,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dateOfBirth,
             handle: handle,
             companyId: 0,
             companyName: company,
