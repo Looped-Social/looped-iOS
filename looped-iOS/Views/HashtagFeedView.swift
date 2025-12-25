@@ -94,4 +94,5 @@ struct HashtagFeedView: View {
 #Preview {
     HashtagFeedView(hashtag: "TGIF")
         .environmentObject(CommentsModalManager())
+        .environmentObject(AuthViewModel())
 }

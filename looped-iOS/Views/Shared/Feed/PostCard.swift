@@ -20,6 +20,12 @@ struct PostCard: View {
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
     @EnvironmentObject var commentsManager: CommentsModalManager
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @State private var showActionMenu = false
+    @State private var activeModerationSheet: ModerationSheet?
+    @State private var moderationAlertMessage: String?
+
+    private let moderationService: ModerationServiceProtocol = ModerationService()
 
     init(post: Post, feedService: FeedServiceProtocol = FeedService(), onBookmarkToggle: ((Bool) -> Void)? = nil) {
         self.post = post
@@ -84,7 +90,7 @@ struct PostCard: View {
                             Spacer()
 
                             // More button
-                            Button(action: {}) {
+                            Button(action: { showActionMenu = true }) {
                                 Image(systemName: "ellipsis")
                                     .foregroundColor(.loopedTextSecondary)
                             }
@@ -305,6 +311,87 @@ struct PostCard: View {
             )
             .hidden()
         )
+        .confirmationDialog("Post options", isPresented: $showActionMenu, titleVisibility: .visible) {
+            if canReportPost {
+                Button("Report Post", role: .destructive) {
+                    activeModerationSheet = .reportPost
+                }
+            }
+            if canReportUser {
+                Button("Report User", role: .destructive) {
+                    activeModerationSheet = .reportUser
+                }
+            }
+            if canAppealPostRemoval {
+                Button("Appeal Post Removal") {
+                    activeModerationSheet = .appealPostRemoval
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        }
+        .sheet(item: $activeModerationSheet) { sheet in
+            switch sheet {
+            case .reportPost:
+                ReportReasonSheet(
+                    title: "Report Post",
+                    onSubmit: { reason in
+                        guard let backendId = post.backendId else {
+                            throw ModerationError.missingTarget
+                        }
+                        _ = try await moderationService.createReport(
+                            targetType: "post",
+                            targetId: backendId,
+                            reason: reason
+                        )
+                    },
+                    onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
+                )
+            case .reportUser:
+                ReportReasonSheet(
+                    title: "Report User",
+                    onSubmit: { reason in
+                        guard let backendId = post.authorBackendId else {
+                            throw ModerationError.missingTarget
+                        }
+                        _ = try await moderationService.createReport(
+                            targetType: "user",
+                            targetId: backendId,
+                            reason: reason
+                        )
+                    },
+                    onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
+                )
+            case .appealPostRemoval:
+                ModerationReasonSheet(
+                    title: "Appeal Post Removal",
+                    subtitle: "Tell us why this post should be restored.",
+                    placeholder: "Share context or details...",
+                    submitTitle: "Submit Appeal",
+                    onSubmit: { reason in
+                        guard let backendId = post.backendId else {
+                            throw ModerationError.missingTarget
+                        }
+                        _ = try await moderationService.createAppeal(
+                            targetType: "post_removal",
+                            targetId: backendId,
+                            reason: reason
+                        )
+                    },
+                    onSuccess: { moderationAlertMessage = "Appeal submitted. We'll review it soon." }
+                )
+            }
+        }
+        .alert(
+            "Thanks",
+            isPresented: Binding(
+                get: { moderationAlertMessage != nil },
+                set: { if !$0 { moderationAlertMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(moderationAlertMessage ?? "")
+        }
     }
 
     private var shareText: String {
@@ -382,6 +469,41 @@ struct PostCard: View {
     }
 }
 
+private extension PostCard {
+    enum ModerationSheet: String, Identifiable {
+        case reportPost
+        case reportUser
+        case appealPostRemoval
+
+        var id: String { rawValue }
+    }
+
+    enum ModerationError: LocalizedError {
+        case missingTarget
+
+        var errorDescription: String? {
+            "This action isn't available right now."
+        }
+    }
+
+    var canReportPost: Bool {
+        post.backendId != nil
+    }
+
+    var canReportUser: Bool {
+        guard let authorId = post.authorBackendId else { return false }
+        if let currentUser = authViewModel.currentUser, currentUser.backendId == authorId {
+            return false
+        }
+        return true
+    }
+
+    var canAppealPostRemoval: Bool {
+        guard let currentUser = authViewModel.currentUser else { return false }
+        return post.backendId != nil && post.authorBackendId == currentUser.backendId
+    }
+}
+
 // MARK: - Share Sheet
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
@@ -413,4 +535,5 @@ struct ShareSheet: UIViewControllerRepresentable {
         .padding()
         .background(Color.loopedBackground)
         .environmentObject(CommentsModalManager())
+        .environmentObject(AuthViewModel())
 }

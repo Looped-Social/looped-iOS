@@ -98,6 +98,13 @@ protocol NotificationServiceProtocol {
     func updatePreferences(_ update: NotificationPreferencesUpdateRequest) async throws -> NotificationPreferencesDTO
 }
 
+protocol ModerationServiceProtocol {
+    func createReport(targetType: String, targetId: Int, reason: String) async throws -> Int?
+    func createAppeal(targetType: String, targetId: Int?, reason: String) async throws -> Int?
+    func fetchViolations(limit: Int, cursor: String?) async throws -> ViolationsPage
+    func fetchAppeals(status: String?) async throws -> [Appeal]
+}
+
 protocol WebSocketServiceProtocol {
     var messageReceived: AnyPublisher<Message, Never> { get }
     var connectionState: AnyPublisher<WebSocketConnectionState, Never> { get }

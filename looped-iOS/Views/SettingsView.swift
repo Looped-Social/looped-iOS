@@ -109,6 +109,10 @@ struct SettingsView: View {
                         )
                         SettingsRow(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
                         SettingsRow(icon: .asset("blocked-icon"), title: "Blocked")
+                        NavigationLink(destination: ViolationsView()) {
+                            SettingsNavigationRow(icon: .system("exclamationmark.triangle"), title: "Appeals & Violations")
+                        }
+                        .buttonStyle(PlainButtonStyle())
                         NavigationLink(destination: AnonymousRecoveryView()) {
                             SettingsNavigationRow(icon: .system("key.fill"), title: "Anonymous Recovery")
                         }

@@ -134,4 +134,5 @@ struct FeedView: View {
 #Preview {
     FeedView()
         .environmentObject(FeedViewModel())
+        .environmentObject(AuthViewModel())
 }

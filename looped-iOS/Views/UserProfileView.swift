@@ -619,4 +619,5 @@ struct UserCommentsList: View {
     NavigationView {
         UserProfileView(userId: 1, preloadedProfile: sampleProfile)
     }
+    .environmentObject(AuthViewModel())
 }
