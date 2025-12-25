@@ -153,6 +153,11 @@ struct ChatView: View {
             }
 
             // Input Area
+            if let requestState = viewModel.messageRequestState {
+                MessageRequestStatusBanner(state: requestState)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
             ChatInputView(
                 messageText: $messageText,
                 selectedMedia: $selectedMedia,
@@ -160,6 +165,8 @@ struct ChatView: View {
                     sendMessage()
                 }
             )
+            .disabled(viewModel.messageRequestState != nil)
+            .opacity(viewModel.messageRequestState == nil ? 1 : 0.6)
         }
         .background(Color.loopedBackground.ignoresSafeArea(.all))
         .sheet(isPresented: $showChatDetails) {
@@ -212,6 +219,35 @@ struct ChatView: View {
         // Check if the next message is from a different sender
         let nextMessage = messages[index + 1]
         return message.senderId != nextMessage.senderId
+    }
+}
+
+private struct MessageRequestStatusBanner: View {
+    let state: MessageRequestBlockState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: state == .pending ? "clock.fill" : "xmark.octagon.fill")
+                .foregroundColor(.loopedPrimary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.title)
+                    .font(.loopedSubBodyBold)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Text(state.message)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.loopedMutedBackground)
+        )
     }
 }
 

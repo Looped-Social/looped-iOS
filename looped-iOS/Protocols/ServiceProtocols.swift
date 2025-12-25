@@ -49,6 +49,9 @@ protocol MessageServiceProtocol {
     func getChannels(cursor: String?) async throws -> ChannelPage
     func getChannelMessages(channelBackendId: Int, cursor: String?) async throws -> MessagePage
     func sendChannelMessage(channelBackendId: Int, content: String) async throws -> Message
+    func fetchMessageRequests(cursor: String?) async throws -> MessageRequestPage
+    func approveMessageRequest(requestId: Int) async throws
+    func rejectMessageRequest(requestId: Int) async throws
 }
 
 protocol UserServiceProtocol {

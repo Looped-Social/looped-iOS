@@ -2,6 +2,7 @@ import Foundation
 
 class MessageService: MessageServiceProtocol {
     private let apiClient: APIClient
+    private struct EmptyBody: Codable {}
     
     init(apiClient: APIClient = APIClient()) {
         self.apiClient = apiClient
@@ -164,6 +165,50 @@ class MessageService: MessageServiceProtocol {
             isRead: false,
             attachments: dto.attachments?.map(MediaAttachment.init(dto:)),
             createdAt: dto.createdAt
+        )
+    }
+
+    func fetchMessageRequests(cursor: String?) async throws -> MessageRequestPage {
+        var endpoint = "/v1/message-requests?limit=20"
+        if let cursor = cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: MessageRequestListResponseDTO = try await apiClient.get(endpoint)
+        let requests = response.items.map { dto in
+            let preview = dto.preview
+            let attachments = preview?.attachments?.map(MediaAttachment.init(dto:)) ?? []
+            let senderName = dto.senderProfile?.displayName ?? dto.senderProfile?.handle
+            return MessageRequest(
+                id: UUID.fromBackendId(dto.id),
+                backendId: dto.id,
+                senderBackendId: dto.senderId,
+                senderName: senderName,
+                senderHandle: dto.senderProfile?.handle,
+                senderProfileImageUrl: dto.senderProfile?.profileImageUrl,
+                previewText: preview?.content ?? "",
+                previewAttachments: attachments,
+                previewCreatedAt: preview?.createdAt ?? Date(),
+                status: dto.status ?? .pending,
+                conversationBackendId: dto.conversationId,
+                channelBackendId: dto.channelId,
+                isGroup: dto.isGroup ?? false
+            )
+        }
+        return MessageRequestPage(requests: requests, nextCursor: response.nextCursor)
+    }
+
+    func approveMessageRequest(requestId: Int) async throws {
+        let _: EmptyResponse = try await apiClient.post(
+            "/v1/message-requests/\(requestId)/approve",
+            body: EmptyBody()
+        )
+    }
+
+    func rejectMessageRequest(requestId: Int) async throws {
+        let _: EmptyResponse = try await apiClient.post(
+            "/v1/message-requests/\(requestId)/reject",
+            body: EmptyBody()
         )
     }
 }

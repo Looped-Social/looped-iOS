@@ -1,12 +1,16 @@
 import SwiftUI
+#if canImport(FirebaseAuth)
+import FirebaseAuth
+#endif
 
 struct SecurityView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authViewModel: AuthViewModel
 
     @State private var twoFactorEnabled = false
     @State private var biometricLoginEnabled = true
     @State private var loginNotifications = true
-    @State private var showChangePasswordSheet = false
+    @State private var showResetPasswordSheet = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,10 +60,10 @@ struct SecurityView: View {
 
                         SecurityActionRow(
                             icon: "key",
-                            title: "Change Password",
-                            subtitle: "Update your account password"
+                            title: "Reset Password",
+                            subtitle: "Send a reset link to your email"
                         ) {
-                            showChangePasswordSheet = true
+                            showResetPasswordSheet = true
                         }
                     }
 
@@ -132,8 +136,14 @@ struct SecurityView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
-        .sheet(isPresented: $showChangePasswordSheet) {
-            ChangePasswordView()
+        .sheet(isPresented: $showResetPasswordSheet) {
+            ForgotPasswordView(
+                initialEmail: currentEmail,
+                onDismiss: { showResetPasswordSheet = false },
+                sendResetLink: { email in
+                    try await authViewModel.sendPasswordReset(email: email)
+                }
+            )
         }
     }
 }
@@ -246,92 +256,17 @@ struct SecurityActionRow: View {
     }
 }
 
-// MARK: - Change Password View
-
-struct ChangePasswordView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var currentPassword = ""
-    @State private var newPassword = ""
-    @State private var confirmPassword = ""
-
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Current Password")
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    SecureField("Enter current password", text: $currentPassword)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(12)
-                        .background(Color.loopedTextSecondary.opacity(0.1))
-                        .cornerRadius(8)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("New Password")
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    SecureField("Enter new password", text: $newPassword)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(12)
-                        .background(Color.loopedTextSecondary.opacity(0.1))
-                        .cornerRadius(8)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Confirm New Password")
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    SecureField("Confirm new password", text: $confirmPassword)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(12)
-                        .background(Color.loopedTextSecondary.opacity(0.1))
-                        .cornerRadius(8)
-                }
-
-                Button(action: {
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
-                    // TODO: Implement password change
-                    dismiss()
-                }) {
-                    Text("Change Password")
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.loopedPrimary)
-                        .cornerRadius(12)
-                }
-                .padding(.top, 20)
-
-                Spacer()
-            }
-            .padding(20)
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationTitle("Change Password")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(.loopedTextSecondary)
-                }
-            }
-        }
-        .navigationViewStyle(.stack)
+private extension SecurityView {
+    var currentEmail: String {
+        #if canImport(FirebaseAuth)
+        return Auth.auth().currentUser?.email ?? ""
+        #else
+        return ""
+        #endif
     }
 }
 
 #Preview {
     SecurityView()
+        .environmentObject(AuthViewModel())
 }

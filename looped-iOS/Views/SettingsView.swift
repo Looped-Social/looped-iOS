@@ -50,7 +50,7 @@ struct SettingsView: View {
                         }
                             .buttonStyle(PlainButtonStyle())
 
-                            NavigationLink(destination: SecurityView()) {
+                            NavigationLink(destination: SecurityView().environmentObject(authViewModel)) {
                                 SettingsNavigationRow(icon: .asset("shield-icon"), title: "Security")
                             }
                             .buttonStyle(PlainButtonStyle())

@@ -5,14 +5,23 @@ import Combine
 class MessagesViewModel: ObservableObject {
     @Published var channels: [Channel] = []
     @Published var conversations: [Conversation] = []
+    @Published var messageRequests: [MessageRequest] = []
     @Published var isLoading = false
+    @Published var isLoadingRequests = false
+    @Published var processingRequestIds: Set<Int> = []
     @Published var errorMessage: String?
 
     private let messageService: MessageServiceProtocol
+    private let userService: UserServiceProtocol
     private var cancellables = Set<AnyCancellable>()
+    private var senderCache: [Int: RequestSenderProfile] = [:]
 
-    init(messageService: MessageServiceProtocol = MessageService()) {
+    init(
+        messageService: MessageServiceProtocol = MessageService(),
+        userService: UserServiceProtocol = UserService()
+    ) {
         self.messageService = messageService
+        self.userService = userService
     }
 
     func loadChannels() async {
@@ -43,8 +52,111 @@ class MessagesViewModel: ObservableObject {
         isLoading = false
     }
 
+    func loadInbox() async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            async let conversationsPage = messageService.listConversations(cursor: nil)
+            async let requestsPage = messageService.fetchMessageRequests(cursor: nil)
+            let (conversationResult, requestsResult) = try await (conversationsPage, requestsPage)
+            conversations = conversationResult.conversations
+            messageRequests = requestsResult.requests.filter { $0.status == .pending }
+            await hydrateSenderProfiles(for: messageRequests)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isLoading = false
+    }
+
+    func loadMessageRequests() async {
+        isLoadingRequests = true
+        errorMessage = nil
+
+        do {
+            let page = try await messageService.fetchMessageRequests(cursor: nil)
+            messageRequests = page.requests.filter { $0.status == .pending }
+            await hydrateSenderProfiles(for: messageRequests)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isLoadingRequests = false
+    }
+
+    func approveMessageRequest(_ request: MessageRequest) async {
+        guard !processingRequestIds.contains(request.backendId) else { return }
+        processingRequestIds.insert(request.backendId)
+        defer { processingRequestIds.remove(request.backendId) }
+
+        do {
+            try await messageService.approveMessageRequest(requestId: request.backendId)
+            messageRequests.removeAll { $0.backendId == request.backendId }
+            await loadConversations()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func rejectMessageRequest(_ request: MessageRequest) async {
+        guard !processingRequestIds.contains(request.backendId) else { return }
+        processingRequestIds.insert(request.backendId)
+        defer { processingRequestIds.remove(request.backendId) }
+
+        do {
+            try await messageService.rejectMessageRequest(requestId: request.backendId)
+            messageRequests.removeAll { $0.backendId == request.backendId }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func refreshConversations() async {
         await loadConversations()
+    }
+
+    func refreshInbox() async {
+        await loadInbox()
+    }
+
+    private func hydrateSenderProfiles(for requests: [MessageRequest]) async {
+        let idsToFetch = Set(requests.compactMap { $0.senderBackendId })
+            .subtracting(senderCache.keys)
+        guard !idsToFetch.isEmpty else { return }
+
+        var fetchedProfiles: [Int: RequestSenderProfile] = [:]
+        await withTaskGroup(of: (Int, RequestSenderProfile)?.self) { group in
+            for backendId in idsToFetch {
+                group.addTask { [userService] in
+                    do {
+                        let user = try await userService.getUser(by: backendId)
+                        let name = user.displayName ?? user.username ?? user.handle
+                        return (backendId, RequestSenderProfile(name: name, profileImageUrl: user.profileImageURL))
+                    } catch {
+                        return nil
+                    }
+                }
+            }
+
+            for await result in group {
+                if let (id, profile) = result {
+                    fetchedProfiles[id] = profile
+                }
+            }
+        }
+
+        if fetchedProfiles.isEmpty { return }
+        senderCache.merge(fetchedProfiles) { _, new in new }
+        messageRequests = messageRequests.map { request in
+            guard let backendId = request.senderBackendId,
+                  let profile = senderCache[backendId],
+                  request.senderName == nil
+            else {
+                return request
+            }
+            return request.updatingSender(name: profile.name, profileImageUrl: profile.profileImageUrl)
+        }
     }
 }
 
@@ -53,6 +165,7 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [Message] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var messageRequestState: MessageRequestBlockState?
     
     private let messageService: MessageServiceProtocol
     private let webSocketService: WebSocketServiceProtocol
@@ -78,6 +191,7 @@ class ChatViewModel: ObservableObject {
     func loadMessages(for channel: Channel) async {
         isLoading = true
         errorMessage = nil
+        messageRequestState = nil
 
         do {
             let page = try await messageService.getChannelMessages(channelBackendId: channel.backendId, cursor: nil)
@@ -92,6 +206,7 @@ class ChatViewModel: ObservableObject {
     func loadDirectMessages() async {
         isLoading = true
         errorMessage = nil
+        messageRequestState = nil
 
         guard let conversationBackendId else {
             errorMessage = "Direct messages require a conversation ID."
@@ -103,7 +218,7 @@ class ChatViewModel: ObservableObject {
             let page = try await messageService.getConversationMessages(conversationId: conversationBackendId, cursor: nil)
             messages = page.messages
         } catch {
-            errorMessage = error.localizedDescription
+            handleDirectMessageError(error)
         }
 
         isLoading = false
@@ -126,8 +241,24 @@ class ChatViewModel: ObservableObject {
             let message = try await messageService.sendConversationMessage(conversationId: conversationBackendId, content: content)
             messages.append(message)
         } catch {
-            errorMessage = error.localizedDescription
+            handleDirectMessageError(error)
         }
+    }
+
+    private func handleDirectMessageError(_ error: Error) {
+        if case let APIError.apiError(_, apiError, _) = error {
+            if apiError == "message_request_pending" {
+                messageRequestState = .pending
+                errorMessage = "Message request pending approval."
+                return
+            }
+            if apiError == "message_request_rejected" {
+                messageRequestState = .rejected
+                errorMessage = "Message request rejected."
+                return
+            }
+        }
+        errorMessage = error.localizedDescription
     }
     
     private func setupWebSocketListeners() {
@@ -137,5 +268,33 @@ class ChatViewModel: ObservableObject {
                 self?.messages.append(message)
             }
             .store(in: &cancellables)
+    }
+}
+
+private struct RequestSenderProfile {
+    let name: String
+    let profileImageUrl: String?
+}
+
+enum MessageRequestBlockState {
+    case pending
+    case rejected
+
+    var title: String {
+        switch self {
+        case .pending:
+            return "Request pending"
+        case .rejected:
+            return "Request rejected"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .pending:
+            return "This person needs to approve your request before you can chat."
+        case .rejected:
+            return "This request was rejected."
+        }
     }
 }

@@ -6,6 +6,7 @@ struct SignUpView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var isPasswordVisible = false
+    @State private var didAttemptSubmit = false
 
     var body: some View {
         ZStack {
@@ -41,6 +42,11 @@ struct SignUpView: View {
                         VStack(spacing: 16) {
                             inputField(title: "Work Email", placeholder: "you@company.com", text: $email, keyboard: .emailAddress)
                             passwordField(title: "Password", placeholder: "Create a password", text: $password)
+
+                            PasswordRequirementsView(
+                                requirements: passwordRequirements,
+                                showMissingOnly: false
+                            )
                         }
                         .padding()
                         .background(Color.white)
@@ -49,6 +55,7 @@ struct SignUpView: View {
 
                         Button(action: {
                             Task {
+                                didAttemptSubmit = true
                                 await viewModel.signUp(
                                     email: email,
                                     password: password
@@ -61,19 +68,25 @@ struct SignUpView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
                                 .background(
-                                    (email.isEmpty || password.isEmpty || viewModel.isLoading) ?
+                                (email.isEmpty || password.isEmpty || !isPasswordValid || viewModel.isLoading) ?
                                     Color.loopedTextSecondary.opacity(0.3) : Color.loopedPrimary
                                 )
                                 .cornerRadius(14)
                         }
-                        .disabled(email.isEmpty || password.isEmpty || viewModel.isLoading)
+                        .disabled(email.isEmpty || password.isEmpty || !isPasswordValid || viewModel.isLoading)
 
                         if viewModel.isLoading {
                             ProgressView()
                                 .tint(.loopedPrimary)
                         }
 
-                        if let error = viewModel.errorMessage {
+                        if didAttemptSubmit, !isPasswordValid {
+                            Text("Password must meet all requirements.")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 8)
+                        } else if let error = viewModel.errorMessage {
                             Text(error)
                                 .font(.loopedSubBodyRegular)
                                 .foregroundColor(.red)
@@ -139,8 +152,62 @@ struct SignUpView: View {
             .cornerRadius(12)
         }
     }
+
+    private var passwordRequirements: [PasswordRequirement] {
+        [
+            PasswordRequirement(
+                title: "At least 8 characters",
+                isMet: password.count >= 8
+            ),
+            PasswordRequirement(
+                title: "One uppercase letter",
+                isMet: password.rangeOfCharacter(from: .uppercaseLetters) != nil
+            ),
+            PasswordRequirement(
+                title: "One number",
+                isMet: password.rangeOfCharacter(from: .decimalDigits) != nil
+            ),
+            PasswordRequirement(
+                title: "One special character",
+                isMet: password.rangeOfCharacter(from: CharacterSet.punctuationCharacters.union(.symbols)) != nil
+            )
+        ]
+    }
+
+    private var isPasswordValid: Bool {
+        passwordRequirements.allSatisfy { $0.isMet }
+    }
 }
 
 #Preview {
     SignUpView(viewModel: AuthViewModel()) { }
+}
+
+private struct PasswordRequirement: Identifiable {
+    let id = UUID()
+    let title: String
+    let isMet: Bool
+}
+
+private struct PasswordRequirementsView: View {
+    let requirements: [PasswordRequirement]
+    let showMissingOnly: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(requirements) { requirement in
+                if !showMissingOnly || !requirement.isMet {
+                    HStack(spacing: 8) {
+                        Image(systemName: requirement.isMet ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(requirement.isMet ? .loopedPrimary : .loopedTextSecondary)
+
+                        Text(requirement.title)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(requirement.isMet ? .loopedTextPrimary : .loopedTextSecondary)
+                    }
+                }
+            }
+        }
+        .padding(.top, 2)
+    }
 }

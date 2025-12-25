@@ -19,7 +19,7 @@ class APIClient {
         self.tokenProvider = tokenProvider
     }
     
-    func get<T: Codable>(_ endpoint: String) async throws -> T {
+    func get<T: Decodable>(_ endpoint: String) async throws -> T {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -39,7 +39,7 @@ class APIClient {
         return try await performRequestData(request)
     }
     
-    func post<T: Codable, U: Codable>(_ endpoint: String, body: T) async throws -> U {
+    func post<T: Encodable, U: Decodable>(_ endpoint: String, body: T) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -53,7 +53,7 @@ class APIClient {
     }
     
     /// POST with extra headers (e.g., Idempotency-Key)
-    func postWithHeaders<T: Codable, U: Codable>(_ endpoint: String, body: T, headers: [String: String]) async throws -> U {
+    func postWithHeaders<T: Encodable, U: Decodable>(_ endpoint: String, body: T, headers: [String: String]) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -67,7 +67,7 @@ class APIClient {
         return try await performRequest(request)
     }
     
-    func put<T: Codable, U: Codable>(_ endpoint: String, body: T) async throws -> U {
+    func put<T: Encodable, U: Decodable>(_ endpoint: String, body: T) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -84,7 +84,7 @@ class APIClient {
         let _: EmptyResponse = try await delete(endpoint, expecting: EmptyResponse.self)
     }
 
-    func delete<T: Codable>(_ endpoint: String, expecting: T.Type) async throws -> T {
+    func delete<T: Decodable>(_ endpoint: String, expecting: T.Type) async throws -> T {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -94,7 +94,7 @@ class APIClient {
         return try await performRequest(request)
     }
 
-    func delete<T: Codable, U: Codable>(_ endpoint: String, body: T) async throws -> U {
+    func delete<T: Encodable, U: Decodable>(_ endpoint: String, body: T) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -134,7 +134,7 @@ class APIClient {
         return baseURL.appendingPathComponent(endpoint)
     }
     
-    private func performRequest<T: Codable>(_ request: URLRequest) async throws -> T {
+    private func performRequest<T: Decodable>(_ request: URLRequest) async throws -> T {
         do {
             let (data, response) = try await session.data(for: request)
             

@@ -3,6 +3,7 @@ import SwiftUI
 enum MessageTab: String, CaseIterable {
     case messages = "Messages"
     case groups = "Groups"
+    case requests = "Requests"
 }
 
 struct MessagesTabs: View {

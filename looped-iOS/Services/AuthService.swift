@@ -42,7 +42,7 @@ class AuthService: AuthServiceProtocol {
                 tokenStorage.token = token
             }
         } catch {
-            throw AuthError.invalidCredentials
+            throw mapFirebaseAuthError(error)
         }
         #else
         throw AuthError.networkError
@@ -58,7 +58,7 @@ class AuthService: AuthServiceProtocol {
                 tokenStorage.token = token
             }
         } catch {
-            throw AuthError.invalidCredentials
+            throw mapFirebaseAuthError(error)
         }
         #else
         throw AuthError.networkError
@@ -224,12 +224,43 @@ private extension AuthService {
             }
         }
     }
+
+    func mapFirebaseAuthError(_ error: Error) -> AuthError {
+        let nsError = error as NSError
+        if let code = AuthErrorCode(rawValue: nsError.code) {
+            switch code {
+            case .invalidEmail:
+                return .invalidEmail
+            case .emailAlreadyInUse:
+                return .emailAlreadyInUse
+            case .weakPassword:
+                return .weakPassword
+            case .userNotFound:
+                return .userNotFound
+            case .wrongPassword:
+                return .wrongPassword
+            case .userDisabled:
+                return .userDisabled
+            case .networkError:
+                return .networkError
+            default:
+                break
+            }
+        }
+        return .invalidCredentials
+    }
     #endif
 }
 
 enum AuthError: Error, LocalizedError {
     case noRefreshToken
     case invalidCredentials
+    case invalidEmail
+    case weakPassword
+    case emailAlreadyInUse
+    case userNotFound
+    case wrongPassword
+    case userDisabled
     case networkError
     
     var errorDescription: String? {
@@ -238,6 +269,18 @@ enum AuthError: Error, LocalizedError {
             return "No refresh token available"
         case .invalidCredentials:
             return "Invalid email or password"
+        case .invalidEmail:
+            return "Enter a valid email address."
+        case .weakPassword:
+            return "Password is too weak. Use 8+ characters with a number, uppercase letter, and special character."
+        case .emailAlreadyInUse:
+            return "An account already exists for this email."
+        case .userNotFound:
+            return "No account found for this email."
+        case .wrongPassword:
+            return "Incorrect password."
+        case .userDisabled:
+            return "This account has been disabled."
         case .networkError:
             return "Network error occurred"
         }
