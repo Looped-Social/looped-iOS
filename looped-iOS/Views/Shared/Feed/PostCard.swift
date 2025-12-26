@@ -406,13 +406,19 @@ struct PostCard: View {
             defer { isBookmarkLoading = false }
             do {
                 if isBookmarked {
-                    let removed = try await feedService.removeSavedPost(postId: postId)
+                    let removed = try await feedService.removeSavedPost(
+                        postId: postId,
+                        communityId: post.communityId
+                    )
                     if removed {
                         isBookmarked = false
                         onBookmarkToggle?(false)
                     }
                 } else {
-                    let saved = try await feedService.savePost(postId: postId)
+                    let saved = try await feedService.savePost(
+                        postId: postId,
+                        communityId: post.communityId
+                    )
                     if saved {
                         isBookmarked = true
                         onBookmarkToggle?(true)

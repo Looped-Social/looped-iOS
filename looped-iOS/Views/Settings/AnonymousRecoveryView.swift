@@ -16,6 +16,7 @@ struct AnonymousRecoveryView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
+                    anonAccessSection
                     backupSection
                     restoreSection
 
@@ -156,6 +157,62 @@ struct AnonymousRecoveryView: View {
         .background(Color.loopedMutedBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
+
+    private var anonAccessSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Anonymous Access")
+                .font(.loopedSubheadMedium)
+                .foregroundColor(.loopedTextPrimary)
+
+            Text("Your anonymous access expires per community. Refresh by re-enrolling when needed.")
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+
+            if viewModel.anonMemberships.isEmpty {
+                Text("No anonymous access yet.")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.loopedMutedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(viewModel.anonMemberships) { membership in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(membership.communityName)
+                                    .font(.loopedBodyMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+
+                                Text(expiryText(for: membership))
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(membership.isExpired ? .red : .loopedTextSecondary)
+                            }
+
+                            Spacer()
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.loopedMutedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+            }
+        }
+    }
+
+    private func expiryText(for membership: AnonCommunityMembershipDisplay) -> String {
+        let dateText = Self.expiryFormatter.string(from: membership.expiresAt)
+        return membership.isExpired ? "Expired \(dateText)" : "Expires \(dateText)"
+    }
+
+    private static let expiryFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
 
     private var restoreSection: some View {
         VStack(alignment: .leading, spacing: 16) {

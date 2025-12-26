@@ -68,6 +68,14 @@ struct SettingsView: View {
                         AppearanceModeRow(selection: $appearanceMode)
                     }
 
+                    // Verification Section
+                    SettingsSection(title: "Verification") {
+                        NavigationLink(destination: CommunityVerificationsView()) {
+                            SettingsNavigationRow(icon: .system("checkmark.seal"), title: "Community verifications")
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+
                     // Support & About Section
                     SettingsSection(title: "Support & About") {
                         SettingsRow(icon: .asset("rules-icon"), title: "Content Policy")

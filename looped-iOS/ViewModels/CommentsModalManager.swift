@@ -74,7 +74,12 @@ class CommentsModalManager: ObservableObject {
         replyThreads[commentId] = state
 
         do {
-            let page = try await commentsService.fetchReplies(commentId: commentId, limit: pageSize, cursor: reset ? nil : state.nextCursor)
+            let page = try await commentsService.fetchReplies(
+                commentId: commentId,
+                communityId: currentPost?.communityId,
+                limit: pageSize,
+                cursor: reset ? nil : state.nextCursor
+            )
             var updated = replyThreads[commentId] ?? ReplyThreadState()
             if reset {
                 updated.replies = page.comments
@@ -137,7 +142,12 @@ class CommentsModalManager: ObservableObject {
 
         do {
             let parentId = replyTarget?.backendId
-            let comment = try await commentsService.createComment(postId: postId, content: content, parentId: parentId)
+            let comment = try await commentsService.createComment(
+                postId: postId,
+                communityId: currentPost?.communityId,
+                content: content,
+                parentId: parentId
+            )
             if let parentId = parentId {
                 var state = replyThreads[parentId] ?? ReplyThreadState(isExpanded: true)
                 state.replies.append(comment)
@@ -157,7 +167,10 @@ class CommentsModalManager: ObservableObject {
     func toggleLike(for comment: Comment) async {
         guard let backendId = comment.backendId else { return }
         do {
-            let response = try await commentsService.likeComment(commentId: backendId)
+            let response = try await commentsService.likeComment(
+                commentId: backendId,
+                communityId: currentPost?.communityId
+            )
             if let index = currentComments.firstIndex(where: { $0.backendId == response.commentId }) {
                 currentComments[index] = currentComments[index].updating(
                     likeCount: response.likesCount,
@@ -199,7 +212,12 @@ class CommentsModalManager: ObservableObject {
         }
 
         do {
-            let page = try await commentsService.fetchComments(postId: postId, limit: pageSize, cursor: reset ? nil : nextCursor)
+            let page = try await commentsService.fetchComments(
+                postId: postId,
+                communityId: currentPost?.communityId,
+                limit: pageSize,
+                cursor: reset ? nil : nextCursor
+            )
             if reset {
                 currentComments = page.comments
             } else {

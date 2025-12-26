@@ -96,12 +96,19 @@ struct SearchView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 LazyHStack(spacing: 16) {
                                     ForEach(viewModel.recommendedCommunities) { community in
-                                        LoopCard(
-                                            title: community.name,
-                                            description: community.description,
-                                            memberCount: community.memberCount,
-                                            imageURL: community.imageUrl
-                                        )
+                                        NavigationLink(
+                                            destination: CommunityProfileView(
+                                                community: CommunityProfileData(community: community)
+                                            )
+                                        ) {
+                                            LoopCard(
+                                                title: community.name,
+                                                description: community.description,
+                                                memberCount: community.memberCount,
+                                                imageURL: community.imageUrl
+                                            )
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
                                     }
                                 }
                                 .padding(.horizontal, 16)

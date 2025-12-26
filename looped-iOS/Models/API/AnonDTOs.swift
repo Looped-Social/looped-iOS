@@ -20,6 +20,7 @@ struct AnonRegisterRequestDTO: Encodable {
 struct AnonRegisterResponseDTO: Decodable {
     let anonProfileId: Int
     let handle: String
+    let communityId: Int?
     let anonCertKid: String
     let expiresAt: Date
 }

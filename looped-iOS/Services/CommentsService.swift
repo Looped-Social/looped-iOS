@@ -16,26 +16,33 @@ class CommentsService: CommentsServiceProtocol {
         self.anonService = anonService
     }
 
-    func fetchComments(postId: Int, limit: Int, cursor: String?) async throws -> CommentPage {
+    func fetchComments(postId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
         try await fetchComments(
             from: "/v1/posts/\(postId)/comments",
             limit: limit,
             cursor: cursor,
-            anonAction: .commentList(postId: postId)
+            anonAction: .commentList(postId: postId),
+            communityId: communityId
         )
     }
 
-    func fetchReplies(commentId: Int, limit: Int, cursor: String?) async throws -> CommentPage {
+    func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
         try await fetchComments(
             from: "/v1/comments/\(commentId)/replies",
             limit: limit,
             cursor: cursor,
-            anonAction: .commentReplies(commentId: commentId)
+            anonAction: .commentReplies(commentId: commentId),
+            communityId: communityId
         )
     }
 
-    func createComment(postId: Int, content: String, parentId: Int?) async throws -> Comment {
-        let request = try await makeCommentRequest(content: content, parentId: parentId, postId: postId)
+    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?) async throws -> Comment {
+        let request = try await makeCommentRequest(
+            content: content,
+            parentId: parentId,
+            postId: postId,
+            communityId: communityId
+        )
         let isAnon = request.asAnon ?? false
         let dto: CommentDTO = try await apiClient.post(
             "/v1/posts/\(postId)/comments",
@@ -46,8 +53,8 @@ class CommentsService: CommentsServiceProtocol {
         return Comment(dto: dto)
     }
 
-    func likeComment(commentId: Int) async throws -> CommentLikeResponse {
-        let request = try await makeCommentLikeRequest(commentId: commentId)
+    func likeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse {
+        let request = try await makeCommentLikeRequest(commentId: commentId, communityId: communityId)
         let isAnon = request.asAnon ?? false
         let response: CommentLikeResponseDTO = try await apiClient.post(
             "/v1/comments/\(commentId)/like",
@@ -67,7 +74,8 @@ class CommentsService: CommentsServiceProtocol {
         from basePath: String,
         limit: Int,
         cursor: String?,
-        anonAction: AnonAction
+        anonAction: AnonAction,
+        communityId: Int?
     ) async throws -> CommentPage {
         var endpoint = "\(basePath)?limit=\(limit > 0 ? limit : defaultLimit)"
         if let cursor = cursor, !cursor.isEmpty {
@@ -75,7 +83,7 @@ class CommentsService: CommentsServiceProtocol {
             endpoint += "&cursor=\(encoded)"
         }
         if anonService.isAnonymousEnabled {
-            endpoint = try await appendAnonQuery(to: endpoint, action: anonAction)
+            endpoint = try await appendAnonQuery(to: endpoint, action: anonAction, communityId: communityId)
         }
         let isAnon = anonService.isAnonymousEnabled
         let response: CommentListResponseDTO = try await apiClient.get(
@@ -87,9 +95,9 @@ class CommentsService: CommentsServiceProtocol {
         return CommentPage(comments: comments, nextCursor: response.nextCursor)
     }
 
-    private func makeCommentRequest(content: String, parentId: Int?, postId: Int) async throws -> CreateCommentRequestDTO {
+    private func makeCommentRequest(content: String, parentId: Int?, postId: Int, communityId: Int?) async throws -> CreateCommentRequestDTO {
         if anonService.isAnonymousEnabled {
-            let anonContext = try await anonService.actionContext(for: .comment(postId: postId))
+            let anonContext = try await anonService.actionContext(for: .comment(postId: postId), communityId: communityId)
             return CreateCommentRequestDTO(
                 content: content,
                 parentId: parentId,
@@ -111,9 +119,9 @@ class CommentsService: CommentsServiceProtocol {
         )
     }
 
-    private func makeCommentLikeRequest(commentId: Int) async throws -> CommentLikeRequestDTO {
+    private func makeCommentLikeRequest(commentId: Int, communityId: Int?) async throws -> CommentLikeRequestDTO {
         if anonService.isAnonymousEnabled {
-            let anonContext = try await anonService.actionContext(for: .commentLike(commentId: commentId))
+            let anonContext = try await anonService.actionContext(for: .commentLike(commentId: commentId), communityId: communityId)
             return CommentLikeRequestDTO(
                 asAnon: true,
                 anonProfileId: anonContext.profileId,
@@ -131,8 +139,8 @@ class CommentsService: CommentsServiceProtocol {
         )
     }
 
-    private func appendAnonQuery(to endpoint: String, action: AnonAction) async throws -> String {
-        let anonContext = try await anonService.actionContext(for: action)
+    private func appendAnonQuery(to endpoint: String, action: AnonAction, communityId: Int?) async throws -> String {
+        let anonContext = try await anonService.actionContext(for: action, communityId: communityId)
         let encodedCert = anonContext.cert.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? anonContext.cert
         let encodedKid = anonContext.certKid.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? anonContext.certKid
         let encodedSig = anonContext.signature.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? anonContext.signature

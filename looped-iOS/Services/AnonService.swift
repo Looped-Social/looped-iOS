@@ -72,12 +72,23 @@ actor AnonService {
         store.loadIdentity()
     }
 
+    func membership(for communityId: Int) -> AnonCommunityMembership? {
+        store.loadIdentity()?.memberships[communityId]
+    }
+
+    func currentMemberships() -> [Int: AnonCommunityMembership] {
+        store.loadIdentity()?.memberships ?? [:]
+    }
+
     func ensureIdentity(communityId: Int? = nil) async throws -> AnonIdentity {
-        if let identity = store.loadIdentity(), !identity.isExpired, store.loadPrivateKey() != nil {
-            return identity
-        }
         guard let resolvedCommunityId = resolveCommunityId(explicit: communityId) else {
             throw AnonServiceError.missingCommunityContext
+        }
+        if let identity = store.loadIdentity(),
+           let membership = identity.memberships[resolvedCommunityId],
+           !membership.isExpired,
+           store.loadPrivateKey() != nil {
+            return identity
         }
         return try await enroll(communityId: resolvedCommunityId)
     }
@@ -103,6 +114,9 @@ actor AnonService {
 
     func postContext(content: String, communityId: Int) async throws -> AnonPostContext {
         let identity = try await ensureIdentity(communityId: communityId)
+        guard let membership = identity.membership(for: communityId) else {
+            throw AnonServiceError.missingIdentity
+        }
         let privateKey = try loadOrCreatePrivateKey()
         let timestamp = Int(Date().timeIntervalSince1970)
         let contentHash = Data(content.utf8).sha256Hex
@@ -111,15 +125,21 @@ actor AnonService {
 
         return AnonPostContext(
             profileId: identity.profileId,
-            cert: identity.cert,
-            certKid: identity.certKid,
+            cert: membership.cert,
+            certKid: membership.certKid,
             signature: signature,
             timestamp: timestamp
         )
     }
 
-    func actionContext(for action: AnonAction) async throws -> AnonActionContext {
-        let identity = try await ensureIdentity()
+    func actionContext(for action: AnonAction, communityId: Int? = nil) async throws -> AnonActionContext {
+        guard let resolvedCommunityId = resolveCommunityId(explicit: communityId) else {
+            throw AnonServiceError.missingCommunityContext
+        }
+        let identity = try await ensureIdentity(communityId: resolvedCommunityId)
+        guard let membership = identity.membership(for: resolvedCommunityId) else {
+            throw AnonServiceError.missingIdentity
+        }
         let privateKey = try loadOrCreatePrivateKey()
         let canonical: String
 
@@ -145,8 +165,8 @@ actor AnonService {
         let signature = try sign(message: canonical, privateKey: privateKey)
         return AnonActionContext(
             profileId: identity.profileId,
-            cert: identity.cert,
-            certKid: identity.certKid,
+            cert: membership.cert,
+            certKid: membership.certKid,
             signature: signature
         )
     }
@@ -165,11 +185,16 @@ actor AnonService {
             store.clearAll()
             return false
         }
+        let memberships = Array(identity.memberships.values)
+        guard let membership = memberships.first(where: { !$0.isExpired }) ?? memberships.first else {
+            store.clearAll()
+            return false
+        }
         let signature = try sign(message: "revoke|v1|\(identity.profileId)", privateKey: privateKey)
         let request = AnonRevokeRequestDTO(
             anonProfileId: identity.profileId,
-            anonCert: identity.cert,
-            anonCertKid: identity.certKid,
+            anonCert: membership.cert,
+            anonCertKid: membership.certKid,
             anonSig: signature
         )
         let _: AnonRevokeResponseDTO = try await apiClient.post(
@@ -275,12 +300,18 @@ actor AnonService {
             requiresAuth: false,
             headers: anonHeaders
         )
-        let identity = AnonIdentity(
-            profileId: registerResponse.anonProfileId,
-            handle: registerResponse.handle,
+        let resolvedCommunityId = registerResponse.communityId ?? communityId
+        let membership = AnonCommunityMembership(
             cert: unblinded.base64EncodedString(),
             certKid: registerResponse.anonCertKid,
             certExpiresAt: registerResponse.expiresAt
+        )
+        var memberships = store.loadIdentity()?.memberships ?? [:]
+        memberships[resolvedCommunityId] = membership
+        let identity = AnonIdentity(
+            profileId: registerResponse.anonProfileId,
+            handle: registerResponse.handle,
+            memberships: memberships
         )
         store.saveIdentity(identity)
         return identity

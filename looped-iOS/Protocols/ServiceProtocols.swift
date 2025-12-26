@@ -27,13 +27,13 @@ protocol FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
-    func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse
+    func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
-    func savePost(postId: Int) async throws -> Bool
-    func removeSavedPost(postId: Int) async throws -> Bool
+    func savePost(postId: Int, communityId: Int?) async throws -> Bool
+    func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool
 }
 
 struct PostReactionResponse {
@@ -74,10 +74,10 @@ enum DeleteAccountMode: String {
 }
 
 protocol CommentsServiceProtocol {
-    func fetchComments(postId: Int, limit: Int, cursor: String?) async throws -> CommentPage
-    func fetchReplies(commentId: Int, limit: Int, cursor: String?) async throws -> CommentPage
-    func createComment(postId: Int, content: String, parentId: Int?) async throws -> Comment
-    func likeComment(commentId: Int) async throws -> CommentLikeResponse
+    func fetchComments(postId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage
+    func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage
+    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?) async throws -> Comment
+    func likeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse
 }
 
 protocol CommunityServiceProtocol {
@@ -87,6 +87,12 @@ protocol CommunityServiceProtocol {
     func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult]
     func followCommunity(id: Int) async throws
     func unfollowCommunity(id: Int) async throws
+}
+
+protocol CommunityVerificationServiceProtocol {
+    func fetchCommunityVerifications() async throws -> [CommunityVerification]
+    func startVerification(communityId: Int, method: CommunityVerificationMethod) async throws -> CommunityVerificationStartResponse
+    func finishVerification(communityId: Int, request: CommunityVerificationFinishRequest) async throws -> CommunityVerificationFinishResponse
 }
 
 protocol DiscoveryServiceProtocol {

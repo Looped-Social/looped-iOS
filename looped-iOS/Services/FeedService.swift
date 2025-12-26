@@ -66,11 +66,11 @@ class FeedService: FeedServiceProtocol {
         return Post(dto: dto, isAnonymousOverride: isAnonymous)
     }
     
-    func reactToPost(postId: Int, reaction: ReactionType) async throws -> PostReactionResponse {
+    func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse {
         // Backend currently supports "like" only. Ignore other reactions for now.
         _ = reaction
         if anonService.isAnonymousEnabled {
-            let anonContext = try await anonService.actionContext(for: .like(postId: postId))
+            let anonContext = try await anonService.actionContext(for: .like(postId: postId), communityId: communityId)
             let request = AnonActionRequestDTO(
                 asAnon: true,
                 anonProfileId: anonContext.profileId,
@@ -111,9 +111,9 @@ class FeedService: FeedServiceProtocol {
         try await fetchPosts(from: "/v1/posts/saved", limit: limit, cursor: cursor, communityId: nil)
     }
     
-    func savePost(postId: Int) async throws -> Bool {
+    func savePost(postId: Int, communityId: Int?) async throws -> Bool {
         if anonService.isAnonymousEnabled {
-            let anonContext = try await anonService.actionContext(for: .save(postId: postId))
+            let anonContext = try await anonService.actionContext(for: .save(postId: postId), communityId: communityId)
             let request = AnonActionRequestDTO(
                 asAnon: true,
                 anonProfileId: anonContext.profileId,
@@ -134,9 +134,9 @@ class FeedService: FeedServiceProtocol {
         return response.saved
     }
     
-    func removeSavedPost(postId: Int) async throws -> Bool {
+    func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool {
         if anonService.isAnonymousEnabled {
-            let anonContext = try await anonService.actionContext(for: .unsave(postId: postId))
+            let anonContext = try await anonService.actionContext(for: .unsave(postId: postId), communityId: communityId)
             let request = AnonActionRequestDTO(
                 asAnon: true,
                 anonProfileId: anonContext.profileId,

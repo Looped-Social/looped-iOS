@@ -11,6 +11,8 @@ struct CreatePostView: View {
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var showMediaPicker: Bool = false
     @State private var showCamera: Bool = false
+    @State private var anonMembershipExpired = false
+    @State private var anonMembershipMissing = false
 
     @ObservedObject var feedViewModel: FeedViewModel
 
@@ -39,7 +41,7 @@ struct CreatePostView: View {
     }
 
     private var canPost: Bool {
-        selectedCommunity != nil
+        selectedCommunity != nil && (!isAnonymous || !(anonMembershipMissing || anonMembershipExpired))
     }
 
     private var defaultCommunityId: Int? {
@@ -106,7 +108,7 @@ struct CreatePostView: View {
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.loopedSecondary)
 
-                            Text("Verification is required to post in a community.")
+                            Text(disabledPostMessage)
                                 .font(.loopedSubBodyRegular)
                                 .foregroundColor(.loopedTextSecondary)
                         }
@@ -270,12 +272,21 @@ struct CreatePostView: View {
         }
         .onAppear {
             syncSelectedCommunity()
+            updateAnonMembershipStatus()
         }
         .onChange(of: feedViewModel.selectedCommunity?.id) { _ in
             syncSelectedCommunity()
+            updateAnonMembershipStatus()
         }
         .onChange(of: feedViewModel.followedCommunities) { _ in
             syncSelectedCommunity()
+            updateAnonMembershipStatus()
+        }
+        .onChange(of: selectedCommunityId) { _ in
+            updateAnonMembershipStatus()
+        }
+        .onChange(of: isAnonymous) { _ in
+            updateAnonMembershipStatus()
         }
     }
     
@@ -301,6 +312,26 @@ struct CreatePostView: View {
             return
         }
         selectedCommunityId = defaultCommunityId
+    }
+
+    private var disabledPostMessage: String {
+        if isAnonymous, selectedCommunity != nil, (anonMembershipMissing || anonMembershipExpired) {
+            return "Anonymous access expired for this community. Re-enroll to post."
+        }
+        return "Verification is required to post in a community."
+    }
+
+    private func updateAnonMembershipStatus() {
+        guard isAnonymous, let communityId = selectedCommunityId else {
+            anonMembershipExpired = false
+            anonMembershipMissing = false
+            return
+        }
+        Task { @MainActor in
+            let membership = await AnonService.shared.membership(for: communityId)
+            anonMembershipMissing = membership == nil
+            anonMembershipExpired = membership?.isExpired ?? false
+        }
     }
 }
 

@@ -7,6 +7,8 @@ struct SearchResultsView: View {
     @FocusState private var searchFieldFocused: Bool
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
+    @State private var selectedCommunity: CommunityProfileData?
+    @State private var showCommunityProfile = false
 
     var body: some View {
         NavigationView {
@@ -55,16 +57,28 @@ struct SearchResultsView: View {
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationBarHidden(true)
             .background(
-                NavigationLink(
-                    destination: Group {
-                        if let hashtag = selectedHashtag {
-                            HashtagFeedView(hashtag: hashtag)
-                                .environmentObject(commentsManager)
-                        }
-                    },
-                    isActive: $showHashtagFeed,
-                    label: { EmptyView() }
-                )
+                Group {
+                    NavigationLink(
+                        destination: Group {
+                            if let hashtag = selectedHashtag {
+                                HashtagFeedView(hashtag: hashtag)
+                                    .environmentObject(commentsManager)
+                            }
+                        },
+                        isActive: $showHashtagFeed,
+                        label: { EmptyView() }
+                    )
+
+                    NavigationLink(
+                        destination: Group {
+                            if let community = selectedCommunity {
+                                CommunityProfileView(community: community)
+                            }
+                        },
+                        isActive: $showCommunityProfile,
+                        label: { EmptyView() }
+                    )
+                }
                 .hidden()
             )
         }
@@ -138,8 +152,10 @@ struct SearchResultsView: View {
                     print("Tapped post: \(post.content)")
                 },
                 onLoopTap: { loop in
-                    // Navigate to loop
-                    print("Tapped loop: \(loop.name)")
+                    if let community = CommunityProfileData(loop: loop) {
+                        selectedCommunity = community
+                        showCommunityProfile = true
+                    }
                 },
                 onHashtagTap: handleHashtagTap
             )

@@ -1,0 +1,41 @@
+import Foundation
+
+struct CommunityVerificationListDTO: Decodable {
+    let items: [CommunityVerificationDTO]
+}
+
+struct CommunityVerificationDTO: Decodable {
+    let communityId: Int
+    let communityName: String
+    let communityKind: String?
+    let method: String?
+    let verified: Bool
+    let verifiedAt: Date?
+    let expiresAt: Date?
+    let active: Bool?
+}
+
+struct CommunityVerificationStartRequestDTO: Encodable {
+    let method: String
+}
+
+struct CommunityVerificationStartResponseDTO: Decodable {
+    let status: String
+    let method: String?
+    let devCode: String?
+    let sessionId: String?
+    let instructions: String?
+}
+
+struct CommunityVerificationFinishRequestDTO: Encodable {
+    let method: String
+    let code: String?
+    let mediaKey: String?
+    let token: String?
+}
+
+struct CommunityVerificationFinishResponseDTO: Decodable {
+    let verified: Bool
+    let status: String
+    let expiresAt: Date?
+}
