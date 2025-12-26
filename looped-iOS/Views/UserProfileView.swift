@@ -352,6 +352,7 @@ struct UserProfileInfoSection: View {
 struct UserProfileActionButtons: View {
     let userProfile: UserProfile
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymous = false
 
     var body: some View {
         HStack(spacing: 16) {
@@ -386,21 +387,23 @@ struct UserProfileActionButtons: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             } else {
-                Button(action: {
-                    // TODO: Handle message
-                }) {
-                    Text("Message")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                        )
+                if !isAnonymous {
+                    Button(action: {
+                        // TODO: Handle message
+                    }) {
+                        Text("Message")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.loopedTextPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
         }
         .padding(.top, 8)

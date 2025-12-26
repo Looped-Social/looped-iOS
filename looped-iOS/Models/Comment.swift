@@ -61,6 +61,7 @@ struct Comment: Codable, Identifiable {
     }
 
     init(dto: CommentDTO) {
+        let resolvedIsAnonymous = dto.authorIsAnonymous ?? dto.isAnonymous ?? false
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
@@ -73,7 +74,7 @@ struct Comment: Codable, Identifiable {
             authorHandle: dto.author.username ?? dto.author.handle,
             authorProfileImageURL: dto.author.profileImageUrl,
             company: "",
-            isAnonymous: dto.isAnonymous,
+            isAnonymous: resolvedIsAnonymous,
             likeCount: dto.likesCount,
             userLiked: dto.userLiked ?? false,
             isLikedByCreator: dto.likedByCreator ?? false,

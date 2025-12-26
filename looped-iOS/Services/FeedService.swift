@@ -51,13 +51,18 @@ class FeedService: FeedServiceProtocol {
                 anonCert: anonContext.cert,
                 anonCertKid: anonContext.certKid,
                 anonSig: anonContext.signature,
-                anonCompanyId: anonContext.companyId,
+                anonCompanyId: nil,
                 anonTimestamp: anonContext.timestamp
             )
-            headers = [:]
+            headers = ["X-Actor": "anon"]
         }
 
-        let dto: PostDTO = try await apiClient.postWithHeaders("/v1/posts", body: request, headers: headers)
+        let dto: PostDTO = try await apiClient.postWithHeaders(
+            "/v1/posts",
+            body: request,
+            headers: headers,
+            requiresAuth: !isAnonymous
+        )
         return Post(dto: dto, isAnonymousOverride: isAnonymous)
     }
     
@@ -73,7 +78,12 @@ class FeedService: FeedServiceProtocol {
                 anonCertKid: anonContext.certKid,
                 anonSig: anonContext.signature
             )
-            let response: PostLikeResponseDTO = try await apiClient.post("/v1/posts/\(postId)/like", body: request)
+            let response: PostLikeResponseDTO = try await apiClient.post(
+                "/v1/posts/\(postId)/like",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
             return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
         }
 
@@ -111,7 +121,12 @@ class FeedService: FeedServiceProtocol {
                 anonCertKid: anonContext.certKid,
                 anonSig: anonContext.signature
             )
-            let response: PostSaveResponseDTO = try await apiClient.post("/v1/posts/\(postId)/save", body: request)
+            let response: PostSaveResponseDTO = try await apiClient.post(
+                "/v1/posts/\(postId)/save",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
             return response.saved
         }
 
@@ -129,7 +144,12 @@ class FeedService: FeedServiceProtocol {
                 anonCertKid: anonContext.certKid,
                 anonSig: anonContext.signature
             )
-            let response: PostSaveResponseDTO = try await apiClient.delete("/v1/posts/\(postId)/save", body: request)
+            let response: PostSaveResponseDTO = try await apiClient.delete(
+                "/v1/posts/\(postId)/save",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
             return !response.saved
         }
 

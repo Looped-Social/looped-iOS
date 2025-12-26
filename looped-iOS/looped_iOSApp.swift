@@ -7,12 +7,13 @@
 
 import SwiftUI
 import FirebaseCore
+import UserNotifications
 #if canImport(GoogleSignIn)
 import GoogleSignIn
 #endif
 
 
-class AppDelegate: NSObject, UIApplicationDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
   func application(_ application: UIApplication,
                    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
     FirebaseApp.configure()
@@ -23,7 +24,53 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     #endif
 
+    configureNotifications()
     return true
+  }
+
+  private func configureNotifications() {
+      let center = UNUserNotificationCenter.current()
+      center.delegate = self
+      center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+          guard granted else { return }
+          DispatchQueue.main.async {
+              UIApplication.shared.registerForRemoteNotifications()
+          }
+      }
+  }
+
+  func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+      let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+      NotificationDeviceRegistrar.shared.storeDeviceToken(token)
+  }
+
+  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+      print("APNs registration failed: \(error.localizedDescription)")
+  }
+
+  func userNotificationCenter(
+      _ center: UNUserNotificationCenter,
+      willPresent notification: UNNotification,
+      withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+      completionHandler([.badge, .sound, .banner])
+  }
+
+  func userNotificationCenter(
+      _ center: UNUserNotificationCenter,
+      didReceive response: UNNotificationResponse,
+      withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+      handleDeeplink(userInfo: response.notification.request.content.userInfo)
+      completionHandler()
+  }
+
+  private func handleDeeplink(userInfo: [AnyHashable: Any]) {
+      guard let deeplink = userInfo["deeplink"] as? String,
+            let url = URL(string: deeplink) else { return }
+      DispatchQueue.main.async {
+          UIApplication.shared.open(url)
+      }
   }
 }
 

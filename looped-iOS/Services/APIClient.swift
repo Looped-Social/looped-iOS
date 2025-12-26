@@ -19,33 +19,61 @@ class APIClient {
         self.tokenProvider = tokenProvider
     }
     
-    func get<T: Decodable>(_ endpoint: String) async throws -> T {
+    func get<T: Decodable>(
+        _ endpoint: String,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> T {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        await addAuthHeader(&request)
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
         
         return try await performRequest(request)
     }
 
-    func getData(_ endpoint: String) async throws -> Data {
+    func getData(
+        _ endpoint: String,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> Data {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        await addAuthHeader(&request)
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
 
         return try await performRequestData(request)
     }
     
-    func post<T: Encodable, U: Decodable>(_ endpoint: String, body: T) async throws -> U {
+    func post<T: Encodable, U: Decodable>(
+        _ endpoint: String,
+        body: T,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        await addAuthHeader(&request)
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
         
         request.httpBody = try JSONEncoder().encode(body)
         
@@ -53,54 +81,100 @@ class APIClient {
     }
     
     /// POST with extra headers (e.g., Idempotency-Key)
-    func postWithHeaders<T: Encodable, U: Decodable>(_ endpoint: String, body: T, headers: [String: String]) async throws -> U {
+    func postWithHeaders<T: Encodable, U: Decodable>(
+        _ endpoint: String,
+        body: T,
+        headers: [String: String],
+        requiresAuth: Bool = true
+    ) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         headers.forEach { key, value in request.setValue(value, forHTTPHeaderField: key) }
-        await addAuthHeader(&request)
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
         
         request.httpBody = try JSONEncoder().encode(body)
         
         return try await performRequest(request)
     }
     
-    func put<T: Encodable, U: Decodable>(_ endpoint: String, body: T) async throws -> U {
+    func put<T: Encodable, U: Decodable>(
+        _ endpoint: String,
+        body: T,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        await addAuthHeader(&request)
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
         
         request.httpBody = try JSONEncoder().encode(body)
         
         return try await performRequest(request)
     }
     
-    func delete(_ endpoint: String) async throws {
-        let _: EmptyResponse = try await delete(endpoint, expecting: EmptyResponse.self)
+    func delete(
+        _ endpoint: String,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws {
+        let _: EmptyResponse = try await delete(
+            endpoint,
+            expecting: EmptyResponse.self,
+            requiresAuth: requiresAuth,
+            headers: headers
+        )
     }
 
-    func delete<T: Decodable>(_ endpoint: String, expecting: T.Type) async throws -> T {
+    func delete<T: Decodable>(
+        _ endpoint: String,
+        expecting: T.Type,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> T {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        await addAuthHeader(&request)
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
         
         return try await performRequest(request)
     }
 
-    func delete<T: Encodable, U: Decodable>(_ endpoint: String, body: T) async throws -> U {
+    func delete<T: Encodable, U: Decodable>(
+        _ endpoint: String,
+        body: T,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> U {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        await addAuthHeader(&request)
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
 
         request.httpBody = try JSONEncoder().encode(body)
         return try await performRequest(request)

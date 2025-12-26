@@ -21,20 +21,24 @@ class AuthViewModel: ObservableObject {
     
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol
+    private let deviceRegistrar: NotificationDeviceRegistrar
     private var cancellables = Set<AnyCancellable>()
     
     init(
         authService: AuthServiceProtocol = AuthService(),
-        userService: UserServiceProtocol = UserService()
+        userService: UserServiceProtocol = UserService(),
+        deviceRegistrar: NotificationDeviceRegistrar = .shared
     ) {
         self.authService = authService
         self.userService = userService
+        self.deviceRegistrar = deviceRegistrar
         self.isAuthenticated = authService.isAuthenticated
         
         authService.authStateChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isAuthenticated in
                 self?.isAuthenticated = isAuthenticated
+                self?.deviceRegistrar.updateAuthState(isAuthenticated: isAuthenticated)
                 if isAuthenticated {
                     Task { await self?.loadCurrentUser() }
                 } else {

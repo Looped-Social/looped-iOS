@@ -18,6 +18,7 @@ class FeedViewModel: ObservableObject {
     private var nextCursor: String?
     private let pageSize = 20
     private let lastPostedCommunityKey = "lastPostedCommunityId"
+    private let lastSelectedCommunityKey = "lastSelectedCommunityId"
     
     init(
         feedService: FeedServiceProtocol = FeedService(),
@@ -49,6 +50,7 @@ class FeedViewModel: ObservableObject {
             } else {
                 selectedCommunity = nil
             }
+            updateLastSelectedCommunityId()
         } catch {
             communitiesError = error.localizedDescription
             followedCommunities = []
@@ -59,6 +61,7 @@ class FeedViewModel: ObservableObject {
     func selectCommunity(_ community: CommunitySummary) async {
         guard selectedCommunity?.id != community.id else { return }
         selectedCommunity = community
+        updateLastSelectedCommunityId()
         await loadPosts(reset: true)
     }
 
@@ -148,9 +151,23 @@ class FeedViewModel: ObservableObject {
             )
             posts.insert(newPost, at: 0)
             lastPostedCommunityId = communityId
+            UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+}
+
+private extension FeedViewModel {
+    func updateLastSelectedCommunityId() {
+        if let selectedId = selectedCommunity?.id {
+            UserDefaults.standard.set(selectedId, forKey: lastSelectedCommunityKey)
+            return
+        }
+        let stored = UserDefaults.standard.integer(forKey: lastSelectedCommunityKey)
+        if stored == 0, let fallbackId = followedCommunities.first?.id {
+            UserDefaults.standard.set(fallbackId, forKey: lastSelectedCommunityKey)
+        }
     }
 }

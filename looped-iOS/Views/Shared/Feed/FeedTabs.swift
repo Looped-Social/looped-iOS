@@ -134,6 +134,7 @@ struct FeedTabs: View {
             }
             .frame(height: 28)
             .padding(.vertical, 8)
+            .coachMarkTarget(.feedFilterPills)
         }
     }
 }

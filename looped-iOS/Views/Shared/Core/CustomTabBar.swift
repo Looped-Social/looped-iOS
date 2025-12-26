@@ -44,6 +44,7 @@ enum TabItem: String, CaseIterable {
 // MARK: - Custom Tab Bar View
 struct CustomTabBar: View {
     @Binding var selectedTab: TabItem
+    @AppStorage("anonymousMode") private var isAnonymous = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -53,7 +54,7 @@ struct CustomTabBar: View {
                 .foregroundColor(Color.loopedTextSecondary.opacity(0.1))
             
             HStack(spacing: 0) {
-                ForEach(TabItem.allCases, id: \.self) { tab in
+                ForEach(visibleTabs, id: \.self) { tab in
                     TabBarButton(
                         tab: tab,
                         isSelected: selectedTab == tab
@@ -66,6 +67,23 @@ struct CustomTabBar: View {
             .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .bottom))
             .padding(.bottom, 0)
         }
+        .onChange(of: isAnonymous) { _, newValue in
+            if newValue && selectedTab == .messages {
+                selectedTab = .home
+            }
+        }
+        .onAppear {
+            if isAnonymous && selectedTab == .messages {
+                selectedTab = .home
+            }
+        }
+    }
+
+    private var visibleTabs: [TabItem] {
+        if isAnonymous {
+            return TabItem.allCases.filter { $0 != .messages }
+        }
+        return TabItem.allCases
     }
 }
 

@@ -108,6 +108,10 @@ protocol ModerationServiceProtocol {
     func fetchAppeals(status: String?) async throws -> [Appeal]
 }
 
+protocol DeviceServiceProtocol {
+    func registerDevice(apnsToken: String) async throws
+}
+
 protocol WebSocketServiceProtocol {
     var messageReceived: AnyPublisher<Message, Never> { get }
     var connectionState: AnyPublisher<WebSocketConnectionState, Never> { get }

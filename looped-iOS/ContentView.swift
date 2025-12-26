@@ -33,6 +33,7 @@ enum MenuDestination: Identifiable {
 struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
+    @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
 
     var body: some View {
         Group {
@@ -59,6 +60,11 @@ struct ContentView: View {
         } message: {
             Text("Your account and anonymous profile have been deleted.")
         }
+        .preferredColorScheme(preferredColorScheme)
+    }
+
+    private var preferredColorScheme: ColorScheme? {
+        AppearanceMode.from(rawValue: appearanceMode).colorScheme
     }
 }
 
@@ -75,178 +81,31 @@ struct MainTabView: View {
     @StateObject private var feedViewModel = FeedViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var showPostVerificationAlert = false
+    @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
+    @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
+    @State private var feedDiscoveryStep: FeedDiscoveryStep?
     
     var body: some View {
         GeometryReader { geometry in
-            let safeWidth = max(geometry.size.width, 0)
-            let drawerWidth = safeWidth * 0.8
-            let shadowSpacerWidth = safeWidth * 0.2
-            ZStack(alignment: .leading) {
-                // Right Menu (only visible on home tab)
-                if selectedTab == .home {
-                    HStack(spacing: 0) {
-                        Spacer()
-
-                        // Menu content constrained to 80% width with full background
-                        MenuContent(onMenuItemTap: { destination in
-                            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                isRightMenuOpen = false
-                            }
-                            // Small delay to let drawer close before navigation
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                menuDestination = destination
-                            }
-                        })
-                        .frame(width: geometry.size.width * 0.8)
-                        .background(Color.loopedBackground.ignoresSafeArea(.all))
-                        .contentShape(Rectangle())
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.loopedBackground.ignoresSafeArea(.all))
-                    .offset(x: isRightMenuOpen ? 0 : drawerWidth)
-                    .allowsHitTesting(isRightMenuOpen)
-                }
-
-                // Main app content
-                VStack(spacing: 0) {
-                    // Content Area
-                    Group {
-                        switch selectedTab {
-                        case .home:
-                            NavigationView {
-                                FeedView(
-                                    onProfileTap: {
-                                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                            isRightMenuOpen.toggle()
-                                        }
-                                    }
-                                )
-                                    .environmentObject(feedViewModel)
-                                    .environmentObject(commentsManager)
-                            }
-                            .navigationViewStyle(.stack)
-                        case .messages:
-                            NavigationView {
-                                MessagesView(
-                                    onChatSelected: { conversation, channel in
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            selectedConversation = conversation
-                                            selectedChannel = channel
-                                            showingChat = true
-                                        }
-                                    }
-                                )
-                            }
-                            .navigationViewStyle(.stack)
-                        case .search:
-                            SearchView()
-                        case .notifications:
-                            NotificationsView()
-                        case .profile:
-                            NavigationView {
-                                ProfileView()
-                            }
-                            .navigationViewStyle(.stack)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    // Custom Tab Bar
-                    CustomTabBar(selectedTab: $selectedTab)
-                }
-                .background(Color.loopedBackground.ignoresSafeArea())
-                .overlay(
-                    // Blocking overlay when drawer is open - prevents feed interactions
-                    Group {
-                        if selectedTab == .home && isRightMenuOpen {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        isRightMenuOpen = false
-                                    }
-                                }
-                                .allowsHitTesting(true)
-                        }
-                    }
-                )
-                .offset(x: selectedTab == .home ? (isRightMenuOpen ? -drawerWidth : 0) : 0)
-                .scaleEffect((selectedTab == .home && isRightMenuOpen) ? 0.95 : 1.0)
-                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
-
-                // Shadow overlays - feed casting shadow onto drawers
-                if selectedTab == .home {
-                    // Right shadow - instantly visible/invisible
-                    HStack(spacing: 0) {
-                        Spacer()
-                            .frame(width: shadowSpacerWidth)
-
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.clear,
-                                Color.black.opacity(0.05),
-                                Color.black.opacity(0.1),
-                                Color.black.opacity(0.2)
-                            ]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .frame(width: 20)
-
-                        Spacer()
-                            .frame(width: max(drawerWidth - 20, 0))
-                    }
-                    .opacity(isRightMenuOpen ? 1 : 0)
-                    .animation(.linear(duration: 0.0), value: isRightMenuOpen)
-                    .ignoresSafeArea(.all)
-                    .allowsHitTesting(false)
-                }
-
-                // Floating Action Button (show on home and messages tabs)
-                if (selectedTab == .home || selectedTab == .messages) && !commentsManager.isPresented && !isRightMenuOpen {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            FloatingActionButton(
-                                type: selectedTab == .messages ? .sendMessage : .addPost
-                            ) {
-                                if selectedTab == .messages {
-                                    showNewMessage = true
-                                } else {
-                                    if canCreatePost {
-                                        showCreatePost = true
-                                    } else {
-                                        showPostVerificationAlert = true
-                                    }
-                                }
-                            }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 60) // Position above tab bar
-                        }
-                    }
-                }
-
-                // Chat View - Full Screen Overlay (MUST be last in ZStack)
-                if showingChat {
-                    ChatView(
-                        conversation: selectedConversation,
-                        channel: selectedChannel,
-                        onBackTapped: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showingChat = false
-                                selectedConversation = nil
-                                selectedChannel = nil
-                            }
-                        }
-                    )
-                    .transition(.move(edge: .trailing))
-                }
-
-            }
+            mainLayout(for: geometry)
         }
         .task {
             await feedViewModel.loadFollowedCommunities()
+        }
+        .onAppear {
+            startFeedDiscoveryIfNeeded()
+        }
+        .onChange(of: selectedTab) { _, _ in
+            startFeedDiscoveryIfNeeded()
+        }
+        .onChange(of: isRightMenuOpen) { _, _ in
+            startFeedDiscoveryIfNeeded()
+        }
+        .onChange(of: commentsManager.isPresented) { _, _ in
+            startFeedDiscoveryIfNeeded()
+        }
+        .onChange(of: showingChat) { _, _ in
+            startFeedDiscoveryIfNeeded()
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
@@ -260,6 +119,7 @@ struct MainTabView: View {
         )
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(feedViewModel: feedViewModel)
+                .preferredColorScheme(preferredColorScheme)
         }
         .sheet(isPresented: $showNewMessage) {
             NewMessageView(onChatSelected: { conversation, channel in
@@ -275,17 +135,230 @@ struct MainTabView: View {
                     }
                 }
             })
+            .preferredColorScheme(preferredColorScheme)
         }
         .fullScreenCover(item: $menuDestination) { destination in
             NavigationView {
                 destinationView(for: destination)
             }
             .navigationViewStyle(.stack)
+            .preferredColorScheme(preferredColorScheme)
         }
         .alert("Verification Required", isPresented: $showPostVerificationAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text("You can browse all posts, but posting is only available after verification.")
+        }
+    }
+
+    private func mainLayout(for geometry: GeometryProxy) -> some View {
+        let safeWidth = max(geometry.size.width, 0)
+        let drawerWidth = safeWidth * 0.8
+        let shadowSpacerWidth = safeWidth - drawerWidth
+
+        return ZStack(alignment: .leading) {
+            rightMenu(drawerWidth: drawerWidth)
+            mainContent(drawerWidth: drawerWidth)
+            shadowOverlay(drawerWidth: drawerWidth, shadowSpacerWidth: shadowSpacerWidth)
+            floatingActionButton
+            chatOverlay
+        }
+        .overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
+            feedDiscoveryOverlay(targets: targets)
+        }
+    }
+
+    @ViewBuilder
+    private func rightMenu(drawerWidth: CGFloat) -> some View {
+        if selectedTab == .home {
+            HStack(spacing: 0) {
+                Spacer()
+
+                // Menu content constrained to 80% width with full background
+                MenuContent(onMenuItemTap: { destination in
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        isRightMenuOpen = false
+                    }
+                    // Small delay to let drawer close before navigation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        menuDestination = destination
+                    }
+                })
+                .frame(width: drawerWidth)
+                .background(Color.loopedBackground.ignoresSafeArea(.all))
+                .contentShape(Rectangle())
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.loopedBackground.ignoresSafeArea(.all))
+            .offset(x: isRightMenuOpen ? 0 : drawerWidth)
+            .allowsHitTesting(isRightMenuOpen)
+        }
+    }
+
+    @ViewBuilder
+    private func mainContent(drawerWidth: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            tabContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Custom Tab Bar
+            CustomTabBar(selectedTab: $selectedTab)
+        }
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .overlay(
+            // Blocking overlay when drawer is open - prevents feed interactions
+            Group {
+                if selectedTab == .home && isRightMenuOpen {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                isRightMenuOpen = false
+                            }
+                        }
+                        .allowsHitTesting(true)
+                }
+            }
+        )
+        .offset(x: selectedTab == .home ? (isRightMenuOpen ? -drawerWidth : 0) : 0)
+        .scaleEffect((selectedTab == .home && isRightMenuOpen) ? 0.95 : 1.0)
+        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isRightMenuOpen)
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .home:
+            NavigationView {
+                FeedView(
+                    onProfileTap: {
+                        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                            isRightMenuOpen.toggle()
+                        }
+                    }
+                )
+                .environmentObject(feedViewModel)
+                .environmentObject(commentsManager)
+            }
+            .navigationViewStyle(.stack)
+        case .messages:
+            NavigationView {
+                MessagesView(
+                    onChatSelected: { conversation, channel in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            selectedConversation = conversation
+                            selectedChannel = channel
+                            showingChat = true
+                        }
+                    }
+                )
+            }
+            .navigationViewStyle(.stack)
+        case .search:
+            SearchView()
+        case .notifications:
+            NotificationsView()
+        case .profile:
+            NavigationView {
+                ProfileView()
+            }
+            .navigationViewStyle(.stack)
+        }
+    }
+
+    @ViewBuilder
+    private func shadowOverlay(drawerWidth: CGFloat, shadowSpacerWidth: CGFloat) -> some View {
+        if selectedTab == .home {
+            HStack(spacing: 0) {
+                Spacer()
+                    .frame(width: shadowSpacerWidth)
+
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.clear,
+                        Color.black.opacity(0.05),
+                        Color.black.opacity(0.1),
+                        Color.black.opacity(0.2)
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: 20)
+
+                Spacer()
+                    .frame(width: max(drawerWidth - 20, 0))
+            }
+            .opacity(isRightMenuOpen ? 1 : 0)
+            .animation(.linear(duration: 0.0), value: isRightMenuOpen)
+            .ignoresSafeArea(.all)
+            .allowsHitTesting(false)
+        }
+    }
+
+    @ViewBuilder
+    private var floatingActionButton: some View {
+        if (selectedTab == .home || selectedTab == .messages) && !commentsManager.isPresented && !isRightMenuOpen {
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Group {
+                        if selectedTab == .messages {
+                            FloatingActionButton(type: .sendMessage) {
+                                showNewMessage = true
+                            }
+                        } else {
+                            FloatingActionButton(type: .addPost) {
+                                if canCreatePost {
+                                    showCreatePost = true
+                                } else {
+                                    showPostVerificationAlert = true
+                                }
+                            }
+                            .coachMarkTarget(.feedPostButton)
+                        }
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 60) // Position above tab bar
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var chatOverlay: some View {
+        if showingChat {
+            ChatView(
+                conversation: selectedConversation,
+                channel: selectedChannel,
+                onBackTapped: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showingChat = false
+                        selectedConversation = nil
+                        selectedChannel = nil
+                    }
+                }
+            )
+            .transition(.move(edge: .trailing))
+        }
+    }
+
+    @ViewBuilder
+    private func feedDiscoveryOverlay(targets: [CoachMarkTarget: Anchor<CGRect>]) -> some View {
+        if let step = feedDiscoveryStep,
+           selectedTab == .home,
+           !isRightMenuOpen,
+           !commentsManager.isPresented,
+           !showingChat {
+            CoachMarkOverlay(
+                target: step.target,
+                targets: targets,
+                message: step.message,
+                primaryTitle: step.primaryTitle,
+                secondaryTitle: step.secondaryTitle,
+                onPrimary: advanceFeedDiscovery,
+                onSecondary: skipFeedDiscovery
+            )
         }
     }
 
@@ -370,6 +443,74 @@ struct MainTabView: View {
 
     private var canCreatePost: Bool {
         feedViewModel.followedCommunities.contains { $0.canPost }
+    }
+
+    private var preferredColorScheme: ColorScheme? {
+        AppearanceMode.from(rawValue: appearanceMode).colorScheme
+    }
+
+    private func startFeedDiscoveryIfNeeded() {
+        guard !didShowFeedDiscovery else { return }
+        guard selectedTab == .home else { return }
+        guard !isRightMenuOpen, !commentsManager.isPresented, !showingChat else { return }
+        guard feedDiscoveryStep == nil else { return }
+        feedDiscoveryStep = .postButton
+    }
+
+    private func advanceFeedDiscovery() {
+        guard let step = feedDiscoveryStep else { return }
+        if let next = FeedDiscoveryStep(rawValue: step.rawValue + 1) {
+            feedDiscoveryStep = next
+        } else {
+            didShowFeedDiscovery = true
+            feedDiscoveryStep = nil
+        }
+    }
+
+    private func skipFeedDiscovery() {
+        didShowFeedDiscovery = true
+        feedDiscoveryStep = nil
+    }
+
+    private enum FeedDiscoveryStep: Int, CaseIterable {
+        case postButton
+        case filters
+
+        var target: CoachMarkTarget {
+            switch self {
+            case .postButton:
+                return .feedPostButton
+            case .filters:
+                return .feedFilterPills
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .postButton:
+                return "Post here once you're verified in a community. You can still read every post."
+            case .filters:
+                return "Filter the feed by the communities you follow."
+            }
+        }
+
+        var primaryTitle: String {
+            switch self {
+            case .postButton:
+                return "Next"
+            case .filters:
+                return "Got it"
+            }
+        }
+
+        var secondaryTitle: String? {
+            switch self {
+            case .postButton:
+                return "Skip"
+            case .filters:
+                return nil
+            }
+        }
     }
 }
 

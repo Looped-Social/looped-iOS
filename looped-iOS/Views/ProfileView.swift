@@ -15,6 +15,11 @@ struct ProfileView: View {
     @AppStorage("anonymousMode") private var isAnonymous = false
     @State private var showAnonError = false
     @State private var anonErrorMessage = ""
+    @AppStorage("didShowProfileDiscovery") private var didShowProfileDiscovery = false
+    @AppStorage("didShowAnonymousModeDiscovery") private var didShowAnonymousModeDiscovery = false
+    @State private var profileDiscoveryStep: ProfileDiscoveryStep?
+    @State private var anonymousDiscoveryStep: AnonymousModeDiscoveryStep?
+    @State private var pendingAnonymousDiscovery = false
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     private let headerHeight: CGFloat = 300
@@ -71,6 +76,7 @@ struct ProfileView: View {
                     isLoading: viewModel.isLoading,
                     isAnonymous: isAnonymous
                 )
+                .coachMarkTarget(.profileStats)
 
                 // Action Buttons
                 ProfileActionButtons(
@@ -102,6 +108,7 @@ struct ProfileView: View {
                 .accessibilityLabel("Settings")
                 .padding(.top, 10)
                 .padding(.trailing, 16)
+                .coachMarkTarget(.profileSettingsButton)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
@@ -122,6 +129,10 @@ struct ProfileView: View {
         .onAppear {
             headerVisible = true
             lastScrollOffset = 0
+            startProfileDiscoveryIfNeeded()
+            if isAnonymous {
+                queueAnonymousDiscoveryIfNeeded()
+            }
         }
         .onChange(of: isAnonymous) { _, newValue in
             Task {
@@ -131,6 +142,32 @@ struct ProfileView: View {
                     showAnonError = true
                     isAnonymous = false
                 }
+                if isAnonymous {
+                    queueAnonymousDiscoveryIfNeeded()
+                }
+            }
+        }
+        .overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
+            if let step = profileDiscoveryStep {
+                CoachMarkOverlay(
+                    target: step.target,
+                    targets: targets,
+                    message: step.message,
+                    primaryTitle: step.primaryTitle,
+                    secondaryTitle: step.secondaryTitle,
+                    onPrimary: advanceProfileDiscovery,
+                    onSecondary: skipProfileDiscovery
+                )
+            } else if let step = anonymousDiscoveryStep {
+                CoachMarkOverlay(
+                    target: step.target,
+                    targets: targets,
+                    message: step.message,
+                    primaryTitle: step.primaryTitle,
+                    secondaryTitle: nil,
+                    onPrimary: advanceAnonymousDiscovery,
+                    onSecondary: nil
+                )
             }
         }
         .alert("Anonymous Mode Failed", isPresented: $showAnonError) {
@@ -173,6 +210,129 @@ private extension ProfileView {
             return anonProfile.asUserProfile(companyName: companyName)
         }
         return viewModel.userProfile
+    }
+
+    func startProfileDiscoveryIfNeeded() {
+        guard authViewModel.onboardingComplete else { return }
+        guard !didShowProfileDiscovery else { return }
+        guard profileDiscoveryStep == nil else { return }
+        profileDiscoveryStep = .editProfile
+    }
+
+    func advanceProfileDiscovery() {
+        guard let step = profileDiscoveryStep else { return }
+        if let next = ProfileDiscoveryStep(rawValue: step.rawValue + 1) {
+            profileDiscoveryStep = next
+        } else {
+            didShowProfileDiscovery = true
+            profileDiscoveryStep = nil
+            showPendingAnonymousDiscoveryIfNeeded()
+        }
+    }
+
+    func skipProfileDiscovery() {
+        didShowProfileDiscovery = true
+        profileDiscoveryStep = nil
+        showPendingAnonymousDiscoveryIfNeeded()
+    }
+
+    func queueAnonymousDiscoveryIfNeeded() {
+        guard !didShowAnonymousModeDiscovery else { return }
+        if profileDiscoveryStep == nil {
+            anonymousDiscoveryStep = .privacy
+        } else {
+            pendingAnonymousDiscovery = true
+        }
+    }
+
+    func showPendingAnonymousDiscoveryIfNeeded() {
+        guard pendingAnonymousDiscovery, isAnonymous, !didShowAnonymousModeDiscovery else { return }
+        pendingAnonymousDiscovery = false
+        anonymousDiscoveryStep = .privacy
+    }
+
+    func advanceAnonymousDiscovery() {
+        guard let step = anonymousDiscoveryStep else { return }
+        if let next = AnonymousModeDiscoveryStep(rawValue: step.rawValue + 1) {
+            anonymousDiscoveryStep = next
+        } else {
+            didShowAnonymousModeDiscovery = true
+            anonymousDiscoveryStep = nil
+            pendingAnonymousDiscovery = false
+        }
+    }
+
+    enum ProfileDiscoveryStep: Int, CaseIterable {
+        case editProfile
+        case anonymousMode
+
+        var target: CoachMarkTarget {
+            switch self {
+            case .editProfile:
+                return .profileEditButton
+            case .anonymousMode:
+                return .profileAnonymousButton
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .editProfile:
+                return "Edit your profile details any time."
+            case .anonymousMode:
+                return "Tap Anonymous to toggle anonymous mode."
+            }
+        }
+
+        var primaryTitle: String {
+            switch self {
+            case .editProfile:
+                return "Next"
+            case .anonymousMode:
+                return "Got it"
+            }
+        }
+
+        var secondaryTitle: String? {
+            switch self {
+            case .editProfile:
+                return "Skip"
+            case .anonymousMode:
+                return nil
+            }
+        }
+    }
+
+    enum AnonymousModeDiscoveryStep: Int, CaseIterable {
+        case privacy
+        case backup
+
+        var target: CoachMarkTarget {
+            switch self {
+            case .privacy:
+                return .profileAnonymousButton
+            case .backup:
+                return .profileSettingsButton
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .privacy:
+                return "You're in anonymous mode. Your real name and account aren't linked."
+            case .backup:
+                return "Back up your anonymous profile in Settings > Anonymous Recovery."
+            }
+        }
+
+        var primaryTitle: String {
+            switch self {
+            case .privacy:
+                return "Next"
+            case .backup:
+                return "Got it"
+            }
+        }
     }
 }
 
@@ -422,6 +582,7 @@ struct ProfileActionButtons: View {
             if userProfile?.isCurrentUser ?? true {
                 NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
                     ProfileActionButton(title: "Edit Profile", style: .outline)
+                        .coachMarkTarget(.profileEditButton)
                 }
                 .buttonStyle(PlainButtonStyle())
 
@@ -432,6 +593,7 @@ struct ProfileActionButtons: View {
                         title: "Anonymous",
                         style: isAnonymous ? .filled : .outline
                     )
+                    .coachMarkTarget(.profileAnonymousButton)
                 }
                 .buttonStyle(PlainButtonStyle())
             } else {
@@ -442,12 +604,14 @@ struct ProfileActionButtons: View {
                 }
                 .buttonStyle(PlainButtonStyle())
 
-                Button(action: {
-                    // TODO: Implement message action
-                }) {
-                    ProfileActionButton(title: "Message", style: .outline)
+                if !isAnonymous {
+                    Button(action: {
+                        // TODO: Implement message action
+                    }) {
+                        ProfileActionButton(title: "Message", style: .outline)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
         }
         .padding(.horizontal, 16)

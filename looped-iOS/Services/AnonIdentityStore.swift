@@ -4,7 +4,6 @@ import CryptoKit
 struct AnonIdentity: Codable {
     let profileId: Int
     let handle: String
-    let companyId: Int
     let cert: String
     let certKid: String
     let certExpiresAt: Date
