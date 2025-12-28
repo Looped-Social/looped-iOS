@@ -83,8 +83,12 @@ struct AuthView: View {
                     onBack: {
                         currentScreen = .verificationIntro(isStudent: false)
                     },
-                    onContinue: { _ in
-                        currentScreen = .verificationConfirmation
+                    onContinue: { option in
+                        if option.id == "photo_id" {
+                            currentScreen = .photoIdVerification(isStudent: false)
+                        } else {
+                            currentScreen = .emailVerification(isStudent: false)
+                        }
                     },
                     onSkip: {
                         currentScreen = .verificationConfirmation
@@ -104,8 +108,12 @@ struct AuthView: View {
                     onBack: {
                         currentScreen = .verificationIntro(isStudent: true)
                     },
-                    onContinue: { _ in
-                        currentScreen = .verificationConfirmation
+                    onContinue: { option in
+                        if option.id == "photo_id" {
+                            currentScreen = .photoIdVerification(isStudent: true)
+                        } else {
+                            currentScreen = .emailVerification(isStudent: true)
+                        }
                     },
                     onSkip: {
                         currentScreen = .verificationConfirmation
@@ -121,6 +129,31 @@ struct AuthView: View {
                     totalSteps: 5,
                     onComplete: {
                         currentScreen = .verificationNotifications
+                    }
+                )
+            case .photoIdVerification(let isStudent):
+                PhotoIdVerificationView(
+                    currentStep: 3,
+                    totalSteps: 5,
+                    onBack: {
+                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
+                    },
+                    onComplete: {
+                        currentScreen = .verificationConfirmation
+                    }
+                )
+            case .emailVerification(let isStudent):
+                EmailVerificationView(
+                    currentStep: 3,
+                    totalSteps: 5,
+                    onBack: {
+                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
+                    },
+                    onContinue: {
+                        currentScreen = .verificationConfirmation
+                    },
+                    onResend: {
+                        // TODO: Wire resend email verification.
                     }
                 )
             case .verificationNotifications:
@@ -174,6 +207,8 @@ enum AuthScreen {
     case verificationIntro(isStudent: Bool)
     case waysToVerifyCompany
     case waysToVerifyStudent
+    case photoIdVerification(isStudent: Bool)
+    case emailVerification(isStudent: Bool)
     case verificationConfirmation
     case verificationNotifications
     case login

@@ -11,6 +11,17 @@ enum CommunityRequestType: String, CaseIterable, Identifiable {
     case profession = "Profession"
 
     var id: String { rawValue }
+
+    var kind: CommunityRequestKind {
+        switch self {
+        case .company:
+            return .company
+        case .school:
+            return .school
+        case .profession:
+            return .profession
+        }
+    }
 }
 
 struct CommunityRequestDraft {
@@ -24,11 +35,13 @@ struct CommunityRequestFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var path: [CommunityRequestRoute] = []
     @State private var draft = CommunityRequestDraft()
+    @StateObject private var viewModel = CommunityRequestFlowViewModel()
 
     var body: some View {
         NavigationStack(path: $path) {
             CommunityRequestStepOneView(
                 draft: $draft,
+                viewModel: viewModel,
                 onCancel: { dismiss() },
                 onNext: { path.append(.stepTwo) }
             )
@@ -48,6 +61,7 @@ struct CommunityRequestFlowView: View {
 
 private struct CommunityRequestStepOneView: View {
     @Binding var draft: CommunityRequestDraft
+    @ObservedObject var viewModel: CommunityRequestFlowViewModel
     let onCancel: () -> Void
     let onNext: () -> Void
 
@@ -142,24 +156,40 @@ private struct CommunityRequestStepOneView: View {
                     }
                 }
 
-                Button(action: onNext) {
-                    Text("Continue")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedBackground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.loopedContrast)
-                        .cornerRadius(26)
+                Button(action: submitRequest) {
+                    HStack(spacing: 8) {
+                        if viewModel.isSubmitting {
+                            ProgressView()
+                                .tint(.loopedBackground)
+                        }
+                        Text(viewModel.isSubmitting ? "Submitting..." : "Continue")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedBackground)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(Color.loopedContrast)
+                    .cornerRadius(26)
                 }
-                .disabled(!isStepComplete)
-                .opacity(isStepComplete ? 1 : 0.4)
+                .disabled(!isStepComplete || viewModel.isSubmitting)
+                .opacity(isStepComplete && !viewModel.isSubmitting ? 1 : 0.4)
                 .padding(.top, 8)
+
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 8)
+                }
 
                 termsText
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
         }
+        .disabled(viewModel.isSubmitting)
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -175,11 +205,35 @@ private struct CommunityRequestStepOneView: View {
                 if let uiImage = UIImage(data: data) {
                     previewImage = Image(uiImage: uiImage)
                 }
+                viewModel.clearError()
             }
+        }
+        .onChange(of: draft.name) { _, _ in
+            viewModel.clearError()
+        }
+        .onChange(of: draft.about) { _, _ in
+            viewModel.clearError()
+        }
+        .onChange(of: draft.type) { _, _ in
+            viewModel.clearError()
         }
         .onAppear {
             guard previewImage == nil, let data = draft.imageData, let uiImage = UIImage(data: data) else { return }
             previewImage = Image(uiImage: uiImage)
+        }
+    }
+
+    private func submitRequest() {
+        Task {
+            let success = await viewModel.submit(
+                name: draft.name,
+                about: draft.about,
+                kind: draft.type?.kind,
+                imageData: draft.imageData
+            )
+            if success {
+                onNext()
+            }
         }
     }
 

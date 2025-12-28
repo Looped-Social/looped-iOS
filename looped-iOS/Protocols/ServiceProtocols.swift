@@ -114,6 +114,15 @@ protocol ModerationServiceProtocol {
     func fetchAppeals(status: String?) async throws -> [Appeal]
 }
 
+protocol MediaServiceProtocol {
+    func uploadImage(data: Data, mimeType: String, width: Int, height: Int) async throws -> MediaAsset
+}
+
+protocol CommunityRequestServiceProtocol {
+    func createCommunityRequest(kind: CommunityRequestKind, name: String, about: String, imageKey: String?) async throws -> CommunityRequestSubmission
+    func fetchCommunityRequests(status: CommunityRequestStatus?) async throws -> [CommunityRequest]
+}
+
 protocol DeviceServiceProtocol {
     func registerDevice(apnsToken: String) async throws
 }
