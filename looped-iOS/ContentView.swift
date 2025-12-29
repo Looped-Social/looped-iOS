@@ -34,11 +34,14 @@ struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
+    private let onboardingStore = OnboardingProgressStore()
 
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
-                if authViewModel.shouldEnterOnboardingFlow && !authViewModel.onboardingComplete {
+                let shouldShowOnboarding = (authViewModel.shouldEnterOnboardingFlow || onboardingStore.hasProgress)
+                    && !authViewModel.onboardingComplete
+                if shouldShowOnboarding {
                     AuthView(authViewModel: authViewModel)
                 } else {
                     MainTabView()
@@ -47,11 +50,6 @@ struct ContentView: View {
             } else {
                 AuthView(authViewModel: authViewModel)
             }
-        }
-        .alert("Verification Required", isPresented: $authViewModel.showDeferredOnboardingAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("You can browse all posts, but posting is only available after verification.")
         }
         .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
             Button("OK", role: .cancel) {

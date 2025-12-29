@@ -90,6 +90,11 @@ class FeedService: FeedServiceProtocol {
         let response: PostLikeResponseDTO = try await apiClient.post("/v1/posts/\(postId)/like", body: EmptyBody())
         return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
     }
+
+    func sharePost(postId: Int) async throws -> PostShareResponse {
+        let response: PostShareResponseDTO = try await apiClient.post("/v1/posts/\(postId)/share", body: EmptyBody())
+        return PostShareResponse(postId: response.postId, shareCount: response.shareCount)
+    }
     
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
         try await fetchPosts(from: "/v1/users/\(userId)/posts", limit: limit, cursor: cursor, communityId: nil)

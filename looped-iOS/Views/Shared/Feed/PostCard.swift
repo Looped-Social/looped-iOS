@@ -12,6 +12,8 @@ struct PostCard: View {
     @State private var heartScale: CGFloat = 0.6
     @State private var heartOpacity: Double = 0
     @State private var showShareSheet = false
+    @State private var shareCountOverride: Int?
+    @State private var isShareTracking = false
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
     @State private var selectedVideoUrl: String?
@@ -54,6 +56,10 @@ struct PostCard: View {
         } else {
             return "just now"
         }
+    }
+
+    private var currentShareCount: Int {
+        shareCountOverride ?? post.shareCount
     }
     
     var body: some View {
@@ -189,7 +195,7 @@ struct PostCard: View {
                                 .renderingMode(.template)
                                 .frame(width: 19, height: 19)
                                 .foregroundColor(.loopedTextSecondary)
-                            Text(post.shareCount > 0 ? "\(post.shareCount)" : "Share")
+                            Text(currentShareCount > 0 ? "\(currentShareCount)" : "Share")
                                 .font(.caption)
                                 .foregroundColor(.loopedTextSecondary)
                         }
@@ -242,7 +248,11 @@ struct PostCard: View {
             }
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareSheet(items: [shareText])
+            ShareSheet(items: [shareText]) { completed in
+                if completed {
+                    trackShare()
+                }
+            }
         }
         .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
             selectedImageUrl = nil
@@ -399,6 +409,20 @@ struct PostCard: View {
         return "\(author) posted on Looped:\n\n\(post.content)"
     }
 
+    private func trackShare() {
+        guard let postId = post.backendId, !isShareTracking else { return }
+        isShareTracking = true
+        Task {
+            defer { isShareTracking = false }
+            do {
+                let response = try await feedService.sharePost(postId: postId)
+                shareCountOverride = response.shareCount
+            } catch {
+                // TODO: surface error to user once we add toast system
+            }
+        }
+    }
+
     private func toggleBookmark() {
         guard let postId = post.backendId, !isBookmarkLoading else { return }
         isBookmarkLoading = true
@@ -513,9 +537,13 @@ private extension PostCard {
 // MARK: - Share Sheet
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
+    var onComplete: ((Bool) -> Void)? = nil
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, completed, _, _ in
+            onComplete?(completed)
+        }
         return controller
     }
 

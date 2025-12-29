@@ -2,6 +2,9 @@ import Foundation
 import Combine
 import UIKit
 import AuthenticationServices
+#if canImport(FirebaseAuth)
+import FirebaseAuth
+#endif
 
 protocol AuthServiceProtocol {
     var authStateChanged: AnyPublisher<Bool, Never> { get }
@@ -21,6 +24,11 @@ protocol AuthServiceProtocol {
     // Link providers
     func linkWithGoogle(presenting: UIViewController) async throws
     func linkWithApple(presentationAnchor: ASPresentationAnchor) async throws
+
+    #if canImport(FirebaseAuth)
+    func sendMfaCode(resolver: MultiFactorResolver, hint: PhoneMultiFactorInfo) async throws -> String
+    func resolveMfaSignIn(resolver: MultiFactorResolver, verificationId: String, verificationCode: String) async throws
+    #endif
 }
 
 protocol FeedServiceProtocol {
@@ -28,6 +36,7 @@ protocol FeedServiceProtocol {
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
+    func sharePost(postId: Int) async throws -> PostShareResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
@@ -39,6 +48,11 @@ protocol FeedServiceProtocol {
 struct PostReactionResponse {
     let postId: Int
     let likesCount: Int
+}
+
+struct PostShareResponse {
+    let postId: Int
+    let shareCount: Int
 }
 
 protocol MessageServiceProtocol {

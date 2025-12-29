@@ -42,6 +42,9 @@ class AuthService: AuthServiceProtocol {
                 tokenStorage.token = token
             }
         } catch {
+            if let resolver = mfaResolver(from: error) {
+                throw MFARequiredError(resolver: resolver)
+            }
             throw mapFirebaseAuthError(error)
         }
         #else
@@ -108,10 +111,17 @@ class AuthService: AuthServiceProtocol {
         }
         let accessToken = result.user.accessToken.tokenString
         let credential = GoogleAuthProvider.credential(withIDToken: idToken, accessToken: accessToken)
-        _ = try await Auth.auth().signIn(with: credential)
-        _isAuthenticated = true
-        if let token = try await currentIDToken() {
-            tokenStorage.token = token
+        do {
+            _ = try await Auth.auth().signIn(with: credential)
+            _isAuthenticated = true
+            if let token = try await currentIDToken() {
+                tokenStorage.token = token
+            }
+        } catch {
+            if let resolver = mfaResolver(from: error) {
+                throw MFARequiredError(resolver: resolver)
+            }
+            throw mapFirebaseAuthError(error)
         }
         #else
         throw AuthError.networkError
@@ -157,10 +167,17 @@ class AuthService: AuthServiceProtocol {
             rawNonce: nonce,
             fullName: credential.fullName
         )
-        _ = try await Auth.auth().signIn(with: oauthCredential)
-        _isAuthenticated = true
-        if let token = try await currentIDToken() {
-            tokenStorage.token = token
+        do {
+            _ = try await Auth.auth().signIn(with: oauthCredential)
+            _isAuthenticated = true
+            if let token = try await currentIDToken() {
+                tokenStorage.token = token
+            }
+        } catch {
+            if let resolver = mfaResolver(from: error) {
+                throw MFARequiredError(resolver: resolver)
+            }
+            throw mapFirebaseAuthError(error)
         }
     }
 
@@ -202,12 +219,66 @@ class AuthService: AuthServiceProtocol {
             rawNonce: rawNonce,
             fullName: credential.fullName
         )
-        _ = try await Auth.auth().signIn(with: oauthCredential)
+        do {
+            _ = try await Auth.auth().signIn(with: oauthCredential)
+            _isAuthenticated = true
+            if let token = try await currentIDToken() {
+                tokenStorage.token = token
+            }
+        } catch {
+            if let resolver = mfaResolver(from: error) {
+                throw MFARequiredError(resolver: resolver)
+            }
+            throw mapFirebaseAuthError(error)
+        }
+    }
+
+    #if canImport(FirebaseAuth)
+    func sendMfaCode(resolver: MultiFactorResolver, hint: PhoneMultiFactorInfo) async throws -> String {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+            PhoneAuthProvider.provider().verifyPhoneNumber(
+                with: hint,
+                uiDelegate: nil,
+                multiFactorSession: resolver.session
+            ) { verificationID, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                if let verificationID {
+                    continuation.resume(returning: verificationID)
+                } else {
+                    continuation.resume(throwing: AuthError.invalidCredentials)
+                }
+            }
+        }
+    }
+
+    func resolveMfaSignIn(
+        resolver: MultiFactorResolver,
+        verificationId: String,
+        verificationCode: String
+    ) async throws {
+        let credential = PhoneAuthProvider.provider().credential(
+            withVerificationID: verificationId,
+            verificationCode: verificationCode
+        )
+        let assertion = PhoneMultiFactorGenerator.assertion(with: credential)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            resolver.resolveSignIn(with: assertion) { _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: ())
+            }
+        }
         _isAuthenticated = true
         if let token = try await currentIDToken() {
             tokenStorage.token = token
         }
     }
+    #endif
 }
 
 private extension AuthService {
@@ -249,8 +320,22 @@ private extension AuthService {
         }
         return .invalidCredentials
     }
+
+    func mfaResolver(from error: Error) -> MultiFactorResolver? {
+        let nsError = error as NSError
+        guard let code = AuthErrorCode(rawValue: nsError.code), code == .secondFactorRequired else {
+            return nil
+        }
+        return nsError.userInfo[AuthErrorUserInfoMultiFactorResolverKey] as? MultiFactorResolver
+    }
     #endif
 }
+
+#if canImport(FirebaseAuth)
+struct MFARequiredError: Error {
+    let resolver: MultiFactorResolver
+}
+#endif
 
 enum AuthError: Error, LocalizedError {
     case noRefreshToken

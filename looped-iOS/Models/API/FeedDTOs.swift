@@ -67,6 +67,11 @@ struct PostSaveResponseDTO: Codable {
     let saved: Bool
 }
 
+struct PostShareResponseDTO: Codable {
+    let postId: Int
+    let shareCount: Int
+}
+
 struct AnonActionRequestDTO: Codable {
     let asAnon: Bool
     let anonProfileId: Int

@@ -40,13 +40,31 @@ struct PhotoIdVerificationView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
         }
-        .sheet(isPresented: $showSelfieCamera) {
-            CameraPickerView(selectedImage: $selfieImage)
-                .ignoresSafeArea()
+        .fullScreenCover(isPresented: $showSelfieCamera) {
+            CameraCaptureView(
+                position: .front,
+                overlayStyle: .none,
+                instruction: "Slowly turn your head to the\nRight",
+                onCancel: { showSelfieCamera = false },
+                onConfirm: { image in
+                    selfieImage = image
+                    stage = .workId
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showWorkIdCamera = true
+                    }
+                }
+            )
         }
-        .sheet(isPresented: $showWorkIdCamera) {
-            CameraPickerView(selectedImage: $workIdImage)
-                .ignoresSafeArea()
+        .fullScreenCover(isPresented: $showWorkIdCamera) {
+            CameraCaptureView(
+                position: .back,
+                overlayStyle: .idCard,
+                instruction: "Position Work ID within\nframe",
+                onCancel: { showWorkIdCamera = false },
+                onConfirm: { image in
+                    workIdImage = image
+                }
+            )
         }
     }
 }
@@ -85,41 +103,26 @@ private extension PhotoIdVerificationView {
 
     var selfieStage: some View {
         VStack(spacing: 20) {
-            HStack(spacing: 18) {
-                Button(action: { showSelfieCamera = true }) {
-                    Circle()
-                        .fill(Color(red: 0.86, green: 0.28, blue: 0.27))
-                        .frame(width: 150, height: 150)
-                        .overlay(
-                            Group {
-                                if let selfieImage {
-                                    Image(uiImage: selfieImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                } else {
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 56, weight: .regular))
-                                        .foregroundColor(.white)
-                                }
+            Button(action: { showSelfieCamera = true }) {
+                Circle()
+                    .fill(Color(red: 0.86, green: 0.28, blue: 0.27))
+                    .frame(width: 180, height: 180)
+                    .overlay(
+                        Group {
+                            if let selfieImage {
+                                Image(uiImage: selfieImage)
+                                    .resizable()
+                                    .scaledToFill()
+                            } else {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 60, weight: .regular))
+                                    .foregroundColor(.white)
                             }
-                                .clipShape(Circle())
-                        )
-                }
-                .buttonStyle(PlainButtonStyle())
-
-                Button(action: { stage = .workId }) {
-                    Circle()
-                        .fill(Color.loopedMutedBackground)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.loopedTextSecondary)
-                        )
-                }
-                .disabled(selfieImage == nil)
-                .opacity(selfieImage == nil ? 0.4 : 1)
+                        }
+                            .clipShape(Circle())
+                    )
             }
+            .buttonStyle(PlainButtonStyle())
 
             Text("Slowly turn your head to the\nRight")
                 .font(.loopedSubBodyMedium)
@@ -131,6 +134,19 @@ private extension PhotoIdVerificationView {
                     .font(.loopedSubBodyMedium)
                     .foregroundColor(.loopedSecondary)
             }
+
+            Button(action: { stage = .workId }) {
+                Text("Continue")
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(Color.loopedContrast)
+                    .clipShape(Capsule())
+            }
+            .disabled(selfieImage == nil)
+            .opacity(selfieImage == nil ? 0.4 : 1)
+            .padding(.horizontal, 32)
         }
     }
 
@@ -147,30 +163,23 @@ private extension PhotoIdVerificationView {
                 .multilineTextAlignment(.center)
 
             Button(action: { showWorkIdCamera = true }) {
-                Circle()
-                    .stroke(Color.loopedTextSecondary.opacity(0.35), lineWidth: 4)
-                    .frame(width: 64, height: 64)
+                Text(workIdImage == nil ? "Take Work ID Photo" : "Retake Work ID Photo")
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedSecondary)
             }
-            .padding(.top, 4)
 
-            if workIdImage != nil {
-                Button(action: onComplete) {
-                    Text("Continue")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.loopedContrast)
-                        .clipShape(Capsule())
-                }
-                .padding(.horizontal, 32)
-
-                Button(action: { showWorkIdCamera = true }) {
-                    Text("Retake Photo")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedSecondary)
-                }
+            Button(action: onComplete) {
+                Text("Continue")
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(Color.loopedContrast)
+                    .clipShape(Capsule())
             }
+            .disabled(workIdImage == nil)
+            .opacity(workIdImage == nil ? 0.4 : 1)
+            .padding(.horizontal, 32)
         }
     }
 
@@ -194,7 +203,7 @@ private struct WorkIdCardView: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
             .fill(Color.white)
-            .frame(width: 280, height: 150)
+            .frame(width: 280, height: 170)
             .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
             .overlay(
                 HStack(spacing: 16) {
@@ -214,7 +223,7 @@ private struct WorkIdCardView: View {
 
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.loopedMutedBackground)
-                        .frame(width: 62, height: 80)
+                        .frame(width: 88, height: 110)
                         .overlay(
                             Group {
                                 if let image {
@@ -223,7 +232,7 @@ private struct WorkIdCardView: View {
                                         .scaledToFill()
                                 } else {
                                     Image(systemName: "person.fill")
-                                        .font(.system(size: 30, weight: .regular))
+                                        .font(.system(size: 36, weight: .regular))
                                         .foregroundColor(.loopedTextSecondary)
                                 }
                             }

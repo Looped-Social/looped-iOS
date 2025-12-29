@@ -31,8 +31,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   private func configureNotifications() {
       let center = UNUserNotificationCenter.current()
       center.delegate = self
-      center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-          guard granted else { return }
+      center.getNotificationSettings { settings in
+          let authorized: Bool
+          switch settings.authorizationStatus {
+          case .authorized, .provisional, .ephemeral:
+              authorized = true
+          default:
+              authorized = false
+          }
+          guard authorized else { return }
           DispatchQueue.main.async {
               UIApplication.shared.registerForRemoteNotifications()
           }

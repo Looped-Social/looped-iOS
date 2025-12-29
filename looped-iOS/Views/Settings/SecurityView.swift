@@ -7,10 +7,10 @@ struct SecurityView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
 
-    @State private var twoFactorEnabled = false
     @State private var biometricLoginEnabled = true
     @State private var loginNotifications = true
     @State private var showResetPasswordSheet = false
+    @State private var twoFactorStatusText = "Off"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,19 +44,14 @@ struct SecurityView: View {
                 VStack(spacing: 0) {
                     // Authentication Section
                     SecuritySection(title: "Authentication") {
-                        SecurityToggleRow(
-                            icon: "lock.shield",
-                            title: "Two-Factor Authentication",
-                            subtitle: "Add an extra layer of security",
-                            isOn: $twoFactorEnabled
-                        )
-
-                        SecurityToggleRow(
-                            icon: "faceid",
-                            title: "Biometric Login",
-                            subtitle: "Use Face ID or Touch ID",
-                            isOn: $biometricLoginEnabled
-                        )
+                        NavigationLink(destination: TwoFactorSettingsView()) {
+                            SecurityNavigationRow(
+                                icon: "lock.shield",
+                                title: "Two-Factor Authentication",
+                                subtitle: twoFactorStatusText
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
 
                         SecurityActionRow(
                             icon: "key",
@@ -75,22 +70,6 @@ struct SecurityView: View {
                             subtitle: "Get notified of new logins",
                             isOn: $loginNotifications
                         )
-
-                        SecurityActionRow(
-                            icon: "clock.arrow.circlepath",
-                            title: "Active Sessions",
-                            subtitle: "Manage your active sessions"
-                        ) {
-                            // TODO: Navigate to active sessions
-                        }
-
-                        SecurityActionRow(
-                            icon: "list.bullet.clipboard",
-                            title: "Login History",
-                            subtitle: "View recent login activity"
-                        ) {
-                            // TODO: Navigate to login history
-                        }
                     }
 
                     // Account Recovery Section
@@ -112,24 +91,6 @@ struct SecurityView: View {
                         }
                     }
 
-                    // Privacy Section
-                    SecuritySection(title: "Privacy") {
-                        SecurityActionRow(
-                            icon: "eye.slash",
-                            title: "Blocked Accounts",
-                            subtitle: "Manage blocked users"
-                        ) {
-                            // TODO: Navigate to blocked accounts
-                        }
-
-                        SecurityActionRow(
-                            icon: "hand.raised",
-                            title: "Data & Privacy",
-                            subtitle: "Download or delete your data"
-                        ) {
-                            // TODO: Navigate to data & privacy
-                        }
-                    }
                 }
                 .padding(.bottom, 100)
             }
@@ -144,6 +105,9 @@ struct SecurityView: View {
                     try await authViewModel.sendPasswordReset(email: email)
                 }
             )
+        }
+        .onAppear {
+            refreshTwoFactorStatus()
         }
     }
 }
@@ -256,12 +220,58 @@ struct SecurityActionRow: View {
     }
 }
 
+struct SecurityNavigationRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(.loopedSecondary)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Text(subtitle)
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+}
+
 private extension SecurityView {
     var currentEmail: String {
         #if canImport(FirebaseAuth)
         return Auth.auth().currentUser?.email ?? ""
         #else
         return ""
+        #endif
+    }
+
+    func refreshTwoFactorStatus() {
+        #if canImport(FirebaseAuth)
+        guard let user = Auth.auth().currentUser else {
+            twoFactorStatusText = "Off"
+            return
+        }
+        let count = user.multiFactor.enrolledFactors.count
+        twoFactorStatusText = count > 0 ? "Enabled" : "Off"
+        #else
+        twoFactorStatusText = "Unavailable"
         #endif
     }
 }

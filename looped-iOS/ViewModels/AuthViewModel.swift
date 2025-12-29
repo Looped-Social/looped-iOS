@@ -14,24 +14,30 @@ class AuthViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: User?
     @Published var onboardingComplete = false
-    @Published var showDeferredOnboardingAlert = false
     @Published var shouldEnterOnboardingFlow = false
     @Published var selectedOrganization: Organization?
     @Published private(set) var linkedProviders: Set<String> = []
+    #if canImport(FirebaseAuth)
+    @Published var mfaSession: MFAChallengeSession?
+    #endif
     
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol
     private let deviceRegistrar: NotificationDeviceRegistrar
+    private let notificationService: NotificationServiceProtocol
+    private let onboardingStore = OnboardingProgressStore()
     private var cancellables = Set<AnyCancellable>()
     
     init(
         authService: AuthServiceProtocol = AuthService(),
         userService: UserServiceProtocol = UserService(),
-        deviceRegistrar: NotificationDeviceRegistrar = .shared
+        deviceRegistrar: NotificationDeviceRegistrar = .shared,
+        notificationService: NotificationServiceProtocol = NotificationService()
     ) {
         self.authService = authService
         self.userService = userService
         self.deviceRegistrar = deviceRegistrar
+        self.notificationService = notificationService
         self.isAuthenticated = authService.isAuthenticated
         
         authService.authStateChanged
@@ -61,25 +67,14 @@ class AuthViewModel: ObservableObject {
         
         do {
             try await authService.login(email: email, password: password)
-
-            do {
-                let user = try await userService.getCurrentUser()
-                currentUser = user
-                onboardingComplete = true
-                if user.isVerified == false {
-                    showDeferredOnboardingAlert = true
-                }
-            } catch UserServiceError.userNotProvisioned {
-                showDeferredOnboardingAlert = true
-                currentUser = nil
-                onboardingComplete = true
-            } catch {
-                // Login succeeded; if user fetch fails (network/server), keep them signed in.
-                showDeferredOnboardingAlert = true
-                currentUser = nil
-                onboardingComplete = true
-            }
+            await loadCurrentUser()
         } catch {
+            #if canImport(FirebaseAuth)
+            if handleMfaRequired(error) {
+                isLoading = false
+                return
+            }
+            #endif
             errorMessage = error.localizedDescription
         }
         
@@ -104,6 +99,25 @@ class AuthViewModel: ObservableObject {
     func sendPasswordReset(email: String) async throws {
         try await authService.sendPasswordReset(email: email)
     }
+
+    func enableNotificationsDuringOnboarding(wantsRecommendations: Bool) async {
+        let granted = await NotificationAuthorizationManager.shared.requestAuthorization()
+        guard granted else { return }
+        do {
+            var types = NotificationTypePreferencesUpdateDTO()
+            types.postFromFollowed = wantsRecommendations
+            let update = NotificationPreferencesUpdateRequest(
+                channels: NotificationChannelsUpdateDTO(
+                    inApp: nil,
+                    push: NotificationChannelUpdateDTO(enabled: true, types: types),
+                    email: nil
+                )
+            )
+            _ = try await notificationService.updatePreferences(update)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
     
     // MARK: - Google Sign-In (triggered from View)
     func signInWithGoogle() async {
@@ -117,6 +131,12 @@ class AuthViewModel: ObservableObject {
             try await authService.signInWithGoogle(presenting: vc)
             await loadCurrentUser()
         } catch {
+            #if canImport(FirebaseAuth)
+            if handleMfaRequired(error) {
+                isLoading = false
+                return
+            }
+            #endif
             errorMessage = error.localizedDescription
         }
         isLoading = false
@@ -148,9 +168,19 @@ class AuthViewModel: ObservableObject {
                 try await authService.signInWithApple(credential: credential, rawNonce: rawNonce)
                 await loadCurrentUser()
             } catch {
+                #if canImport(FirebaseAuth)
+                if handleMfaRequired(error) {
+                    return
+                }
+                #endif
                 errorMessage = error.localizedDescription
             }
         case .failure(let error):
+            #if canImport(FirebaseAuth)
+            if handleMfaRequired(error) {
+                return
+            }
+            #endif
             errorMessage = error.localizedDescription
         }
     }
@@ -163,17 +193,25 @@ class AuthViewModel: ObservableObject {
         Task { await AnonService.shared.clearIdentity() }
         UserDefaults.standard.set(false, forKey: "anonymousMode")
         linkedProviders = []
+        #if canImport(FirebaseAuth)
+        mfaSession = nil
+        #endif
+        onboardingStore.clearAll()
     }
 
     func loadCurrentUser() async {
         do {
             let user = try await userService.getCurrentUser()
             currentUser = user
-            if shouldEnterOnboardingFlow == false {
-                onboardingComplete = true
-            }
+            shouldEnterOnboardingFlow = false
+            onboardingComplete = true
             errorMessage = nil
             updateLinkedProviders()
+        } catch UserServiceError.userNotProvisioned {
+            shouldEnterOnboardingFlow = true
+            onboardingComplete = false
+            currentUser = nil
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -210,6 +248,28 @@ class AuthViewModel: ObservableObject {
         try await authService.linkWithApple(presentationAnchor: anchor)
         updateLinkedProviders()
     }
+
+    #if canImport(FirebaseAuth)
+    func sendMfaCode(session: MFAChallengeSession, hintId: String) async throws -> String {
+        guard let hint = session.phoneHints.first(where: { $0.uid == hintId }) else {
+            throw AuthError.invalidCredentials
+        }
+        return try await authService.sendMfaCode(resolver: session.resolver, hint: hint)
+    }
+
+    func resolveMfaSignIn(session: MFAChallengeSession, verificationId: String, code: String) async throws {
+        try await authService.resolveMfaSignIn(
+            resolver: session.resolver,
+            verificationId: verificationId,
+            verificationCode: code
+        )
+        mfaSession = nil
+    }
+
+    func dismissMfa() {
+        mfaSession = nil
+    }
+    #endif
 
     var isGoogleLinked: Bool {
         linkedProviders.contains("google.com")
@@ -257,4 +317,20 @@ private extension AuthViewModel {
         linkedProviders = []
         #endif
     }
+
+    #if canImport(FirebaseAuth)
+    func handleMfaRequired(_ error: Error) -> Bool {
+        if let mfaError = error as? MFARequiredError {
+            let session = MFAChallengeSession(resolver: mfaError.resolver)
+            if session.phoneHints.isEmpty {
+                errorMessage = "Two-factor is enabled, but no phone number is available."
+                return false
+            }
+            mfaSession = session
+            errorMessage = nil
+            return true
+        }
+        return false
+    }
+    #endif
 }

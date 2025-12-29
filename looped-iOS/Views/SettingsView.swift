@@ -1,3 +1,4 @@
+import SafariServices
 import SwiftUI
 
 // MARK: - Icon Source Enum
@@ -21,6 +22,9 @@ struct SettingsView: View {
     @State private var isLinkingGoogle = false
     @State private var isLinkingApple = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
+    @State private var showFeedback = false
+
+    private let feedbackUrl = URL(string: "https://mylooped.app/contact")!
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -78,6 +82,9 @@ struct SettingsView: View {
 
                     // Support & About Section
                     SettingsSection(title: "Support & About") {
+                        SettingsRow(icon: .asset("help-icon"), title: "Feedback") {
+                            showFeedback = true
+                        }
                         SettingsRow(icon: .asset("rules-icon"), title: "Content Policy")
                         SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Privacy Policy")
                         SettingsRow(icon: .asset("user-agreement-icon"), title: "User Agreement")
@@ -134,7 +141,6 @@ struct SettingsView: View {
 
                     // Actions Section
                     SettingsSection(title: "Actions") {
-                        SettingsRow(icon: .system("flag"), title: "Report a problem")
                         SettingsRow(icon: .system("building.2"), title: "Change Workplace/Position")
                         NavigationLink(destination: DeleteAccountIntroView()) {
                             SettingsNavigationRow(icon: .system("trash"), title: "Delete Account")
@@ -155,6 +161,9 @@ struct SettingsView: View {
         .navigationBarHidden(true)
         .fullScreenCover(isPresented: $showCommunityRequest) {
             CommunityRequestFlowView()
+        }
+        .sheet(isPresented: $showFeedback) {
+            SafariView(url: feedbackUrl)
         }
         .onChange(of: anonymousMode) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }
@@ -551,6 +560,19 @@ struct ConnectedAccountRow: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+}
+
+// MARK: - Safari View
+
+struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {
     }
 }
 

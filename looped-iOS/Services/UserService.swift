@@ -52,7 +52,12 @@ class UserService: UserServiceProtocol {
     }
     
     func deleteAccount(mode: DeleteAccountMode = .hard) async throws {
-        try await apiClient.delete("/v1/users/me?mode=\(mode.rawValue)")
+        switch mode {
+        case .soft:
+            let _: EmptyResponse = try await apiClient.post("/v1/users/me/deactivate", body: EmptyBody())
+        case .hard:
+            let _: DeleteAccountResponse = try await apiClient.post("/v1/users/me/delete", body: EmptyBody())
+        }
     }
 
     func verifyEmployment(verification: EmploymentVerification) async throws {
@@ -148,4 +153,12 @@ private struct UpdateProfileRequest: Codable {
     let bio: String?
     let isAnonymous: Bool
     let showFollowerCount: Bool?
+}
+
+private struct EmptyBody: Codable {}
+
+private struct DeleteAccountResponse: Codable {
+    let status: String
+    let firebaseStatus: String?
+    let firebaseDeleted: Bool?
 }

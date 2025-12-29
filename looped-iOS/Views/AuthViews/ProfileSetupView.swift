@@ -13,6 +13,8 @@ struct ProfileSetupView: View {
     @State private var isSubmitting = false
     @State private var submitError: String?
     @State private var usernameCheckTask: Task<Void, Never>?
+    @State private var didLoadDraft = false
+    private let onboardingStore = OnboardingProgressStore()
 
     var body: some View {
         ZStack {
@@ -52,8 +54,17 @@ struct ProfileSetupView: View {
                             }
 
                             inputField(title: "First Name", placeholder: "First name", text: $firstName, keyboard: .default)
+                                .onChange(of: firstName) { _, _ in
+                                    persistDraft()
+                                }
                             inputField(title: "Last Name", placeholder: "Last name", text: $lastName, keyboard: .default)
+                                .onChange(of: lastName) { _, _ in
+                                    persistDraft()
+                                }
                             dateField(title: "Date of Birth", date: $dateOfBirth)
+                                .onChange(of: dateOfBirth) { _, _ in
+                                    persistDraft()
+                                }
                         }
                         .padding()
                         .background(Color.white)
@@ -89,6 +100,9 @@ struct ProfileSetupView: View {
                 }
             }
         }
+        .onAppear {
+            loadDraftIfNeeded()
+        }
     }
 
     private var isFormValid: Bool {
@@ -114,6 +128,7 @@ struct ProfileSetupView: View {
                     lastName: trimmedLastName,
                     dateOfBirth: dateOfBirth
                 )
+                onboardingStore.clearProfileDraft()
                 onContinue()
             } catch {
                 submitError = error.localizedDescription
@@ -131,14 +146,17 @@ struct ProfileSetupView: View {
         let normalized = normalizedUsername
         guard !normalized.isEmpty else {
             usernameState = .idle
+            persistDraft()
             return
         }
         guard isUsernameValid(normalized) else {
             usernameState = .invalid
+            persistDraft()
             return
         }
 
         usernameState = .checking
+        persistDraft()
         usernameCheckTask = Task {
             try? await Task.sleep(nanoseconds: 350_000_000)
             await checkUsernameAvailability(for: normalized)
@@ -191,6 +209,29 @@ struct ProfileSetupView: View {
                 .background(Color.loopedMutedBackground.opacity(0.6))
                 .cornerRadius(12)
         }
+    }
+
+    private func loadDraftIfNeeded() {
+        guard !didLoadDraft else { return }
+        didLoadDraft = true
+        guard let draft = onboardingStore.loadProfileDraft() else { return }
+        if username.isEmpty { username = draft.username }
+        if firstName.isEmpty { firstName = draft.firstName }
+        if lastName.isEmpty { lastName = draft.lastName }
+        if let dob = draft.dateOfBirth {
+            dateOfBirth = dob
+        }
+        handleUsernameChange(username)
+    }
+
+    private func persistDraft() {
+        let draft = OnboardingProfileDraft(
+            username: normalizedUsername,
+            firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
+            lastName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
+            dateOfBirth: dateOfBirth
+        )
+        onboardingStore.saveProfileDraft(draft)
     }
 }
 

@@ -42,16 +42,17 @@ struct SignUpView: View {
                         VStack(spacing: 16) {
                             inputField(title: "Work Email", placeholder: "you@company.com", text: $email, keyboard: .emailAddress)
                             passwordField(title: "Password", placeholder: "Create a password", text: $password)
-
-                            PasswordRequirementsView(
-                                requirements: passwordRequirements,
-                                showMissingOnly: false
-                            )
                         }
                         .padding()
                         .background(Color.white)
                         .cornerRadius(18)
                         .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
+
+                        PasswordRequirementsView(
+                            requirements: passwordRequirements,
+                            showMissingOnly: !password.isEmpty
+                        )
+                        .padding(.horizontal, 12)
 
                         Button(action: {
                             Task {
@@ -198,11 +199,12 @@ private struct PasswordRequirementsView: View {
             ForEach(requirements) { requirement in
                 if !showMissingOnly || !requirement.isMet {
                     HStack(spacing: 8) {
-                        Image(systemName: requirement.isMet ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(requirement.isMet ? .loopedPrimary : .loopedTextSecondary)
+                        Image(systemName: requirement.isMet ? "checkmark.circle" : "circle")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(requirement.isMet ? .loopedSecondary : .loopedTextSecondary.opacity(0.6))
 
                         Text(requirement.title)
-                            .font(.loopedSubBodyRegular)
+                            .font(.loopedSmallText)
                             .foregroundColor(requirement.isMet ? .loopedTextPrimary : .loopedTextSecondary)
                     }
                 }

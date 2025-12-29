@@ -83,14 +83,14 @@ struct MockSearchContent {
     ]
 
     static let communities: [SearchResultLoop] = [
-        SearchResultLoop(name: "Finance", description: "Markets, comp, and insights", memberCount: 1200),
-        SearchResultLoop(name: "New Hires", description: "Onboarding tips and questions", memberCount: 640),
-        SearchResultLoop(name: "Engineering", description: "Build, ship, and debug", memberCount: 980),
-        SearchResultLoop(name: "Product", description: "Roadmaps and strategy", memberCount: 540),
-        SearchResultLoop(name: "Design", description: "UX feedback and inspiration", memberCount: 430),
-        SearchResultLoop(name: "Company Culture", description: "Events and happenings", memberCount: 760),
-        SearchResultLoop(name: "Benefits & HR", description: "Policies and resources", memberCount: 390),
-        SearchResultLoop(name: "Sales", description: "Pipeline and playbooks", memberCount: 420)
+        SearchResultLoop(backendId: 1, name: "Finance", description: "Markets, comp, and insights", memberCount: 1200),
+        SearchResultLoop(backendId: 2, name: "New Hires", description: "Onboarding tips and questions", memberCount: 640),
+        SearchResultLoop(backendId: 3, name: "Engineering", description: "Build, ship, and debug", memberCount: 980),
+        SearchResultLoop(backendId: 4, name: "Product", description: "Roadmaps and strategy", memberCount: 540),
+        SearchResultLoop(backendId: 5, name: "Design", description: "UX feedback and inspiration", memberCount: 430),
+        SearchResultLoop(backendId: 6, name: "Company Culture", description: "Events and happenings", memberCount: 760),
+        SearchResultLoop(backendId: 7, name: "Benefits & HR", description: "Policies and resources", memberCount: 390),
+        SearchResultLoop(backendId: 8, name: "Sales", description: "Pipeline and playbooks", memberCount: 420)
     ]
 
     static var filterOptions: [SearchFilterOption] {
