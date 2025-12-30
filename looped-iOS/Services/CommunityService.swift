@@ -26,8 +26,11 @@ class CommunityService: CommunityServiceProtocol {
         return response.items.map(CommunitySearchResult.init(dto:))
     }
 
-    func searchCommunities(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult> {
+    func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunityKind?) async throws -> SearchResultPage<CommunitySearchResult> {
         var endpoint = "/v1/communities/search?query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)&limit=\(limit > 0 ? limit : defaultLimit)"
+        if let kind, kind != .unknown {
+            endpoint += "&kind=\(kind.rawValue)"
+        }
         if let cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"

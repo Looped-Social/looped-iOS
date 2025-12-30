@@ -1,12 +1,33 @@
 import SwiftUI
 import Combine
 
+enum SearchResultsFilter: String, CaseIterable, Identifiable {
+    case users = "Users"
+    case allCommunities = "All Communities"
+    case sectors = "Sectors"
+    case companies = "Companies"
+    case colleges = "Colleges"
+
+    var id: String { rawValue }
+
+    var communityKind: CommunityKind? {
+        switch self {
+        case .sectors:
+            return .sector
+        case .companies:
+            return .company
+        case .colleges:
+            return .school
+        default:
+            return nil
+        }
+    }
+}
+
 @MainActor
 class SearchResultsViewModel: ObservableObject {
     @Published var searchText = ""
-    @Published var followedCommunities: [CommunitySummary] = []
-    @Published var selectedCommunityId: Int?
-    @Published var isLoadingCommunities = false
+    @Published var selectedFilter: SearchResultsFilter?
     @Published var isSearching = false
     @Published var recentSearches: [String] = []
     @Published var searchResults: SearchResults = SearchResults()
@@ -29,10 +50,8 @@ class SearchResultsViewModel: ObservableObject {
         self.userService = userService
         self.discoveryService = discoveryService
         self.communityService = communityService
-        selectedCommunityId = nil
         loadRecentSearches()
         setupSearchDebouncing()
-        Task { await loadFollowedCommunities() }
     }
 
     // MARK: - Search Debouncing
@@ -41,16 +60,24 @@ class SearchResultsViewModel: ObservableObject {
             .debounce(for: .seconds(searchDebounceTime), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] searchQuery in
-                Task {
-                    await self?.performSearch(query: searchQuery)
-                }
+                guard let self else { return }
+                Task { await self.performSearch(query: searchQuery, filter: self.selectedFilter) }
+            }
+            .store(in: &cancellables)
+
+        $selectedFilter
+            .removeDuplicates()
+            .sink { [weak self] filter in
+                guard let self else { return }
+                Task { await self.performSearch(query: self.searchText, filter: filter) }
             }
             .store(in: &cancellables)
     }
 
     // MARK: - Search Logic
-    func performSearch(query: String) async {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    func performSearch(query: String, filter: SearchResultsFilter?) async {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
             isSearching = false
             searchResults = SearchResults()
             hashtagSuggestions = []
@@ -61,72 +88,111 @@ class SearchResultsViewModel: ObservableObject {
         isSearching = true
         errorMessage = nil
         do {
-            async let peoplePage = userService.searchUsers(query: query, limit: 20, cursor: nil)
-            async let loopsPage = communityService.searchCommunities(query: query, limit: 20, cursor: nil)
-            let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            let hashtagQuery = trimmedQuery.hasPrefix("#") ? String(trimmedQuery.dropFirst()) : trimmedQuery
-            async let hashtagPage = discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
-
-            let (page, loopResults, hashtags) = try await (peoplePage, loopsPage, hashtagPage)
             var results = SearchResults()
-            results.people = page.users.map { user in
-                SearchResultPerson(
-                    id: user.id,
-                    backendId: user.backendId,
-                    name: user.displayName ?? user.handle,
-                    username: user.username ?? user.handle,
-                    title: "Member",
-                    company: user.company,
-                    avatarURL: user.profileImageURL
+            switch filter {
+            case .users:
+                let page = try await userService.searchUsers(query: trimmedQuery, limit: 20, cursor: nil)
+                results.people = page.users.map { user in
+                    SearchResultPerson(
+                        id: user.id,
+                        backendId: user.backendId,
+                        name: user.displayName ?? user.handle,
+                        username: user.username ?? user.handle,
+                        title: "Member",
+                        company: user.company,
+                        avatarURL: user.profileImageURL
+                    )
+                }
+                searchResults = results
+                hashtagSuggestions = []
+            case .allCommunities:
+                let loopResults = try await communityService.searchCommunities(
+                    query: trimmedQuery,
+                    limit: 20,
+                    cursor: nil,
+                    kind: nil
                 )
-            }
+                results.loops = loopResults.items.map { loop in
+                    SearchResultLoop(
+                        id: UUID.fromBackendId(loop.id),
+                        backendId: loop.id,
+                        name: loop.name,
+                        description: loop.description,
+                        memberCount: loop.memberCount,
+                        imageUrl: loop.imageUrl
+                    )
+                }
+                searchResults = results
+                hashtagSuggestions = []
+            case .sectors, .companies, .colleges:
+                let loopResults = try await communityService.searchCommunities(
+                    query: trimmedQuery,
+                    limit: 20,
+                    cursor: nil,
+                    kind: filter?.communityKind
+                )
+                results.loops = loopResults.items.map { loop in
+                    SearchResultLoop(
+                        id: UUID.fromBackendId(loop.id),
+                        backendId: loop.id,
+                        name: loop.name,
+                        description: loop.description,
+                        memberCount: loop.memberCount,
+                        imageUrl: loop.imageUrl
+                    )
+                }
+                searchResults = results
+                hashtagSuggestions = []
+            case .none:
+                async let peoplePage = userService.searchUsers(query: trimmedQuery, limit: 20, cursor: nil)
+                async let loopsPage = communityService.searchCommunities(
+                    query: trimmedQuery,
+                    limit: 20,
+                    cursor: nil,
+                    kind: nil
+                )
+                let hashtagQuery = trimmedQuery.hasPrefix("#") ? String(trimmedQuery.dropFirst()) : trimmedQuery
+                async let hashtagPage = discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
 
-            results.loops = loopResults.items.map { loop in
-                SearchResultLoop(
-                    id: UUID.fromBackendId(loop.id),
-                    backendId: loop.id,
-                    name: loop.name,
-                    description: loop.description,
-                    memberCount: loop.memberCount,
-                    imageUrl: loop.imageUrl
-                )
-            }
+                let (page, loopResults, hashtags) = try await (peoplePage, loopsPage, hashtagPage)
+                results.people = page.users.map { user in
+                    SearchResultPerson(
+                        id: user.id,
+                        backendId: user.backendId,
+                        name: user.displayName ?? user.handle,
+                        username: user.username ?? user.handle,
+                        title: "Member",
+                        company: user.company,
+                        avatarURL: user.profileImageURL
+                    )
+                }
 
-            results.hashtags = hashtags.items.map { tag in
-                SearchResultHashtag(
-                    name: tag.name.hasPrefix("#") ? tag.name : "#\(tag.name)",
-                    usageCount: tag.usageCount
-                )
+                results.loops = loopResults.items.map { loop in
+                    SearchResultLoop(
+                        id: UUID.fromBackendId(loop.id),
+                        backendId: loop.id,
+                        name: loop.name,
+                        description: loop.description,
+                        memberCount: loop.memberCount,
+                        imageUrl: loop.imageUrl
+                    )
+                }
+
+                results.hashtags = hashtags.items.map { tag in
+                    SearchResultHashtag(
+                        name: tag.name.hasPrefix("#") ? tag.name : "#\(tag.name)",
+                        usageCount: tag.usageCount
+                    )
+                }
+                hashtagSuggestions = results.hashtags.map { $0.name }
+                searchResults = results
             }
-            hashtagSuggestions = results.hashtags.map { $0.name }
-            searchResults = results
         } catch {
             errorMessage = error.localizedDescription
             searchResults = SearchResults()
             hashtagSuggestions = []
         }
         isSearching = false
-    }
-
-    // MARK: - Community Filter Management
-    func selectCommunity(_ community: CommunitySummary) {
-        selectedCommunityId = community.id
-    }
-
-    func selectAllCommunities() {
-        selectedCommunityId = nil
-    }
-
-    func loadFollowedCommunities() async {
-        guard !isLoadingCommunities else { return }
-        isLoadingCommunities = true
-        defer { isLoadingCommunities = false }
-        do {
-            let page = try await communityService.fetchFollowedCommunities(limit: 50, cursor: nil)
-            followedCommunities = page.items
-        } catch {
-            followedCommunities = []
-        }
     }
 
     // MARK: - Recent Searches Management

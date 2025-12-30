@@ -359,35 +359,32 @@ struct CommunityProfileBanner: View {
     let imageUrl: String?
 
     var body: some View {
-        ZStack {
-            bannerImage
+        VStack(spacing: 12) {
+            if hasBannerImage {
+                bannerImage
+                    .frame(height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
 
             Text(name)
-                .font(.loopedHeadingMedium32)
+                .font(.loopedBody24)
                 .foregroundColor(bannerTextColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
-                .padding(.horizontal, 20)
-                .shadow(color: bannerTextShadow, radius: 6, x: 0, y: 2)
+                .frame(maxWidth: .infinity, minHeight: hasBannerImage ? 0 : 120)
+                .padding(.horizontal, hasBannerImage ? 0 : 16)
+                .background(hasBannerImage ? Color.clear : Color.loopedMutedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
         }
-        .frame(height: 120)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
         .padding(.horizontal, 20)
     }
 
     private var bannerTextColor: Color {
         if hasBannerImage {
-            return .white
+            return .loopedTextPrimary
         }
         return .loopedPrimary
-    }
-
-    private var bannerTextShadow: Color {
-        if hasBannerImage {
-            return .black.opacity(0.2)
-        }
-        return .clear
     }
 
     private var hasBannerImage: Bool {

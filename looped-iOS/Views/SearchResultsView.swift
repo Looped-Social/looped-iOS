@@ -16,12 +16,9 @@ struct SearchResultsView: View {
                 // Custom Navigation Header
                 searchHeader
 
-                // Community Filter Tabs
-                CommunityFilterTabs(
-                    communities: viewModel.followedCommunities,
-                    selectedCommunityId: viewModel.selectedCommunityId,
-                    onSelectCommunity: viewModel.selectCommunity,
-                    onSelectAll: viewModel.selectAllCommunities
+                SearchTypeFilterPills(
+                    selectedFilter: viewModel.selectedFilter,
+                    onSelect: { viewModel.selectedFilter = $0 }
                 )
                 .padding(.vertical, 12)
 
