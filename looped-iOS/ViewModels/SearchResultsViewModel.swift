@@ -3,14 +3,17 @@ import Combine
 
 enum SearchResultsFilter: String, CaseIterable, Identifiable {
     case users = "Users"
-    case allCommunities = "All Communities"
+    case all = "All"
+    case communities = "Communities"
     case sectors = "Sectors"
     case companies = "Companies"
     case colleges = "Colleges"
+    case majors = "Majors"
+    case departments = "Departments"
 
     var id: String { rawValue }
 
-    var communityKind: CommunityKind? {
+    var searchKind: CommunitySearchKind? {
         switch self {
         case .sectors:
             return .sector
@@ -18,6 +21,10 @@ enum SearchResultsFilter: String, CaseIterable, Identifiable {
             return .company
         case .colleges:
             return .school
+        case .majors:
+            return .major
+        case .departments:
+            return .department
         default:
             return nil
         }
@@ -105,7 +112,7 @@ class SearchResultsViewModel: ObservableObject {
                 }
                 searchResults = results
                 hashtagSuggestions = []
-            case .allCommunities:
+            case .communities:
                 let loopResults = try await communityService.searchCommunities(
                     query: trimmedQuery,
                     limit: 20,
@@ -118,18 +125,20 @@ class SearchResultsViewModel: ObservableObject {
                         backendId: loop.id,
                         name: loop.name,
                         description: loop.description,
+                        kind: loop.kind,
+                        specializationType: loop.specializationType,
                         memberCount: loop.memberCount,
                         imageUrl: loop.imageUrl
                     )
                 }
                 searchResults = results
                 hashtagSuggestions = []
-            case .sectors, .companies, .colleges:
+            case .sectors, .companies, .colleges, .majors, .departments:
                 let loopResults = try await communityService.searchCommunities(
                     query: trimmedQuery,
                     limit: 20,
                     cursor: nil,
-                    kind: filter?.communityKind
+                    kind: filter?.searchKind
                 )
                 results.loops = loopResults.items.map { loop in
                     SearchResultLoop(
@@ -137,13 +146,15 @@ class SearchResultsViewModel: ObservableObject {
                         backendId: loop.id,
                         name: loop.name,
                         description: loop.description,
+                        kind: loop.kind,
+                        specializationType: loop.specializationType,
                         memberCount: loop.memberCount,
                         imageUrl: loop.imageUrl
                     )
                 }
                 searchResults = results
                 hashtagSuggestions = []
-            case .none:
+            case .all, .none:
                 async let peoplePage = userService.searchUsers(query: trimmedQuery, limit: 20, cursor: nil)
                 async let loopsPage = communityService.searchCommunities(
                     query: trimmedQuery,
@@ -173,6 +184,8 @@ class SearchResultsViewModel: ObservableObject {
                         backendId: loop.id,
                         name: loop.name,
                         description: loop.description,
+                        kind: loop.kind,
+                        specializationType: loop.specializationType,
                         memberCount: loop.memberCount,
                         imageUrl: loop.imageUrl
                     )

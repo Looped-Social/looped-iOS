@@ -80,6 +80,12 @@ struct FeedView: View {
                     },
                     onSelectAll: {
                         Task { await viewModel.selectAllCommunities() }
+                    },
+                    onLoadMore: { community in
+                        Task { await viewModel.loadMoreFollowedCommunitiesIfNeeded(currentCommunity: community) }
+                    },
+                    onSelectMode: { mode in
+                        Task { await viewModel.selectFeedMode(mode) }
                     }
                 )
             }

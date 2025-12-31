@@ -32,7 +32,7 @@ protocol AuthServiceProtocol {
 }
 
 protocol FeedServiceProtocol {
-    func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage
+    func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
@@ -95,9 +95,10 @@ protocol CommentsServiceProtocol {
 }
 
 protocol CommunityServiceProtocol {
-    func fetchFollowedCommunities(limit: Int, cursor: String?) async throws -> CommunityPage
+    func fetchFollowedCommunities(limit: Int, cursor: String?, order: CommunityFollowOrder) async throws -> CommunityPage
     func fetchRecommendedCommunities(limit: Int) async throws -> [CommunitySearchResult]
-    func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunityKind?) async throws -> SearchResultPage<CommunitySearchResult>
+    func fetchCommunityDomains(communityId: Int) async throws -> [String]
+    func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult>
     func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult]
     func followCommunity(id: Int) async throws
     func unfollowCommunity(id: Int) async throws
@@ -105,7 +106,7 @@ protocol CommunityServiceProtocol {
 
 protocol CommunityVerificationServiceProtocol {
     func fetchCommunityVerifications() async throws -> [CommunityVerification]
-    func startVerification(communityId: Int, method: CommunityVerificationMethod) async throws -> CommunityVerificationStartResponse
+    func startVerification(communityId: Int, method: CommunityVerificationMethod, email: String?) async throws -> CommunityVerificationStartResponse
     func finishVerification(communityId: Int, request: CommunityVerificationFinishRequest) async throws -> CommunityVerificationFinishResponse
 }
 

@@ -17,7 +17,9 @@ struct UserSettingsView: View {
     @State private var hasLoadedUser = false
     @State private var isSaving = false
     @State private var saveError: String?
-    @State private var usernameError: String?
+    @State private var usernameState: UsernameAvailabilityState = .idle
+    @State private var isCheckingUsername = false
+    @State private var usernameCheckTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,7 +33,7 @@ struct UserSettingsView: View {
 
                 Spacer()
 
-                Text("User Settings")
+                Text("Edit Profile")
                     .font(.loopedSubheadMedium)
                     .foregroundColor(.loopedTextPrimary)
 
@@ -78,16 +80,13 @@ struct UserSettingsView: View {
                             .textInputAutocapitalization(.none)
                             .autocorrectionDisabled()
                             .onChange(of: username) { _, newValue in
-                                if newValue != newValue.lowercased() {
-                                    username = newValue.lowercased()
-                                }
-                                usernameError = usernameValidationMessage(for: normalizedUsername)
+                                handleUsernameChange(newValue)
                             }
 
-                        if let usernameError {
-                            Text(usernameError)
+                        if let statusText = usernameStatusText {
+                            Text(statusText)
                                 .font(.loopedSmallText)
-                                .foregroundColor(.red)
+                                .foregroundColor(usernameStatusColor)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -144,34 +143,26 @@ struct UserSettingsView: View {
                             .font(.loopedBodyStrong)
                             .foregroundColor(.loopedTextPrimary)
 
-                        TextEditor(text: $bio)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .frame(height: 100)
-                            .padding(8)
-                            .background(Color.loopedTextSecondary.opacity(0.1))
-                            .cornerRadius(8)
+                        ZStack(alignment: .topLeading) {
+                            TextEditor(text: $bio)
+                                .font(.loopedBody)
+                                .foregroundColor(.loopedTextPrimary)
+                                .scrollContentBackground(.hidden)
+                                .padding(8)
+
+                            if bio.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("Tell us a bit about you")
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 12)
+                            }
+                        }
+                        .frame(minHeight: 110)
+                        .background(Color.loopedTextSecondary.opacity(0.1))
+                        .cornerRadius(8)
                     }
                     .padding(.horizontal, 20)
-
-                    // Workplace/School Info Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("\(organizationLabel) Information")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-                            .padding(.horizontal, 20)
-
-                        VStack(spacing: 0) {
-                            UserSettingsInfoRow(label: organizationLabel, value: currentOrganizationName)
-                            Divider().padding(.horizontal, 20)
-                            UserSettingsInfoRow(label: "Position", value: currentUserPosition)
-                            Divider().padding(.horizontal, 20)
-                            UserSettingsInfoRow(label: "Verified", value: currentUserVerified)
-                        }
-                        .background(Color.loopedTextSecondary.opacity(0.05))
-                        .cornerRadius(8)
-                        .padding(.horizontal, 20)
-                    }
 
                     // Save Button
                     Button(action: saveProfile) {
@@ -237,18 +228,27 @@ struct UserSettingsInfoRow: View {
 }
 
 private extension UserSettingsView {
+    enum UsernameAvailabilityState: Equatable {
+        case idle
+        case checking
+        case available(String)
+        case unavailable
+        case invalid
+        case error
+
+        var isAvailable: Bool {
+            if case .available = self { return true }
+            return false
+        }
+    }
+
     var currentUser: User? { authViewModel.currentUser }
-    var currentUserCompany: String { currentUser?.company ?? "Looped" }
-    var currentOrganizationName: String { authViewModel.selectedOrganization?.name ?? currentUserCompany }
-    var organizationKind: OrganizationKind { authViewModel.selectedOrganization?.kind ?? .company }
-    var organizationLabel: String { organizationKind == .school ? "School" : "Workplace" }
-    var currentUserPosition: String { organizationKind == .school ? "Student" : "Team Member" }
-    var currentUserVerified: String { currentUser?.isVerified == true ? "Yes" : "No" }
 
     func hydrateFromUser() {
         guard let user = currentUser, !hasLoadedUser else { return }
         username = user.username ?? user.handle
-        usernameError = usernameValidationMessage(for: normalizedUsername)
+        usernameState = .idle
+        usernameCheckTask?.cancel()
         firstName = user.firstName ?? ""
         lastName = user.lastName ?? ""
         if let dob = user.dateOfBirth?.yyyyMMddDate() {
@@ -288,7 +288,7 @@ private extension UserSettingsView {
                 )
                 await authViewModel.loadCurrentUser()
             } catch {
-                saveError = error.localizedDescription
+                saveError = mapSaveError(error)
             }
         }
     }
@@ -298,8 +298,7 @@ private extension UserSettingsView {
     }
 
     var isFormValid: Bool {
-        !normalizedUsername.isEmpty
-            && usernameValidationMessage(for: normalizedUsername) == nil
+        isUsernameReady
             && !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -308,15 +307,115 @@ private extension UserSettingsView {
         isSaving || !isFormValid ? Color.loopedPrimary.opacity(0.7) : Color.loopedPrimary
     }
 
-    func usernameValidationMessage(for value: String) -> String? {
-        guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return "Username is required."
+    func handleUsernameChange(_ value: String) {
+        if value != value.lowercased() {
+            username = value.lowercased()
         }
-        let pattern = "^[a-z0-9_]{3,30}$"
-        if value.range(of: pattern, options: .regularExpression) == nil {
+        usernameCheckTask?.cancel()
+        saveError = nil
+
+        let normalized = normalizedUsername
+        guard !normalized.isEmpty else {
+            usernameState = .idle
+            return
+        }
+        guard isUsernameValid(normalized) else {
+            usernameState = .invalid
+            return
+        }
+        if let currentUsername = currentUsernameNormalized, normalized == currentUsername {
+            usernameState = .idle
+            return
+        }
+
+        usernameState = .checking
+        usernameCheckTask = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            await checkUsernameAvailability(for: normalized)
+        }
+    }
+
+    func checkUsernameAvailability(for value: String) async {
+        guard value == normalizedUsername else { return }
+        isCheckingUsername = true
+        defer { isCheckingUsername = false }
+        do {
+            let availability = try await userService.checkUsernameAvailability(value)
+            guard value == normalizedUsername else { return }
+            usernameState = availability.available ? .available(availability.username) : .unavailable
+        } catch {
+            guard value == normalizedUsername else { return }
+            usernameState = .error
+        }
+    }
+
+    var isUsernameReady: Bool {
+        let normalized = normalizedUsername
+        guard !normalized.isEmpty, isUsernameValid(normalized) else { return false }
+        if let currentUsername = currentUsernameNormalized, normalized == currentUsername {
+            return true
+        }
+        return usernameState.isAvailable
+    }
+
+    var currentUsernameNormalized: String? {
+        let raw = currentUser?.username ?? currentUser?.handle ?? ""
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed.lowercased()
+    }
+
+    var usernameStatusText: String? {
+        switch usernameState {
+        case .idle:
+            return nil
+        case .checking:
+            return "Checking availability..."
+        case .available(let normalized):
+            return "Available: @\(normalized)"
+        case .unavailable:
+            return "That username is taken."
+        case .invalid:
             return "Use 3-30 lowercase letters, numbers, or underscores."
+        case .error:
+            return "Couldn't check username right now."
         }
-        return nil
+    }
+
+    var usernameStatusColor: Color {
+        switch usernameState {
+        case .available:
+            return .green
+        case .checking:
+            return .loopedTextSecondary
+        default:
+            return .red
+        }
+    }
+
+    func isUsernameValid(_ value: String) -> Bool {
+        let pattern = "^[a-z0-9_]{3,30}$"
+        return value.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    func mapSaveError(_ error: Error) -> String {
+        if case let APIError.apiError(_, apiError, message) = error {
+            switch apiError {
+            case "user_not_provisioned":
+                return "Your account isn't fully onboarded yet."
+            case "invalid_username":
+                usernameState = .invalid
+                return "Use 3-30 lowercase letters, numbers, or underscores."
+            case "username_taken":
+                usernameState = .unavailable
+                return "That username is already taken."
+            default:
+                if let message, !message.isEmpty {
+                    return message
+                }
+                return apiError
+            }
+        }
+        return error.localizedDescription
     }
 }
 

@@ -5,3 +5,7 @@ struct FeedPage {
     let nextCursor: String?
 }
 
+enum FeedMode: String {
+    case forYou = "for_you"
+    case new = "new"
+}

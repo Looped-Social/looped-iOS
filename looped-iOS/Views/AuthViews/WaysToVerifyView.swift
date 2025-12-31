@@ -6,7 +6,7 @@ struct WaysToVerifyView: View {
     let totalSteps: Int
     let onBack: () -> Void
     let onContinue: (VerificationOption) -> Void
-    let onSkip: () -> Void
+    let onSkip: (() -> Void)?
     let onLearnMore: () -> Void
 
     @State private var selectedOption: VerificationOption?
@@ -20,7 +20,7 @@ struct WaysToVerifyView: View {
         totalSteps: Int = 5,
         onBack: @escaping () -> Void,
         onContinue: @escaping (VerificationOption) -> Void,
-        onSkip: @escaping () -> Void,
+        onSkip: (() -> Void)?,
         onLearnMore: @escaping () -> Void = {}
     ) {
         self.options = options
@@ -86,13 +86,18 @@ struct WaysToVerifyView: View {
                 .padding(.top, 16)
                 .padding(.horizontal, 32)
 
-                Button(action: onSkip) {
-                    Text("Skip For now")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedSecondary)
+                if let onSkip {
+                    Button(action: onSkip) {
+                        Text("Skip For now")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedSecondary)
+                    }
+                    .padding(.top, 14)
+                    .padding(.bottom, 20)
+                } else {
+                    Spacer()
+                        .frame(height: 20)
                 }
-                .padding(.top, 14)
-                .padding(.bottom, 20)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())

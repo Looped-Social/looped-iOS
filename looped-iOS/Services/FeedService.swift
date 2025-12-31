@@ -11,8 +11,8 @@ class FeedService: FeedServiceProtocol {
         self.anonService = anonService
     }
     
-    func fetchFeed(limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage {
-        try await fetchPosts(from: "/v1/feed", limit: limit, cursor: cursor, communityId: communityId)
+    func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage {
+        try await fetchPosts(from: "/v1/feed", limit: limit, cursor: cursor, communityId: communityId, mode: mode)
     }
 
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost] {
@@ -162,8 +162,17 @@ class FeedService: FeedServiceProtocol {
         return !response.saved
     }
     
-    private func fetchPosts(from basePath: String, limit: Int, cursor: String?, communityId: Int?) async throws -> FeedPage {
+    private func fetchPosts(
+        from basePath: String,
+        limit: Int,
+        cursor: String?,
+        communityId: Int?,
+        mode: FeedMode? = nil
+    ) async throws -> FeedPage {
         var endpoint = "\(basePath)?limit=\(limit > 0 ? limit : defaultLimit)"
+        if let mode {
+            endpoint += "&mode=\(mode.rawValue)"
+        }
         if let communityId {
             endpoint += "&communityId=\(communityId)"
         }

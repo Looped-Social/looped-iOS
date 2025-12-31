@@ -13,6 +13,8 @@ struct CreatePostView: View {
     @State private var showCamera: Bool = false
     @State private var anonMembershipExpired = false
     @State private var anonMembershipMissing = false
+    @State private var showVerificationInfoAlert = false
+    @StateObject private var verificationViewModel = CommunityVerificationsViewModel()
 
     @ObservedObject var feedViewModel: FeedViewModel
 
@@ -29,7 +31,28 @@ struct CreatePostView: View {
         return (hasText || hasMedia) && isTextValid
     }
     private var verifiedCommunities: [CommunitySummary] {
-        feedViewModel.followedCommunities.filter { $0.canPost }
+        let followed = feedViewModel.followedCommunities.filter { $0.canPost }
+        let verified = verificationViewModel.items
+            .filter { $0.isActive }
+            .map { verification in
+                CommunitySummary(
+                    id: verification.communityId,
+                    name: verification.communityName,
+                    kind: verification.communityKind,
+                    memberCount: 0,
+                    isPinned: false,
+                    sortOrder: nil,
+                    canPost: true
+                )
+            }
+        var merged: [CommunitySummary] = []
+        var seen = Set<Int>()
+        for community in followed + verified {
+            if seen.insert(community.id).inserted {
+                merged.append(community)
+            }
+        }
+        return merged
     }
 
     private var selectedCommunity: CommunitySummary? {
@@ -62,9 +85,20 @@ struct CreatePostView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // Community selector
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Community")
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedTextSecondary)
+                        HStack {
+                            Text("Community")
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
+                            Spacer()
+                            Button(action: {
+                                showVerificationInfoAlert = true
+                            }) {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                            .accessibilityLabel("Why verification is required")
+                        }
 
                         if verifiedCommunities.isEmpty {
                             HStack {
@@ -253,6 +287,11 @@ struct CreatePostView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .alert("Verification Required", isPresented: $showVerificationInfoAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You need to be verified in a community to post.")
+        }
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(authViewModel)
@@ -273,12 +312,17 @@ struct CreatePostView: View {
         .onAppear {
             syncSelectedCommunity()
             updateAnonMembershipStatus()
+            Task { await verificationViewModel.load() }
         }
         .onChange(of: feedViewModel.selectedCommunity?.id) { _ in
             syncSelectedCommunity()
             updateAnonMembershipStatus()
         }
         .onChange(of: feedViewModel.followedCommunities) { _ in
+            syncSelectedCommunity()
+            updateAnonMembershipStatus()
+        }
+        .onChange(of: verificationViewModel.items) { _ in
             syncSelectedCommunity()
             updateAnonMembershipStatus()
         }

@@ -37,7 +37,7 @@ class UserService: UserServiceProtocol {
             isAnonymous: isAnonymous,
             showFollowerCount: showFollowerCount
         )
-        return try await apiClient.put("/users/me", body: request)
+        return try await apiClient.put("/v1/users/me", body: request)
     }
 
     func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User {
@@ -47,7 +47,7 @@ class UserService: UserServiceProtocol {
             lastName: lastName,
             dateOfBirth: dateOfBirth
         )
-        let dto: UserDTO = try await apiClient.put("/v1/users/me", body: request)
+        let dto: UserDTO = try await apiClient.put("/v1/users/me/identity", body: request)
         return User(dto: dto, profile: dto.profile)
     }
     

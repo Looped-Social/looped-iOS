@@ -1,13 +1,36 @@
 import SwiftUI
 
 struct EmailVerificationView: View {
+    let communityId: Int?
+    let communityName: String
     let currentStep: Int
     let totalSteps: Int
     let onBack: () -> Void
-    let onContinue: () -> Void
-    let onResend: () -> Void
+    let onComplete: () -> Void
 
-    @State private var code = ""
+    @StateObject private var viewModel: CommunityEmailVerificationViewModel
+
+    init(
+        communityId: Int?,
+        communityName: String,
+        currentStep: Int,
+        totalSteps: Int,
+        onBack: @escaping () -> Void,
+        onComplete: @escaping () -> Void
+    ) {
+        self.communityId = communityId
+        self.communityName = communityName
+        self.currentStep = currentStep
+        self.totalSteps = totalSteps
+        self.onBack = onBack
+        self.onComplete = onComplete
+        _viewModel = StateObject(
+            wrappedValue: CommunityEmailVerificationViewModel(
+                communityId: communityId,
+                communityName: communityName
+            )
+        )
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -24,7 +47,35 @@ struct EmailVerificationView: View {
                         .font(.loopedSubheadMedium)
                         .foregroundColor(.loopedTextPrimary)
 
-                    VerificationCodeEntryView(code: $code)
+                    if viewModel.stage == .enterEmail {
+                        emailEntryCard
+                    } else {
+                        codeEntryCard
+                    }
+
+                    if let errorMessage = viewModel.errorMessage {
+                        Text(errorMessage)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
+                    }
+
+                    if let statusMessage = viewModel.statusMessage {
+                        Text(statusMessage)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
+                    }
+
+                    if let debugMessage = viewModel.debugMessage {
+                        Text(debugMessage)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
+                    }
                 }
                 .padding(.vertical, 24)
                 .padding(.horizontal, 18)
@@ -36,8 +87,8 @@ struct EmailVerificationView: View {
 
                 Spacer()
 
-                Button(action: onContinue) {
-                    Text("Continue")
+                Button(action: handlePrimaryAction) {
+                    Text(primaryButtonTitle)
                         .font(.loopedBodyMedium)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -45,20 +96,39 @@ struct EmailVerificationView: View {
                         .background(Color.loopedContrast)
                         .clipShape(Capsule())
                 }
-                .disabled(code.count < 6)
-                .opacity(code.count < 6 ? 0.4 : 1)
+                .disabled(!primaryActionEnabled)
+                .opacity(primaryActionEnabled ? 1 : 0.4)
                 .padding(.horizontal, 32)
 
-                Button(action: onResend) {
-                    Text("Resend code")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedSecondary)
+                if viewModel.stage == .enterCode {
+                    Button(action: { Task { await viewModel.resendCode() } }) {
+                        Text("Resend code")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedSecondary)
+                    }
+                    .padding(.top, 14)
+
+                    Button(action: viewModel.resetToEmailEntry) {
+                        Text("Change email")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 14)
-                .padding(.bottom, 24)
+
+                if viewModel.isFetchingDomains || viewModel.isSendingCode || viewModel.isVerifyingCode {
+                    ProgressView()
+                        .padding(.top, 12)
+                }
+
+                Spacer()
+                    .frame(height: 24)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
+        }
+        .task {
+            await viewModel.loadDomains()
         }
     }
 }
@@ -78,6 +148,102 @@ private extension EmailVerificationView {
 
             if totalSteps > 1 {
                 VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+            }
+        }
+    }
+
+    var emailEntryCard: some View {
+        VStack(spacing: 16) {
+            Text("Use your \(communityName) email")
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+
+            HStack(spacing: 10) {
+                TextField("username", text: $viewModel.emailLocalPart)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextPrimary)
+                    .textInputAutocapitalization(.none)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .keyboardType(.emailAddress)
+
+                domainSelector
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.white)
+            .cornerRadius(10)
+
+            if viewModel.domains.count > 1 {
+                Text("Select a domain")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+        }
+    }
+
+    var domainSelector: some View {
+        Group {
+            if viewModel.domains.count > 1 {
+                Picker(selection: $viewModel.selectedDomain) {
+                    ForEach(viewModel.domains, id: \.self) { domain in
+                        Text("@\(domain)")
+                            .tag(domain)
+                    }
+                } label: {
+                    domainLabel
+                }
+                .pickerStyle(.menu)
+            } else {
+                domainLabel
+            }
+        }
+    }
+
+    var domainLabel: some View {
+        Text(viewModel.selectedDomain.isEmpty ? "@domain" : "@\(viewModel.selectedDomain)")
+            .font(.loopedBody)
+            .foregroundColor(.loopedTextSecondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color.loopedTextSecondary.opacity(0.12))
+            .cornerRadius(8)
+    }
+
+    var codeEntryCard: some View {
+        VerificationCodeEntryView(code: $viewModel.code)
+    }
+
+    var primaryButtonTitle: String {
+        switch viewModel.stage {
+        case .enterEmail:
+            return "Send code"
+        case .enterCode:
+            return "Verify"
+        }
+    }
+
+    var primaryActionEnabled: Bool {
+        switch viewModel.stage {
+        case .enterEmail:
+            return viewModel.canSendCode && !viewModel.isSendingCode
+        case .enterCode:
+            return viewModel.canSubmitCode && !viewModel.isVerifyingCode
+        }
+    }
+
+    func handlePrimaryAction() {
+        switch viewModel.stage {
+        case .enterEmail:
+            Task {
+                _ = await viewModel.sendCode()
+            }
+        case .enterCode:
+            Task {
+                let success = await viewModel.submitCode()
+                if success {
+                    onComplete()
+                }
             }
         }
     }
@@ -140,10 +306,11 @@ private struct VerificationCodeEntryView: View {
 
 #Preview {
     EmailVerificationView(
+        communityId: 1,
+        communityName: "Looped",
         currentStep: 3,
         totalSteps: 5,
         onBack: {},
-        onContinue: {},
-        onResend: {}
+        onComplete: {}
     )
 }

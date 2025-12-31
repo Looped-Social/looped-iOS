@@ -7,16 +7,20 @@ class FeedViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingMore = false
     @Published var errorMessage: String?
+    @Published var feedMode: FeedMode = .forYou
     @Published var followedCommunities: [CommunitySummary] = []
     @Published var selectedCommunity: CommunitySummary?
     @Published var isLoadingCommunities = false
+    @Published var isLoadingMoreCommunities = false
     @Published var communitiesError: String?
 
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var nextCursor: String?
+    private var communitiesNextCursor: String?
     private let pageSize = 20
+    private let communityPageSize = 50
     private let lastPostedCommunityKey = "lastPostedCommunityId"
     private let lastSelectedCommunityKey = "lastSelectedCommunityId"
     
@@ -35,27 +39,59 @@ class FeedViewModel: ObservableObject {
         await loadPosts(reset: true)
     }
 
-    func loadFollowedCommunities() async {
-        guard !isLoadingCommunities else { return }
-        isLoadingCommunities = true
+    func loadFollowedCommunities(reset: Bool = true) async {
+        if reset {
+            guard !isLoadingCommunities else { return }
+            isLoadingCommunities = true
+            communitiesNextCursor = nil
+        } else {
+            guard !isLoadingMoreCommunities, communitiesNextCursor != nil else { return }
+            isLoadingMoreCommunities = true
+        }
         communitiesError = nil
-        defer { isLoadingCommunities = false }
+        defer {
+            if reset {
+                isLoadingCommunities = false
+            } else {
+                isLoadingMoreCommunities = false
+            }
+        }
 
         do {
-            let page = try await communityService.fetchFollowedCommunities(limit: 50, cursor: nil)
-            followedCommunities = page.items
-            if let selected = selectedCommunity,
-               followedCommunities.contains(where: { $0.id == selected.id }) {
-                selectedCommunity = selected
+            let page = try await communityService.fetchFollowedCommunities(
+                limit: communityPageSize,
+                cursor: reset ? nil : communitiesNextCursor,
+                order: .relevant
+            )
+            if reset {
+                followedCommunities = page.items
+                if let selected = selectedCommunity,
+                   followedCommunities.contains(where: { $0.id == selected.id }) {
+                    selectedCommunity = selected
+                } else {
+                    selectedCommunity = nil
+                }
             } else {
-                selectedCommunity = nil
+                var seen = Set(followedCommunities.map { $0.id })
+                let appended = page.items.filter { seen.insert($0.id).inserted }
+                followedCommunities.append(contentsOf: appended)
             }
+            communitiesNextCursor = page.nextCursor
             updateLastSelectedCommunityId()
         } catch {
             communitiesError = error.localizedDescription
-            followedCommunities = []
-            selectedCommunity = nil
+            if reset {
+                followedCommunities = []
+                selectedCommunity = nil
+            }
+            communitiesNextCursor = nil
         }
+    }
+
+    func loadMoreFollowedCommunitiesIfNeeded(currentCommunity: CommunitySummary) async {
+        guard let lastCommunity = followedCommunities.last,
+              currentCommunity.id == lastCommunity.id else { return }
+        await loadFollowedCommunities(reset: false)
     }
 
     func selectCommunity(_ community: CommunitySummary) async {
@@ -96,7 +132,8 @@ class FeedViewModel: ObservableObject {
             let page = try await feedService.fetchFeed(
                 limit: pageSize,
                 cursor: reset ? nil : nextCursor,
-                communityId: selectedCommunity?.id
+                communityId: selectedCommunity?.id,
+                mode: feedMode
             )
             if reset {
                 posts = page.posts
@@ -113,6 +150,12 @@ class FeedViewModel: ObservableObject {
         } else {
             isLoadingMore = false
         }
+    }
+
+    func selectFeedMode(_ mode: FeedMode) async {
+        guard feedMode != mode else { return }
+        feedMode = mode
+        await loadPosts(reset: true)
     }
     
     func refreshPosts() async {

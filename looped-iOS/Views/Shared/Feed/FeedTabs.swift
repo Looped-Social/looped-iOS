@@ -13,6 +13,8 @@ struct FeedTabs: View {
     let selectedCommunityId: Int?
     let onSelectCommunity: (CommunitySummary) -> Void
     let onSelectAll: () -> Void
+    let onLoadMore: (CommunitySummary) -> Void
+    let onSelectMode: (FeedMode) -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -25,6 +27,7 @@ struct FeedTabs: View {
                             let impact = UIImpactFeedbackGenerator(style: .light)
                             impact.impactOccurred()
                             selectedTab = tab
+                            onSelectMode(tab.feedMode)
                         }) {
                             Text(tab.rawValue)
                                 .font(.headline)
@@ -120,6 +123,11 @@ struct FeedTabs: View {
                                         .cornerRadius(20)
                                 }
                                 .buttonStyle(PlainButtonStyle())
+                                .onAppear {
+                                    if community.id == communities.last?.id {
+                                        onLoadMore(community)
+                                    }
+                                }
                             }
                         }
                         .transition(
@@ -139,6 +147,17 @@ struct FeedTabs: View {
     }
 }
 
+private extension FeedTab {
+    var feedMode: FeedMode {
+        switch self {
+        case .forYou:
+            return .forYou
+        case .hot:
+            return .new
+        }
+    }
+}
+
 #Preview {
     VStack {
         FeedHeader()
@@ -146,7 +165,9 @@ struct FeedTabs: View {
             communities: [],
             selectedCommunityId: nil,
             onSelectCommunity: { _ in },
-            onSelectAll: {}
+            onSelectAll: {},
+            onLoadMore: { _ in },
+            onSelectMode: { _ in }
         )
         Spacer()
     }

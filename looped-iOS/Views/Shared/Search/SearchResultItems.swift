@@ -134,9 +134,21 @@ struct LoopSearchResultItem: View {
                         .foregroundColor(.loopedTextSecondary)
                         .lineLimit(1)
 
-                    Text("\(loop.memberCount) members")
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedTextSecondary)
+                    HStack(spacing: 4) {
+                        if let label = loop.specializationLabel {
+                            Text(label)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            Text("•")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+
+                        Text("\(loop.memberCount) members")
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
                 }
 
                 Spacer()

@@ -8,7 +8,7 @@ struct SearchTypeFilterPills: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(SearchResultsFilter.allCases) { filter in
-                    let isSelected = selectedFilter == filter
+                    let isSelected = selectedFilter == filter || (selectedFilter == nil && filter == .all)
                     Button(action: {
                         let impact = UIImpactFeedbackGenerator(style: .light)
                         impact.impactOccurred()

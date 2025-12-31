@@ -5,6 +5,7 @@ struct CommunityProfileData: Identifiable, Equatable {
     var name: String
     var description: String
     var kind: CommunityKind
+    var specializationType: CommunitySpecializationType
     var memberCount: Int
     var imageUrl: String?
     var isFollowing: Bool
@@ -16,6 +17,7 @@ extension CommunityProfileData {
         self.name = community.name
         self.description = community.description
         self.kind = community.kind
+        self.specializationType = community.specializationType
         self.memberCount = community.memberCount
         self.imageUrl = community.imageUrl
         self.isFollowing = community.isFollowing ?? false
@@ -26,6 +28,7 @@ extension CommunityProfileData {
         self.name = summary.name
         self.description = description
         self.kind = summary.kind
+        self.specializationType = .unknown
         self.memberCount = summary.memberCount
         self.imageUrl = imageUrl
         self.isFollowing = true
@@ -36,9 +39,17 @@ extension CommunityProfileData {
         self.id = backendId
         self.name = loop.name
         self.description = loop.description
-        self.kind = .unknown
+        self.kind = loop.kind
+        self.specializationType = loop.specializationType
         self.memberCount = loop.memberCount
         self.imageUrl = loop.imageUrl
         self.isFollowing = false
+    }
+}
+
+extension CommunityProfileData {
+    var specializationLabel: String? {
+        guard kind == .specialization else { return nil }
+        return specializationType.displayName
     }
 }

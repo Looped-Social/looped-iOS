@@ -32,6 +32,7 @@ enum MenuDestination: Identifiable {
 
 struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
+    @StateObject private var feedViewModel = FeedViewModel()
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     private let onboardingStore = OnboardingProgressStore()
@@ -45,7 +46,6 @@ struct ContentView: View {
                     AuthView(authViewModel: authViewModel)
                 } else {
                     MainTabView()
-                        .environmentObject(authViewModel)
                 }
             } else {
                 AuthView(authViewModel: authViewModel)
@@ -58,6 +58,8 @@ struct ContentView: View {
         } message: {
             Text("Your account and anonymous profile have been deleted.")
         }
+        .environmentObject(authViewModel)
+        .environmentObject(feedViewModel)
         .preferredColorScheme(preferredColorScheme)
     }
 
@@ -68,6 +70,7 @@ struct ContentView: View {
 
 struct MainTabView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var feedViewModel: FeedViewModel
     @State private var selectedTab: TabItem = .home
     @State private var showCreatePost = false
     @State private var showNewMessage = false
@@ -76,9 +79,7 @@ struct MainTabView: View {
     @State private var selectedConversation: Conversation?
     @State private var selectedChannel: Channel?
     @State private var menuDestination: MenuDestination?
-    @StateObject private var feedViewModel = FeedViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
-    @State private var showPostVerificationAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
@@ -141,11 +142,6 @@ struct MainTabView: View {
             }
             .navigationViewStyle(.stack)
             .preferredColorScheme(preferredColorScheme)
-        }
-        .alert("Verification Required", isPresented: $showPostVerificationAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("You can browse all posts, but posting is only available after verification.")
         }
     }
 
@@ -307,11 +303,7 @@ struct MainTabView: View {
                             }
                         } else {
                             FloatingActionButton(type: .addPost) {
-                                if canCreatePost {
-                                    showCreatePost = true
-                                } else {
-                                    showPostVerificationAlert = true
-                                }
+                                showCreatePost = true
                             }
                             .coachMarkTarget(.feedPostButton)
                         }
@@ -437,10 +429,6 @@ struct MainTabView: View {
             }
             .transition(.move(edge: .bottom))
         }
-    }
-
-    private var canCreatePost: Bool {
-        feedViewModel.followedCommunities.contains { $0.canPost }
     }
 
     private var preferredColorScheme: ColorScheme? {

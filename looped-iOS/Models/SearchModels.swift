@@ -143,6 +143,8 @@ struct SearchResultLoop: Identifiable {
     let backendId: Int?
     let name: String
     let description: String
+    let kind: CommunityKind
+    let specializationType: CommunitySpecializationType
     let memberCount: Int
     let imageUrl: String?
 
@@ -151,6 +153,8 @@ struct SearchResultLoop: Identifiable {
         backendId: Int? = nil,
         name: String,
         description: String,
+        kind: CommunityKind = .unknown,
+        specializationType: CommunitySpecializationType = .unknown,
         memberCount: Int,
         imageUrl: String? = nil
     ) {
@@ -158,8 +162,15 @@ struct SearchResultLoop: Identifiable {
         self.backendId = backendId
         self.name = name
         self.description = description
+        self.kind = kind
+        self.specializationType = specializationType
         self.memberCount = memberCount
         self.imageUrl = imageUrl
+    }
+
+    var specializationLabel: String? {
+        guard kind == .specialization else { return nil }
+        return specializationType.displayName
     }
 }
 

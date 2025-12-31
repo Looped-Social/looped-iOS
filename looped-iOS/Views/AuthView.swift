@@ -5,6 +5,7 @@ struct AuthView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @State private var currentScreen: AuthScreen = .onboarding
     @State private var selectedLoopName: String = "Looped"
+    @State private var selectedCommunityId: Int?
     private let onboardingStore = OnboardingProgressStore()
 
     var body: some View {
@@ -40,7 +41,10 @@ struct AuthView: View {
                         selectedLoopName = first.name
                         if let backendId = first.backendId {
                             UserDefaults.standard.set(backendId, forKey: "lastSelectedCommunityId")
+                            selectedCommunityId = backendId
                         }
+                    } else {
+                        selectedCommunityId = nil
                     }
                     if selected.isEmpty {
                         authViewModel.onboardingComplete = true
@@ -149,16 +153,15 @@ struct AuthView: View {
                 )
             case .emailVerification(let isStudent):
                 EmailVerificationView(
+                    communityId: selectedCommunityId,
+                    communityName: selectedLoopName,
                     currentStep: 3,
                     totalSteps: 5,
                     onBack: {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
                     },
-                    onContinue: {
+                    onComplete: {
                         currentScreen = .verificationConfirmation
-                    },
-                    onResend: {
-                        // TODO: Wire resend email verification.
                     }
                 )
             case .verificationNotifications:

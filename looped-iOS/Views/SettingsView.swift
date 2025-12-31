@@ -50,7 +50,7 @@ struct SettingsView: View {
                     // Account Section
                     SettingsSection(title: "Account") {
                         NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
-                            SettingsNavigationRow(icon: .asset("user-settings-icon"), title: "User settings")
+                            SettingsNavigationRow(icon: .asset("user-settings-icon"), title: "Edit profile")
                         }
                             .buttonStyle(PlainButtonStyle())
 

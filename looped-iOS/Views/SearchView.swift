@@ -153,4 +153,6 @@ struct SearchView: View {
 
 #Preview {
     SearchView()
+        .environmentObject(FeedViewModel())
+        .environmentObject(AuthViewModel())
 }

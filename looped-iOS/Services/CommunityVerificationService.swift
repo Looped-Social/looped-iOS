@@ -14,9 +14,10 @@ class CommunityVerificationService: CommunityVerificationServiceProtocol {
 
     func startVerification(
         communityId: Int,
-        method: CommunityVerificationMethod
+        method: CommunityVerificationMethod,
+        email: String?
     ) async throws -> CommunityVerificationStartResponse {
-        let request = CommunityVerificationStartRequestDTO(method: method.rawValue)
+        let request = CommunityVerificationStartRequestDTO(method: method.rawValue, email: email)
         let response: CommunityVerificationStartResponseDTO = try await apiClient.post(
             "/v1/communities/\(communityId)/verification/start",
             body: request

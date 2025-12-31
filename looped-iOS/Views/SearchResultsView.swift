@@ -220,4 +220,6 @@ struct SearchResultsView: View {
 
 #Preview {
     SearchResultsView()
+        .environmentObject(FeedViewModel())
+        .environmentObject(AuthViewModel())
 }

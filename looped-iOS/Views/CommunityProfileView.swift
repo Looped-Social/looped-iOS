@@ -48,11 +48,21 @@ struct CommunityProfileView: View {
         )
         .sheet(isPresented: $showVerificationFlow) {
             CommunityVerificationFlowView(
-                communityId: viewModel.community.id,
-                communityName: viewModel.community.name
+                community: viewModel.community
             ) {
                 Task { await viewModel.loadVerification() }
             }
+        }
+        .alert(
+            "Update Failed",
+            isPresented: Binding(
+                get: { viewModel.followErrorMessage != nil },
+                set: { if !$0 { viewModel.followErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.followErrorMessage ?? "")
         }
     }
 
@@ -74,9 +84,22 @@ struct CommunityProfileView: View {
                     followButton
                 }
 
-                verificationPill
+                if let specializationLabel = viewModel.community.specializationLabel {
+                    Text(specializationLabel)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.loopedMutedBackground)
+                        .clipShape(Capsule())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
-                if viewModel.verificationError != nil {
+                if viewModel.community.kind != .specialization {
+                    verificationPill
+                }
+
+                if viewModel.verificationError != nil && viewModel.community.kind != .specialization {
                     Text("Verification status unavailable.")
                         .font(.loopedSmallText)
                         .foregroundColor(.loopedTextSecondary)
@@ -434,10 +457,13 @@ struct CommunityProfileBanner: View {
             name: "Finance",
             description: "Talk markets, careers, and everything in finance.",
             kind: .profession,
+            specializationType: .unknown,
             memberCount: 1_000_000,
             imageUrl: nil,
             isFollowing: false
         )
     )
     .environmentObject(CommentsModalManager())
+    .environmentObject(FeedViewModel())
+    .environmentObject(AuthViewModel())
 }

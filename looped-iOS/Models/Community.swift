@@ -5,6 +5,7 @@ enum CommunityKind: String, Codable {
     case school
     case profession
     case sector
+    case specialization
     case unknown
 
     init(from decoder: Decoder) throws {
@@ -17,6 +18,50 @@ enum CommunityKind: String, Codable {
         var container = encoder.singleValueContainer()
         let rawValue = self == .unknown ? "unknown" : self.rawValue
         try container.encode(rawValue)
+    }
+}
+
+enum CommunitySpecializationType: String, Codable {
+    case major
+    case department
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = CommunitySpecializationType(rawValue: rawValue) ?? .unknown
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        let rawValue = self == .unknown ? "unknown" : self.rawValue
+        try container.encode(rawValue)
+    }
+
+    var displayName: String? {
+        switch self {
+        case .major:
+            return "Major"
+        case .department:
+            return "Department"
+        case .unknown:
+            return nil
+        }
+    }
+}
+
+enum CommunitySearchKind: String {
+    case company
+    case school
+    case profession
+    case sector
+    case specialization
+    case major
+    case department
+    case unknown
+
+    var queryValue: String? {
+        self == .unknown ? nil : rawValue
     }
 }
 
@@ -35,6 +80,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
     let name: String
     let description: String
     let kind: CommunityKind
+    let specializationType: CommunitySpecializationType
     let memberCount: Int
     let imageUrl: String?
     let isFollowing: Bool?
@@ -44,6 +90,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
         name: String,
         description: String,
         kind: CommunityKind,
+        specializationType: CommunitySpecializationType = .unknown,
         memberCount: Int,
         imageUrl: String? = nil,
         isFollowing: Bool? = nil
@@ -52,6 +99,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
         self.name = name
         self.description = description
         self.kind = kind
+        self.specializationType = specializationType
         self.memberCount = memberCount
         self.imageUrl = imageUrl
         self.isFollowing = isFollowing
@@ -76,6 +124,7 @@ extension CommunitySearchResult {
         name = dto.name
         description = dto.description
         kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
+        specializationType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
         isFollowing = nil
@@ -86,6 +135,7 @@ extension CommunitySearchResult {
         name = dto.name
         description = dto.description
         kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
+        specializationType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
         isFollowing = dto.isFollowing

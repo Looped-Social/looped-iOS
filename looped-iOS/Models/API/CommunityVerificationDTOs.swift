@@ -17,6 +17,7 @@ struct CommunityVerificationDTO: Decodable {
 
 struct CommunityVerificationStartRequestDTO: Encodable {
     let method: String
+    let email: String?
 }
 
 struct CommunityVerificationStartResponseDTO: Decodable {

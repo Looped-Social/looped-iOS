@@ -623,4 +623,5 @@ struct UserCommentsList: View {
         UserProfileView(userId: 1, preloadedProfile: sampleProfile)
     }
     .environmentObject(AuthViewModel())
+    .environmentObject(FeedViewModel())
 }
