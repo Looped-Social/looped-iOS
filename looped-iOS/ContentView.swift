@@ -108,14 +108,6 @@ struct MainTabView: View {
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
-        // MODAL OVERLAY - Completely separate from main content
-        .overlay(
-            Group {
-                if commentsManager.isPresented {
-                    modalOverlay
-                }
-            }
-        )
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(feedViewModel: feedViewModel)
                 .preferredColorScheme(preferredColorScheme)
@@ -135,6 +127,17 @@ struct MainTabView: View {
                 }
             })
             .preferredColorScheme(preferredColorScheme)
+        }
+        .fullScreenCover(isPresented: $commentsManager.isPresented, onDismiss: {
+            commentsManager.dismissComments()
+        }) {
+            if let post = commentsManager.currentPost {
+                CommentsView(post: post) {
+                    commentsManager.dismissComments()
+                }
+                .environmentObject(commentsManager)
+                .preferredColorScheme(preferredColorScheme)
+            }
         }
         .fullScreenCover(item: $menuDestination) { destination in
             NavigationView {
@@ -372,65 +375,6 @@ struct MainTabView: View {
         }
     }
     
-    private var modalOverlay: some View {
-        ZStack {
-            // Background dimming - covers entire screen including safe area
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .onTapGesture {
-                    commentsManager.dismissComments()
-                }
-
-            // Modal content with post above
-            VStack(spacing: 0) {
-                Spacer()
-
-                // Post display above comments (TikTok style)
-                if let post = commentsManager.currentPost {
-                    VStack(spacing: 0) {
-                        SimplifiedPostCard(post: post)
-
-                        // Separator line
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                    }
-                    .background(Color.loopedBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-                }
-
-                // Comments modal
-                VStack(spacing: 0) {
-                    // Modal handle
-                    RoundedRectangle(cornerRadius: 2.5)
-                        .fill(Color.loopedTextSecondary.opacity(0.3))
-                        .frame(width: 36, height: 5)
-                        .padding(.top, 8)
-                        .padding(.bottom, 12)
-
-                    // Comments content
-                    if let post = commentsManager.currentPost {
-                        CommentsView(
-                            post: post
-                        ) {
-                            commentsManager.dismissComments()
-                        }
-                        .environmentObject(commentsManager)
-                    }
-                }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
-                .background(Color.loopedBackground)
-                .cornerRadius(16)
-                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
-            }
-            .transition(.move(edge: .bottom))
-        }
-    }
-
     private var preferredColorScheme: ColorScheme? {
         AppearanceMode.from(rawValue: appearanceMode).colorScheme
     }

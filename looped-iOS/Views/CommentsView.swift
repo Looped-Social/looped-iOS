@@ -10,6 +10,10 @@ struct CommentsView: View {
     @State private var keyboardHeight: CGFloat = 0
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
+    @State private var selectedImageIndex: Int = 0
+    @State private var selectedVideoUrl: String?
+    @State private var showImageViewer = false
+    @State private var showVideoPlayer = false
 
     private var comments: [Comment] {
         commentsManager.currentComments
@@ -22,45 +26,35 @@ struct CommentsView: View {
         return feedViewModel.followedCommunities.first(where: { $0.id == communityId })?.canPost == true
     }
 
+    private var postAuthorName: String {
+        if post.isAnonymous {
+            return "Anonymous"
+        }
+        return post.authorDisplayName ?? "User"
+    }
+
+    private var imageUrls: [String] {
+        post.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("\(comments.count) comment\(comments.count == 1 ? "" : "s")")
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
+            headerBar
 
-                Spacer()
-
-                Button(action: { onDismiss() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.loopedTextSecondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    threadHeader
+                    commentsContent
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color.loopedBackground)
 
-            // Divider
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(.loopedTextSecondary.opacity(0.1))
-
-            commentsList
-
-            Spacer()
-
-            // Input area - TikTok style at bottom
-            VStack(spacing: 0) {
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
-
-                commentInput
-            }
+            commentInput
         }
-        .background(Color.loopedBackground)
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationBarHidden(true)
         .onAppear {
             setupKeyboardObservers()
         }
@@ -75,87 +69,171 @@ struct CommentsView: View {
                     .environmentObject(commentsManager)
             }
         }
+        .fullScreenCover(isPresented: $showImageViewer) {
+            FullScreenImageViewer(
+                imageUrls: imageUrls,
+                initialIndex: selectedImageIndex,
+                isPresented: $showImageViewer
+            )
+        }
+        .fullScreenCover(isPresented: $showVideoPlayer) {
+            if let url = selectedVideoUrl {
+                VideoPlayerSheet(videoUrl: url, isPresented: $showVideoPlayer)
+            }
+        }
     }
 }
 
 // MARK: - Subviews
 private extension CommentsView {
-    var commentsList: some View {
+    var headerBar: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Button(action: { onDismiss() }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.loopedTextPrimary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Thread")
+                    .font(.loopedSubheadMedium)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Text("\(comments.count) comment\(comments.count == 1 ? "" : "s")")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .background(Color.loopedBackground)
+    }
+
+    var threadHeader: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle()
+                .fill(Color.loopedTextSecondary.opacity(0.15))
+                .overlay(
+                    Text(String(postAuthorName.prefix(1)).uppercased())
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedTextPrimary)
+                )
+                .frame(width: 40, height: 40)
+
+            VStack(alignment: .leading, spacing: 8) {
+                let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedContent.isEmpty {
+                    if trimmedContent.contains("#") {
+                        HashtagText(
+                            text: trimmedContent,
+                            font: .loopedSubheadMedium,
+                            textColor: .loopedTextPrimary,
+                            hashtagColor: .loopedPrimary,
+                            onHashtagTap: handleHashtagTap
+                        )
+                        .multilineTextAlignment(.leading)
+                    } else {
+                        Text(trimmedContent)
+                            .font(.loopedSubheadMedium)
+                            .foregroundColor(.loopedTextPrimary)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+
+                Text(postAuthorName)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+
+                Text(formattedTimestamp(for: post.createdAt))
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+
+                if let attachments = post.attachments, !attachments.isEmpty {
+                    PostedMediaGrid(
+                        attachments: attachments,
+                        maxHeight: 240,
+                        onImageTap: { url in
+                            guard !url.isEmpty, URL(string: url) != nil else { return }
+                            if let index = imageUrls.firstIndex(of: url) {
+                                selectedImageIndex = index
+                            }
+                            showImageViewer = true
+                        },
+                        onVideoTap: { url in
+                            guard !url.isEmpty, URL(string: url) != nil else { return }
+                            selectedVideoUrl = url
+                            showVideoPlayer = true
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    var commentsContent: some View {
         Group {
             if commentsManager.isLoading && comments.isEmpty {
-                VStack {
-                    Spacer()
-                    ProgressView()
-                        .tint(.loopedPrimary)
-                    Spacer()
-                }
+                ProgressView()
+                    .tint(.loopedPrimary)
+                    .frame(maxWidth: .infinity, minHeight: 120)
+            } else if let error = commentsManager.errorMessage, comments.isEmpty {
+                Text(error)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity, minHeight: 140)
             } else if comments.isEmpty {
-                VStack(spacing: 16) {
-                    Spacer()
-
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 48))
-                        .foregroundColor(.loopedTextSecondary.opacity(0.3))
-
+                VStack(spacing: 10) {
                     Text("No comments yet")
                         .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextSecondary)
+                        .foregroundColor(.loopedTextPrimary)
 
-                    Text("Be the first to share your thoughts!")
+                    Text("Be the first to share your thoughts.")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
-
-                    Spacer()
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 140)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(comments) { comment in
-                            let thread = commentsManager.threadState(for: comment)
-                            CommentRow(
-                                comment: comment,
-                                replies: thread.isExpanded ? thread.replies : [],
-                                isExpanded: thread.isExpanded,
-                                isLoadingReplies: thread.isLoading,
-                                isLoadingMoreReplies: thread.isLoadingMore,
-                                hasMoreReplies: thread.nextCursor != nil,
-                                onReply: { commentsManager.setReplyTarget($0) },
-                                onToggleReplies: { tapped in
-                                    Task { await commentsManager.toggleReplies(for: tapped) }
-                                },
-                                onLoadMoreReplies: { tapped in
-                                    Task { await commentsManager.loadMoreRepliesIfNeeded(for: tapped) }
-                                },
-                                onLike: { tappedComment in
-                                    Task {
-                                        await commentsManager.toggleLike(for: tappedComment)
-                                    }
-                                },
-                                onHashtagTap: handleHashtagTap
-                            )
-                            .onAppear {
-                                Task { await commentsManager.loadMoreIfNeeded(current: comment) }
-                            }
+                LazyVStack(spacing: 20) {
+                    if let error = commentsManager.errorMessage {
+                        Text(error)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.red)
+                    }
 
-                            // Divider between comments
-                            if comment.id != comments.last?.id {
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(.loopedTextSecondary.opacity(0.05))
-                                    .padding(.horizontal, 16)
-                            }
+                    ForEach(comments) { comment in
+                        let thread = commentsManager.threadState(for: comment)
+                        CommentRow(
+                            comment: comment,
+                            replies: thread.isExpanded ? thread.replies : [],
+                            isExpanded: thread.isExpanded,
+                            isLoadingReplies: thread.isLoading,
+                            isLoadingMoreReplies: thread.isLoadingMore,
+                            hasMoreReplies: thread.nextCursor != nil,
+                            onReply: { commentsManager.setReplyTarget($0) },
+                            onToggleReplies: { tapped in
+                                Task { await commentsManager.toggleReplies(for: tapped) }
+                            },
+                            onLoadMoreReplies: { tapped in
+                                Task { await commentsManager.loadMoreRepliesIfNeeded(for: tapped) }
+                            },
+                            onLike: { tappedComment in
+                                Task {
+                                    await commentsManager.toggleLike(for: tappedComment)
+                                }
+                            },
+                            onHashtagTap: handleHashtagTap
+                        )
+                        .onAppear {
+                            Task { await commentsManager.loadMoreIfNeeded(current: comment) }
                         }
+                    }
 
-                        if commentsManager.isLoadingMore {
-                            ProgressView()
-                                .padding(.vertical, 16)
-                        }
-
-                        // Bottom padding to account for input area
-                        Rectangle()
-                            .frame(height: 80)
-                            .foregroundColor(.clear)
+                    if commentsManager.isLoadingMore {
+                        ProgressView()
+                            .padding(.vertical, 12)
                     }
                 }
             }
@@ -192,30 +270,38 @@ private extension CommentsView {
             }
 
             HStack(alignment: .bottom, spacing: 12) {
-                // User avatar placeholder
-                AsyncImage(url: URL(string: "https://via.placeholder.com/32")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
+                if let imageUrl = authViewModel.currentUser?.profileImageURL,
+                   let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Circle()
+                            .fill(Color.loopedTextSecondary.opacity(0.2))
+                    }
+                    .frame(width: 34, height: 34)
+                    .clipShape(Circle())
+                } else {
                     Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.3))
+                        .fill(Color.loopedTextSecondary.opacity(0.15))
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.loopedTextSecondary)
+                        )
+                        .frame(width: 34, height: 34)
                 }
-                .frame(width: 32, height: 32)
-                .clipShape(Circle())
 
-                // Text input
-                HStack {
-                    TextField("Add comment...", text: $commentText, axis: .vertical)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextPrimary)
-                        .lineLimit(1...4)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                }
-                .background(Color.loopedMutedBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .disabled(!canComment)
+                TextField("Add a comment...", text: $commentText, axis: .vertical)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextPrimary)
+                    .lineLimit(1...4)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(Color.loopedMutedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .disabled(!canComment)
 
                 Button(action: {
                     Task {
@@ -227,7 +313,7 @@ private extension CommentsView {
                     }
                 }) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(.system(size: 28, weight: .semibold))
                         .foregroundColor(
                             commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting || !canComment
                             ? .loopedTextSecondary
@@ -236,9 +322,9 @@ private extension CommentsView {
                 }
                 .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting || !canComment)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 20)
             .padding(.top, 12)
-            .padding(.bottom, max(12, keyboardHeight > 0 ? 0 : 12))
+            .padding(.bottom, max(12, keyboardHeight > 0 ? 8 : 12))
             .background(Color.loopedBackground)
         }
     }
@@ -269,6 +355,25 @@ private extension CommentsView {
     func removeKeyboardObservers() {
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+
+    func formattedTimestamp(for date: Date) -> String {
+        let now = Date()
+        let timeInterval = now.timeIntervalSince(date)
+
+        let days = Int(timeInterval) / 86400
+        let hours = Int(timeInterval) / 3600
+        let minutes = Int(timeInterval) / 60
+
+        if days > 0 {
+            return "\(days)d ago"
+        } else if hours > 0 {
+            return "\(hours)h ago"
+        } else if minutes > 0 {
+            return "\(minutes)m ago"
+        } else {
+            return "just now"
+        }
     }
 
     func displayName(for comment: Comment) -> String {

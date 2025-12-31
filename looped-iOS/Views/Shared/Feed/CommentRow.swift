@@ -69,42 +69,67 @@ struct CommentRow: View {
     }
     
     private var profileSize: CGFloat {
-        nestingLevel == 0 ? 36 : 32
+        nestingLevel == 0 ? 36 : 30
+    }
+
+    private var contentFont: Font {
+        nestingLevel == 0 ? .loopedBodyMedium : .loopedSubBodyMedium
+    }
+
+    private var authorFont: Font {
+        nestingLevel == 0 ? .loopedSubBodyRegular : .loopedSmallText
+    }
+
+    private var metadataFont: Font {
+        .loopedSmallText
+    }
+
+    private var initials: String {
+        String(displayName.prefix(1)).uppercased()
+    }
+
+    private var avatarView: some View {
+        Group {
+            if comment.isAnonymous {
+                Circle()
+                    .fill(Color.loopedTextSecondary.opacity(0.15))
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.loopedTextSecondary)
+                    )
+            } else if let urlString = comment.authorProfileImageURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(Color.loopedTextSecondary.opacity(0.2))
+                }
+            } else {
+                Circle()
+                    .fill(Color.loopedTextSecondary.opacity(0.15))
+                    .overlay(
+                        Text(initials)
+                            .font(.loopedSmallTextMedium)
+                            .foregroundColor(.loopedTextPrimary)
+                    )
+            }
+        }
+        .frame(width: profileSize, height: profileSize)
+        .clipShape(Circle())
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                // Profile picture (or empty space for anonymous)
-                if comment.isAnonymous {
-                    // No profile picture for anonymous users
-                    Color.clear
-                        .frame(width: profileSize, height: profileSize)
-                } else {
-                    AsyncImage(url: URL(string: "https://via.placeholder.com/\(Int(profileSize))")) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.loopedTextSecondary.opacity(0.3))
-                    }
-                    .frame(width: profileSize, height: profileSize)
-                    .clipShape(Circle())
-                }
+                avatarView
 
-                // Comment content
-                VStack(alignment: .leading, spacing: 6) {
-                    // Header with just name
-                    Text(displayName)
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // Comment text
+                VStack(alignment: .leading, spacing: 8) {
                     HashtagText(
                         text: comment.content,
-                        font: .loopedSubBodyRegular,
+                        font: contentFont,
                         textColor: .loopedTextPrimary,
                         hashtagColor: .loopedPrimary
                     ) { hashtag in
@@ -114,56 +139,54 @@ struct CommentRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // "Liked by creator" badge
-                    if comment.isLikedByCreator {
-                        Text("Liked by creator")
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
-                            .padding(.top, 2)
-                    }
+                    Text(displayName)
+                        .font(authorFont)
+                        .foregroundColor(.loopedTextSecondary)
 
-                    // Timestamp and Reply button
-                    HStack(spacing: 16) {
+                    HStack(spacing: 14) {
                         Text(formattedTimestamp)
-                            .font(.loopedSmallText)
+                            .font(metadataFont)
                             .foregroundColor(.loopedTextSecondary)
 
                         Button(action: {
                             onReply?(comment)
                         }) {
                             Text("Reply")
-                                .font(.loopedSmallText)
+                                .font(metadataFont)
                                 .foregroundColor(.loopedTextSecondary)
                         }
 
                         Spacer()
 
-                        // Like button with count
                         Button(action: {
                             onLike?(comment)
                         }) {
                             HStack(spacing: 4) {
                                 Image(systemName: comment.userLiked ? "heart.fill" : "heart")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 12))
                                     .foregroundColor(comment.userLiked ? .red : .loopedTextSecondary)
 
                                 if comment.likeCount > 0 {
                                     Text("\(comment.likeCount)")
-                                        .font(.loopedSmallText)
+                                        .font(metadataFont)
                                         .foregroundColor(.loopedTextSecondary)
                                 }
                             }
                         }
                     }
-                    .padding(.top, 4)
-                    
-                    // Replies toggle/loading
+
+                    if comment.isLikedByCreator {
+                        Text("Liked by creator")
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+
                     if onToggleReplies != nil {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 6) {
                             Button(action: { onToggleReplies?(comment) }) {
                                 HStack(spacing: 4) {
                                     Text(isExpanded ? "Hide replies" : "View replies")
-                                        .font(.loopedSmallText)
+                                        .font(metadataFont)
                                         .foregroundColor(.loopedTextSecondary)
                                     if isLoadingReplies {
                                         ProgressView()
@@ -175,22 +198,20 @@ struct CommentRow: View {
                                     }
                                 }
                             }
-                            
+
                             Spacer()
                         }
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                     }
 
-                    // Replies list
                     if isExpanded {
-                        VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 16) {
                             if replies.isEmpty && !isLoadingReplies {
                                 Text("No replies yet")
                                     .font(.loopedSmallText)
                                     .foregroundColor(.loopedTextSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.leading, nestingLevel > 0 ? 44 : 48)
-                                    .padding(.vertical, 8)
+                                    .padding(.leading, profileSize + 12)
+                                    .padding(.vertical, 4)
                             } else {
                                 ForEach(replies) { reply in
                                     CommentRow(
@@ -207,13 +228,6 @@ struct CommentRow: View {
                                         onLike: onLike,
                                         onHashtagTap: onHashtagTap
                                     )
-
-                                    if reply.id != replies.last?.id {
-                                        Rectangle()
-                                            .frame(height: 1)
-                                            .foregroundColor(.loopedTextSecondary.opacity(0.05))
-                                            .padding(.leading, nestingLevel > 0 ? 44 : 48)
-                                    }
                                 }
                             }
 
@@ -224,23 +238,21 @@ struct CommentRow: View {
                                 Button(action: { onLoadMoreReplies?(comment) }) {
                                     HStack(spacing: 4) {
                                         Text("Show more replies")
-                                            .font(.loopedSmallText)
+                                            .font(metadataFont)
                                             .foregroundColor(.loopedTextSecondary)
                                         Image(systemName: "chevron.down")
                                             .font(.system(size: 10, weight: .medium))
                                             .foregroundColor(.loopedTextSecondary)
                                     }
                                 }
-                                .padding(.vertical, 8)
                             }
                         }
                         .padding(.top, 8)
                     }
                 }
             }
-            .padding(.horizontal, nestingLevel == 0 ? 16 : 0)
-            .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 12) : 0)
-            .padding(.vertical, 12)
+            .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
+            .padding(.vertical, 6)
         }
     }
 }

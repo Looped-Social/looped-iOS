@@ -39,13 +39,16 @@ struct CommunityProfileView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
-        .overlay(
-            Group {
-                if commentsManager.isPresented {
-                    commentsModalOverlay
+        .fullScreenCover(isPresented: $commentsManager.isPresented, onDismiss: {
+            commentsManager.dismissComments()
+        }) {
+            if let post = commentsManager.currentPost {
+                CommentsView(post: post) {
+                    commentsManager.dismissComments()
                 }
+                .environmentObject(commentsManager)
             }
-        )
+        }
         .sheet(isPresented: $showVerificationFlow) {
             CommunityVerificationFlowView(
                 community: viewModel.community
@@ -242,56 +245,6 @@ struct CommunityProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 40)
-    }
-
-    private var commentsModalOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .onTapGesture {
-                    commentsManager.dismissComments()
-                }
-
-            VStack(spacing: 0) {
-                Spacer()
-
-                if let post = commentsManager.currentPost {
-                    VStack(spacing: 0) {
-                        SimplifiedPostCard(post: post)
-
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                    }
-                    .background(Color.loopedBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-                }
-
-                VStack(spacing: 0) {
-                    RoundedRectangle(cornerRadius: 2.5)
-                        .fill(Color.loopedTextSecondary.opacity(0.3))
-                        .frame(width: 36, height: 5)
-                        .padding(.top, 8)
-                        .padding(.bottom, 12)
-
-                    if let post = commentsManager.currentPost {
-                        CommentsView(post: post) {
-                            commentsManager.dismissComments()
-                        }
-                        .environmentObject(commentsManager)
-                    }
-                }
-                .frame(maxHeight: UIScreen.main.bounds.height * 0.75)
-                .background(Color.loopedBackground)
-                .cornerRadius(16)
-                .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
-            }
-            .transition(.move(edge: .bottom))
-        }
     }
 
     private var verificationDisplay: VerificationDisplay {
