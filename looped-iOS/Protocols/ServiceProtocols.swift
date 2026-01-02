@@ -43,6 +43,7 @@ protocol FeedServiceProtocol {
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func savePost(postId: Int, communityId: Int?) async throws -> Bool
     func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool
+    func deletePost(postId: Int, communityId: Int?) async throws -> PostDeleteResponse
 }
 
 struct PostReactionResponse {
@@ -53,6 +54,11 @@ struct PostReactionResponse {
 struct PostShareResponse {
     let postId: Int
     let shareCount: Int
+}
+
+struct PostDeleteResponse {
+    let postId: Int
+    let deleted: Bool
 }
 
 protocol MessageServiceProtocol {
@@ -74,10 +80,12 @@ protocol UserServiceProtocol {
     func getUser(by id: Int) async throws -> User
     func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool, showFollowerCount: Bool?) async throws -> User
     func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
+    func updateDisplayCommunity(communityId: Int?) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
     func deleteAccount(mode: DeleteAccountMode) async throws
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage
+    func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO
     func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
 }
@@ -91,7 +99,10 @@ protocol CommentsServiceProtocol {
     func fetchComments(postId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage
     func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage
     func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?) async throws -> Comment
+    func editComment(commentId: Int, communityId: Int?, content: String, asAnon: Bool) async throws -> Comment
+    func deleteComment(commentId: Int, communityId: Int?, asAnon: Bool) async throws -> CommentDeleteResponse
     func likeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse
+    func unlikeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse
 }
 
 protocol CommunityServiceProtocol {
@@ -102,6 +113,7 @@ protocol CommunityServiceProtocol {
     func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult]
     func followCommunity(id: Int) async throws
     func unfollowCommunity(id: Int) async throws
+    func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions
 }
 
 protocol CommunityVerificationServiceProtocol {

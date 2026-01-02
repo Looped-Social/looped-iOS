@@ -13,6 +13,7 @@ struct UserProfileView: View {
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: UserProfileTab = .posts
     @State private var hasLoaded = false
+    @State private var overlayHeaderHeight: CGFloat = 0
 
     init(userId: Int, currentUserId: Int? = nil, preloadedProfile: UserProfile? = nil) {
         _viewModel = StateObject(
@@ -37,6 +38,9 @@ struct UserProfileView: View {
                     Color.clear.frame(height: 80)
                 }
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: overlayHeaderHeight)
+            }
             .background(Color.loopedBackground.ignoresSafeArea())
             .task { await loadIfNeeded() }
             .refreshable { await reload() }
@@ -47,23 +51,34 @@ struct UserProfileView: View {
                 }
                 Spacer()
             }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
+                }
+            )
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
-        .fullScreenCover(isPresented: $commentsManager.isPresented, onDismiss: {
-            commentsManager.dismissComments()
-        }) {
-            if let post = commentsManager.currentPost {
-                CommentsView(post: post) {
-                    commentsManager.dismissComments()
+        .overlay(
+            Group {
+                if commentsManager.isPresented, let post = commentsManager.currentPost {
+                    CommentsView(post: post) {
+                        commentsManager.dismissComments()
+                    }
+                    .environmentObject(commentsManager)
+                    .transition(.move(edge: .trailing))
                 }
-                .environmentObject(commentsManager)
             }
-        }
+        )
         .onChange(of: selectedTab) { newValue in
             if newValue == .comments {
                 Task { await loadCommentsIfNeeded() }
+            }
+        }
+        .onPreferenceChange(UserProfileHeaderHeightKey.self) { newValue in
+            if newValue > 0, abs(newValue - overlayHeaderHeight) > 1 {
+                overlayHeaderHeight = newValue
             }
         }
     }
@@ -167,7 +182,7 @@ struct UserProfileHeader: View {
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.top, 16)
+        .padding(.top, 24)
     }
 }
 
@@ -209,18 +224,6 @@ struct UserProfileInfoSection: View {
                 Spacer()
             }
 
-            HStack(spacing: 8) {
-                Text(userProfile.formattedJobTitle)
-                    .font(.subheadline)
-                    .foregroundColor(.loopedTextSecondary)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
-                    .foregroundColor(.loopedTextSecondary)
-
-                Spacer()
-            }
-
             Text(bioDisplay.text)
                 .font(.body)
                 .foregroundColor(bioDisplay.isPlaceholder ? .loopedTextSecondary : .loopedTextPrimary)
@@ -240,21 +243,14 @@ struct UserProfileInfoSection: View {
                     Spacer()
                 }
 
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(Color.loopedPrimary)
-                        .frame(width: 16, height: 16)
-                        .overlay(
-                            Text(String(userProfile.resolvedCompany.prefix(1)).uppercased())
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                        )
-
-                    Text("Works at \(userProfile.resolvedCompany)")
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
-
-                    Spacer()
+                if !userProfile.isAnonymous {
+                    DisplayCommunityRow(
+                        displayCommunity: userProfile.displayCommunity,
+                        fallbackText: "No primary community selected",
+                        font: .subheadline,
+                        textColor: .loopedTextSecondary,
+                        iconSize: 16
+                    )
                 }
             }
 
@@ -402,9 +398,11 @@ struct UserProfileContentView: View {
     let selectedTab: UserProfileTab
     @ObservedObject var postsViewModel: CollectionPostsViewModel
     @ObservedObject var commentsViewModel: UserCommentsViewModel
+    @ScaledMetric private var contentTopSpacing: CGFloat = 20
 
     var body: some View {
         LazyVStack(spacing: 0) {
+            Color.clear.frame(height: contentTopSpacing)
             switch selectedTab {
             case .posts:
                 UserPostsList(viewModel: postsViewModel)
@@ -412,7 +410,6 @@ struct UserProfileContentView: View {
                 UserCommentsList(userProfile: userProfile, viewModel: commentsViewModel)
             }
         }
-        .padding(.top, 16)
     }
 }
 
@@ -432,6 +429,9 @@ struct UserPostsList: View {
                         post: post,
                         onBookmarkToggle: { isSaved in
                             viewModel.handleBookmarkChange(for: post, isSaved: isSaved)
+                        },
+                        onDelete: { deleted in
+                            viewModel.removePost(backendId: deleted.backendId)
                         }
                     )
                     .padding(.horizontal, 16)
@@ -517,9 +517,9 @@ struct UserCommentsList: View {
             } else {
                 ForEach(viewModel.comments) { comment in
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(comment.content)
+                        Text(comment.isDeleted ? "Comment deleted" : comment.content)
                             .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
+                            .foregroundColor(comment.isDeleted ? .loopedTextSecondary : .loopedTextPrimary)
                             .multilineTextAlignment(.leading)
 
                         Text(comment.createdAt, style: .date)
@@ -566,6 +566,7 @@ struct UserCommentsList: View {
         commentsCount: 0,
         showFollowerCount: true,
         isCurrentUser: false,
+        displayCommunity: nil,
         createdAt: Date(),
         updatedAt: Date()
     )
@@ -575,4 +576,12 @@ struct UserCommentsList: View {
     }
     .environmentObject(AuthViewModel())
     .environmentObject(FeedViewModel())
+}
+
+private struct UserProfileHeaderHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }

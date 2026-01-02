@@ -6,6 +6,7 @@ struct CommentsView: View {
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var commentText: String = ""
     @State private var keyboardHeight: CGFloat = 0
     @State private var selectedHashtag: String?
@@ -14,6 +15,7 @@ struct CommentsView: View {
     @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
     @State private var showVideoPlayer = false
+    @State private var anonProfileId: Int?
 
     private var comments: [Comment] {
         commentsManager.currentComments
@@ -23,7 +25,16 @@ struct CommentsView: View {
         guard let communityId = post.communityId else {
             return authViewModel.currentUser?.isVerified == true
         }
-        return feedViewModel.followedCommunities.first(where: { $0.id == communityId })?.canPost == true
+        if commentsManager.isLoadingPermissions {
+            return false
+        }
+        if let permissions = commentsManager.communityPermissions {
+            return permissions.canPost
+        }
+        if let community = feedViewModel.followedCommunities.first(where: { $0.id == communityId }) {
+            return community.canPost
+        }
+        return true
     }
 
     private var postAuthorName: String {
@@ -57,9 +68,20 @@ struct CommentsView: View {
         .navigationBarHidden(true)
         .onAppear {
             setupKeyboardObservers()
+            Task { await loadAnonProfileId() }
         }
         .onDisappear {
             removeKeyboardObservers()
+        }
+        .onChange(of: isAnonymousMode) { _, _ in
+            Task { await loadAnonProfileId() }
+        }
+        .onChange(of: commentsManager.editTarget?.backendId) { _, newValue in
+            if let newValue, let target = commentsManager.editTarget, target.backendId == newValue {
+                commentText = target.content
+            } else if commentsManager.editTarget == nil {
+                commentText = ""
+            }
         }
         .fullScreenCover(isPresented: $showHashtagFeed, onDismiss: {
             selectedHashtag = nil
@@ -94,15 +116,9 @@ private extension CommentsView {
                     .foregroundColor(.loopedTextPrimary)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Thread")
-                    .font(.loopedSubheadMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Text("\(comments.count) comment\(comments.count == 1 ? "" : "s")")
-                    .font(.loopedSmallText)
-                    .foregroundColor(.loopedTextSecondary)
-            }
+            Text("\(comments.count) comment\(comments.count == 1 ? "" : "s")")
+                .font(.loopedSubheadMedium)
+                .foregroundColor(.loopedTextPrimary)
 
             Spacer()
         }
@@ -129,7 +145,7 @@ private extension CommentsView {
                     if trimmedContent.contains("#") {
                         HashtagText(
                             text: trimmedContent,
-                            font: .loopedSubheadMedium,
+                            font: .loopedHeadingMedium,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary,
                             onHashtagTap: handleHashtagTap
@@ -137,7 +153,7 @@ private extension CommentsView {
                         .multilineTextAlignment(.leading)
                     } else {
                         Text(trimmedContent)
-                            .font(.loopedSubheadMedium)
+                            .font(.loopedHeadingMedium)
                             .foregroundColor(.loopedTextPrimary)
                             .multilineTextAlignment(.leading)
                     }
@@ -224,6 +240,13 @@ private extension CommentsView {
                                     await commentsManager.toggleLike(for: tappedComment)
                                 }
                             },
+                            canManage: { canManage(comment: $0) },
+                            onEdit: { target in
+                                commentsManager.setEditTarget(target)
+                            },
+                            onDelete: { target in
+                                Task { await commentsManager.deleteComment(target) }
+                            },
                             onHashtagTap: handleHashtagTap
                         )
                         .onAppear {
@@ -256,13 +279,30 @@ private extension CommentsView {
                 .padding(.horizontal, 4)
             }
 
+            if let editTarget = commentsManager.editTarget {
+                HStack {
+                    Text("Editing your comment")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                    Spacer()
+                    Button(action: {
+                        commentsManager.clearEditTarget()
+                        commentText = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+
             if !canComment {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark.seal")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.loopedSecondary)
 
-                    Text("Verification is required to comment in this community.")
+                    Text(verificationMessage)
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                 }
@@ -293,7 +333,7 @@ private extension CommentsView {
                         .frame(width: 34, height: 34)
                 }
 
-                TextField("Add a comment...", text: $commentText, axis: .vertical)
+                TextField(inputPlaceholder, text: $commentText, axis: .vertical)
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
                     .lineLimit(1...4)
@@ -301,14 +341,17 @@ private extension CommentsView {
                     .padding(.vertical, 12)
                     .background(Color.loopedMutedBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .disabled(!canComment)
 
                 Button(action: {
                     Task {
                         guard canComment else { return }
                         let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmed.isEmpty else { return }
-                        await commentsManager.postComment(content: trimmed)
+                        if commentsManager.editTarget != nil {
+                            await commentsManager.editComment(content: trimmed)
+                        } else {
+                            await commentsManager.postComment(content: trimmed)
+                        }
                         commentText = ""
                     }
                 }) {
@@ -381,6 +424,43 @@ private extension CommentsView {
             return "Anonymous"
         }
         return comment.authorDisplayName ?? "User"
+    }
+
+    func canManage(comment: Comment) -> Bool {
+        guard !comment.isDeleted else { return false }
+        if comment.isAnonymous {
+            guard isAnonymousMode, let anonProfileId else { return false }
+            return comment.authorBackendId == anonProfileId
+        }
+        guard let currentUserId = authViewModel.currentUser?.backendId else { return false }
+        return comment.authorBackendId == currentUserId
+    }
+
+    var inputPlaceholder: String {
+        commentsManager.editTarget == nil ? "Add a comment..." : "Edit comment..."
+    }
+
+    var verificationMessage: String {
+        if commentsManager.isLoadingPermissions {
+            return "Checking verification..."
+        }
+        if let permissions = commentsManager.communityPermissions {
+            if !permissions.canPost, permissions.requiresVerification {
+                return "Verification is required to comment in this community."
+            }
+            if !permissions.canPost {
+                return "You do not have permission to comment in this community."
+            }
+        }
+        return "Verification is required to comment in this community."
+    }
+
+    func loadAnonProfileId() async {
+        if isAnonymousMode {
+            anonProfileId = await AnonService.shared.currentIdentity()?.profileId
+        } else {
+            anonProfileId = nil
+        }
     }
 
     func handleHashtagTap(_ hashtag: String) {

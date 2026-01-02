@@ -5,6 +5,7 @@ class CommentsService: CommentsServiceProtocol {
     private let defaultLimit: Int
     private let anonService: AnonService
     private let anonHeaders = ["X-Actor": "anon"]
+    private let anonQueryAllowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "+/=&?"))
 
     init(
         apiClient: APIClient = APIClient(),
@@ -53,6 +54,49 @@ class CommentsService: CommentsServiceProtocol {
         return Comment(dto: dto)
     }
 
+    func editComment(commentId: Int, communityId: Int?, content: String, asAnon: Bool) async throws -> Comment {
+        let request = try await makeCommentEditRequest(
+            commentId: commentId,
+            communityId: communityId,
+            content: content,
+            asAnon: asAnon
+        )
+        let isAnon = request.asAnon ?? false
+        let dto: CommentDTO = try await apiClient.put(
+            "/v1/comments/\(commentId)",
+            body: request,
+            requiresAuth: !isAnon,
+            headers: isAnon ? anonHeaders : [:]
+        )
+        return Comment(dto: dto)
+    }
+
+    func deleteComment(commentId: Int, communityId: Int?, asAnon: Bool) async throws -> CommentDeleteResponse {
+        if asAnon {
+            let anonContext = try await anonService.actionContext(for: .commentDelete(commentId: commentId), communityId: communityId)
+            let request = CommentDeleteRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: CommentDeleteResponseDTO = try await apiClient.delete(
+                "/v1/comments/\(commentId)",
+                body: request,
+                requiresAuth: false,
+                headers: anonHeaders
+            )
+            return CommentDeleteResponse(commentId: response.id, deleted: response.deleted)
+        }
+
+        let response: CommentDeleteResponseDTO = try await apiClient.delete(
+            "/v1/comments/\(commentId)",
+            expecting: CommentDeleteResponseDTO.self
+        )
+        return CommentDeleteResponse(commentId: response.id, deleted: response.deleted)
+    }
+
     func likeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse {
         let request = try await makeCommentLikeRequest(commentId: commentId, communityId: communityId)
         let isAnon = request.asAnon ?? false
@@ -66,6 +110,31 @@ class CommentsService: CommentsServiceProtocol {
             commentId: response.commentId,
             likesCount: response.likesCount,
             userLiked: response.userLiked ?? true,
+            likedByCreator: response.likedByCreator ?? false
+        )
+    }
+
+    func unlikeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse {
+        let request = try await makeCommentLikeRequest(commentId: commentId, communityId: communityId)
+        let isAnon = request.asAnon ?? false
+        let response: CommentLikeResponseDTO
+        if isAnon {
+            response = try await apiClient.delete(
+                "/v1/comments/\(commentId)/like",
+                body: request,
+                requiresAuth: false,
+                headers: anonHeaders
+            )
+        } else {
+            response = try await apiClient.delete(
+                "/v1/comments/\(commentId)/like",
+                expecting: CommentLikeResponseDTO.self
+            )
+        }
+        return CommentLikeResponse(
+            commentId: response.commentId,
+            likesCount: response.likesCount,
+            userLiked: response.userLiked ?? false,
             likedByCreator: response.likedByCreator ?? false
         )
     }
@@ -119,6 +188,28 @@ class CommentsService: CommentsServiceProtocol {
         )
     }
 
+    private func makeCommentEditRequest(commentId: Int, communityId: Int?, content: String, asAnon: Bool) async throws -> EditCommentRequestDTO {
+        if asAnon {
+            let anonContext = try await anonService.actionContext(for: .commentEdit(commentId: commentId), communityId: communityId)
+            return EditCommentRequestDTO(
+                content: content,
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+        }
+        return EditCommentRequestDTO(
+            content: content,
+            asAnon: nil,
+            anonProfileId: nil,
+            anonCert: nil,
+            anonCertKid: nil,
+            anonSig: nil
+        )
+    }
+
     private func makeCommentLikeRequest(commentId: Int, communityId: Int?) async throws -> CommentLikeRequestDTO {
         if anonService.isAnonymousEnabled {
             let anonContext = try await anonService.actionContext(for: .commentLike(commentId: commentId), communityId: communityId)
@@ -141,9 +232,9 @@ class CommentsService: CommentsServiceProtocol {
 
     private func appendAnonQuery(to endpoint: String, action: AnonAction, communityId: Int?) async throws -> String {
         let anonContext = try await anonService.actionContext(for: action, communityId: communityId)
-        let encodedCert = anonContext.cert.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? anonContext.cert
-        let encodedKid = anonContext.certKid.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? anonContext.certKid
-        let encodedSig = anonContext.signature.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? anonContext.signature
+        let encodedCert = anonContext.cert.addingPercentEncoding(withAllowedCharacters: anonQueryAllowed) ?? anonContext.cert
+        let encodedKid = anonContext.certKid.addingPercentEncoding(withAllowedCharacters: anonQueryAllowed) ?? anonContext.certKid
+        let encodedSig = anonContext.signature.addingPercentEncoding(withAllowedCharacters: anonQueryAllowed) ?? anonContext.signature
         let params = [
             "asAnon=true",
             "anonProfileId=\(anonContext.profileId)",

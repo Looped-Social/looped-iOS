@@ -10,6 +10,7 @@ struct ProfileView: View {
     @State private var selectedTab: ProfileTab = .posts
     @StateObject private var viewModel = ProfileViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
+    @StateObject private var repliesViewModel = UserRepliesViewModel()
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
     @AppStorage("anonymousMode") private var isAnonymous = false
@@ -22,7 +23,9 @@ struct ProfileView: View {
     @State private var pendingAnonymousDiscovery = false
     @EnvironmentObject private var authViewModel: AuthViewModel
 
-    private let headerHeight: CGFloat = 300
+    @State private var headerHeight: CGFloat = 300
+    @State private var hasActiveVerifications: Bool?
+    private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -32,10 +35,16 @@ struct ProfileView: View {
                     // Content based on selected tab
                     switch selectedTab {
                     case .posts:
-                        PostsList(posts: viewModel.userPosts, isLoading: viewModel.isLoadingPosts)
+                        PostsList(
+                            posts: viewModel.userPosts,
+                            isLoading: viewModel.isLoadingPosts,
+                            onDelete: { deleted in
+                                viewModel.removePost(backendId: deleted.backendId)
+                            }
+                        )
                     case .replies:
-                        RepliesPlaceholderView()
-                            .padding(.top, 60)
+                        UserRepliesList(viewModel: repliesViewModel)
+                            .padding(.top, 20)
 
                     case .saved:
                         SavedPlaceholderView()
@@ -74,7 +83,8 @@ struct ProfileView: View {
                 ProfileStatsView(
                     userProfile: displayProfile,
                     isLoading: viewModel.isLoading,
-                    isAnonymous: isAnonymous
+                    isAnonymous: isAnonymous,
+                    hasActiveVerifications: hasActiveVerifications
                 )
                 .coachMarkTarget(.profileStats)
 
@@ -90,6 +100,11 @@ struct ProfileView: View {
             .background(
                 Color.loopedBackground
                     .ignoresSafeArea(.all, edges: .top)
+            )
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: ProfileHeaderHeightKey.self, value: proxy.size.height)
+                }
             )
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
@@ -119,11 +134,25 @@ struct ProfileView: View {
             if isAnonymous {
                 await viewModel.loadAnonymousProfile()
             }
+            await loadVerificationStatus()
+            if let userId = viewModel.user?.backendId {
+                repliesViewModel.setUser(id: userId)
+                if selectedTab == .replies {
+                    await repliesViewModel.loadInitial()
+                }
+            }
         }
         .refreshable {
             await viewModel.loadUserProfile()
             if isAnonymous {
                 await viewModel.loadAnonymousProfile()
+            }
+            await loadVerificationStatus()
+            if let userId = viewModel.user?.backendId {
+                repliesViewModel.setUser(id: userId)
+                if selectedTab == .replies {
+                    await repliesViewModel.loadInitial()
+                }
             }
         }
         .onAppear {
@@ -134,6 +163,15 @@ struct ProfileView: View {
                 queueAnonymousDiscoveryIfNeeded()
             }
         }
+        .onChange(of: selectedTab) { _, newValue in
+            if newValue == .replies {
+                guard repliesViewModel.replies.isEmpty else { return }
+                Task { await repliesViewModel.loadInitial() }
+            }
+        }
+        .onChange(of: viewModel.user?.backendId) { _, newValue in
+            repliesViewModel.setUser(id: newValue)
+        }
         .onChange(of: isAnonymous) { _, newValue in
             Task {
                 await viewModel.handleAnonymousModeChange(isEnabled: newValue)
@@ -142,9 +180,15 @@ struct ProfileView: View {
                     showAnonError = true
                     isAnonymous = false
                 }
+                await loadVerificationStatus()
                 if isAnonymous {
                     queueAnonymousDiscoveryIfNeeded()
                 }
+            }
+        }
+        .onPreferenceChange(ProfileHeaderHeightKey.self) { newValue in
+            if newValue > 0, abs(newValue - headerHeight) > 1 {
+                headerHeight = newValue
             }
         }
         .overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
@@ -203,7 +247,28 @@ struct ProfileView: View {
     }
 }
 
+private struct ProfileHeaderHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 private extension ProfileView {
+    func loadVerificationStatus() async {
+        guard !isAnonymous else {
+            hasActiveVerifications = nil
+            return
+        }
+        do {
+            let items = try await verificationService.fetchCommunityVerifications()
+            hasActiveVerifications = items.contains { $0.isActive }
+        } catch {
+            hasActiveVerifications = nil
+        }
+    }
+
     var displayProfile: UserProfile? {
         if isAnonymous, let anonProfile = viewModel.anonProfile {
             let companyName = viewModel.user?.companyName ?? viewModel.user?.company
@@ -379,16 +444,16 @@ struct ProfileHeaderView: View {
     private var resolvedBio: String {
         if isAnonymous { return "" }
         if let error = errorMessage, !error.isEmpty {
-            return "Bio not available"
+            return "No bio yet"
         }
         let rawBio = userProfile?.bio ?? authViewModel.currentUser?.bio ?? ""
         let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Bio not available" : trimmed
+        return trimmed.isEmpty ? "No bio yet" : trimmed
     }
 
     private var isBioAvailable: Bool {
         let trimmed = resolvedBio.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed != "Bio not available"
+        return !trimmed.isEmpty && trimmed != "No bio yet"
     }
 
     private var headerContent: some View {
@@ -434,6 +499,7 @@ struct ProfileStatsView: View {
     let userProfile: UserProfile?
     let isLoading: Bool
     let isAnonymous: Bool
+    let hasActiveVerifications: Bool?
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     var body: some View {
@@ -457,20 +523,28 @@ struct ProfileStatsView: View {
                         .foregroundColor(.loopedTextSecondary)
                 }
 
-                if let companyName = companyName {
-                    HStack(spacing: 8) {
-                        CompanyIconView(company: companyName)
-
-                        Text("Works at \(companyName)")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
-
-                        Spacer()
+                if !isAnonymous {
+                    if canSelectDisplayCommunity {
+                        NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
+                            DisplayCommunityRow(
+                                displayCommunity: displayCommunity,
+                                fallbackText: displayCommunityFallbackText,
+                                font: .loopedSubBodyRegular,
+                                textColor: .loopedTextSecondary,
+                                iconSize: 16,
+                                showsDisclosure: true
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    } else {
+                        DisplayCommunityRow(
+                            displayCommunity: displayCommunity,
+                            fallbackText: displayCommunityFallbackText,
+                            font: .loopedSubBodyRegular,
+                            textColor: .loopedTextSecondary,
+                            iconSize: 16
+                        )
                     }
-                } else {
-                    Text("Workplace not available")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
                 }
             }
 
@@ -514,10 +588,17 @@ struct ProfileStatsView: View {
         return nil
     }
 
-    private var companyName: String? {
-        let rawCompany = userProfile?.company ?? (isAnonymous ? "" : (authViewModel.currentUser?.companyName ?? ""))
-        let trimmed = rawCompany.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+    private var displayCommunity: DisplayCommunity? {
+        if let profile = userProfile { return profile.displayCommunity }
+        if isAnonymous { return nil }
+        return authViewModel.currentUser?.displayCommunity
+    }
+
+    private var displayCommunityFallbackText: String {
+        if let hasActiveVerifications {
+            return hasActiveVerifications ? "Select a primary community" : "Verify a community to show it here"
+        }
+        return "Select a primary community"
     }
 
     private var yearsInLoopText: String? {
@@ -541,6 +622,12 @@ struct ProfileStatsView: View {
         if isAnonymous { return false }
         if let profile = userProfile { return profile.showFollowerCount }
         return authViewModel.currentUser?.showFollowerCount ?? true
+    }
+
+    private var canSelectDisplayCommunity: Bool {
+        if isAnonymous { return false }
+        if let profile = userProfile { return profile.isCurrentUser }
+        return true
     }
 }
 
@@ -712,7 +799,18 @@ struct ProfileContentView: View {
 struct PostsList: View {
     let posts: [Post]
     var isLoading: Bool = false
+    let onDelete: ((Post) -> Void)?
     @EnvironmentObject var commentsManager: CommentsModalManager
+
+    init(
+        posts: [Post],
+        isLoading: Bool = false,
+        onDelete: ((Post) -> Void)? = nil
+    ) {
+        self.posts = posts
+        self.isLoading = isLoading
+        self.onDelete = onDelete
+    }
 
     var body: some View {
         if isLoading {
@@ -723,7 +821,7 @@ struct PostsList: View {
                 .padding(.top, 60)
         } else {
             ForEach(posts) { post in
-                PostCard(post: post)
+                PostCard(post: post, onDelete: onDelete)
 
                 Rectangle()
                     .frame(height: 1)
@@ -765,6 +863,73 @@ struct RepliesPlaceholderView: View {
     }
 }
 
+struct UserRepliesList: View {
+    @ObservedObject var viewModel: UserRepliesViewModel
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if viewModel.isLoading && viewModel.replies.isEmpty {
+                ProgressView()
+                    .scaleEffect(1.1)
+                    .padding(.top, 32)
+            } else if let error = viewModel.errorMessage, viewModel.replies.isEmpty {
+                VStack(spacing: 8) {
+                    Text(error)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
+                    }
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedPrimary)
+                }
+                .padding(.top, 32)
+                .padding(.horizontal, 24)
+            } else if viewModel.replies.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+                    Text("No replies yet")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.top, 60)
+            } else {
+                ForEach(viewModel.replies) { reply in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(reply.isDeleted ? "Comment deleted" : reply.content)
+                            .font(.loopedBody)
+                            .foregroundColor(reply.isDeleted ? .loopedTextSecondary : .loopedTextPrimary)
+                            .multilineTextAlignment(.leading)
+
+                        Text(reply.createdAt, style: .date)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .task {
+                        await viewModel.loadMoreIfNeeded(current: reply)
+                    }
+
+                    Divider()
+                        .padding(.leading, 16)
+                }
+
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .padding(.vertical, 16)
+                }
+            }
+        }
+        .padding(.bottom, 80)
+    }
+}
+
 struct SavedPlaceholderView: View {
     var body: some View {
         VStack(spacing: 16) {
@@ -772,7 +937,7 @@ struct SavedPlaceholderView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
-            Text("Saved posts coming soon")
+            Text("No saved posts yet")
                 .font(.loopedBodyMedium)
                 .foregroundColor(.loopedTextSecondary)
         }

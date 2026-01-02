@@ -9,17 +9,25 @@ class CommentsModalManager: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingMore = false
     @Published var isPosting = false
+    @Published var isLoadingPermissions = false
     @Published var errorMessage: String?
     @Published var replyThreads: [Int: ReplyThreadState] = [:]
     @Published var replyTarget: Comment?
+    @Published var editTarget: Comment?
+    @Published var communityPermissions: CommunityPermissions?
     
     private let commentsService: CommentsServiceProtocol
+    private let communityService: CommunityServiceProtocol
     private var nextCursor: String?
     private var currentPostBackendId: Int?
     private let pageSize = 20
     
-    init(commentsService: CommentsServiceProtocol = CommentsService()) {
+    init(
+        commentsService: CommentsServiceProtocol = CommentsService(),
+        communityService: CommunityServiceProtocol = CommunityService()
+    ) {
         self.commentsService = commentsService
+        self.communityService = communityService
     }
     
     func showComments(for post: Post) {
@@ -31,10 +39,14 @@ class CommentsModalManager: ObservableObject {
         errorMessage = nil
         replyThreads = [:]
         replyTarget = nil
+        editTarget = nil
+        isLoadingPermissions = false
+        communityPermissions = nil
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             isPresented = true
         }
         Task { await loadComments(reset: true) }
+        Task { await loadPermissions() }
     }
 
     func dismissComments() {
@@ -50,6 +62,9 @@ class CommentsModalManager: ObservableObject {
             self.errorMessage = nil
             self.replyThreads = [:]
             self.replyTarget = nil
+            self.editTarget = nil
+            self.isLoadingPermissions = false
+            self.communityPermissions = nil
         }
     }
 
@@ -111,10 +126,11 @@ class CommentsModalManager: ObservableObject {
     func toggleReplies(for comment: Comment) async {
         guard let backendId = comment.backendId else { return }
         var state = replyThreads[backendId] ?? ReplyThreadState()
-        state.isExpanded.toggle()
+        guard !state.isExpanded else { return }
+        state.isExpanded = true
         replyThreads[backendId] = state
 
-        if state.isExpanded && state.replies.isEmpty {
+        if state.replies.isEmpty {
             await loadReplies(for: comment, reset: true)
         }
     }
@@ -128,14 +144,28 @@ class CommentsModalManager: ObservableObject {
 
     func setReplyTarget(_ comment: Comment) {
         replyTarget = comment
+        editTarget = nil
     }
 
     func clearReplyTarget() {
         replyTarget = nil
     }
 
+    func setEditTarget(_ comment: Comment) {
+        editTarget = comment
+        replyTarget = nil
+    }
+
+    func clearEditTarget() {
+        editTarget = nil
+    }
+
     func postComment(content: String) async {
         guard let postId = currentPostBackendId, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if let permissions = communityPermissions, !permissions.canPost {
+            errorMessage = "Verification is required to comment in this community."
+            return
+        }
         guard !isPosting else { return }
         isPosting = true
         defer { isPosting = false }
@@ -152,6 +182,11 @@ class CommentsModalManager: ObservableObject {
                 var state = replyThreads[parentId] ?? ReplyThreadState(isExpanded: true)
                 state.replies.append(comment)
                 replyThreads[parentId] = state
+                if let index = currentComments.firstIndex(where: { $0.backendId == parentId }) {
+                    currentComments[index] = currentComments[index].updating(
+                        replyCount: currentComments[index].replyCount + 1
+                    )
+                }
             } else {
                 currentComments.append(comment)
             }
@@ -164,13 +199,80 @@ class CommentsModalManager: ObservableObject {
         }
     }
 
+    func editComment(content: String) async {
+        guard let target = editTarget, let commentId = target.backendId else { return }
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard !isPosting else { return }
+        isPosting = true
+        defer { isPosting = false }
+
+        do {
+            let updated = try await commentsService.editComment(
+                commentId: commentId,
+                communityId: currentPost?.communityId,
+                content: trimmed,
+                asAnon: target.isAnonymous
+            )
+            if let index = currentComments.firstIndex(where: { $0.backendId == updated.backendId }) {
+                currentComments[index] = updated
+            }
+            if let parentKey = replyThreads.first(where: { $0.value.replies.contains(where: { $0.backendId == updated.backendId }) })?.key,
+               var state = replyThreads[parentKey],
+               let replyIndex = state.replies.firstIndex(where: { $0.backendId == updated.backendId }) {
+                state.replies[replyIndex] = updated
+                replyThreads[parentKey] = state
+            }
+            editTarget = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteComment(_ comment: Comment) async {
+        guard let commentId = comment.backendId, !comment.isDeleted else { return }
+        do {
+            let response = try await commentsService.deleteComment(
+                commentId: commentId,
+                communityId: currentPost?.communityId,
+                asAnon: comment.isAnonymous
+            )
+            guard response.deleted else { return }
+            if let index = currentComments.firstIndex(where: { $0.backendId == commentId }) {
+                currentComments[index] = currentComments[index].updating(content: "", isDeleted: true)
+            }
+            if let parentKey = replyThreads.first(where: { $0.value.replies.contains(where: { $0.backendId == commentId }) })?.key,
+               var state = replyThreads[parentKey],
+               let replyIndex = state.replies.firstIndex(where: { $0.backendId == commentId }) {
+                state.replies[replyIndex] = state.replies[replyIndex].updating(content: "", isDeleted: true)
+                replyThreads[parentKey] = state
+            }
+            if editTarget?.backendId == commentId {
+                editTarget = nil
+            }
+            if replyTarget?.backendId == commentId {
+                replyTarget = nil
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func toggleLike(for comment: Comment) async {
         guard let backendId = comment.backendId else { return }
         do {
-            let response = try await commentsService.likeComment(
-                commentId: backendId,
-                communityId: currentPost?.communityId
-            )
+            let response: CommentLikeResponse
+            if comment.userLiked {
+                response = try await commentsService.unlikeComment(
+                    commentId: backendId,
+                    communityId: currentPost?.communityId
+                )
+            } else {
+                response = try await commentsService.likeComment(
+                    commentId: backendId,
+                    communityId: currentPost?.communityId
+                )
+            }
             if let index = currentComments.firstIndex(where: { $0.backendId == response.commentId }) {
                 currentComments[index] = currentComments[index].updating(
                     likeCount: response.likesCount,
@@ -226,6 +328,21 @@ class CommentsModalManager: ObservableObject {
             nextCursor = page.nextCursor
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadPermissions() async {
+        guard let communityId = currentPost?.communityId else {
+            communityPermissions = nil
+            return
+        }
+        guard !isLoadingPermissions else { return }
+        isLoadingPermissions = true
+        defer { isLoadingPermissions = false }
+        do {
+            communityPermissions = try await communityService.fetchCommunityPermissions(communityId: communityId)
+        } catch {
+            communityPermissions = nil
         }
     }
 }

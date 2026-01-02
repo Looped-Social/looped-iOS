@@ -15,14 +15,17 @@ struct CommentDTO: Codable {
     let authorPrincipalId: Int?
     let content: String
     let likesCount: Int
+    let replyCount: Int?
     let userLiked: Bool?
     let likedByCreator: Bool?
+    let isDeleted: Bool?
     let createdAt: Date
 }
 
 struct CommentAuthorDTO: Codable {
     let id: Int
     let principalId: Int?
+    let isAnonymous: Bool?
     let displayName: String?
     let username: String?
     let handle: String?
@@ -40,7 +43,24 @@ struct CreateCommentRequestDTO: Codable {
     let anonSig: String?
 }
 
+struct EditCommentRequestDTO: Codable {
+    let content: String
+    let asAnon: Bool?
+    let anonProfileId: Int?
+    let anonCert: String?
+    let anonCertKid: String?
+    let anonSig: String?
+}
+
 struct CommentLikeRequestDTO: Codable {
+    let asAnon: Bool?
+    let anonProfileId: Int?
+    let anonCert: String?
+    let anonCertKid: String?
+    let anonSig: String?
+}
+
+struct CommentDeleteRequestDTO: Codable {
     let asAnon: Bool?
     let anonProfileId: Int?
     let anonCert: String?
@@ -53,4 +73,9 @@ struct CommentLikeResponseDTO: Codable {
     let likesCount: Int
     let userLiked: Bool?
     let likedByCreator: Bool?
+}
+
+struct CommentDeleteResponseDTO: Codable {
+    let id: Int
+    let deleted: Bool
 }

@@ -48,3 +48,15 @@ struct CommunityRecommendedDTO: Codable {
 struct CommunityDomainsResponseDTO: Codable {
     let items: [String]
 }
+
+struct CommunityPermissionsDTO: Codable {
+    let canPost: Bool
+    let requiresVerification: Bool
+}
+
+struct DisplayCommunityDTO: Codable {
+    let id: Int
+    let name: String
+    let kind: String?
+    let specializationType: String?
+}

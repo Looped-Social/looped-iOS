@@ -106,6 +106,11 @@ struct CommunitySearchResult: Identifiable, Equatable {
     }
 }
 
+struct CommunityPermissions: Equatable {
+    let canPost: Bool
+    let requiresVerification: Bool
+}
+
 extension CommunitySummary {
     init(dto: CommunityFollowDTO) {
         id = dto.id
@@ -139,5 +144,12 @@ extension CommunitySearchResult {
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
         isFollowing = dto.isFollowing
+    }
+}
+
+extension CommunityPermissions {
+    init(dto: CommunityPermissionsDTO) {
+        canPost = dto.canPost
+        requiresVerification = dto.requiresVerification
     }
 }

@@ -59,4 +59,9 @@ final class HashtagFeedViewModel: ObservableObject {
         guard let lastPost = posts.last, currentPost.id == lastPost.id else { return }
         await loadPosts(reset: false)
     }
+
+    func removePost(backendId: Int?) {
+        guard let backendId else { return }
+        posts.removeAll { $0.backendId == backendId }
+    }
 }

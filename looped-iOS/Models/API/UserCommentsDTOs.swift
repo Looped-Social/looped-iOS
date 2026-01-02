@@ -11,4 +11,5 @@ struct UserCommentDTO: Codable {
     let content: String
     let createdAt: Date
     let parentId: Int?
+    let isDeleted: Bool?
 }

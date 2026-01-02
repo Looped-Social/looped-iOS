@@ -161,6 +161,32 @@ class FeedService: FeedServiceProtocol {
         let response: PostSaveResponseDTO = try await apiClient.delete("/v1/posts/\(postId)/save", expecting: PostSaveResponseDTO.self)
         return !response.saved
     }
+
+    func deletePost(postId: Int, communityId: Int?) async throws -> PostDeleteResponse {
+        if anonService.isAnonymousEnabled {
+            let anonContext = try await anonService.actionContext(for: .postDelete(postId: postId), communityId: communityId)
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: PostDeleteResponseDTO = try await apiClient.delete(
+                "/v1/posts/\(postId)",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+            return PostDeleteResponse(postId: response.id, deleted: response.deleted)
+        }
+
+        let response: PostDeleteResponseDTO = try await apiClient.delete(
+            "/v1/posts/\(postId)",
+            expecting: PostDeleteResponseDTO.self
+        )
+        return PostDeleteResponse(postId: response.id, deleted: response.deleted)
+    }
     
     private func fetchPosts(
         from basePath: String,

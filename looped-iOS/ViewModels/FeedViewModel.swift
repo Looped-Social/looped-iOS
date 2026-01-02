@@ -186,10 +186,17 @@ class FeedViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    func removePost(backendId: Int?) {
+        guard let backendId else { return }
+        posts.removeAll { $0.backendId == backendId }
+    }
     
-    func createPost(content: String, isAnonymous: Bool = false, communityId: Int) async {
+    @discardableResult
+    func createPost(content: String, isAnonymous: Bool = false, communityId: Int) async -> Bool {
         isLoading = true
         errorMessage = nil
+        defer { isLoading = false }
         do {
             let newPost = try await feedService.createPost(
                 content: content,
@@ -199,10 +206,11 @@ class FeedViewModel: ObservableObject {
             posts.insert(newPost, at: 0)
             lastPostedCommunityId = communityId
             UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
-        isLoading = false
     }
 }
 

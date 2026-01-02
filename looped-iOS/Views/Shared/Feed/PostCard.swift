@@ -2,7 +2,9 @@ import SwiftUI
 
 struct PostCard: View {
     let post: Post
+    let showsCommunityLabel: Bool
     let onBookmarkToggle: ((Bool) -> Void)?
+    let onDelete: ((Post) -> Void)?
     private let feedService: FeedServiceProtocol
     @State private var isLiked = false
     @State private var isBookmarked = false
@@ -26,13 +28,23 @@ struct PostCard: View {
     @State private var showActionMenu = false
     @State private var activeModerationSheet: ModerationSheet?
     @State private var moderationAlertMessage: String?
+    @State private var isDeleting = false
+    @State private var deleteErrorMessage: String?
 
     private let moderationService: ModerationServiceProtocol = ModerationService()
 
-    init(post: Post, feedService: FeedServiceProtocol = FeedService(), onBookmarkToggle: ((Bool) -> Void)? = nil) {
+    init(
+        post: Post,
+        feedService: FeedServiceProtocol = FeedService(),
+        showsCommunityLabel: Bool = false,
+        onBookmarkToggle: ((Bool) -> Void)? = nil,
+        onDelete: ((Post) -> Void)? = nil
+    ) {
         self.post = post
         self.feedService = feedService
+        self.showsCommunityLabel = showsCommunityLabel
         self.onBookmarkToggle = onBookmarkToggle
+        self.onDelete = onDelete
     }
 
     private var imageUrls: [String] {
@@ -60,6 +72,18 @@ struct PostCard: View {
 
     private var currentShareCount: Int {
         shareCountOverride ?? post.shareCount
+    }
+
+    private var communityContextText: String? {
+        guard showsCommunityLabel else { return nil }
+        if let name = post.communityName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            return "in \(name)"
+        }
+        if let kind = post.communityKind, kind != .unknown {
+            return "in \(kind.rawValue.capitalized)"
+        }
+        return nil
     }
     
     var body: some View {
@@ -102,13 +126,20 @@ struct PostCard: View {
                             }
                         }
 
-                        // Job title and company (only for non-anonymous posts)
                         if !post.isAnonymous {
-                            HStack(spacing: 4) {
-                                Text(post.company)
-                                    .font(.subheadline)
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
+                            DisplayCommunityRow(
+                                displayCommunity: post.authorDisplayCommunity,
+                                fallbackText: "No primary community selected",
+                                font: .subheadline,
+                                textColor: .loopedTextSecondary,
+                                iconSize: 14
+                            )
+                        }
+
+                        if let communityContextText {
+                            Text(communityContextText)
+                                .font(.subheadline)
+                                .foregroundColor(.loopedTextSecondary)
                         }
                     }
                 }
@@ -189,33 +220,23 @@ struct PostCard: View {
 
                     // Share button
                     Button(action: { showShareSheet = true }) {
-                        HStack(spacing: 4) {
-                            Image("send-icon")
-                                .resizable()
-                                .renderingMode(.template)
-                                .frame(width: 19, height: 19)
-                                .foregroundColor(.loopedTextSecondary)
-                            Text(currentShareCount > 0 ? "\(currentShareCount)" : "Share")
-                                .font(.caption)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
+                        Image("send-icon")
+                            .resizable()
+                            .renderingMode(.template)
+                            .frame(width: 19, height: 19)
+                            .foregroundColor(.loopedTextSecondary)
                     }
 
                     Spacer()
 
                     // Bookmark button
                     Button(action: { toggleBookmark() }) {
-                        HStack(spacing: 4) {
-                            Image("save-icon")
-                                .resizable()
-                                .renderingMode(.template)
-                                .frame(width: 18, height: 18)
-                                .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
-                                .opacity(isBookmarkLoading ? 0.6 : 1)
-                            Text(isBookmarked ? "Saved" : "Save")
-                                .font(.caption)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
+                        Image(isBookmarked ? "saved-icon" : "save-icon")
+                            .resizable()
+                            .renderingMode(.template)
+                            .frame(width: 18, height: 18)
+                            .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
+                            .opacity(isBookmarkLoading ? 0.6 : 1)
                     }
                     .disabled(isBookmarkLoading || post.backendId == nil)
                 }
@@ -322,6 +343,11 @@ struct PostCard: View {
             .hidden()
         )
         .confirmationDialog("Post options", isPresented: $showActionMenu, titleVisibility: .visible) {
+            if canDeletePost {
+                Button("Delete Post", role: .destructive) {
+                    Task { await deletePost() }
+                }
+            }
             if canReportPost {
                 Button("Report Post", role: .destructive) {
                     activeModerationSheet = .reportPost
@@ -402,6 +428,17 @@ struct PostCard: View {
         } message: {
             Text(moderationAlertMessage ?? "")
         }
+        .alert(
+            "Couldn't delete post",
+            isPresented: Binding(
+                get: { deleteErrorMessage != nil },
+                set: { if !$0 { deleteErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(deleteErrorMessage ?? "")
+        }
     }
 
     private var shareText: String {
@@ -451,6 +488,22 @@ struct PostCard: View {
             } catch {
                 // TODO: surface error to user once we add toast system
             }
+        }
+    }
+
+    private func deletePost() async {
+        guard let postId = post.backendId, !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            let response = try await feedService.deletePost(postId: postId, communityId: post.communityId)
+            if response.deleted {
+                onDelete?(post)
+            } else {
+                deleteErrorMessage = "Post could not be deleted."
+            }
+        } catch {
+            deleteErrorMessage = error.localizedDescription
         }
     }
 
@@ -526,6 +579,13 @@ private extension PostCard {
             return false
         }
         return true
+    }
+
+    var canDeletePost: Bool {
+        guard post.backendId != nil else { return false }
+        guard let authorId = post.authorBackendId else { return false }
+        guard let currentUser = authViewModel.currentUser else { return false }
+        return currentUser.backendId == authorId
     }
 
     var canAppealPostRemoval: Bool {

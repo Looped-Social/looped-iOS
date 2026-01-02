@@ -11,3 +11,8 @@ struct CommentLikeResponse {
     let userLiked: Bool
     let likedByCreator: Bool
 }
+
+struct CommentDeleteResponse {
+    let commentId: Int
+    let deleted: Bool
+}

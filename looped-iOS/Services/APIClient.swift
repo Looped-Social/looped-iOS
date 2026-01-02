@@ -124,6 +124,29 @@ class APIClient {
         
         return try await performRequest(request)
     }
+
+    func putData<T: Encodable>(
+        _ endpoint: String,
+        body: T,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> Data {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        return try await performRequestData(request)
+    }
     
     func delete(
         _ endpoint: String,
@@ -236,7 +259,7 @@ class APIClient {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             decoder.keyDecodingStrategy = .convertFromSnakeCase
-            
+
             return try decoder.decode(T.self, from: data)
         } catch let error as APIError {
             throw error
@@ -270,6 +293,7 @@ class APIClient {
             throw APIError.networkError(error)
         }
     }
+
 }
 
 struct EmptyResponse: Codable {}

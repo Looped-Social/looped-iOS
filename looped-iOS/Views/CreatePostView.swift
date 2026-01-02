@@ -3,6 +3,7 @@ import SwiftUI
 struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @StateObject private var draftStore = PostDraftStore()
     @State private var postText: String = ""
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
     @State private var selectedCommunityId: Int?
@@ -14,12 +15,21 @@ struct CreatePostView: View {
     @State private var anonMembershipExpired = false
     @State private var anonMembershipMissing = false
     @State private var showVerificationInfoAlert = false
+    @State private var showDraftPrompt = false
+    @State private var activeDraftId: UUID?
     @StateObject private var verificationViewModel = CommunityVerificationsViewModel()
 
     @ObservedObject var feedViewModel: FeedViewModel
+    private let draft: PostDraft?
+    private let onPostCreated: (() -> Void)?
 
-    init(feedViewModel: FeedViewModel) {
+    init(feedViewModel: FeedViewModel, draft: PostDraft? = nil, onPostCreated: (() -> Void)? = nil) {
         self.feedViewModel = feedViewModel
+        self.draft = draft
+        self.onPostCreated = onPostCreated
+        _postText = State(initialValue: draft?.content ?? "")
+        _selectedCommunityId = State(initialValue: draft?.communityId)
+        _activeDraftId = State(initialValue: draft?.id)
     }
     
     private var characterLimit: Int { 280 }
@@ -270,7 +280,7 @@ struct CreatePostView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
-                        dismiss()
+                        handleCancel()
                     }
                     .foregroundColor(.loopedPrimary)
                 }
@@ -291,6 +301,17 @@ struct CreatePostView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("You need to be verified in a community to post.")
+        }
+        .alert("Save draft?", isPresented: $showDraftPrompt) {
+            Button("Save Draft") {
+                saveDraftAndDismiss()
+            }
+            Button("Discard", role: .destructive) {
+                discardDraftAndDismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(draftPromptMessage)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -334,20 +355,28 @@ struct CreatePostView: View {
         }
     }
     
+    @MainActor
     private func submitPost() async {
         guard let communityId = selectedCommunity?.id else { return }
-        guard !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let trimmedContent = postText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedContent.isEmpty else { return }
         
         isSubmitting = true
+        defer { isSubmitting = false }
         
-        await feedViewModel.createPost(
-            content: postText.trimmingCharacters(in: .whitespacesAndNewlines),
+        let didCreate = await feedViewModel.createPost(
+            content: trimmedContent,
             isAnonymous: isAnonymous,
             communityId: communityId
         )
-        
-        isSubmitting = false
-        dismiss()
+
+        if didCreate {
+            if let activeDraftId {
+                draftStore.delete(id: activeDraftId)
+            }
+            onPostCreated?()
+            dismiss()
+        }
     }
 
     private func syncSelectedCommunity() {
@@ -376,6 +405,44 @@ struct CreatePostView: View {
             anonMembershipMissing = membership == nil
             anonMembershipExpired = membership?.isExpired ?? false
         }
+    }
+
+    private var hasDraftableContent: Bool {
+        !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var draftPromptMessage: String {
+        if selectedMedia.isEmpty {
+            return "Save this post so you can finish it later."
+        }
+        return "Only your text will be saved. Media attachments are not saved in drafts yet."
+    }
+
+    private func handleCancel() {
+        guard hasDraftableContent else {
+            dismiss()
+            return
+        }
+        showDraftPrompt = true
+    }
+
+    private func saveDraftAndDismiss() {
+        guard hasDraftableContent else { return }
+        let draft = draftStore.upsertDraft(
+            id: activeDraftId,
+            content: postText,
+            communityId: selectedCommunity?.id,
+            communityName: selectedCommunity?.name
+        )
+        activeDraftId = draft.id
+        dismiss()
+    }
+
+    private func discardDraftAndDismiss() {
+        if let activeDraftId {
+            draftStore.delete(id: activeDraftId)
+        }
+        dismiss()
     }
 }
 

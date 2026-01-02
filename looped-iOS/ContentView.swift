@@ -79,10 +79,12 @@ struct MainTabView: View {
     @State private var selectedConversation: Conversation?
     @State private var selectedChannel: Channel?
     @State private var menuDestination: MenuDestination?
+    @State private var showFAQSheet = false
     @StateObject private var commentsManager = CommentsModalManager()
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
+    private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
     
     var body: some View {
         GeometryReader { geometry in
@@ -108,8 +110,22 @@ struct MainTabView: View {
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
+        .overlay(
+            Group {
+                if commentsManager.isPresented, let post = commentsManager.currentPost {
+                    CommentsView(post: post) {
+                        commentsManager.dismissComments()
+                    }
+                    .environmentObject(commentsManager)
+                    .preferredColorScheme(preferredColorScheme)
+                    .transition(.move(edge: .trailing))
+                }
+            }
+        )
         .sheet(isPresented: $showCreatePost) {
-            CreatePostView(feedViewModel: feedViewModel)
+            CreatePostView(feedViewModel: feedViewModel, onPostCreated: {
+                showCreatePost = false
+            })
                 .preferredColorScheme(preferredColorScheme)
         }
         .sheet(isPresented: $showNewMessage) {
@@ -128,23 +144,16 @@ struct MainTabView: View {
             })
             .preferredColorScheme(preferredColorScheme)
         }
-        .fullScreenCover(isPresented: $commentsManager.isPresented, onDismiss: {
-            commentsManager.dismissComments()
-        }) {
-            if let post = commentsManager.currentPost {
-                CommentsView(post: post) {
-                    commentsManager.dismissComments()
-                }
-                .environmentObject(commentsManager)
-                .preferredColorScheme(preferredColorScheme)
-            }
-        }
         .fullScreenCover(item: $menuDestination) { destination in
             NavigationView {
                 destinationView(for: destination)
             }
             .navigationViewStyle(.stack)
             .preferredColorScheme(preferredColorScheme)
+        }
+        .sheet(isPresented: $showFAQSheet) {
+            SafariView(url: faqUrl)
+                .ignoresSafeArea()
         }
     }
 
@@ -178,7 +187,11 @@ struct MainTabView: View {
                     }
                     // Small delay to let drawer close before navigation
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        menuDestination = destination
+                        if destination == .faq {
+                            showFAQSheet = true
+                        } else {
+                            menuDestination = destination
+                        }
                     }
                 })
                 .frame(width: drawerWidth)

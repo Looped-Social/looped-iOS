@@ -9,6 +9,8 @@ struct Post: Codable, Identifiable {
     let authorDisplayName: String?
     let company: String
     let communityId: Int?
+    let communityName: String?
+    let communityKind: CommunityKind?
     let isAnonymous: Bool
     let reactionCount: Int
     let commentsCount: Int
@@ -17,6 +19,7 @@ struct Post: Codable, Identifiable {
     let mediaAssetId: Int?
     let attachments: [MediaAttachment]?
     let isSaved: Bool
+    let authorDisplayCommunity: DisplayCommunity?
     let createdAt: Date
     let updatedAt: Date
 
@@ -29,6 +32,8 @@ struct Post: Codable, Identifiable {
         authorDisplayName: String? = nil,
         company: String,
         communityId: Int? = nil,
+        communityName: String? = nil,
+        communityKind: CommunityKind? = nil,
         isAnonymous: Bool,
         reactionCount: Int,
         commentsCount: Int = 0,
@@ -37,6 +42,7 @@ struct Post: Codable, Identifiable {
         mediaAssetId: Int? = nil,
         attachments: [MediaAttachment]? = nil,
         isSaved: Bool = false,
+        authorDisplayCommunity: DisplayCommunity? = nil,
         createdAt: Date,
         updatedAt: Date
     ) {
@@ -48,6 +54,8 @@ struct Post: Codable, Identifiable {
         self.authorDisplayName = authorDisplayName
         self.company = company
         self.communityId = communityId
+        self.communityName = communityName
+        self.communityKind = communityKind
         self.isAnonymous = isAnonymous
         self.reactionCount = reactionCount
         self.commentsCount = commentsCount
@@ -56,6 +64,7 @@ struct Post: Codable, Identifiable {
         self.mediaAssetId = mediaAssetId
         self.attachments = attachments
         self.isSaved = isSaved
+        self.authorDisplayCommunity = authorDisplayCommunity
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -81,6 +90,8 @@ extension Post {
             authorDisplayName: nil,
             company: "",
             communityId: dto.communityId,
+            communityName: dto.communityName,
+            communityKind: CommunityKind(rawValue: dto.communityKind ?? ""),
             isAnonymous: isAnonymousOverride ?? dto.isAnonymous ?? false,
             reactionCount: dto.likesCount,
             commentsCount: dto.commentsCount ?? 0,
@@ -89,6 +100,7 @@ extension Post {
             mediaAssetId: dto.mediaAssetId,
             attachments: nil,
             isSaved: dto.isSaved ?? false,
+            authorDisplayCommunity: dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:)),
             createdAt: dto.createdAt,
             updatedAt: dto.createdAt
         )
@@ -101,6 +113,9 @@ extension Post {
         shareCount: Int? = nil,
         userReaction: ReactionType?? = nil,
         isSaved: Bool? = nil,
+        communityName: String? = nil,
+        communityKind: CommunityKind? = nil,
+        authorDisplayCommunity: DisplayCommunity? = nil,
         updatedAt: Date? = nil
     ) -> Post {
         Post(
@@ -112,6 +127,8 @@ extension Post {
             authorDisplayName: authorDisplayName,
             company: company,
             communityId: communityId,
+            communityName: communityName ?? self.communityName,
+            communityKind: communityKind ?? self.communityKind,
             isAnonymous: isAnonymous,
             reactionCount: reactionCount ?? self.reactionCount,
             commentsCount: commentsCount ?? self.commentsCount,
@@ -120,6 +137,7 @@ extension Post {
             mediaAssetId: mediaAssetId,
             attachments: attachments,
             isSaved: isSaved ?? self.isSaved,
+            authorDisplayCommunity: authorDisplayCommunity ?? self.authorDisplayCommunity,
             createdAt: createdAt,
             updatedAt: updatedAt ?? self.updatedAt
         )

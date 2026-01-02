@@ -9,3 +9,8 @@ struct UserCommentsPage {
     let comments: [Comment]
     let nextCursor: String?
 }
+
+struct UserRepliesPage {
+    let comments: [Comment]
+    let nextCursor: String?
+}

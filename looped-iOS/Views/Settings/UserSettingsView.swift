@@ -6,6 +6,7 @@ struct UserSettingsView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     private let userService: UserServiceProtocol = UserService()
+    private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
 
     @State private var username: String = ""
     @State private var firstName: String = ""
@@ -20,9 +21,16 @@ struct UserSettingsView: View {
     @State private var usernameState: UsernameAvailabilityState = .idle
     @State private var isCheckingUsername = false
     @State private var usernameCheckTask: Task<Void, Never>?
+    @State private var verifiedCommunities: [CommunityVerification] = []
+    @State private var displayCommunityId: Int?
+    @State private var initialDisplayCommunityId: Int?
+    @State private var isLoadingDisplayCommunities = false
+    @State private var displayCommunityError: String?
+    @State private var toastMessage: ToastMessage?
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
             // Header
             HStack {
                 Button(action: { dismiss() }) {
@@ -91,6 +99,69 @@ struct UserSettingsView: View {
                     }
                     .padding(.horizontal, 20)
 
+                    // Display Community Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Display Community")
+                            .font(.loopedBodyStrong)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        Text("Choose a verified community to show on your profile and posts.")
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        if isLoadingDisplayCommunities {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Loading verified communities...")
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                            .padding(.vertical, 8)
+                        } else if verifiedCommunities.isEmpty {
+                            DisplayCommunityRow(
+                                displayCommunity: selectedDisplayCommunity,
+                                fallbackText: "Verify a community to add it here",
+                                font: .loopedBody,
+                                textColor: selectedDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                iconSize: 18
+                            )
+                            .padding(12)
+                            .background(Color.loopedTextSecondary.opacity(0.1))
+                            .cornerRadius(8)
+                        } else {
+                            Picker(
+                                selection: $displayCommunityId,
+                                label: DisplayCommunityRow(
+                                    displayCommunity: selectedDisplayCommunity,
+                                    fallbackText: "Select a primary community",
+                                    font: .loopedBody,
+                                    textColor: selectedDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                    iconSize: 18,
+                                    showsDisclosure: true
+                                )
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                            ) {
+                                Text("None").tag(Int?.none)
+                                ForEach(verifiedCommunities) { verification in
+                                    let option = DisplayCommunity(verification: verification)
+                                    Text(option.displayText)
+                                        .tag(Optional(verification.communityId))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .disabled(isSaving)
+                        }
+
+                        if let displayCommunityError {
+                            Text(displayCommunityError)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
                     // First Name Section
                     VStack(alignment: .leading, spacing: 8) {
                         Text("First Name")
@@ -132,8 +203,6 @@ struct UserSettingsView: View {
                             .labelsHidden()
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.loopedTextSecondary.opacity(0.1))
-                            .cornerRadius(8)
                     }
                     .padding(.horizontal, 20)
 
@@ -193,14 +262,19 @@ struct UserSettingsView: View {
                 }
                 .padding(.bottom, 100)
             }
+            }
+
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .toast($toastMessage)
         .onAppear {
             hydrateFromUser()
+            Task { await loadVerifiedCommunities() }
         }
         .onChange(of: authViewModel.currentUser?.id) { _ in
             hasLoadedUser = false
             hydrateFromUser()
+            Task { await loadVerifiedCommunities() }
         }
         .navigationBarHidden(true)
     }
@@ -244,6 +318,17 @@ private extension UserSettingsView {
 
     var currentUser: User? { authViewModel.currentUser }
 
+    var selectedDisplayCommunity: DisplayCommunity? {
+        guard let id = displayCommunityId else { return nil }
+        if let verification = verifiedCommunities.first(where: { $0.communityId == id }) {
+            return DisplayCommunity(verification: verification)
+        }
+        if let current = currentUser?.displayCommunity, current.id == id {
+            return current
+        }
+        return nil
+    }
+
     func hydrateFromUser() {
         guard let user = currentUser, !hasLoadedUser else { return }
         username = user.username ?? user.handle
@@ -255,7 +340,23 @@ private extension UserSettingsView {
             dateOfBirth = dob
         }
         bio = user.bio ?? ""
+        displayCommunityId = user.displayCommunity?.id
+        initialDisplayCommunityId = user.displayCommunity?.id
         hasLoadedUser = true
+    }
+
+    func loadVerifiedCommunities() async {
+        guard !isLoadingDisplayCommunities else { return }
+        isLoadingDisplayCommunities = true
+        displayCommunityError = nil
+        defer { isLoadingDisplayCommunities = false }
+        do {
+            let items = try await verificationService.fetchCommunityVerifications()
+            verifiedCommunities = items.filter { $0.isActive }
+        } catch {
+            displayCommunityError = error.localizedDescription
+            verifiedCommunities = []
+        }
     }
 
     func saveProfile() {
@@ -264,6 +365,7 @@ private extension UserSettingsView {
         let impact = UIImpactFeedbackGenerator(style: .light)
         impact.impactOccurred()
         saveError = nil
+        displayCommunityError = nil
         isSaving = true
 
         Task {
@@ -286,9 +388,15 @@ private extension UserSettingsView {
                     isAnonymous: false,
                     showFollowerCount: nil
                 )
+                if displayCommunityId != initialDisplayCommunityId {
+                    _ = try await userService.updateDisplayCommunity(communityId: displayCommunityId)
+                    initialDisplayCommunityId = displayCommunityId
+                }
                 await authViewModel.loadCurrentUser()
+                presentToast(message: "Changes saved")
             } catch {
                 saveError = mapSaveError(error)
+                presentToast(message: "Changes not saved")
             }
         }
     }
@@ -408,6 +516,10 @@ private extension UserSettingsView {
             case "username_taken":
                 usernameState = .unavailable
                 return "That username is already taken."
+            case "community_not_verified":
+                return "You must be verified in that community to display it."
+            case "community_not_found":
+                return "That community could not be found."
             default:
                 if let message, !message.isEmpty {
                     return message
@@ -416,6 +528,12 @@ private extension UserSettingsView {
             }
         }
         return error.localizedDescription
+    }
+
+    func presentToast(message: String) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            toastMessage = ToastMessage(text: message)
+        }
     }
 }
 

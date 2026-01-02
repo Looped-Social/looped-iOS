@@ -20,8 +20,12 @@ enum AnonAction {
     case like(postId: Int)
     case save(postId: Int)
     case unsave(postId: Int)
+    case postDelete(postId: Int)
     case comment(postId: Int)
     case commentLike(commentId: Int)
+    case commentUnlike(commentId: Int)
+    case commentEdit(commentId: Int)
+    case commentDelete(commentId: Int)
     case commentList(postId: Int)
     case commentReplies(commentId: Int)
     case commentUserReplies(userId: Int)
@@ -150,10 +154,18 @@ actor AnonService {
             canonical = "save|v1|\(postId)"
         case .unsave(let postId):
             canonical = "unsave|v1|\(postId)"
+        case .postDelete(let postId):
+            canonical = "post_delete|v1|\(postId)"
         case .comment(let postId):
             canonical = "comment|v1|\(postId)"
         case .commentLike(let commentId):
             canonical = "comment_like|v1|\(commentId)"
+        case .commentUnlike(let commentId):
+            canonical = "comment_unlike|v1|\(commentId)"
+        case .commentEdit(let commentId):
+            canonical = "comment_edit|v1|\(commentId)"
+        case .commentDelete(let commentId):
+            canonical = "comment_delete|v1|\(commentId)"
         case .commentList(let postId):
             canonical = "comment_list|v1|\(postId)"
         case .commentReplies(let commentId):

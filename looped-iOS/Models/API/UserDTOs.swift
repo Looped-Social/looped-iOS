@@ -13,13 +13,16 @@ struct UserDTO: Codable {
     let id: Int
     let handle: String
     let username: String?
+    let displayName: String?
     let firstName: String?
     let lastName: String?
     let dateOfBirth: String?
     let companyId: Int
+    let bio: String?
     let verification: VerificationDTO?
     let profile: UserProfileDTO?
     let stats: UserStatsDTO?
+    let displayCommunity: DisplayCommunityDTO?
     let profileImageUrl: String?
     let showFollowerCount: Bool?
     let createdAt: Date?

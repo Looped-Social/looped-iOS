@@ -31,7 +31,9 @@ struct FeedView: View {
                             EmptyFeedView()
                         } else {
                             ForEach(viewModel.posts) { post in
-                                PostCard(post: post)
+                                PostCard(post: post, showsCommunityLabel: true, onDelete: { deleted in
+                                    viewModel.removePost(backendId: deleted.backendId)
+                                })
                                     .onAppear {
                                         Task {
                                             await viewModel.loadMoreIfNeeded(currentPost: post)

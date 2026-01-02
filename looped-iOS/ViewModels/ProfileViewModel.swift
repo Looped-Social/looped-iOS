@@ -118,4 +118,9 @@ class ProfileViewModel: ObservableObject {
         }
         isLoadingPosts = false
     }
+
+    func removePost(backendId: Int?) {
+        guard let backendId else { return }
+        userPosts.removeAll { $0.backendId == backendId }
+    }
 }

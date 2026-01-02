@@ -37,7 +37,25 @@ class UserService: UserServiceProtocol {
             isAnonymous: isAnonymous,
             showFollowerCount: showFollowerCount
         )
-        return try await apiClient.put("/v1/users/me", body: request)
+        let dto: UserDTO = try await apiClient.put("/v1/users/me", body: request)
+        return User(dto: dto, profile: dto.profile)
+    }
+
+    func updateDisplayCommunity(communityId: Int?) async throws -> User {
+        let request = DisplayCommunityUpdateRequest(communityId: communityId)
+        let data = try await apiClient.putData("/v1/users/me/display-community", body: request)
+        if data.isEmpty {
+            return try await getCurrentUser()
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        do {
+            let dto = try decoder.decode(UserDTO.self, from: data)
+            return User(dto: dto, profile: dto.profile)
+        } catch {
+            return try await getCurrentUser()
+        }
     }
 
     func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User {
@@ -128,12 +146,24 @@ class UserService: UserServiceProtocol {
                 authorId: UUID.fromBackendId(userId),
                 authorBackendId: userId,
                 company: "",
+                isDeleted: dto.isDeleted ?? false,
                 createdAt: dto.createdAt,
                 updatedAt: dto.createdAt,
                 replyToCommentId: dto.parentId != nil ? UUID.fromBackendId(dto.parentId!) : nil
             )
         }
         return UserCommentsPage(comments: comments, nextCursor: response.nextCursor)
+    }
+
+    func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage {
+        var endpoint = "/v1/users/\(userId)/replies?limit=\(limit)"
+        if let cursor = cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: CommentListResponseDTO = try await apiClient.get(endpoint)
+        let comments = response.items.map(Comment.init(dto:))
+        return UserRepliesPage(comments: comments, nextCursor: response.nextCursor)
     }
 }
 
@@ -153,6 +183,10 @@ private struct UpdateProfileRequest: Codable {
     let bio: String?
     let isAnonymous: Bool
     let showFollowerCount: Bool?
+}
+
+private struct DisplayCommunityUpdateRequest: Codable {
+    let communityId: Int?
 }
 
 private struct EmptyBody: Codable {}

@@ -13,6 +13,7 @@ struct CommunityProfileView: View {
     @State private var selectedTab: CommunityProfileTab = .posts
     @State private var showVerificationFlow = false
     @State private var hasLoaded = false
+    @State private var overlayHeaderHeight: CGFloat = 0
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
@@ -28,6 +29,9 @@ struct CommunityProfileView: View {
                     Color.clear.frame(height: 80)
                 }
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: overlayHeaderHeight)
+            }
             .background(Color.loopedBackground.ignoresSafeArea())
             .refreshable {
                 await viewModel.refresh()
@@ -35,20 +39,26 @@ struct CommunityProfileView: View {
             .task { await loadIfNeeded() }
 
             CommunityProfileHeader { dismiss() }
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: CommunityProfileHeaderHeightKey.self, value: proxy.size.height)
+                    }
+                )
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
-        .fullScreenCover(isPresented: $commentsManager.isPresented, onDismiss: {
-            commentsManager.dismissComments()
-        }) {
-            if let post = commentsManager.currentPost {
-                CommentsView(post: post) {
-                    commentsManager.dismissComments()
+        .overlay(
+            Group {
+                if commentsManager.isPresented, let post = commentsManager.currentPost {
+                    CommentsView(post: post) {
+                        commentsManager.dismissComments()
+                    }
+                    .environmentObject(commentsManager)
+                    .transition(.move(edge: .trailing))
                 }
-                .environmentObject(commentsManager)
             }
-        }
+        )
         .sheet(isPresented: $showVerificationFlow) {
             CommunityVerificationFlowView(
                 community: viewModel.community
@@ -66,6 +76,11 @@ struct CommunityProfileView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.followErrorMessage ?? "")
+        }
+        .onPreferenceChange(CommunityProfileHeaderHeightKey.self) { newValue in
+            if newValue > 0, abs(newValue - overlayHeaderHeight) > 1 {
+                overlayHeaderHeight = newValue
+            }
         }
     }
 
@@ -212,7 +227,9 @@ struct CommunityProfileView: View {
                     .padding(.top, 40)
             } else {
                 ForEach(viewModel.posts) { post in
-                    PostCard(post: post)
+                    PostCard(post: post, onDelete: { deleted in
+                        viewModel.removePost(backendId: deleted.backendId)
+                    })
                         .onAppear {
                             Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                         }
@@ -304,6 +321,14 @@ struct CommunityProfileView: View {
         formatter.timeStyle = .none
         return formatter
     }()
+}
+
+private struct CommunityProfileHeaderHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }
 
 struct CommunityProfileHeader: View {

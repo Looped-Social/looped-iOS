@@ -13,7 +13,9 @@ struct Comment: Codable, Identifiable {
     let authorProfileImageURL: String?
     let company: String
     let isAnonymous: Bool
+    let isDeleted: Bool
     let likeCount: Int
+    let replyCount: Int
     let userLiked: Bool
     let isLikedByCreator: Bool
     let createdAt: Date
@@ -33,7 +35,9 @@ struct Comment: Codable, Identifiable {
         authorProfileImageURL: String? = nil,
         company: String,
         isAnonymous: Bool = false,
+        isDeleted: Bool = false,
         likeCount: Int = 0,
+        replyCount: Int = 0,
         userLiked: Bool = false,
         isLikedByCreator: Bool = false,
         createdAt: Date = Date(),
@@ -52,7 +56,9 @@ struct Comment: Codable, Identifiable {
         self.authorProfileImageURL = authorProfileImageURL
         self.company = company
         self.isAnonymous = isAnonymous
+        self.isDeleted = isDeleted
         self.likeCount = likeCount
+        self.replyCount = replyCount
         self.userLiked = userLiked
         self.isLikedByCreator = isLikedByCreator
         self.createdAt = createdAt
@@ -75,7 +81,9 @@ struct Comment: Codable, Identifiable {
             authorProfileImageURL: dto.author.profileImageUrl,
             company: "",
             isAnonymous: resolvedIsAnonymous,
+            isDeleted: dto.isDeleted ?? false,
             likeCount: dto.likesCount,
+            replyCount: dto.replyCount ?? 0,
             userLiked: dto.userLiked ?? false,
             isLikedByCreator: dto.likedByCreator ?? false,
             createdAt: dto.createdAt,
@@ -85,16 +93,19 @@ struct Comment: Codable, Identifiable {
     }
 
     func updating(
+        content: String? = nil,
         likeCount: Int? = nil,
         userLiked: Bool? = nil,
-        isLikedByCreator: Bool? = nil
+        isLikedByCreator: Bool? = nil,
+        replyCount: Int? = nil,
+        isDeleted: Bool? = nil
     ) -> Comment {
         Comment(
             id: id,
             backendId: backendId,
             postId: postId,
             postBackendId: postBackendId,
-            content: content,
+            content: content ?? self.content,
             authorId: authorId,
             authorBackendId: authorBackendId,
             authorDisplayName: authorDisplayName,
@@ -102,7 +113,9 @@ struct Comment: Codable, Identifiable {
             authorProfileImageURL: authorProfileImageURL,
             company: company,
             isAnonymous: isAnonymous,
+            isDeleted: isDeleted ?? self.isDeleted,
             likeCount: likeCount ?? self.likeCount,
+            replyCount: replyCount ?? self.replyCount,
             userLiked: userLiked ?? self.userLiked,
             isLikedByCreator: isLikedByCreator ?? self.isLikedByCreator,
             createdAt: createdAt,

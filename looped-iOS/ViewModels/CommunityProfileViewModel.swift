@@ -128,6 +128,11 @@ final class CommunityProfileViewModel: ObservableObject {
         }
     }
 
+    func removePost(backendId: Int?) {
+        guard let backendId else { return }
+        posts.removeAll { $0.backendId == backendId }
+    }
+
     private func updateCommunity(_ update: (inout CommunityProfileData) -> Void) {
         var next = community
         update(&next)

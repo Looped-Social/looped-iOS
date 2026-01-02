@@ -79,6 +79,11 @@ final class CollectionPostsViewModel: ObservableObject {
         guard case .saved = collection, !isSaved else { return }
         posts.removeAll { $0.id == post.id }
     }
+
+    func removePost(backendId: Int?) {
+        guard let backendId else { return }
+        posts.removeAll { $0.backendId == backendId }
+    }
     
     private func applyOverrides(to posts: [Post]) -> [Post] {
         switch collection {

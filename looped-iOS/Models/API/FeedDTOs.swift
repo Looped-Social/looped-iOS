@@ -27,6 +27,7 @@ struct TrendingPostDTO: Codable {
     let title: String?
     let mediaUrl: String?
     let cdnUrl: String?
+    let authorDisplayCommunity: DisplayCommunityDTO?
 }
 
 struct PostDTO: Codable {
@@ -34,6 +35,8 @@ struct PostDTO: Codable {
     let authorId: Int
     let companyId: Int
     let communityId: Int?
+    let communityName: String?
+    let communityKind: String?
     let content: String
     let mediaAssetId: Int?
     let likesCount: Int
@@ -42,6 +45,7 @@ struct PostDTO: Codable {
     let createdAt: Date
     let isSaved: Bool?
     let isAnonymous: Bool?
+    let authorDisplayCommunity: DisplayCommunityDTO?
 }
 
 struct CreatePostRequestDTO: Codable {
@@ -70,6 +74,11 @@ struct PostSaveResponseDTO: Codable {
 struct PostShareResponseDTO: Codable {
     let postId: Int
     let shareCount: Int
+}
+
+struct PostDeleteResponseDTO: Codable {
+    let id: Int
+    let deleted: Bool
 }
 
 struct AnonActionRequestDTO: Codable {

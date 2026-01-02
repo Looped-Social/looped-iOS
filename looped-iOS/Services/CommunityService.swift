@@ -62,6 +62,11 @@ class CommunityService: CommunityServiceProtocol {
     func unfollowCommunity(id: Int) async throws {
         try await apiClient.delete("/v1/communities/\(id)/follow")
     }
+
+    func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions {
+        let dto: CommunityPermissionsDTO = try await apiClient.get("/v1/communities/\(communityId)/permissions")
+        return CommunityPermissions(dto: dto)
+    }
 }
 
 private struct EmptyBody: Codable {}

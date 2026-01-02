@@ -11,58 +11,63 @@ struct MenuContent: View {
     private let anonService = AnonService.shared
 
     var body: some View {
-        VStack(alignment: .center, spacing: 0) {
-            // Profile Header Section
-            VStack(alignment: .center, spacing: 12) {
-                // Profile Avatar
-                Circle()
-                    .fill(isAnonymous ? Color.loopedSecondary : Color.loopedPrimary)
-                    .frame(width: 72, height: 72)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 30, weight: .semibold))
-                            .foregroundColor(.white)
-                    )
-                    .padding(.top, 72)
+        GeometryReader { proxy in
+            let verticalInset = max(proxy.size.height * 0.06, 20)
+            VStack(alignment: .center, spacing: 0) {
+                Spacer(minLength: verticalInset)
 
-                // Display Name
-                Text(displayName)
-                    .font(.loopedBodyStrong32)
-                    .foregroundColor(.loopedContrast)
+                // Profile Header Section
+                VStack(alignment: .center, spacing: 12) {
+                    // Profile Avatar
+                    Circle()
+                        .fill(isAnonymous ? Color.loopedSecondary : Color.loopedPrimary)
+                        .frame(width: 72, height: 72)
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 30, weight: .semibold))
+                                .foregroundColor(.white)
+                        )
+                        .padding(.top, 16)
 
-                AnonymousStatusPill(isOn: $isAnonymous)
+                    // Display Name
+                    Text(displayName)
+                        .font(.loopedBodyStrong32)
+                        .foregroundColor(.loopedContrast)
 
-                HeartsRow(text: totalHeartsText)
+                    AnonymousStatusPill(isOn: $isAnonymous)
+
+                    HeartsRow(text: totalHeartsText)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+
+                // Menu Items
+                VStack(alignment: .leading, spacing: 0) {
+                    MenuItemButton(icon: "heart", title: "Liked") {
+                        onMenuItemTap(.liked)
+                    }
+                    MenuItemButton(icon: "bookmark", title: "Saved") {
+                        onMenuItemTap(.saved)
+                    }
+                    MenuItemButton(icon: "lock", title: "Privacy") {
+                        onMenuItemTap(.privacy)
+                    }
+                    MenuItemButton(icon: "doc.text", title: "Drafts") {
+                        onMenuItemTap(.drafts)
+                    }
+                    MenuItemButton(icon: "questionmark.circle", title: "FAQ") {
+                        onMenuItemTap(.faq)
+                    }
+                    MenuItemButton(icon: "gearshape.fill", title: "Settings") {
+                        onMenuItemTap(.settings)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                Spacer(minLength: verticalInset)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
-
-            // Menu Items
-            VStack(alignment: .leading, spacing: 0) {
-                MenuItemButton(icon: "heart", title: "Liked") {
-                    onMenuItemTap(.liked)
-                }
-                MenuItemButton(icon: "bookmark", title: "Saved") {
-                    onMenuItemTap(.saved)
-                }
-                MenuItemButton(icon: "lock", title: "Privacy") {
-                    onMenuItemTap(.privacy)
-                }
-                MenuItemButton(icon: "doc.text", title: "Drafts") {
-                    onMenuItemTap(.drafts)
-                }
-                MenuItemButton(icon: "questionmark.circle", title: "FAQ") {
-                    onMenuItemTap(.faq)
-                }
-                MenuItemButton(icon: "gearshape.fill", title: "Settings") {
-                    onMenuItemTap(.settings)
-                }
-            }
-            .padding(.horizontal, 24)
-
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.loopedBackground)
         .clipShape(SideDrawerShape(radius: 44))
         .ignoresSafeArea(.all)
@@ -278,9 +283,15 @@ private struct CollectionPostsContent: View {
             .padding(.top, 60)
         } else {
             ForEach(viewModel.posts) { post in
-                PostCard(post: post) { saved in
-                    viewModel.handleBookmarkChange(for: post, isSaved: saved)
-                }
+                PostCard(
+                    post: post,
+                    onBookmarkToggle: { saved in
+                        viewModel.handleBookmarkChange(for: post, isSaved: saved)
+                    },
+                    onDelete: { deleted in
+                        viewModel.removePost(backendId: deleted.backendId)
+                    }
+                )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                     .onAppear {
@@ -331,7 +342,9 @@ private struct LikedPostsFeedList: View {
             .padding(.top, 60)
         } else {
             ForEach(viewModel.posts) { post in
-                PostCard(post: post)
+                PostCard(post: post, onDelete: { deleted in
+                    viewModel.removePost(backendId: deleted.backendId)
+                })
                     .onAppear {
                         Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                     }
@@ -364,7 +377,13 @@ struct PrivacyView: View {
 
 struct DraftsView: View {
     @Environment(\.dismiss) private var dismiss
-    private let drafts: [DraftPreview] = DraftPreview.samples
+    @EnvironmentObject private var feedViewModel: FeedViewModel
+    @StateObject private var draftStore = PostDraftStore()
+    @State private var selectedDraft: PostDraft?
+
+    private var drafts: [PostDraft] {
+        draftStore.drafts
+    }
 
     var body: some View {
         List {
@@ -395,7 +414,14 @@ struct DraftsView: View {
             } else {
                 Section {
                     ForEach(drafts) { draft in
-                        DraftListRow(draft: draft)
+                        DraftListRow(draft: draft) {
+                            selectedDraft = draft
+                        }
+                    }
+                    .onDelete { offsets in
+                        for index in offsets {
+                            draftStore.delete(drafts[index])
+                        }
                     }
                 }
             }
@@ -412,6 +438,13 @@ struct DraftsView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .sheet(item: $selectedDraft, onDismiss: {
+            draftStore.reload()
+        }) { draft in
+            CreatePostView(feedViewModel: feedViewModel, draft: draft, onPostCreated: {
+                selectedDraft = nil
+            })
+        }
     }
 }
 
@@ -441,32 +474,14 @@ struct FAQView: View {
     }
 }
 
-private struct DraftPreview: Identifiable {
-    let id: UUID
-    let content: String
-    let updatedAt: Date
-
-    static let samples: [DraftPreview] = [
-        DraftPreview(
-            id: UUID(),
-            content: "Working on a post about our onboarding redesign. Key points: simplify flow, add clarity, focus on retention.",
-            updatedAt: Date().addingTimeInterval(-3600)
-        ),
-        DraftPreview(
-            id: UUID(),
-            content: "Drafting a question about benefits updates and how to navigate the new policies without losing coverage.",
-            updatedAt: Date().addingTimeInterval(-86400 * 2)
-        )
-    ]
-}
-
 private struct DraftListRow: View {
-    let draft: DraftPreview
+    let draft: PostDraft
+    let onContinue: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Draft")
+                Text(draftLabel)
                     .font(.loopedSubBodyMedium)
                     .foregroundColor(.loopedTextSecondary)
 
@@ -490,7 +505,7 @@ private struct DraftListRow: View {
                 Spacer()
 
                 Button("Continue") {
-                    // TODO: Wire up draft editing flow.
+                    onContinue()
                 }
                 .font(.loopedSubBodyMedium)
                 .foregroundColor(.loopedPrimary)
@@ -503,6 +518,13 @@ private struct DraftListRow: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: draft.updatedAt, relativeTo: Date())
+    }
+
+    private var draftLabel: String {
+        if let name = draft.communityName, !name.isEmpty {
+            return "Draft • \(name)"
+        }
+        return "Draft"
     }
 }
 

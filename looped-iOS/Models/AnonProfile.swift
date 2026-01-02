@@ -42,6 +42,7 @@ extension AnonProfile {
             commentsCount: 0,
             showFollowerCount: false,
             isCurrentUser: true,
+            displayCommunity: nil,
             createdAt: createdAt,
             updatedAt: updatedAt ?? now
         )

@@ -22,6 +22,7 @@ struct User: Codable, Identifiable {
     let postsCount: Int?
     let commentsCount: Int?
     let showFollowerCount: Bool?
+    let displayCommunity: DisplayCommunity?
     
     init(
         id: UUID,
@@ -44,7 +45,8 @@ struct User: Codable, Identifiable {
         followingCount: Int? = nil,
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
-        showFollowerCount: Bool? = nil
+        showFollowerCount: Bool? = nil,
+        displayCommunity: DisplayCommunity? = nil
     ) {
         self.id = id
         self.backendId = backendId
@@ -67,6 +69,7 @@ struct User: Codable, Identifiable {
         self.postsCount = postsCount
         self.commentsCount = commentsCount
         self.showFollowerCount = showFollowerCount
+        self.displayCommunity = displayCommunity
     }
 }
 
@@ -82,14 +85,14 @@ extension User {
         self.id = UUID.fromBackendId(dto.id)
         self.backendId = dto.id
         self.username = dto.username ?? profile?.username
-        self.displayName = profile?.displayName ?? (resolvedFullName.isEmpty ? nil : resolvedFullName)
+        self.displayName = dto.displayName ?? profile?.displayName ?? (resolvedFullName.isEmpty ? nil : resolvedFullName)
         self.firstName = resolvedFirstName
         self.lastName = resolvedLastName
         self.dateOfBirth = dto.dateOfBirth ?? profile?.dateOfBirth
         self.handle = dto.handle
         self.companyId = dto.companyId
         self.companyName = nil
-        self.bio = profile?.bio
+        self.bio = profile?.bio ?? dto.bio
         self.profileImageURL = profile?.profileImageUrl ?? dto.profileImageUrl
         self.isVerified = dto.verification?.verified ?? false
         self.isAnonymous = false
@@ -100,6 +103,7 @@ extension User {
         self.postsCount = stats?.postsCount ?? profile?.postsCount
         self.commentsCount = stats?.commentsCount ?? profile?.commentsCount
         self.showFollowerCount = profile?.showFollowerCount ?? dto.showFollowerCount
+        self.displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
     }
 
     init(
@@ -121,7 +125,8 @@ extension User {
         followingCount: Int? = nil,
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
-        showFollowerCount: Bool? = nil
+        showFollowerCount: Bool? = nil,
+        displayCommunity: DisplayCommunity? = nil
     ) {
         self.init(
             id: id,
@@ -144,7 +149,8 @@ extension User {
             followingCount: followingCount,
             postsCount: postsCount,
             commentsCount: commentsCount,
-            showFollowerCount: showFollowerCount
+            showFollowerCount: showFollowerCount,
+            displayCommunity: displayCommunity
         )
     }
 

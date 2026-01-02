@@ -12,6 +12,9 @@ struct CommentRow: View {
     let onToggleReplies: ((Comment) -> Void)?
     let onLoadMoreReplies: ((Comment) -> Void)?
     let onLike: ((Comment) -> Void)?
+    let canManage: ((Comment) -> Bool)?
+    let onEdit: ((Comment) -> Void)?
+    let onDelete: ((Comment) -> Void)?
     let onHashtagTap: ((String) -> Void)?
 
     init(
@@ -26,6 +29,9 @@ struct CommentRow: View {
         onToggleReplies: ((Comment) -> Void)? = nil,
         onLoadMoreReplies: ((Comment) -> Void)? = nil,
         onLike: ((Comment) -> Void)? = nil,
+        canManage: ((Comment) -> Bool)? = nil,
+        onEdit: ((Comment) -> Void)? = nil,
+        onDelete: ((Comment) -> Void)? = nil,
         onHashtagTap: ((String) -> Void)? = nil
     ) {
         self.comment = comment
@@ -39,6 +45,9 @@ struct CommentRow: View {
         self.onToggleReplies = onToggleReplies
         self.onLoadMoreReplies = onLoadMoreReplies
         self.onLike = onLike
+        self.canManage = canManage
+        self.onEdit = onEdit
+        self.onDelete = onDelete
         self.onHashtagTap = onHashtagTap
     }
     
@@ -73,7 +82,7 @@ struct CommentRow: View {
     }
 
     private var contentFont: Font {
-        nestingLevel == 0 ? .loopedBodyMedium : .loopedSubBodyMedium
+        nestingLevel == 0 ? .loopedBody : .loopedSubBodyRegular
     }
 
     private var authorFont: Font {
@@ -121,114 +130,138 @@ struct CommentRow: View {
         .clipShape(Circle())
     }
 
+    private var collapsedRepliesLabel: String? {
+        guard comment.replyCount > 0 else { return nil }
+        if comment.replyCount == 1 {
+            return "1 more reply"
+        }
+        return "\(comment.replyCount) more replies"
+    }
+
+    private var remainingRepliesLabel: String {
+        let remaining = max(comment.replyCount - replies.count, 0)
+        if remaining == 1 {
+            return "1 more reply"
+        }
+        if remaining > 1 {
+            return "\(remaining) more replies"
+        }
+        return "See more replies"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
                 avatarView
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HashtagText(
-                        text: comment.content,
-                        font: contentFont,
-                        textColor: .loopedTextPrimary,
-                        hashtagColor: .loopedPrimary
-                    ) { hashtag in
-                        onHashtagTap?(hashtag)
+                    if comment.isDeleted {
+                        Text("Comment deleted")
+                            .font(contentFont)
+                            .foregroundColor(.loopedTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        HashtagText(
+                            text: comment.content,
+                            font: contentFont,
+                            textColor: .loopedTextPrimary,
+                            hashtagColor: .loopedPrimary
+                        ) { hashtag in
+                            onHashtagTap?(hashtag)
+                        }
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text(displayName)
                         .font(authorFont)
                         .foregroundColor(.loopedTextSecondary)
 
-                    HStack(spacing: 14) {
+                    if comment.isDeleted {
                         Text(formattedTimestamp)
                             .font(metadataFont)
                             .foregroundColor(.loopedTextSecondary)
-
-                        Button(action: {
-                            onReply?(comment)
-                        }) {
-                            Text("Reply")
+                    } else {
+                        HStack(spacing: 14) {
+                            Text(formattedTimestamp)
                                 .font(metadataFont)
                                 .foregroundColor(.loopedTextSecondary)
-                        }
 
-                        Spacer()
+                            Button(action: {
+                                onReply?(comment)
+                            }) {
+                                Text("Reply")
+                                    .font(metadataFont)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
 
-                        Button(action: {
-                            onLike?(comment)
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: comment.userLiked ? "heart.fill" : "heart")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(comment.userLiked ? .red : .loopedTextSecondary)
+                            Spacer()
 
-                                if comment.likeCount > 0 {
-                                    Text("\(comment.likeCount)")
-                                        .font(metadataFont)
-                                        .foregroundColor(.loopedTextSecondary)
+                            Button(action: {
+                                onLike?(comment)
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: comment.userLiked ? "heart.fill" : "heart")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(comment.userLiked ? .red : .loopedTextSecondary)
+
+                                    if comment.likeCount > 0 {
+                                        Text("\(comment.likeCount)")
+                                            .font(metadataFont)
+                                            .foregroundColor(.loopedTextSecondary)
+                                    }
                                 }
                             }
                         }
                     }
 
-                    if comment.isLikedByCreator {
+                    if comment.isLikedByCreator, !comment.isDeleted {
                         Text("Liked by creator")
                             .font(.loopedSmallText)
                             .foregroundColor(.loopedTextSecondary)
                     }
 
-                    if onToggleReplies != nil {
-                        HStack(spacing: 6) {
-                            Button(action: { onToggleReplies?(comment) }) {
-                                HStack(spacing: 4) {
-                                    Text(isExpanded ? "Hide replies" : "View replies")
-                                        .font(metadataFont)
-                                        .foregroundColor(.loopedTextSecondary)
-                                    if isLoadingReplies {
-                                        ProgressView()
-                                            .scaleEffect(0.6)
-                                    } else {
-                                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                            .font(.system(size: 10, weight: .medium))
-                                            .foregroundColor(.loopedTextSecondary)
-                                    }
+                    if onToggleReplies != nil, !isExpanded, let label = collapsedRepliesLabel {
+                        Button(action: { onToggleReplies?(comment) }) {
+                            HStack(spacing: 8) {
+                                Text(label)
+                                    .font(metadataFont)
+                                    .foregroundColor(.loopedTextSecondary)
+                                if isLoadingReplies {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
                                 }
                             }
-
-                            Spacer()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                         .padding(.top, 4)
                     }
 
                     if isExpanded {
                         VStack(alignment: .leading, spacing: 16) {
-                            if replies.isEmpty && !isLoadingReplies {
-                                Text("No replies yet")
-                                    .font(.loopedSmallText)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .padding(.leading, profileSize + 12)
-                                    .padding(.vertical, 4)
-                            } else {
-                                ForEach(replies) { reply in
-                                    CommentRow(
-                                        comment: reply,
-                                        nestingLevel: nestingLevel + 1,
-                                        replies: [],
-                                        isExpanded: false,
-                                        isLoadingReplies: false,
-                                        isLoadingMoreReplies: false,
-                                        hasMoreReplies: false,
-                                        onReply: onReply,
-                                        onToggleReplies: nil,
-                                        onLoadMoreReplies: nil,
-                                        onLike: onLike,
-                                        onHashtagTap: onHashtagTap
-                                    )
-                                }
+                            ForEach(replies) { reply in
+                                CommentRow(
+                                    comment: reply,
+                                    nestingLevel: nestingLevel + 1,
+                                    replies: [],
+                                    isExpanded: false,
+                                    isLoadingReplies: false,
+                                    isLoadingMoreReplies: false,
+                                    hasMoreReplies: false,
+                                    onReply: onReply,
+                                    onToggleReplies: nil,
+                                    onLoadMoreReplies: nil,
+                                    onLike: onLike,
+                                    canManage: canManage,
+                                    onEdit: onEdit,
+                                    onDelete: onDelete,
+                                    onHashtagTap: onHashtagTap
+                                )
                             }
 
                             if isLoadingMoreReplies {
@@ -236,14 +269,14 @@ struct CommentRow: View {
                                     .padding(.vertical, 8)
                             } else if hasMoreReplies {
                                 Button(action: { onLoadMoreReplies?(comment) }) {
-                                    HStack(spacing: 4) {
-                                        Text("Show more replies")
-                                            .font(metadataFont)
-                                            .foregroundColor(.loopedTextSecondary)
-                                        Image(systemName: "chevron.down")
-                                            .font(.system(size: 10, weight: .medium))
-                                            .foregroundColor(.loopedTextSecondary)
-                                    }
+                                    Text(remainingRepliesLabel)
+                                        .font(metadataFont)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 10)
+                                        .padding(.horizontal, 12)
+                                        .background(Color.loopedMutedBackground)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                 }
                             }
                         }
@@ -253,6 +286,20 @@ struct CommentRow: View {
             }
             .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
             .padding(.vertical, 6)
+        }
+        .contextMenu {
+            if let canManage, canManage(comment), !comment.isDeleted {
+                if let onEdit {
+                    Button("Edit") { onEdit(comment) }
+                }
+                if let onDelete {
+                    Button(role: .destructive) {
+                        onDelete(comment)
+                    } label: {
+                        Text("Delete")
+                    }
+                }
+            }
         }
     }
 }
