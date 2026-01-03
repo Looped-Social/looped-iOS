@@ -97,7 +97,7 @@ struct PostCard: View {
                         Circle()
                             .fill(Color.loopedTextSecondary.opacity(0.2))
                             .overlay(
-                                Text(initials(from: post.authorDisplayName))
+                                Text(initials(from: post.resolvedAuthorName))
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(.loopedTextPrimary)
                             )
@@ -107,12 +107,12 @@ struct PostCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 8) {
                             // Name and handle
-                            Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
+                            Text(post.resolvedAuthorName)
                                 .font(.headline)
                                 .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
 
                             if !post.isAnonymous {
-                                Text("@\(post.authorDisplayName?.lowercased().replacingOccurrences(of: " ", with: "") ?? "user")")
+                                Text("@\(post.resolvedAuthorHandle)")
                                     .font(.subheadline)
                                     .foregroundColor(.loopedTextSecondary)
                             }
@@ -442,8 +442,7 @@ struct PostCard: View {
     }
 
     private var shareText: String {
-        let author = post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "Someone")
-        return "\(author) posted on Looped:\n\n\(post.content)"
+        "\(post.resolvedAuthorName) posted on Looped:\n\n\(post.content)"
     }
 
     private func trackShare() {

@@ -84,6 +84,7 @@ struct MainTabView: View {
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
+    @State private var toastMessage: ToastMessage?
     private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
     
     var body: some View {
@@ -110,6 +111,7 @@ struct MainTabView: View {
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
+        .toast($toastMessage)
         .overlay(
             Group {
                 if commentsManager.isPresented, let post = commentsManager.currentPost {
@@ -125,6 +127,7 @@ struct MainTabView: View {
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(feedViewModel: feedViewModel, onPostCreated: {
                 showCreatePost = false
+                toastMessage = ToastMessage(text: "Post created")
             })
                 .preferredColorScheme(preferredColorScheme)
         }

@@ -117,7 +117,7 @@ struct MiniaturePostCard: View {
                     .frame(width: 16, height: 16)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(post.isAnonymous ? "Anonymous" : (post.authorDisplayName ?? "User"))
+                    Text(post.resolvedAuthorName)
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
                         .lineLimit(1)

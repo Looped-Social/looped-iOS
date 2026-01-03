@@ -11,6 +11,7 @@ struct ProfileView: View {
     @StateObject private var viewModel = ProfileViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var repliesViewModel = UserRepliesViewModel()
+    @StateObject private var savedViewModel = CollectionPostsViewModel(collection: .saved)
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
     @AppStorage("anonymousMode") private var isAnonymous = false
@@ -47,8 +48,8 @@ struct ProfileView: View {
                             .padding(.top, 20)
 
                     case .saved:
-                        SavedPlaceholderView()
-                            .padding(.top, 60)
+                        SavedPostsList(viewModel: savedViewModel)
+                            .padding(.top, 20)
                     }
 
                     // Bottom spacer
@@ -140,6 +141,9 @@ struct ProfileView: View {
                 if selectedTab == .replies {
                     await repliesViewModel.loadInitial()
                 }
+                if selectedTab == .saved {
+                    await savedViewModel.loadInitial()
+                }
             }
         }
         .refreshable {
@@ -152,6 +156,9 @@ struct ProfileView: View {
                 repliesViewModel.setUser(id: userId)
                 if selectedTab == .replies {
                     await repliesViewModel.loadInitial()
+                }
+                if selectedTab == .saved {
+                    await savedViewModel.loadInitial()
                 }
             }
         }
@@ -167,6 +174,10 @@ struct ProfileView: View {
             if newValue == .replies {
                 guard repliesViewModel.replies.isEmpty else { return }
                 Task { await repliesViewModel.loadInitial() }
+            }
+            if newValue == .saved {
+                guard savedViewModel.posts.isEmpty else { return }
+                Task { await savedViewModel.loadInitial() }
             }
         }
         .onChange(of: viewModel.user?.backendId) { _, newValue in
@@ -826,6 +837,61 @@ struct PostsList: View {
                 Rectangle()
                     .frame(height: 1)
                     .foregroundColor(.loopedTextSecondary.opacity(0.1))
+            }
+        }
+    }
+}
+
+struct SavedPostsList: View {
+    @ObservedObject var viewModel: CollectionPostsViewModel
+    @EnvironmentObject var commentsManager: CommentsModalManager
+
+    var body: some View {
+        if viewModel.isLoading && viewModel.posts.isEmpty {
+            ProgressView()
+                .padding(.top, 60)
+        } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
+            VStack(spacing: 12) {
+                Text(error)
+                    .font(.loopedBody)
+                    .foregroundColor(.red)
+                Button("Retry") {
+                    Task { await viewModel.loadInitial() }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.top, 60)
+        } else if viewModel.posts.isEmpty {
+            VStack(spacing: 16) {
+                Image(systemName: "bookmark")
+                    .font(.system(size: 48))
+                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                Text("No saved posts yet")
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .padding(.top, 60)
+        } else {
+            ForEach(viewModel.posts) { post in
+                PostCard(
+                    post: post,
+                    onBookmarkToggle: { saved in
+                        viewModel.handleBookmarkChange(for: post, isSaved: saved)
+                    },
+                    onDelete: { deleted in
+                        viewModel.removePost(backendId: deleted.backendId)
+                    }
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+                .onAppear {
+                    Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
+                }
+            }
+
+            if viewModel.isLoadingMore {
+                ProgressView()
+                    .padding()
             }
         }
     }

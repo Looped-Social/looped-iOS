@@ -11,7 +11,7 @@ struct TrendingFeedResponseDTO: Codable {
 
 struct TrendingPostDTO: Codable {
     let id: Int
-    let authorId: Int
+    let authorId: Int?
     let companyId: Int
     let communityId: Int?
     let content: String
@@ -32,20 +32,30 @@ struct TrendingPostDTO: Codable {
 
 struct PostDTO: Codable {
     let id: Int
-    let authorId: Int
-    let companyId: Int
+    let authorId: Int?
+    let authorHandle: String?
+    let authorDisplayName: String?
+    let authorFirstName: String?
+    let authorLastName: String?
+    let authorProfileImageUrl: String?
+    let authorIsAnonymous: Bool?
+    let companyId: Int?
     let communityId: Int?
     let communityName: String?
     let communityKind: String?
     let content: String
     let mediaAssetId: Int?
-    let likesCount: Int
+    let likesCount: Int?
     let commentsCount: Int?
     let shareCount: Int?
     let createdAt: Date
     let isSaved: Bool?
     let isAnonymous: Bool?
     let authorDisplayCommunity: DisplayCommunityDTO?
+}
+
+struct CreatePostResponseDTO: Codable {
+    let id: Int
 }
 
 struct CreatePostRequestDTO: Codable {

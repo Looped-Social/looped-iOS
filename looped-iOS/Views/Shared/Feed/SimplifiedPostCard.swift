@@ -4,8 +4,7 @@ struct SimplifiedPostCard: View {
     let post: Post
 
     private var authorName: String {
-        if post.isAnonymous { return "Anonymous" }
-        return post.authorDisplayName ?? "User"
+        post.resolvedAuthorName
     }
     
     var body: some View {

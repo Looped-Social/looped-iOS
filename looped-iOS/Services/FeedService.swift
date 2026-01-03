@@ -57,13 +57,47 @@ class FeedService: FeedServiceProtocol {
             headers = ["X-Actor": "anon"]
         }
 
-        let dto: PostDTO = try await apiClient.postWithHeaders(
+        let response: CreatePostResponseDTO = try await apiClient.postWithHeaders(
             "/v1/posts",
             body: request,
             headers: headers,
             requiresAuth: !isAnonymous
         )
-        return Post(dto: dto, isAnonymousOverride: isAnonymous)
+        do {
+            let dto: PostDTO = try await apiClient.get(
+                "/v1/posts/\(response.id)",
+                requiresAuth: !isAnonymous
+            )
+            return Post(dto: dto, isAnonymousOverride: isAnonymous)
+        } catch {
+            return Post(
+                id: UUID(),
+                backendId: response.id,
+                authorBackendId: nil,
+                content: content,
+                authorId: UUID(),
+                authorDisplayName: nil,
+                authorHandle: nil,
+                authorFirstName: nil,
+                authorLastName: nil,
+                authorProfileImageURL: nil,
+                company: "",
+                communityId: communityId,
+                communityName: nil,
+                communityKind: nil,
+                isAnonymous: isAnonymous,
+                reactionCount: 0,
+                commentsCount: 0,
+                shareCount: 0,
+                userReaction: nil,
+                mediaAssetId: nil,
+                attachments: nil,
+                isSaved: false,
+                authorDisplayCommunity: nil,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+        }
     }
     
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse {

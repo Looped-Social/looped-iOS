@@ -18,6 +18,7 @@ struct CreatePostView: View {
     @State private var showDraftPrompt = false
     @State private var activeDraftId: UUID?
     @StateObject private var verificationViewModel = CommunityVerificationsViewModel()
+    @State private var toastMessage: ToastMessage?
 
     @ObservedObject var feedViewModel: FeedViewModel
     private let draft: PostDraft?
@@ -297,6 +298,7 @@ struct CreatePostView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .toast($toastMessage)
         .alert("Verification Required", isPresented: $showVerificationInfoAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -376,6 +378,8 @@ struct CreatePostView: View {
             }
             onPostCreated?()
             dismiss()
+        } else {
+            presentToast(message: "Post not created")
         }
     }
 
@@ -443,6 +447,12 @@ struct CreatePostView: View {
             draftStore.delete(id: activeDraftId)
         }
         dismiss()
+    }
+
+    private func presentToast(message: String) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            toastMessage = ToastMessage(text: message)
+        }
     }
 }
 

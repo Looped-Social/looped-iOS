@@ -1,6 +1,18 @@
 import Foundation
 
 class APIClient {
+    private static let iso8601FormatterWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
     private let baseURL: URL
     private let session: URLSession
     private let tokenStorage: TokenStorage
@@ -255,9 +267,20 @@ class APIClient {
                 // swiftlint:disable:next force_cast
                 return EmptyResponse() as! T
             }
-            
+
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let value = try container.decode(String.self)
+                if let date = APIClient.iso8601FormatterWithFractional.date(from: value)
+                    ?? APIClient.iso8601Formatter.date(from: value) {
+                    return date
+                }
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Invalid ISO-8601 date: \(value)"
+                )
+            }
             decoder.keyDecodingStrategy = .convertFromSnakeCase
 
             return try decoder.decode(T.self, from: data)

@@ -38,10 +38,7 @@ struct CommentsView: View {
     }
 
     private var postAuthorName: String {
-        if post.isAnonymous {
-            return "Anonymous"
-        }
-        return post.authorDisplayName ?? "User"
+        post.resolvedAuthorName
     }
 
     private var imageUrls: [String] {
