@@ -250,7 +250,7 @@ class APIClient {
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.invalidResponse
             }
-            
+
             guard 200...299 ~= httpResponse.statusCode else {
                 if httpResponse.statusCode == 401 {
                     throw APIError.unauthorized
@@ -261,7 +261,18 @@ class APIClient {
                 }
                 throw APIError.serverError(httpResponse.statusCode)
             }
-            
+
+            #if DEBUG
+            if shouldLogProfileResponse(request: request) {
+                let method = request.httpMethod ?? "GET"
+                let path = request.url?.path ?? "unknown"
+                let snippet = String(decoding: data, as: UTF8.self)
+                let body = snippet.count > 4000 ? String(snippet.prefix(4000)) + "..." : snippet
+                print("Profile response: \(method) \(path) status=\(httpResponse.statusCode)")
+                print("Profile response body: \(body)")
+            }
+            #endif
+
             // Handle empty bodies (e.g., 204) for types expecting EmptyResponse
             if data.isEmpty, T.self == EmptyResponse.self {
                 // swiftlint:disable:next force_cast
@@ -315,6 +326,11 @@ class APIClient {
         } catch {
             throw APIError.networkError(error)
         }
+    }
+
+    private func shouldLogProfileResponse(request: URLRequest) -> Bool {
+        guard request.httpMethod == "GET", let path = request.url?.path else { return false }
+        return path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/")
     }
 
 }

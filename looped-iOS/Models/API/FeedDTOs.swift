@@ -71,6 +71,15 @@ struct CreatePostRequestDTO: Codable {
     let anonTimestamp: Int?
 }
 
+struct UpdatePostRequestDTO: Codable {
+    let content: String
+    let asAnon: Bool?
+    let anonProfileId: Int?
+    let anonCert: String?
+    let anonCertKid: String?
+    let anonSig: String?
+}
+
 struct PostLikeResponseDTO: Codable {
     let postId: Int
     let likesCount: Int

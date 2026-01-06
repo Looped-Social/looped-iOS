@@ -54,9 +54,7 @@ struct FilterTab: View {
                 SearchFilterOption(title: "Company", apiKey: "company")
             ],
             selectedFilter: $selectedFilter,
-            onFilterChange: { filter in
-                print("Selected filter: \(filter.title)")
-            }
+            onFilterChange: { _ in }
         )
 
         Text("Selected: \(selectedFilter.title)")

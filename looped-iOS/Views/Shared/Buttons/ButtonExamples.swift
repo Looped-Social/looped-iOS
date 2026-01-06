@@ -13,17 +13,11 @@ struct ButtonExamples: View {
                     Text("Individual Button Components")
                         .font(.headline)
                     
-                    PrimaryButton(title: "Sign In") {
-                        print("Sign in tapped")
-                    }
+                    PrimaryButton(title: "Sign In") { }
                     
-                    SecondaryButton(title: "Cancel") {
-                        print("Cancel tapped")
-                    }
+                    SecondaryButton(title: "Cancel") { }
                     
-                    DestructiveButton(title: "Delete Account") {
-                        print("Delete account confirmed")
-                    }
+                    DestructiveButton(title: "Delete Account") { }
                     
                     PrimaryButton(
                         title: "Loading Example",
@@ -43,23 +37,17 @@ struct ButtonExamples: View {
                     StyledButton(
                         title: "Primary Style",
                         style: PrimaryButtonStyle()
-                    ) {
-                        print("Styled primary tapped")
-                    }
+                    ) { }
                     
                     StyledButton(
                         title: "Secondary Style",
                         style: SecondaryButtonStyle()
-                    ) {
-                        print("Styled secondary tapped")
-                    }
+                    ) { }
                     
                     StyledButton(
                         title: "Destructive Style",
                         style: DestructiveButtonStyle()
-                    ) {
-                        print("Styled destructive tapped")
-                    }
+                    ) { }
                 }
                 
                 Divider()
@@ -69,17 +57,11 @@ struct ButtonExamples: View {
                     Text("Button States")
                         .font(.headline)
                     
-                    PrimaryButton(title: "Enabled", isEnabled: true) {
-                        print("Enabled button tapped")
-                    }
+                    PrimaryButton(title: "Enabled", isEnabled: true) { }
                     
-                    PrimaryButton(title: "Disabled", isEnabled: false) {
-                        print("This won't be called")
-                    }
+                    PrimaryButton(title: "Disabled", isEnabled: false) { }
                     
-                    PrimaryButton(title: "Loading", isLoading: true) {
-                        print("Loading button tapped")
-                    }
+                    PrimaryButton(title: "Loading", isLoading: true) { }
                 }
             }
             .padding()

@@ -28,12 +28,26 @@ struct AnonRegisterResponseDTO: Decodable {
 struct AnonProfileDTO: Decodable {
     let id: Int
     let handle: String
-    let companyId: Int
+    let companyId: Int?
+    let createdAt: Date?
+    let updatedAt: Date?
+    let stats: AnonProfileStatsDTO?
+    let displayCommunity: DisplayCommunityDTO?
+}
+
+struct AnonProfileStatsDTO: Decodable {
     let followerCount: Int?
     let followingCount: Int?
     let postsCount: Int?
-    let createdAt: Date?
-    let updatedAt: Date?
+}
+
+struct AnonDisplayCommunityRequestDTO: Encodable {
+    let communityId: Int?
+    let asAnon: Bool
+    let anonProfileId: Int
+    let anonCert: String
+    let anonCertKid: String
+    let anonSig: String
 }
 
 struct AnonRevokeRequestDTO: Encodable {

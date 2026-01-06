@@ -6,6 +6,7 @@ final class CollectionPostsViewModel: ObservableObject {
         case liked
         case saved
         case user(userId: Int)
+        case anon(profileId: Int)
     }
     
     @Published var posts: [Post] = []
@@ -43,6 +44,13 @@ final class CollectionPostsViewModel: ObservableObject {
             isLoadingMore = true
         }
         errorMessage = nil
+        defer {
+            if reset {
+                isLoading = false
+            } else {
+                isLoadingMore = false
+            }
+        }
         
         do {
             let page = try await fetchPage(cursor: reset ? nil : nextCursor)
@@ -54,13 +62,8 @@ final class CollectionPostsViewModel: ObservableObject {
             }
             nextCursor = page.nextCursor
         } catch {
+            if isCancellation(error) { return }
             errorMessage = error.localizedDescription
-        }
-        
-        if reset {
-            isLoading = false
-        } else {
-            isLoadingMore = false
         }
     }
     
@@ -72,6 +75,8 @@ final class CollectionPostsViewModel: ObservableObject {
             return try await feedService.fetchSavedPosts(limit: pageSize, cursor: cursor)
         case .user(let userId):
             return try await feedService.fetchUserPosts(userId: userId, limit: pageSize, cursor: cursor)
+        case .anon(let profileId):
+            return try await feedService.fetchAnonPosts(anonProfileId: profileId, limit: pageSize, cursor: cursor)
         }
     }
     
@@ -84,6 +89,14 @@ final class CollectionPostsViewModel: ObservableObject {
         guard let backendId else { return }
         posts.removeAll { $0.backendId == backendId }
     }
+
+    func updatePost(_ updated: Post) {
+        guard let backendId = updated.backendId else { return }
+        if let index = posts.firstIndex(where: { $0.backendId == backendId }) {
+            let normalized = applyOverrides(to: [updated])
+            posts[index] = normalized.first ?? updated
+        }
+    }
     
     private func applyOverrides(to posts: [Post]) -> [Post] {
         switch collection {
@@ -92,5 +105,25 @@ final class CollectionPostsViewModel: ObservableObject {
         default:
             return posts
         }
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return true
+        }
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .networkError(let underlying):
+                return isCancellation(underlying)
+            default:
+                return false
+            }
+        }
+        return false
     }
 }

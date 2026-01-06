@@ -5,10 +5,11 @@ import SwiftUI
 struct OrganizationSelectionView: View {
     let title: String
     let organizations: [Organization]
+    @Binding var searchText: String
+    let selectedOrganizationId: UUID?
     let onSelect: (Organization) -> Void
+    let onBack: () -> Void
     let onNavigate: (AuthScreen) -> Void
-
-    @State private var searchText = ""
 
     private var filteredOrganizations: [Organization] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -22,6 +23,10 @@ struct OrganizationSelectionView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
+                header
+                    .padding(.top, 8)
+                    .padding(.horizontal, 16)
+
                 Spacer()
                     .frame(height: geometry.size.height * 0.08)
 
@@ -41,7 +46,7 @@ struct OrganizationSelectionView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color.loopedMutedBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22)
                         .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
@@ -53,7 +58,10 @@ struct OrganizationSelectionView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(filteredOrganizations) { organization in
-                            OrganizationListRow(organization: organization) {
+                            OrganizationListRow(
+                                organization: organization,
+                                isSelected: organization.id == selectedOrganizationId
+                            ) {
                                 onSelect(organization)
                                 if organization.kind == .school {
                                     onNavigate(.degreeSelection)
@@ -75,8 +83,23 @@ struct OrganizationSelectionView: View {
     }
 }
 
+private extension OrganizationSelectionView {
+    var header: some View {
+        HStack {
+            Button(action: onBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.loopedTextPrimary)
+                    .frame(width: 40, height: 40)
+            }
+            Spacer()
+        }
+    }
+}
+
 private struct OrganizationListRow: View {
     let organization: Organization
+    let isSelected: Bool
     let onSelect: () -> Void
 
     var body: some View {
@@ -96,14 +119,23 @@ private struct OrganizationListRow: View {
                     .foregroundColor(.loopedTextPrimary)
 
                 Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.loopedPrimary)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color.loopedBackground)
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                    .stroke(
+                        isSelected ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.2),
+                        lineWidth: 1
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -114,6 +146,9 @@ private struct OrganizationListRow: View {
     OrganizationSelectionView(
         title: "Where do you work?",
         organizations: MockOrganizations.companies,
-        onSelect: { _ in }
+        searchText: .constant(""),
+        selectedOrganizationId: nil,
+        onSelect: { _ in },
+        onBack: { }
     ) { _ in }
 }

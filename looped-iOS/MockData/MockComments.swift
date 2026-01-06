@@ -317,7 +317,8 @@ struct MockComments {
                 likeCount: Int.random(in: 0...50),
                 isLikedByCreator: i % 3 == 0,
                 createdAt: Date().addingTimeInterval(-Double(i * 1800)),
-                replyToCommentId: commentId
+                replyToCommentId: commentId,
+                replyToBackendId: nil
             )
 
             replies.append(reply)

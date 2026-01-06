@@ -16,6 +16,7 @@ struct CommentsView: View {
     @State private var showImageViewer = false
     @State private var showVideoPlayer = false
     @State private var anonProfileId: Int?
+    @State private var pendingFocusCommentId: Int?
 
     private var comments: [Comment] {
         commentsManager.currentComments
@@ -46,58 +47,68 @@ struct CommentsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerBar
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                headerBar
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    threadHeader
-                    commentsContent
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 28) {
+                        threadHeader
+                        commentsContent
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
-            }
 
-            commentInput
-        }
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .onAppear {
-            setupKeyboardObservers()
-            Task { await loadAnonProfileId() }
-        }
-        .onDisappear {
-            removeKeyboardObservers()
-        }
-        .onChange(of: isAnonymousMode) { _, _ in
-            Task { await loadAnonProfileId() }
-        }
-        .onChange(of: commentsManager.editTarget?.backendId) { _, newValue in
-            if let newValue, let target = commentsManager.editTarget, target.backendId == newValue {
-                commentText = target.content
-            } else if commentsManager.editTarget == nil {
-                commentText = ""
+                commentInput
             }
-        }
-        .fullScreenCover(isPresented: $showHashtagFeed, onDismiss: {
-            selectedHashtag = nil
-        }) {
-            if let hashtag = selectedHashtag {
-                HashtagFeedView(hashtag: hashtag)
-                    .environmentObject(commentsManager)
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationBarHidden(true)
+            .onAppear {
+                pendingFocusCommentId = commentsManager.focusCommentId
+                setupKeyboardObservers()
+                Task { await loadAnonProfileId() }
+                attemptFocusScroll(proxy)
             }
-        }
-        .fullScreenCover(isPresented: $showImageViewer) {
-            FullScreenImageViewer(
-                imageUrls: imageUrls,
-                initialIndex: selectedImageIndex,
-                isPresented: $showImageViewer
-            )
-        }
-        .fullScreenCover(isPresented: $showVideoPlayer) {
-            if let url = selectedVideoUrl {
-                VideoPlayerSheet(videoUrl: url, isPresented: $showVideoPlayer)
+            .onDisappear {
+                removeKeyboardObservers()
+            }
+            .onChange(of: isAnonymousMode) { _, _ in
+                Task { await loadAnonProfileId() }
+            }
+            .onChange(of: commentsManager.editTarget?.backendId) { _, newValue in
+                if let newValue, let target = commentsManager.editTarget, target.backendId == newValue {
+                    commentText = target.content
+                } else if commentsManager.editTarget == nil {
+                    commentText = ""
+                }
+            }
+            .onChange(of: commentsManager.currentComments.count) { _, _ in
+                attemptFocusScroll(proxy)
+            }
+            .onReceive(commentsManager.$replyThreads) { _ in
+                attemptFocusScroll(proxy)
+            }
+            .fullScreenCover(isPresented: $showHashtagFeed, onDismiss: {
+                selectedHashtag = nil
+            }) {
+                if let hashtag = selectedHashtag {
+                    HashtagFeedView(hashtag: hashtag)
+                        .environmentObject(commentsManager)
+                }
+            }
+            .fullScreenCover(isPresented: $showImageViewer) {
+                FullScreenImageViewer(
+                    imageUrls: imageUrls,
+                    initialIndex: selectedImageIndex,
+                    isPresented: $showImageViewer
+                )
+            }
+            .fullScreenCover(isPresented: $showVideoPlayer) {
+                if let url = selectedVideoUrl {
+                    VideoPlayerSheet(videoUrl: url, isPresented: $showVideoPlayer)
+                }
             }
         }
     }
@@ -246,6 +257,7 @@ private extension CommentsView {
                             },
                             onHashtagTap: handleHashtagTap
                         )
+                        .id(comment.backendId ?? comment.id.hashValue)
                         .onAppear {
                             Task { await commentsManager.loadMoreIfNeeded(current: comment) }
                         }
@@ -372,6 +384,24 @@ private extension CommentsView {
 
 // MARK: - Keyboard helpers
 private extension CommentsView {
+    func attemptFocusScroll(_ proxy: ScrollViewProxy) {
+        guard let focusId = pendingFocusCommentId else { return }
+        guard focusCommentExists(focusId) else { return }
+        withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo(focusId, anchor: .top)
+        }
+        pendingFocusCommentId = nil
+    }
+
+    func focusCommentExists(_ focusId: Int) -> Bool {
+        if commentsManager.currentComments.contains(where: { $0.backendId == focusId }) {
+            return true
+        }
+        return commentsManager.replyThreads.values.contains { thread in
+            thread.replies.contains { $0.backendId == focusId }
+        }
+    }
+
     func setupKeyboardObservers() {
         NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,

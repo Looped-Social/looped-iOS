@@ -104,17 +104,13 @@ struct HashtagText: View {
     VStack(spacing: 20) {
         HashtagText(
             text: "This is a test with #hashtag and #another one!",
-            onHashtagTap: { hashtag in
-                print("Tapped: \(hashtag)")
-            }
+            onHashtagTap: { _ in }
         )
 
         HashtagText(
             text: "Check out #TGIF #productdesign and let me know!",
             font: .headline,
-            onHashtagTap: { hashtag in
-                print("Tapped: \(hashtag)")
-            }
+            onHashtagTap: { _ in }
         )
     }
     .padding()

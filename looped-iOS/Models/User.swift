@@ -23,6 +23,7 @@ struct User: Codable, Identifiable {
     let commentsCount: Int?
     let showFollowerCount: Bool?
     let displayCommunity: DisplayCommunity?
+    let displaySpecialization: DisplayCommunity?
     
     init(
         id: UUID,
@@ -46,7 +47,8 @@ struct User: Codable, Identifiable {
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
         showFollowerCount: Bool? = nil,
-        displayCommunity: DisplayCommunity? = nil
+        displayCommunity: DisplayCommunity? = nil,
+        displaySpecialization: DisplayCommunity? = nil
     ) {
         self.id = id
         self.backendId = backendId
@@ -70,6 +72,7 @@ struct User: Codable, Identifiable {
         self.commentsCount = commentsCount
         self.showFollowerCount = showFollowerCount
         self.displayCommunity = displayCommunity
+        self.displaySpecialization = displaySpecialization
     }
 }
 
@@ -104,6 +107,7 @@ extension User {
         self.commentsCount = stats?.commentsCount ?? profile?.commentsCount
         self.showFollowerCount = profile?.showFollowerCount ?? dto.showFollowerCount
         self.displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
+        self.displaySpecialization = dto.displaySpecialization.map(DisplayCommunity.init(dto:))
     }
 
     init(
@@ -126,7 +130,8 @@ extension User {
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
         showFollowerCount: Bool? = nil,
-        displayCommunity: DisplayCommunity? = nil
+        displayCommunity: DisplayCommunity? = nil,
+        displaySpecialization: DisplayCommunity? = nil
     ) {
         self.init(
             id: id,
@@ -150,7 +155,8 @@ extension User {
             postsCount: postsCount,
             commentsCount: commentsCount,
             showFollowerCount: showFollowerCount,
-            displayCommunity: displayCommunity
+            displayCommunity: displayCommunity,
+            displaySpecialization: displaySpecialization
         )
     }
 

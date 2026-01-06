@@ -63,20 +63,14 @@ struct DestructiveButton: View {
 
 #Preview {
     VStack(spacing: 16) {
-        DestructiveButton(title: "Delete Account") {
-            print("Destructive action confirmed")
-        }
+        DestructiveButton(title: "Delete Account") { }
         
         DestructiveButton(
             title: "Delete (No Confirmation)",
             requiresConfirmation: false
-        ) {
-            print("Immediate destructive action")
-        }
+        ) { }
         
-        DestructiveButton(title: "Disabled", isEnabled: false) {
-            print("Won't be called")
-        }
+        DestructiveButton(title: "Disabled", isEnabled: false) { }
     }
     .padding()
 }

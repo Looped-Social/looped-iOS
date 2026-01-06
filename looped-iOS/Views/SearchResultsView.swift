@@ -144,9 +144,8 @@ struct SearchResultsView: View {
             // Then profile/other results
             SearchResultsSection(
                 results: viewModel.searchResults,
-                onPostTap: { post in
+                onPostTap: { _ in
                     // Navigate to post detail
-                    print("Tapped post: \(post.content)")
                 },
                 onLoopTap: { loop in
                     if let community = CommunityProfileData(loop: loop) {

@@ -262,6 +262,7 @@ struct CommentRow: View {
                                     onDelete: onDelete,
                                     onHashtagTap: onHashtagTap
                                 )
+                                .id(reply.backendId ?? reply.id.hashValue)
                             }
 
                             if isLoadingMoreReplies {

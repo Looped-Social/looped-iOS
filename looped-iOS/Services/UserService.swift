@@ -18,7 +18,11 @@ class UserService: UserServiceProtocol {
         }
         // /v1/me may omit follower/following stats; fetch full user if counts are missing
         let baseUser = User(dto: userDTO, profile: userDTO.profile)
-        if baseUser.followerCount == nil || baseUser.followingCount == nil || baseUser.postsCount == nil || baseUser.commentsCount == nil {
+        if baseUser.followerCount == nil
+            || baseUser.followingCount == nil
+            || baseUser.postsCount == nil
+            || baseUser.commentsCount == nil
+            || baseUser.showFollowerCount == nil {
             let fullDTO: UserDTO = try await apiClient.get("/v1/users/\(userDTO.id)")
             return User(dto: fullDTO, profile: fullDTO.profile)
         }
@@ -44,6 +48,37 @@ class UserService: UserServiceProtocol {
     func updateDisplayCommunity(communityId: Int?) async throws -> User {
         let request = DisplayCommunityUpdateRequest(communityId: communityId)
         let data = try await apiClient.putData("/v1/users/me/display-community", body: request)
+        if data.isEmpty {
+            return try await getCurrentUser()
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            let formatterWithFractional = ISO8601DateFormatter()
+            formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            if let date = formatterWithFractional.date(from: value) ?? formatter.date(from: value) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid ISO-8601 date: \(value)"
+            )
+        }
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        do {
+            let dto = try decoder.decode(UserDTO.self, from: data)
+            return User(dto: dto, profile: dto.profile)
+        } catch {
+            return try await getCurrentUser()
+        }
+    }
+
+    func updateDisplaySpecialization(specializationId: Int?) async throws -> User {
+        let request = DisplaySpecializationUpdateRequest(specializationId: specializationId)
+        let data = try await apiClient.putData("/v1/users/me/display-specialization", body: request)
         if data.isEmpty {
             return try await getCurrentUser()
         }
@@ -163,7 +198,8 @@ class UserService: UserServiceProtocol {
                 isDeleted: dto.isDeleted ?? false,
                 createdAt: dto.createdAt,
                 updatedAt: dto.createdAt,
-                replyToCommentId: dto.parentId != nil ? UUID.fromBackendId(dto.parentId!) : nil
+                replyToCommentId: dto.parentId != nil ? UUID.fromBackendId(dto.parentId!) : nil,
+                replyToBackendId: dto.parentId
             )
         }
         return UserCommentsPage(comments: comments, nextCursor: response.nextCursor)
@@ -201,6 +237,10 @@ private struct UpdateProfileRequest: Codable {
 
 private struct DisplayCommunityUpdateRequest: Codable {
     let communityId: Int?
+}
+
+private struct DisplaySpecializationUpdateRequest: Codable {
+    let specializationId: Int?
 }
 
 private struct EmptyBody: Codable {}

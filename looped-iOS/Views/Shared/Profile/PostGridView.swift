@@ -185,9 +185,7 @@ struct EmptyPostsView: View {
 }
 
 #Preview("Grid with posts") {
-    PostGridView(posts: MockPosts.getRecentPosts().prefix(6).map { $0 }) { post in
-        print("Tapped post: \(post.id)")
-    }
+    PostGridView(posts: MockPosts.getRecentPosts().prefix(6).map { $0 }) { _ in }
 }
 
 #Preview("Empty grid") {

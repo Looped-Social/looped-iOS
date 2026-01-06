@@ -47,9 +47,7 @@ struct HashtagSuggestionItem: View {
 #Preview {
     HashtagSuggestions(
         hashtags: ["#interns", "#lunch", "#elevator"],
-        onHashtagTap: { hashtag in
-            print("Tapped: \(hashtag)")
-        }
+        onHashtagTap: { _ in }
     )
     .background(Color.loopedBackground)
 }

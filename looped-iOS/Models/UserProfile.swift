@@ -20,6 +20,7 @@ struct UserProfile: Codable, Identifiable {
     let showFollowerCount: Bool
     let isCurrentUser: Bool
     let displayCommunity: DisplayCommunity?
+    let displaySpecialization: DisplayCommunity?
     let createdAt: Date
     let updatedAt: Date
 
@@ -33,7 +34,22 @@ struct UserProfile: Codable, Identifiable {
     }
 
     var formattedJobTitle: String {
-        "\(resolvedJobTitle) @ \(resolvedCompany)"
+        if let specializationLine = displaySpecializationLine {
+            return specializationLine
+        }
+        return "\(resolvedJobTitle) @ \(resolvedCompany)"
+    }
+
+    var displaySpecializationLine: String? {
+        let specializationName = normalizedOptional(displaySpecialization?.name)
+        let communityName = normalizedOptional(displayCommunity?.name)
+        if let communityName {
+            return "\(specializationName ?? "Member") @ \(communityName)"
+        }
+        if let specializationName {
+            return specializationName
+        }
+        return nil
     }
 
     var resolvedDisplayName: String {
@@ -51,6 +67,11 @@ struct UserProfile: Codable, Identifiable {
     private func normalized(_ value: String?, fallback: String) -> String {
         let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
+    }
+
+    private func normalizedOptional(_ value: String?) -> String? {
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
@@ -81,6 +102,7 @@ extension UserProfile {
             showFollowerCount: user.showFollowerCount ?? true,
             isCurrentUser: isCurrentUser,
             displayCommunity: user.displayCommunity,
+            displaySpecialization: user.displaySpecialization,
             createdAt: createdAt,
             updatedAt: user.updatedAt ?? now
         )

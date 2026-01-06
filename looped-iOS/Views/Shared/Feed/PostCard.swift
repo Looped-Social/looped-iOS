@@ -4,12 +4,14 @@ struct PostCard: View {
     let post: Post
     let showsCommunityLabel: Bool
     let onBookmarkToggle: ((Bool) -> Void)?
+    let onUpdate: ((Post) -> Void)?
     let onDelete: ((Post) -> Void)?
     private let feedService: FeedServiceProtocol
     @State private var isLiked = false
     @State private var isBookmarked = false
     @State private var bookmarkInitialized = false
     @State private var isBookmarkLoading = false
+    @State private var isLikeLoading = false
     @State private var showHeartBurst = false
     @State private var heartScale: CGFloat = 0.6
     @State private var heartOpacity: Double = 0
@@ -30,6 +32,10 @@ struct PostCard: View {
     @State private var moderationAlertMessage: String?
     @State private var isDeleting = false
     @State private var deleteErrorMessage: String?
+    @State private var showEditSheet = false
+    @State private var editText = ""
+    @State private var isEditing = false
+    @State private var editErrorMessage: String?
 
     private let moderationService: ModerationServiceProtocol = ModerationService()
 
@@ -38,12 +44,14 @@ struct PostCard: View {
         feedService: FeedServiceProtocol = FeedService(),
         showsCommunityLabel: Bool = false,
         onBookmarkToggle: ((Bool) -> Void)? = nil,
+        onUpdate: ((Post) -> Void)? = nil,
         onDelete: ((Post) -> Void)? = nil
     ) {
         self.post = post
         self.feedService = feedService
         self.showsCommunityLabel = showsCommunityLabel
         self.onBookmarkToggle = onBookmarkToggle
+        self.onUpdate = onUpdate
         self.onDelete = onDelete
     }
 
@@ -74,6 +82,18 @@ struct PostCard: View {
         shareCountOverride ?? post.shareCount
     }
 
+    private var displayedReactionCount: Int {
+        let base = post.reactionCount
+        if isLiked, post.userReaction != .like {
+            return base + 1
+        }
+        return base
+    }
+
+    private var displayCommunityText: String? {
+        post.authorDisplayCommunity?.displayText
+    }
+
     private var communityContextText: String? {
         guard showsCommunityLabel else { return nil }
         if let name = post.communityName?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -85,6 +105,58 @@ struct PostCard: View {
         }
         return nil
     }
+
+    private var authorProfileId: Int? {
+        post.authorBackendId ?? post.authorId.backendInt
+    }
+
+    @ViewBuilder
+    private var authorAvatar: some View {
+        if let authorProfileId {
+            NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
+                avatarContent
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            avatarContent
+        }
+    }
+
+    private var avatarContent: some View {
+        Circle()
+            .fill(Color.loopedTextSecondary.opacity(0.2))
+            .overlay(
+                Text(initials(from: post.resolvedAuthorName))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.loopedTextPrimary)
+            )
+            .frame(width: 40, height: 40)
+    }
+
+    @ViewBuilder
+    private var authorName: some View {
+        if let authorProfileId {
+            NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
+                Text(post.resolvedAuthorName)
+                    .font(.headline)
+                    .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            Text(post.resolvedAuthorName)
+                .font(.headline)
+                .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+        }
+    }
+
+    @ViewBuilder
+    private func authorProfileDestination(profileId: Int) -> some View {
+        if post.isAnonymous {
+            UserProfileView(anonProfileId: profileId)
+        } else {
+            UserProfileView(userId: profileId)
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -92,29 +164,24 @@ struct PostCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                 // Header with user info
                 HStack(alignment: .top, spacing: 12) {
-                    // Avatar (hidden for anonymous posts)
                     if !post.isAnonymous {
-                        Circle()
-                            .fill(Color.loopedTextSecondary.opacity(0.2))
-                            .overlay(
-                                Text(initials(from: post.resolvedAuthorName))
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.loopedTextPrimary)
-                            )
-                            .frame(width: 40, height: 40)
+                        authorAvatar
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 8) {
-                            // Name and handle
-                            Text(post.resolvedAuthorName)
-                                .font(.headline)
-                                .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+                        HStack(spacing: 6) {
+                            // Name and primary community
+                            authorName
 
-                            if !post.isAnonymous {
-                                Text("@\(post.resolvedAuthorHandle)")
+                            if let displayCommunityText {
+                                Text("•")
                                     .font(.subheadline)
                                     .foregroundColor(.loopedTextSecondary)
+                                Text(displayCommunityText)
+                                    .font(.subheadline)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
                             }
 
                             Spacer()
@@ -124,16 +191,6 @@ struct PostCard: View {
                                 Image(systemName: "ellipsis")
                                     .foregroundColor(.loopedTextSecondary)
                             }
-                        }
-
-                        if !post.isAnonymous {
-                            DisplayCommunityRow(
-                                displayCommunity: post.authorDisplayCommunity,
-                                fallbackText: "No primary community selected",
-                                font: .subheadline,
-                                textColor: .loopedTextSecondary,
-                                iconSize: 14
-                            )
                         }
 
                         if let communityContextText {
@@ -196,7 +253,7 @@ struct PostCard: View {
                                 .renderingMode(.template)
                                 .frame(width: 20, height: 20)
                                 .foregroundColor(isLiked ? .red : .loopedTextSecondary)
-                            Text("\(post.reactionCount + (isLiked ? 1 : 0))")
+                            Text("\(displayedReactionCount)")
                                 .font(.caption)
                                 .foregroundColor(.loopedTextSecondary)
                         }
@@ -267,6 +324,10 @@ struct PostCard: View {
                 isBookmarked = post.isSaved
                 bookmarkInitialized = true
             }
+            syncLikeState()
+        }
+        .onChange(of: post.userReaction) { _, _ in
+            syncLikeState()
         }
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [shareText]) { completed in
@@ -343,6 +404,12 @@ struct PostCard: View {
             .hidden()
         )
         .confirmationDialog("Post options", isPresented: $showActionMenu, titleVisibility: .visible) {
+            if canEditPost {
+                Button("Edit Post") {
+                    editText = post.content
+                    showEditSheet = true
+                }
+            }
             if canDeletePost {
                 Button("Delete Post", role: .destructive) {
                     Task { await deletePost() }
@@ -417,6 +484,14 @@ struct PostCard: View {
                 )
             }
         }
+        .sheet(isPresented: $showEditSheet) {
+            EditPostSheet(
+                text: $editText,
+                isSaving: isEditing,
+                onCancel: { showEditSheet = false },
+                onSave: { Task { await updatePost() } }
+            )
+        }
         .alert(
             "Thanks",
             isPresented: Binding(
@@ -438,6 +513,17 @@ struct PostCard: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(deleteErrorMessage ?? "")
+        }
+        .alert(
+            "Couldn't update post",
+            isPresented: Binding(
+                get: { editErrorMessage != nil },
+                set: { if !$0 { editErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(editErrorMessage ?? "")
         }
     }
 
@@ -495,7 +581,11 @@ struct PostCard: View {
         isDeleting = true
         defer { isDeleting = false }
         do {
-            let response = try await feedService.deletePost(postId: postId, communityId: post.communityId)
+            let response = try await feedService.deletePost(
+                postId: postId,
+                communityId: post.communityId,
+                asAnon: post.isAnonymous
+            )
             if response.deleted {
                 onDelete?(post)
             } else {
@@ -503,6 +593,26 @@ struct PostCard: View {
             }
         } catch {
             deleteErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func updatePost() async {
+        guard let postId = post.backendId, !isEditing else { return }
+        let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isEditing = true
+        defer { isEditing = false }
+        do {
+            let updated = try await feedService.updatePost(
+                postId: postId,
+                content: trimmed,
+                isAnonymous: post.isAnonymous,
+                communityId: post.communityId
+            )
+            onUpdate?(updated)
+            showEditSheet = false
+        } catch {
+            editErrorMessage = error.localizedDescription
         }
     }
 
@@ -514,18 +624,42 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle() {
-        let nextValue = !isLiked
-        isLiked = nextValue
-        if nextValue {
-            triggerHeartBurst()
+        guard let postId = post.backendId else { return }
+        if isLiked { return }
+        isLiked = true
+        triggerHeartBurst()
+        Task {
+            guard !isLikeLoading else { return }
+            isLikeLoading = true
+            defer { isLikeLoading = false }
+            do {
+                let response = try await feedService.reactToPost(
+                    postId: postId,
+                    communityId: post.communityId,
+                    reaction: .like
+                )
+                let updated = post.updating(
+                    reactionCount: response.likesCount,
+                    userReaction: .some(.like),
+                    updatedAt: Date()
+                )
+                onUpdate?(updated)
+            } catch {
+                isLiked = false
+            }
         }
     }
 
     private func handleDoubleTapLike() {
-        if !isLiked {
-            isLiked = true
+        if isLiked {
+            triggerHeartBurst()
+        } else {
+            handleLikeToggle()
         }
-        triggerHeartBurst()
+    }
+
+    private func syncLikeState() {
+        isLiked = post.userReaction == .like
     }
 
     private func triggerHeartBurst() {
@@ -587,9 +721,74 @@ private extension PostCard {
         return currentUser.backendId == authorId
     }
 
+    var canEditPost: Bool {
+        canDeletePost
+    }
+
     var canAppealPostRemoval: Bool {
         guard let currentUser = authViewModel.currentUser else { return false }
         return post.backendId != nil && post.authorBackendId == currentUser.backendId
+    }
+}
+
+struct EditPostSheet: View {
+    @Binding var text: String
+    let isSaving: Bool
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    private let characterLimit = 280
+
+    private var remainingCharacters: Int {
+        characterLimit - text.count
+    }
+
+    private var isValid: Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && text.count <= characterLimit
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Edit your post")
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedTextSecondary)
+
+                TextEditor(text: $text)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextPrimary)
+                    .padding(12)
+                    .frame(minHeight: 140)
+                    .background(Color.loopedMutedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                HStack {
+                    Spacer()
+                    Text("\(remainingCharacters)")
+                        .font(.loopedSmallText)
+                        .foregroundColor(remainingCharacters < 20 ? .red : .loopedTextSecondary)
+                }
+
+                Spacer()
+            }
+            .padding(20)
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationTitle("Edit Post")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { onCancel() }
+                        .foregroundColor(.loopedPrimary)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { onSave() }
+                        .disabled(!isValid || isSaving)
+                        .foregroundColor((isValid && !isSaving) ? .loopedPrimary : .loopedTextSecondary)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
     }
 }
 

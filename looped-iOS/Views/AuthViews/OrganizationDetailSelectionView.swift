@@ -3,9 +3,10 @@ import SwiftUI
 struct OrganizationDetailSelectionView: View {
     let title: String
     let items: [String]
+    @Binding var searchText: String
+    @Binding var selectedItem: String?
     let onSelect: (String) -> Void
-
-    @State private var searchText = ""
+    let onBack: () -> Void
 
     private var filteredItems: [String] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -17,6 +18,10 @@ struct OrganizationDetailSelectionView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
+                header
+                    .padding(.top, 8)
+                    .padding(.horizontal, 16)
+
                 Spacer()
                     .frame(height: geometry.size.height * 0.08)
 
@@ -35,7 +40,7 @@ struct OrganizationDetailSelectionView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color.loopedMutedBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22)
                         .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
@@ -47,7 +52,8 @@ struct OrganizationDetailSelectionView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(filteredItems, id: \.self) { item in
-                            OrganizationDetailRow(title: item) {
+                            OrganizationDetailRow(title: item, isSelected: item == selectedItem) {
+                                selectedItem = item
                                 onSelect(item)
                             }
                         }
@@ -65,8 +71,23 @@ struct OrganizationDetailSelectionView: View {
     }
 }
 
+private extension OrganizationDetailSelectionView {
+    var header: some View {
+        HStack {
+            Button(action: onBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.loopedTextPrimary)
+                    .frame(width: 40, height: 40)
+            }
+            Spacer()
+        }
+    }
+}
+
 private struct OrganizationDetailRow: View {
     let title: String
+    let isSelected: Bool
     let onSelect: () -> Void
 
     var body: some View {
@@ -77,14 +98,23 @@ private struct OrganizationDetailRow: View {
                     .foregroundColor(.loopedTextPrimary)
 
                 Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.loopedPrimary)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color.loopedBackground)
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                    .stroke(
+                        isSelected ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.2),
+                        lineWidth: 1
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -95,6 +125,9 @@ private struct OrganizationDetailRow: View {
     OrganizationDetailSelectionView(
         title: "Department",
         items: MockOnboardingDetails.departments,
-        onSelect: { _ in }
+        searchText: .constant(""),
+        selectedItem: .constant(nil),
+        onSelect: { _ in },
+        onBack: { }
     )
 }

@@ -125,11 +125,7 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
         guard let data = try? JSONEncoder().encode(message),
               let string = String(data: data, encoding: .utf8) else { return }
         
-        webSocketTask?.send(.string(string)) { error in
-            if let error = error {
-                print("WebSocket send error: \(error)")
-            }
-        }
+        webSocketTask?.send(.string(string)) { _ in }
     }
 }
 

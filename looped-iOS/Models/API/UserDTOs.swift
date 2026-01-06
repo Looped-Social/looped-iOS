@@ -23,6 +23,7 @@ struct UserDTO: Codable {
     let profile: UserProfileDTO?
     let stats: UserStatsDTO?
     let displayCommunity: DisplayCommunityDTO?
+    let displaySpecialization: DisplayCommunityDTO?
     let profileImageUrl: String?
     let showFollowerCount: Bool?
     let createdAt: Date?

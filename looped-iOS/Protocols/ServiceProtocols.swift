@@ -24,6 +24,8 @@ protocol AuthServiceProtocol {
     // Link providers
     func linkWithGoogle(presenting: UIViewController) async throws
     func linkWithApple(presentationAnchor: ASPresentationAnchor) async throws
+    func unlinkGoogle() async throws
+    func unlinkApple() async throws
 
     #if canImport(FirebaseAuth)
     func sendMfaCode(resolver: MultiFactorResolver, hint: PhoneMultiFactorInfo) async throws -> String
@@ -35,15 +37,18 @@ protocol FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
+    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
     func sharePost(postId: Int) async throws -> PostShareResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchPost(postId: Int) async throws -> Post
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func savePost(postId: Int, communityId: Int?) async throws -> Bool
     func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool
-    func deletePost(postId: Int, communityId: Int?) async throws -> PostDeleteResponse
+    func deletePost(postId: Int, communityId: Int?, asAnon: Bool) async throws -> PostDeleteResponse
 }
 
 struct PostReactionResponse {
@@ -81,6 +86,7 @@ protocol UserServiceProtocol {
     func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool, showFollowerCount: Bool?) async throws -> User
     func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
     func updateDisplayCommunity(communityId: Int?) async throws -> User
+    func updateDisplaySpecialization(specializationId: Int?) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
     func deleteAccount(mode: DeleteAccountMode) async throws
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage

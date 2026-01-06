@@ -8,11 +8,26 @@ enum IconSource {
     case asset(String)   // Asset from Assets.xcassets
 }
 
+enum LinkedProvider: String, Identifiable {
+    case google
+    case apple
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .google: return "Google"
+        case .apple: return "Apple"
+        }
+    }
+}
+
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     private let userService: UserServiceProtocol = UserService()
     private let anonService = AnonService.shared
+    private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
 
     // Toggle states
     @State private var showFollowerCount = true
@@ -21,8 +36,11 @@ struct SettingsView: View {
     @State private var isEnrollingAnon = false
     @State private var isLinkingGoogle = false
     @State private var isLinkingApple = false
+    @State private var isUnlinkingGoogle = false
+    @State private var isUnlinkingApple = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @State private var showFeedback = false
+    @State private var pendingDisconnectProvider: LinkedProvider?
 
     private let feedbackUrl = URL(string: "https://mylooped.app/contact")!
 
@@ -104,14 +122,22 @@ struct SettingsView: View {
                             title: "Google",
                             isConnected: authViewModel.isGoogleLinked
                         ) {
-                            connectGoogle()
+                            if authViewModel.isGoogleLinked {
+                                pendingDisconnectProvider = .google
+                            } else {
+                                connectGoogle()
+                            }
                         }
                         ConnectedAccountRow(
                             icon: .asset("apple-logo"),
                             title: "Apple",
                             isConnected: authViewModel.isAppleLinked
                         ) {
-                            connectApple()
+                            if authViewModel.isAppleLinked {
+                                pendingDisconnectProvider = .apple
+                            } else {
+                                connectApple()
+                            }
                         }
                     }
 
@@ -141,7 +167,10 @@ struct SettingsView: View {
 
                     // Actions Section
                     SettingsSection(title: "Actions") {
-                        SettingsRow(icon: .system("building.2"), title: "Change Workplace/Position")
+                        NavigationLink(destination: DeactivateAccountIntroView()) {
+                            SettingsNavigationRow(icon: .system("pause.circle"), title: "Deactivate Account")
+                        }
+                        .buttonStyle(PlainButtonStyle())
                         NavigationLink(destination: DeleteAccountIntroView()) {
                             SettingsNavigationRow(icon: .system("trash"), title: "Delete Account")
                         }
@@ -170,8 +199,13 @@ struct SettingsView: View {
         }
         .onReceive(authViewModel.$currentUser) { user in
             guard let user else { return }
-            skipFollowerToggleUpdate = true
-            showFollowerCount = user.showFollowerCount ?? true
+            let resolvedValue = user.showFollowerCount ?? true
+            if showFollowerCount != resolvedValue {
+                skipFollowerToggleUpdate = true
+                showFollowerCount = resolvedValue
+            } else {
+                skipFollowerToggleUpdate = false
+            }
         }
         .onChange(of: showFollowerCount) { oldValue, newValue in
             if skipFollowerToggleUpdate {
@@ -203,6 +237,16 @@ struct SettingsView: View {
         } message: {
             Text(linkErrorMessage)
         }
+        .alert(item: $pendingDisconnectProvider) { provider in
+            Alert(
+                title: Text("Disconnect \(provider.displayName)?"),
+                message: Text("Are you sure you want to disconnect this account?"),
+                primaryButton: .destructive(Text("Disconnect")) {
+                    Task { await disconnect(provider) }
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 }
 
@@ -212,7 +256,15 @@ private extension SettingsView {
         isEnrollingAnon = true
         defer { isEnrollingAnon = false }
         do {
-            _ = try await anonService.ensureIdentity()
+            let communityId = await AnonCommunityResolver.resolve(
+                preferredCommunityId: authViewModel.currentUser?.displayCommunity?.id,
+                verificationService: verificationService
+            )
+            guard let communityId else {
+                throw AnonServiceError.missingCommunityContext
+            }
+            AnonCommunityResolver.cacheSelectedCommunityId(communityId)
+            _ = try await anonService.ensureIdentity(communityId: communityId)
         } catch {
             anonErrorMessage = error.localizedDescription
             showAnonErrorAlert = true
@@ -248,19 +300,46 @@ private extension SettingsView {
         }
     }
 
+    func disconnect(_ provider: LinkedProvider) async {
+        switch provider {
+        case .google:
+            guard !isUnlinkingGoogle else { return }
+            isUnlinkingGoogle = true
+            defer { isUnlinkingGoogle = false }
+            do {
+                try await authViewModel.unlinkGoogle()
+            } catch {
+                linkErrorMessage = error.localizedDescription
+                showLinkErrorAlert = true
+            }
+        case .apple:
+            guard !isUnlinkingApple else { return }
+            isUnlinkingApple = true
+            defer { isUnlinkingApple = false }
+            do {
+                try await authViewModel.unlinkApple()
+            } catch {
+                linkErrorMessage = error.localizedDescription
+                showLinkErrorAlert = true
+            }
+        }
+    }
+
     func updateFollowerCount(oldValue: Bool, newValue: Bool) async {
         guard !isUpdatingFollowerCount else { return }
         guard let user = authViewModel.currentUser else { return }
         isUpdatingFollowerCount = true
         defer { isUpdatingFollowerCount = false }
         do {
-            _ = try await userService.updateProfile(
+            let updatedUser = try await userService.updateProfile(
                 displayName: nil,
                 bio: nil,
                 isAnonymous: user.isAnonymous,
                 showFollowerCount: newValue
             )
-            await authViewModel.loadCurrentUser()
+            await MainActor.run {
+                authViewModel.currentUser = updatedUser
+            }
         } catch {
             followerUpdateError = error.localizedDescription
             showFollowerUpdateAlert = true
@@ -516,6 +595,7 @@ struct ConnectedAccountRow: View {
     let title: String
     let isConnected: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     init(
         icon: IconSource,
@@ -539,7 +619,7 @@ struct ConnectedAccountRow: View {
                     .foregroundColor(.loopedTextPrimary)
                     .frame(width: 20, height: 20)
             case .asset(let name):
-                Image(name)
+                Image(resolvedAssetName(for: name))
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 20, height: 20)
@@ -556,10 +636,16 @@ struct ConnectedAccountRow: View {
             }
             .font(.loopedSubBodyMedium)
             .foregroundColor(isConnected ? .loopedTextSecondary : .loopedSecondary)
-            .disabled(isConnected)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+
+    private func resolvedAssetName(for name: String) -> String {
+        if name == "apple-logo", colorScheme == .dark {
+            return "apple-logo-dark"
+        }
+        return name
     }
 }
 

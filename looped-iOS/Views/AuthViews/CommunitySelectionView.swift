@@ -2,10 +2,10 @@ import SwiftUI
 
 struct CommunitySelectionView: View {
     let communities: [SearchResultLoop]
+    @Binding var searchText: String
+    @Binding var selectedIds: Set<UUID>
+    let onBack: () -> Void
     let onContinue: ([SearchResultLoop]) -> Void
-
-    @State private var searchText = ""
-    @State private var selectedIds: Set<UUID> = []
 
     private var filteredCommunities: [SearchResultLoop] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -26,8 +26,12 @@ struct CommunitySelectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            header
+                .padding(.top, 8)
+                .padding(.horizontal, 16)
+
             Spacer()
-                .frame(height: 24)
+                .frame(height: 16)
 
             Text("Select communities")
                 .font(.loopedHeadingMedium)
@@ -49,7 +53,7 @@ struct CommunitySelectionView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color.loopedMutedBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 22)
                     .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
@@ -101,6 +105,20 @@ struct CommunitySelectionView: View {
     }
 }
 
+private extension CommunitySelectionView {
+    var header: some View {
+        HStack {
+            Button(action: onBack) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.loopedTextPrimary)
+                    .frame(width: 40, height: 40)
+            }
+            Spacer()
+        }
+    }
+}
+
 private struct CommunityRow: View {
     let community: SearchResultLoop
     let isSelected: Bool
@@ -132,7 +150,7 @@ private struct CommunityRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color.loopedBackground)
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
@@ -153,5 +171,11 @@ private struct CommunityRow: View {
 }
 
 #Preview {
-    CommunitySelectionView(communities: MockSearchContent.communities) { _ in }
+    CommunitySelectionView(
+        communities: MockSearchContent.communities,
+        searchText: .constant(""),
+        selectedIds: .constant([]),
+        onBack: { },
+        onContinue: { _ in }
+    )
 }

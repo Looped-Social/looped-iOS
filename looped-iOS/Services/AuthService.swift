@@ -148,6 +148,20 @@ class AuthService: AuthServiceProtocol {
         #endif
     }
 
+    func unlinkGoogle() async throws {
+        #if canImport(FirebaseAuth)
+        guard let user = Auth.auth().currentUser else {
+            throw AuthError.invalidCredentials
+        }
+        _ = try await user.unlink(fromProvider: "google.com")
+        if let token = try await currentIDToken() {
+            tokenStorage.token = token
+        }
+        #else
+        throw AuthError.networkError
+        #endif
+    }
+
     // MARK: - Sign in with Apple
     func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws {
         let nonce = randomNonceString()
@@ -207,6 +221,20 @@ class AuthService: AuthServiceProtocol {
         if let token = try await currentIDToken() {
             tokenStorage.token = token
         }
+    }
+
+    func unlinkApple() async throws {
+        #if canImport(FirebaseAuth)
+        guard let user = Auth.auth().currentUser else {
+            throw AuthError.invalidCredentials
+        }
+        _ = try await user.unlink(fromProvider: "apple.com")
+        if let token = try await currentIDToken() {
+            tokenStorage.token = token
+        }
+        #else
+        throw AuthError.networkError
+        #endif
     }
 
     func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {

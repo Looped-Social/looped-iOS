@@ -62,9 +62,15 @@ struct HashtagFeedView: View {
                         .padding(.top, 60)
                     } else {
                         ForEach(viewModel.posts) { post in
-                            PostCard(post: post, onDelete: { deleted in
-                                viewModel.removePost(backendId: deleted.backendId)
-                            })
+                            PostCard(
+                                post: post,
+                                onUpdate: { updated in
+                                    viewModel.updatePost(updated)
+                                },
+                                onDelete: { deleted in
+                                    viewModel.removePost(backendId: deleted.backendId)
+                                }
+                            )
                                 .onAppear {
                                     Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                                 }

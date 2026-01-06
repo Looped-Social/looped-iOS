@@ -6,6 +6,19 @@ struct AuthView: View {
     @State private var currentScreen: AuthScreen = .onboarding
     @State private var selectedLoopName: String = "Looped"
     @State private var selectedCommunityId: Int?
+    @State private var companySearchText: String = ""
+    @State private var schoolSearchText: String = ""
+    @State private var departmentSearchText: String = ""
+    @State private var degreeSearchText: String = ""
+    @State private var companyCommunitySearchText: String = ""
+    @State private var studentCommunitySearchText: String = ""
+    @State private var companySelectedCommunityIds: Set<UUID> = []
+    @State private var studentSelectedCommunityIds: Set<UUID> = []
+    @State private var selectedDepartment: String?
+    @State private var selectedDegree: String?
+    @State private var companyVerificationOptionId: String?
+    @State private var studentVerificationOptionId: String?
+    @State private var verificationContext: VerificationContext?
     private let onboardingStore = OnboardingProgressStore()
 
     var body: some View {
@@ -19,8 +32,13 @@ struct AuthView: View {
                 OrganizationSelectionView(
                     title: "Search for your school or\nplace of work",
                     organizations: MockOrganizations.companies + MockOrganizations.schools,
+                    searchText: $companySearchText,
+                    selectedOrganizationId: authViewModel.selectedOrganization?.id,
                     onSelect: { organization in
                         authViewModel.selectedOrganization = organization
+                    },
+                    onBack: {
+                        currentScreen = .profileSetup
                     }
                 ) { screen in
                     currentScreen = screen
@@ -29,14 +47,26 @@ struct AuthView: View {
                 OrganizationSelectionView(
                     title: "Select your school",
                     organizations: MockOrganizations.schools,
+                    searchText: $schoolSearchText,
+                    selectedOrganizationId: authViewModel.selectedOrganization?.id,
                     onSelect: { organization in
                         authViewModel.selectedOrganization = organization
+                    },
+                    onBack: {
+                        currentScreen = .profileSetup
                     }
                 ) { screen in
                     currentScreen = screen
                 }
             case .communitySelection(let isStudent):
-                CommunitySelectionView(communities: MockSearchContent.communities) { selected in
+                CommunitySelectionView(
+                    communities: MockSearchContent.communities,
+                    searchText: isStudent ? $studentCommunitySearchText : $companyCommunitySearchText,
+                    selectedIds: isStudent ? $studentSelectedCommunityIds : $companySelectedCommunityIds,
+                    onBack: {
+                        currentScreen = isStudent ? .degreeSelection : .departmentSelection
+                    }
+                ) { selected in
                     if let first = selected.first {
                         selectedLoopName = first.name
                         if let backendId = first.backendId {
@@ -55,17 +85,29 @@ struct AuthView: View {
             case .departmentSelection:
                 OrganizationDetailSelectionView(
                     title: "Department",
-                    items: MockOnboardingDetails.departments
-                ) { _ in
-                    currentScreen = .communitySelection(isStudent: false)
-                }
+                    items: MockOnboardingDetails.departments,
+                    searchText: $departmentSearchText,
+                    selectedItem: $selectedDepartment,
+                    onSelect: { _ in
+                        currentScreen = .communitySelection(isStudent: false)
+                    },
+                    onBack: {
+                        currentScreen = .selectCompany
+                    }
+                )
             case .degreeSelection:
                 OrganizationDetailSelectionView(
                     title: "Degree",
-                    items: MockOnboardingDetails.degrees
-                ) { _ in
-                    currentScreen = .communitySelection(isStudent: true)
-                }
+                    items: MockOnboardingDetails.degrees,
+                    searchText: $degreeSearchText,
+                    selectedItem: $selectedDegree,
+                    onSelect: { _ in
+                        currentScreen = .communitySelection(isStudent: true)
+                    },
+                    onBack: {
+                        currentScreen = .selectSchool
+                    }
+                )
             case .verificationIntro(let isStudent):
                 VerificationIntroView(
                     loopName: selectedLoopName,
@@ -89,11 +131,14 @@ struct AuthView: View {
                     ],
                     currentStep: 2,
                     totalSteps: 5,
+                    selectedOptionId: $companyVerificationOptionId,
                     onBack: {
                         currentScreen = .verificationIntro(isStudent: false)
                     },
                     onContinue: { option in
-                        if option.id == "photo_id" {
+                        let method = VerificationMethod.from(optionId: option.id)
+                        verificationContext = VerificationContext(isStudent: false, method: method)
+                        if method == .photoId {
                             currentScreen = .photoIdVerification(isStudent: false)
                         } else {
                             currentScreen = .emailVerification(isStudent: false)
@@ -114,11 +159,14 @@ struct AuthView: View {
                     ],
                     currentStep: 2,
                     totalSteps: 5,
+                    selectedOptionId: $studentVerificationOptionId,
                     onBack: {
                         currentScreen = .verificationIntro(isStudent: true)
                     },
                     onContinue: { option in
-                        if option.id == "photo_id" {
+                        let method = VerificationMethod.from(optionId: option.id)
+                        verificationContext = VerificationContext(isStudent: true, method: method)
+                        if method == .photoId {
                             currentScreen = .photoIdVerification(isStudent: true)
                         } else {
                             currentScreen = .emailVerification(isStudent: true)
@@ -136,6 +184,15 @@ struct AuthView: View {
                     authViewModel: authViewModel,
                     currentStep: 4,
                     totalSteps: 5,
+                    onBack: {
+                        guard let context = verificationContext else {
+                            currentScreen = .verificationIntro(isStudent: false)
+                            return
+                        }
+                        currentScreen = context.method == .photoId
+                            ? .photoIdVerification(isStudent: context.isStudent)
+                            : .emailVerification(isStudent: context.isStudent)
+                    },
                     onComplete: {
                         currentScreen = .verificationNotifications
                     }
@@ -148,6 +205,9 @@ struct AuthView: View {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
                     },
                     onComplete: {
+                        if verificationContext == nil {
+                            verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
+                        }
                         currentScreen = .verificationConfirmation
                     }
                 )
@@ -161,6 +221,9 @@ struct AuthView: View {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
                     },
                     onComplete: {
+                        if verificationContext == nil {
+                            verificationContext = VerificationContext(isStudent: isStudent, method: .email)
+                        }
                         currentScreen = .verificationConfirmation
                     }
                 )
@@ -169,6 +232,9 @@ struct AuthView: View {
                     loopName: selectedLoopName,
                     currentStep: 5,
                     totalSteps: 5,
+                    onBack: {
+                        currentScreen = .verificationConfirmation
+                    },
                     onEnableNotifications: { wantsRecommendations in
                         Task { @MainActor in
                             await authViewModel.enableNotificationsDuringOnboarding(
@@ -182,9 +248,15 @@ struct AuthView: View {
                     }
                 )
             case .profileSetup:
-                ProfileSetupView(authViewModel: authViewModel) {
-                    currentScreen = .selectCompany
-                }
+                ProfileSetupView(
+                    authViewModel: authViewModel,
+                    onBack: {
+                        currentScreen = .onboarding
+                    },
+                    onContinue: {
+                        currentScreen = .selectCompany
+                    }
+                )
             case .login:
                 LoginView(viewModel: authViewModel) {
                     currentScreen = .onboarding
@@ -218,6 +290,22 @@ struct AuthView: View {
             if authViewModel.isAuthenticated {
                 restoreOnboardingScreen()
             }
+        }
+    }
+}
+
+private extension AuthView {
+    struct VerificationContext {
+        let isStudent: Bool
+        let method: VerificationMethod
+    }
+
+    enum VerificationMethod: Equatable {
+        case photoId
+        case email
+
+        static func from(optionId: String) -> VerificationMethod {
+            optionId == "photo_id" ? .photoId : .email
         }
     }
 }

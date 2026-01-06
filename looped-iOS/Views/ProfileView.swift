@@ -39,6 +39,9 @@ struct ProfileView: View {
                         PostsList(
                             posts: viewModel.userPosts,
                             isLoading: viewModel.isLoadingPosts,
+                            onUpdate: { updated in
+                                viewModel.updatePost(updated)
+                            },
                             onDelete: { deleted in
                                 viewModel.removePost(backendId: deleted.backendId)
                             }
@@ -130,6 +133,17 @@ struct ProfileView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
+        .overlay(
+            Group {
+                if commentsManager.isPresented, let post = commentsManager.currentPost {
+                    CommentsView(post: post) {
+                        commentsManager.dismissComments()
+                    }
+                    .environmentObject(commentsManager)
+                    .transition(.move(edge: .trailing))
+                }
+            }
+        )
         .task {
             await viewModel.loadUserProfile()
             if isAnonymous {
@@ -192,6 +206,13 @@ struct ProfileView: View {
                     isAnonymous = false
                 }
                 await loadVerificationStatus()
+                await viewModel.loadUserPosts()
+                if selectedTab == .replies {
+                    await repliesViewModel.loadInitial()
+                }
+                if selectedTab == .saved {
+                    await savedViewModel.loadInitial()
+                }
                 if isAnonymous {
                     queueAnonymousDiscoveryIfNeeded()
                 }
@@ -534,7 +555,30 @@ struct ProfileStatsView: View {
                         .foregroundColor(.loopedTextSecondary)
                 }
 
-                if !isAnonymous {
+                if displaySpecializationLine != nil {
+                    if canSelectDisplayCommunity {
+                        NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
+                            DisplaySpecializationRow(
+                                specialization: displaySpecialization,
+                                displayCommunity: displayCommunity,
+                                fallbackText: "Member",
+                                font: .loopedSubBodyRegular,
+                                textColor: .loopedTextSecondary,
+                                iconSize: 16
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    } else {
+                        DisplaySpecializationRow(
+                            specialization: displaySpecialization,
+                            displayCommunity: displayCommunity,
+                            fallbackText: "Member",
+                            font: .loopedSubBodyRegular,
+                            textColor: .loopedTextSecondary,
+                            iconSize: 16
+                        )
+                    }
+                } else if shouldShowDisplayCommunityRow {
                     if canSelectDisplayCommunity {
                         NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
                             DisplayCommunityRow(
@@ -542,8 +586,7 @@ struct ProfileStatsView: View {
                                 fallbackText: displayCommunityFallbackText,
                                 font: .loopedSubBodyRegular,
                                 textColor: .loopedTextSecondary,
-                                iconSize: 16,
-                                showsDisclosure: true
+                                iconSize: 16
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -601,11 +644,21 @@ struct ProfileStatsView: View {
 
     private var displayCommunity: DisplayCommunity? {
         if let profile = userProfile { return profile.displayCommunity }
-        if isAnonymous { return nil }
         return authViewModel.currentUser?.displayCommunity
     }
 
+    private var displaySpecialization: DisplayCommunity? {
+        resolvedProfile?.displaySpecialization
+    }
+
+    private var displaySpecializationLine: String? {
+        resolvedProfile?.displaySpecializationLine
+    }
+
     private var displayCommunityFallbackText: String {
+        if isAnonymous {
+            return "Select a community to show on your anonymous profile"
+        }
         if let hasActiveVerifications {
             return hasActiveVerifications ? "Select a primary community" : "Verify a community to show it here"
         }
@@ -630,15 +683,24 @@ struct ProfileStatsView: View {
     }
 
     private var showFollowerStats: Bool {
-        if isAnonymous { return false }
+        if isAnonymous { return true }
         if let profile = userProfile { return profile.showFollowerCount }
         return authViewModel.currentUser?.showFollowerCount ?? true
     }
 
     private var canSelectDisplayCommunity: Bool {
-        if isAnonymous { return false }
         if let profile = userProfile { return profile.isCurrentUser }
         return true
+    }
+
+    private var shouldShowDisplayCommunityRow: Bool {
+        if let profile = userProfile {
+            if profile.isAnonymous {
+                return profile.displayCommunity != nil || profile.isCurrentUser
+            }
+            return true
+        }
+        return !isAnonymous
     }
 }
 
@@ -810,16 +872,19 @@ struct ProfileContentView: View {
 struct PostsList: View {
     let posts: [Post]
     var isLoading: Bool = false
+    let onUpdate: ((Post) -> Void)?
     let onDelete: ((Post) -> Void)?
     @EnvironmentObject var commentsManager: CommentsModalManager
 
     init(
         posts: [Post],
         isLoading: Bool = false,
+        onUpdate: ((Post) -> Void)? = nil,
         onDelete: ((Post) -> Void)? = nil
     ) {
         self.posts = posts
         self.isLoading = isLoading
+        self.onUpdate = onUpdate
         self.onDelete = onDelete
     }
 
@@ -832,7 +897,11 @@ struct PostsList: View {
                 .padding(.top, 60)
         } else {
             ForEach(posts) { post in
-                PostCard(post: post, onDelete: onDelete)
+                PostCard(
+                    post: post,
+                    onUpdate: onUpdate,
+                    onDelete: onDelete
+                )
 
                 Rectangle()
                     .frame(height: 1)
@@ -877,6 +946,9 @@ struct SavedPostsList: View {
                     post: post,
                     onBookmarkToggle: { saved in
                         viewModel.handleBookmarkChange(for: post, isSaved: saved)
+                    },
+                    onUpdate: { updated in
+                        viewModel.updatePost(updated)
                     },
                     onDelete: { deleted in
                         viewModel.removePost(backendId: deleted.backendId)
@@ -931,6 +1003,7 @@ struct RepliesPlaceholderView: View {
 
 struct UserRepliesList: View {
     @ObservedObject var viewModel: UserRepliesViewModel
+    @EnvironmentObject var commentsManager: CommentsModalManager
 
     var body: some View {
         VStack(spacing: 16) {
@@ -966,19 +1039,42 @@ struct UserRepliesList: View {
                 .padding(.top, 60)
             } else {
                 ForEach(viewModel.replies) { reply in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(reply.isDeleted ? "Comment deleted" : reply.content)
-                            .font(.loopedBody)
-                            .foregroundColor(reply.isDeleted ? .loopedTextSecondary : .loopedTextPrimary)
-                            .multilineTextAlignment(.leading)
+                    Button(action: {
+                        Task { await openReply(reply) }
+                    }) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if let post = viewModel.postPreview(for: reply) {
+                                let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("In reply to")
+                                        .font(.loopedSmallText)
+                                        .foregroundColor(.loopedTextSecondary)
 
-                        Text(reply.createdAt, style: .date)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
+                                    Text(preview.isEmpty ? "Post unavailable" : preview)
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .lineLimit(2)
+                                }
+                                .padding(10)
+                                .background(Color.loopedMutedBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+
+                            Text(reply.isDeleted ? "Comment deleted" : reply.content)
+                                .font(.loopedBody)
+                                .foregroundColor(reply.isDeleted ? .loopedTextSecondary : .loopedTextPrimary)
+                                .multilineTextAlignment(.leading)
+
+                            Text(reply.createdAt, style: .date)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .buttonStyle(PlainButtonStyle())
                     .task {
+                        await viewModel.loadPostPreview(for: reply)
                         await viewModel.loadMoreIfNeeded(current: reply)
                     }
 
@@ -993,6 +1089,15 @@ struct UserRepliesList: View {
             }
         }
         .padding(.bottom, 80)
+    }
+
+    private func openReply(_ reply: Comment) async {
+        guard let post = await viewModel.fetchPostForReply(reply) else { return }
+        commentsManager.showComments(
+            for: post,
+            focusCommentId: reply.backendId,
+            focusParentId: reply.replyToBackendId
+        )
     }
 }
 

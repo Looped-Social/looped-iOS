@@ -167,9 +167,7 @@ struct NotificationRow: View {
                 isRead: false,
                 createdAt: Date().addingTimeInterval(-14400)
             ),
-            onActionTapped: {
-                print("Follow Back tapped")
-            }
+            onActionTapped: { }
         )
 
         Divider()

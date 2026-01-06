@@ -68,12 +68,8 @@ struct RecentSearchesSection: View {
                 "Lunch Break Shortened",
                 "#interns"
             ],
-            onSearchTap: { query in
-                print("Tapped: \(query)")
-            },
-            onRemoveSearch: { query in
-                print("Remove: \(query)")
-            }
+            onSearchTap: { _ in },
+            onRemoveSearch: { _ in }
         )
     }
     .background(Color.loopedBackground)

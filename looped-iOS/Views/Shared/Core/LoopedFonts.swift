@@ -89,34 +89,28 @@ struct LoopedFontLoader {
     /// Registers a single font file using modern iOS 18+ API
     private static func registerFont(name: String, withExtension ext: String) {
         guard let fontURL = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Poppins") else {
-            print("❌ Failed to find font file: \(name).\(ext)")
             return
         }
         
         // Use modern iOS 18+ API
         if #available(iOS 18.0, *) {
             var error: Unmanaged<CFError>?
-            if !CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &error) {
-                let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
-                print("❌ Failed to register font: \(name). Error: \(errorDescription)")
-            } else {
-                print("✅ Successfully registered font: \(name)")
+            _ = CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &error)
+            if let error = error {
+                _ = error.takeRetainedValue()
             }
         } else {
             // Fallback for iOS < 18.0
             guard let fontData = NSData(contentsOf: fontURL),
                   let provider = CGDataProvider(data: fontData),
                   let font = CGFont(provider) else {
-                print("❌ Failed to load font data: \(name).\(ext)")
                 return
             }
             
             var error: Unmanaged<CFError>?
-            if !CTFontManagerRegisterGraphicsFont(font, &error) {
-                let errorDescription = error?.takeRetainedValue().localizedDescription ?? "Unknown error"
-                print("❌ Failed to register font: \(name). Error: \(errorDescription)")
-            } else {
-                print("✅ Successfully registered font: \(name)")
+            _ = CTFontManagerRegisterGraphicsFont(font, &error)
+            if let error = error {
+                _ = error.takeRetainedValue()
             }
         }
     }

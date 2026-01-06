@@ -15,6 +15,8 @@ class CommentsModalManager: ObservableObject {
     @Published var replyTarget: Comment?
     @Published var editTarget: Comment?
     @Published var communityPermissions: CommunityPermissions?
+    @Published var focusCommentId: Int?
+    @Published var focusParentId: Int?
     
     private let commentsService: CommentsServiceProtocol
     private let communityService: CommunityServiceProtocol
@@ -30,7 +32,7 @@ class CommentsModalManager: ObservableObject {
         self.communityService = communityService
     }
     
-    func showComments(for post: Post) {
+    func showComments(for post: Post, focusCommentId: Int? = nil, focusParentId: Int? = nil) {
         guard let backendId = post.backendId else { return }
         currentPost = post
         currentPostBackendId = backendId
@@ -42,6 +44,8 @@ class CommentsModalManager: ObservableObject {
         editTarget = nil
         isLoadingPermissions = false
         communityPermissions = nil
+        self.focusCommentId = focusCommentId
+        self.focusParentId = focusParentId
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             isPresented = true
         }
@@ -65,6 +69,8 @@ class CommentsModalManager: ObservableObject {
             self.editTarget = nil
             self.isLoadingPermissions = false
             self.communityPermissions = nil
+            self.focusCommentId = nil
+            self.focusParentId = nil
         }
     }
 
@@ -326,6 +332,10 @@ class CommentsModalManager: ObservableObject {
                 currentComments.append(contentsOf: page.comments)
             }
             nextCursor = page.nextCursor
+            if let parentId = focusParentId,
+               let parent = currentComments.first(where: { $0.backendId == parentId }) {
+                await loadReplies(for: parent, reset: true)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -73,7 +73,7 @@ struct OnboardingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(Color.white.opacity(colorScheme == .dark ? 0.9 : 1))
+                        .background(Color.loopedBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
                                 .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
@@ -89,6 +89,7 @@ struct OnboardingView: View {
                         Task { await authViewModel.handleAppleCompletion(result) }
                     }
                     .signInWithAppleButtonStyle(colorScheme == .dark ? .black : .white)
+                    .id(colorScheme)
                     .frame(height: 50)
                     .cornerRadius(25)
                     .overlay(

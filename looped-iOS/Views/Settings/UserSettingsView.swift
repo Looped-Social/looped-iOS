@@ -4,9 +4,11 @@ import UIKit
 struct UserSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     private let userService: UserServiceProtocol = UserService()
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+    private let anonService = AnonService.shared
 
     @State private var username: String = ""
     @State private var firstName: String = ""
@@ -26,6 +28,15 @@ struct UserSettingsView: View {
     @State private var initialDisplayCommunityId: Int?
     @State private var isLoadingDisplayCommunities = false
     @State private var displayCommunityError: String?
+    @State private var displaySpecialization: DisplayCommunity?
+    @State private var initialDisplaySpecializationId: Int?
+    @State private var displaySpecializationError: String?
+    @State private var isShowingSpecializationPicker = false
+    @State private var anonDisplayCommunities: [DisplayCommunity] = []
+    @State private var anonDisplayCommunityId: Int?
+    @State private var initialAnonDisplayCommunityId: Int?
+    @State private var isLoadingAnonDisplayCommunities = false
+    @State private var anonDisplayCommunityError: String?
     @State private var toastMessage: ToastMessage?
 
     var body: some View {
@@ -162,6 +173,105 @@ struct UserSettingsView: View {
                     }
                     .padding(.horizontal, 20)
 
+                    // Display Specialization Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Display Specialization")
+                            .font(.loopedBodyStrong)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        Text("Choose a major or department to show on your profile.")
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        Button(action: { isShowingSpecializationPicker = true }) {
+                            DisplaySpecializationRow(
+                                specialization: displaySpecialization,
+                                displayCommunity: selectedDisplayCommunity,
+                                fallbackText: "Select a major or department",
+                                font: .loopedBody,
+                                textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                iconSize: 18,
+                                showsDisclosure: true,
+                                showsCommunityFallback: false
+                            )
+                            .padding(12)
+                            .background(Color.loopedTextSecondary.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .disabled(isSaving)
+
+                        if let displaySpecializationError {
+                            Text(displaySpecializationError)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
+                    if isAnonymousMode {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Anonymous Display Community")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            Text("Choose a community to show on your anonymous profile and posts.")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            if isLoadingAnonDisplayCommunities {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                    Text("Loading anonymous communities...")
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .padding(.vertical, 8)
+                            } else if anonDisplayCommunities.isEmpty {
+                                DisplayCommunityRow(
+                                    displayCommunity: selectedAnonDisplayCommunity,
+                                    fallbackText: "Enable anonymous mode in a community first",
+                                    font: .loopedBody,
+                                    textColor: selectedAnonDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                    iconSize: 18
+                                )
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                            } else {
+                                Picker(
+                                    selection: $anonDisplayCommunityId,
+                                    label: DisplayCommunityRow(
+                                        displayCommunity: selectedAnonDisplayCommunity,
+                                        fallbackText: "Select a community",
+                                        font: .loopedBody,
+                                        textColor: selectedAnonDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                        iconSize: 18,
+                                        showsDisclosure: true
+                                    )
+                                    .padding(12)
+                                    .background(Color.loopedTextSecondary.opacity(0.1))
+                                    .cornerRadius(8)
+                                ) {
+                                    Text("None").tag(Int?.none)
+                                    ForEach(anonDisplayCommunities, id: \.id) { community in
+                                        Text(community.displayText)
+                                            .tag(Optional(community.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .disabled(isSaving)
+                            }
+
+                            if let anonDisplayCommunityError {
+                                Text(anonDisplayCommunityError)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+
                     // First Name Section
                     VStack(alignment: .leading, spacing: 8) {
                         Text("First Name")
@@ -267,14 +377,36 @@ struct UserSettingsView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .toast($toastMessage)
+        .sheet(isPresented: $isShowingSpecializationPicker) {
+            DisplaySpecializationPickerView(selectedSpecialization: $displaySpecialization)
+        }
         .onAppear {
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
+            if isAnonymousMode {
+                Task { await loadAnonDisplayCommunities() }
+            }
         }
         .onChange(of: authViewModel.currentUser?.id) { _ in
             hasLoadedUser = false
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
+            if isAnonymousMode {
+                Task { await loadAnonDisplayCommunities() }
+            }
+        }
+        .onChange(of: displaySpecialization?.id) { _, _ in
+            displaySpecializationError = nil
+        }
+        .onChange(of: isAnonymousMode) { _, newValue in
+            if newValue {
+                Task { await loadAnonDisplayCommunities() }
+            } else {
+                anonDisplayCommunityId = nil
+                initialAnonDisplayCommunityId = nil
+                anonDisplayCommunityError = nil
+                anonDisplayCommunities = []
+            }
         }
         .navigationBarHidden(true)
     }
@@ -329,6 +461,14 @@ private extension UserSettingsView {
         return nil
     }
 
+    var selectedAnonDisplayCommunity: DisplayCommunity? {
+        guard let id = anonDisplayCommunityId else { return nil }
+        if let community = anonDisplayCommunities.first(where: { $0.id == id }) {
+            return community
+        }
+        return nil
+    }
+
     func hydrateFromUser() {
         guard let user = currentUser, !hasLoadedUser else { return }
         username = user.username ?? user.handle
@@ -342,6 +482,8 @@ private extension UserSettingsView {
         bio = user.bio ?? ""
         displayCommunityId = user.displayCommunity?.id
         initialDisplayCommunityId = user.displayCommunity?.id
+        displaySpecialization = user.displaySpecialization
+        initialDisplaySpecializationId = user.displaySpecialization?.id
         hasLoadedUser = true
     }
 
@@ -359,6 +501,56 @@ private extension UserSettingsView {
         }
     }
 
+    func loadAnonDisplayCommunities() async {
+        guard !isLoadingAnonDisplayCommunities else { return }
+        isLoadingAnonDisplayCommunities = true
+        anonDisplayCommunityError = nil
+        defer { isLoadingAnonDisplayCommunities = false }
+
+        do {
+            let identity: AnonIdentity
+            if let existing = anonService.currentIdentity() {
+                identity = existing
+            } else {
+                let communityId = await AnonCommunityResolver.resolve(
+                    preferredCommunityId: currentUser?.displayCommunity?.id,
+                    verificationService: verificationService
+                )
+                guard let communityId else {
+                    throw AnonServiceError.missingCommunityContext
+                }
+                identity = try await anonService.ensureIdentity(communityId: communityId)
+            }
+            let profile = try? await anonService.fetchProfile(id: identity.profileId)
+            anonDisplayCommunityId = profile?.displayCommunity?.id
+            initialAnonDisplayCommunityId = anonDisplayCommunityId
+
+            let memberships = await anonService.currentMemberships()
+            guard !memberships.isEmpty else {
+                anonDisplayCommunities = []
+                return
+            }
+            let verifications = try? await verificationService.fetchCommunityVerifications()
+            let verificationMap = Dictionary(
+                uniqueKeysWithValues: (verifications ?? []).map { ($0.communityId, $0) }
+            )
+            anonDisplayCommunities = memberships.keys.sorted().map { communityId in
+                if let verification = verificationMap[communityId] {
+                    return DisplayCommunity(verification: verification)
+                }
+                return DisplayCommunity(
+                    id: communityId,
+                    name: "Community \(communityId)",
+                    kind: .unknown,
+                    specializationType: nil
+                )
+            }
+        } catch {
+            anonDisplayCommunityError = error.localizedDescription
+            anonDisplayCommunities = []
+        }
+    }
+
     func saveProfile() {
         guard !isSaving else { return }
         guard isFormValid else { return }
@@ -366,6 +558,7 @@ private extension UserSettingsView {
         impact.impactOccurred()
         saveError = nil
         displayCommunityError = nil
+        displaySpecializationError = nil
         isSaving = true
 
         Task {
@@ -391,6 +584,20 @@ private extension UserSettingsView {
                 if displayCommunityId != initialDisplayCommunityId {
                     _ = try await userService.updateDisplayCommunity(communityId: displayCommunityId)
                     initialDisplayCommunityId = displayCommunityId
+                }
+                let displaySpecializationId = displaySpecialization?.id
+                if displaySpecializationId != initialDisplaySpecializationId {
+                    do {
+                        _ = try await userService.updateDisplaySpecialization(specializationId: displaySpecializationId)
+                        initialDisplaySpecializationId = displaySpecializationId
+                    } catch {
+                        displaySpecializationError = mapSaveError(error)
+                        throw error
+                    }
+                }
+                if isAnonymousMode, anonDisplayCommunityId != initialAnonDisplayCommunityId {
+                    _ = try await anonService.updateDisplayCommunity(communityId: anonDisplayCommunityId)
+                    initialAnonDisplayCommunityId = anonDisplayCommunityId
                 }
                 await authViewModel.loadCurrentUser()
                 presentToast(message: "Changes saved")
@@ -520,6 +727,10 @@ private extension UserSettingsView {
                 return "You must be verified in that community to display it."
             case "community_not_found":
                 return "That community could not be found."
+            case "specialization_not_found":
+                return "That specialization could not be found."
+            case "invalid_specialization":
+                return "Select a major or department to display."
             default:
                 if let message, !message.isEmpty {
                     return message

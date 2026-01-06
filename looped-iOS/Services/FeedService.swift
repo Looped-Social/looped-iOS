@@ -4,6 +4,7 @@ class FeedService: FeedServiceProtocol {
     private let apiClient: APIClient
     private let defaultLimit: Int
     private let anonService: AnonService
+    private let anonQueryAllowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "+/=&?"))
     
     init(apiClient: APIClient = APIClient(), defaultLimit: Int = 20, anonService: AnonService = .shared) {
         self.apiClient = apiClient
@@ -99,6 +100,41 @@ class FeedService: FeedServiceProtocol {
             )
         }
     }
+
+    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post {
+        if isAnonymous {
+            let anonContext = try await anonService.actionContext(for: .postEdit(postId: postId), communityId: communityId)
+            let request = UpdatePostRequestDTO(
+                content: content,
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let dto: PostDTO = try await apiClient.put(
+                "/v1/posts/\(postId)",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+            return Post(dto: dto, isAnonymousOverride: true)
+        }
+
+        let request = UpdatePostRequestDTO(
+            content: content,
+            asAnon: nil,
+            anonProfileId: nil,
+            anonCert: nil,
+            anonCertKid: nil,
+            anonSig: nil
+        )
+        let dto: PostDTO = try await apiClient.put(
+            "/v1/posts/\(postId)",
+            body: request
+        )
+        return Post(dto: dto)
+    }
     
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse {
         // Backend currently supports "like" only. Ignore other reactions for now.
@@ -141,13 +177,28 @@ class FeedService: FeedServiceProtocol {
         let base = "/v1/hashtags/\(encoded)/posts"
         return try await fetchPosts(from: base, limit: limit, cursor: cursor, communityId: nil)
     }
+
+    func fetchPost(postId: Int) async throws -> Post {
+        let dto: PostDTO = try await apiClient.get("/v1/posts/\(postId)")
+        return Post(dto: dto)
+    }
     
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
-        try await fetchPosts(from: "/v1/posts/liked", limit: limit, cursor: cursor, communityId: nil)
+        if anonService.isAnonymousEnabled {
+            return try await fetchAnonCollection(action: .postsLiked, limit: limit, cursor: cursor)
+        }
+        return try await fetchPosts(from: "/v1/posts/liked", limit: limit, cursor: cursor, communityId: nil)
     }
     
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
-        try await fetchPosts(from: "/v1/posts/saved", limit: limit, cursor: cursor, communityId: nil)
+        if anonService.isAnonymousEnabled {
+            return try await fetchAnonCollection(action: .postsSaved, limit: limit, cursor: cursor)
+        }
+        return try await fetchPosts(from: "/v1/posts/saved", limit: limit, cursor: cursor, communityId: nil)
+    }
+
+    func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try await fetchPosts(from: "/v1/anon/\(anonProfileId)/posts", limit: limit, cursor: cursor, communityId: nil)
     }
     
     func savePost(postId: Int, communityId: Int?) async throws -> Bool {
@@ -196,8 +247,8 @@ class FeedService: FeedServiceProtocol {
         return !response.saved
     }
 
-    func deletePost(postId: Int, communityId: Int?) async throws -> PostDeleteResponse {
-        if anonService.isAnonymousEnabled {
+    func deletePost(postId: Int, communityId: Int?, asAnon: Bool) async throws -> PostDeleteResponse {
+        if asAnon {
             let anonContext = try await anonService.actionContext(for: .postDelete(postId: postId), communityId: communityId)
             let request = AnonActionRequestDTO(
                 asAnon: true,
@@ -243,6 +294,52 @@ class FeedService: FeedServiceProtocol {
         let response: FeedResponseDTO = try await apiClient.get(endpoint)
         let posts = response.items.map { Post(dto: $0) }
         return FeedPage(posts: posts, nextCursor: response.nextCursor)
+    }
+
+    private func fetchAnonCollection(
+        action: AnonProfileAction,
+        limit: Int,
+        cursor: String?
+    ) async throws -> FeedPage {
+        let anonContext = try await anonService.profileActionContext(for: action)
+        let path: String
+        switch action {
+        case .postsLiked:
+            path = "/v1/anon/\(anonContext.profileId)/posts/liked"
+        case .postsSaved:
+            path = "/v1/anon/\(anonContext.profileId)/posts/saved"
+        case .replies:
+            throw APIError.invalidResponse
+        }
+
+        var endpoint = "\(path)?limit=\(limit > 0 ? limit : defaultLimit)"
+        if let cursor = cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        endpoint = appendAnonQuery(to: endpoint, context: anonContext)
+
+        let response: FeedResponseDTO = try await apiClient.get(
+            endpoint,
+            requiresAuth: false,
+            headers: ["X-Actor": "anon"]
+        )
+        let posts = response.items.map { Post(dto: $0) }
+        return FeedPage(posts: posts, nextCursor: response.nextCursor)
+    }
+
+    private func appendAnonQuery(to endpoint: String, context: AnonActionContext) -> String {
+        let encodedCert = context.cert.addingPercentEncoding(withAllowedCharacters: anonQueryAllowed) ?? context.cert
+        let encodedKid = context.certKid.addingPercentEncoding(withAllowedCharacters: anonQueryAllowed) ?? context.certKid
+        let encodedSig = context.signature.addingPercentEncoding(withAllowedCharacters: anonQueryAllowed) ?? context.signature
+        let params = [
+            "asAnon=true",
+            "anonProfileId=\(context.profileId)",
+            "anonCert=\(encodedCert)",
+            "anonCertKid=\(encodedKid)",
+            "anonSig=\(encodedSig)"
+        ]
+        return endpoint + "&" + params.joined(separator: "&")
     }
 }
 

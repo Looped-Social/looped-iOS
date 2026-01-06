@@ -21,6 +21,7 @@ enum AnonAction {
     case save(postId: Int)
     case unsave(postId: Int)
     case postDelete(postId: Int)
+    case postEdit(postId: Int)
     case comment(postId: Int)
     case commentLike(commentId: Int)
     case commentUnlike(commentId: Int)
@@ -29,6 +30,12 @@ enum AnonAction {
     case commentList(postId: Int)
     case commentReplies(commentId: Int)
     case commentUserReplies(userId: Int)
+}
+
+enum AnonProfileAction {
+    case postsLiked
+    case postsSaved
+    case replies
 }
 
 enum AnonServiceError: Error, LocalizedError {
@@ -104,16 +111,40 @@ actor AnonService {
 
     func fetchProfile(id: Int) async throws -> AnonProfile {
         let dto: AnonProfileDTO = try await apiClient.get("/v1/anon/\(id)")
-        return AnonProfile(
-            id: dto.id,
-            handle: dto.handle,
-            companyId: dto.companyId,
-            followerCount: dto.followerCount,
-            followingCount: dto.followingCount,
-            postsCount: dto.postsCount,
-            createdAt: dto.createdAt,
-            updatedAt: dto.updatedAt
+        return AnonProfile(dto: dto)
+    }
+
+    func updateDisplayCommunity(communityId: Int?) async throws -> AnonProfile {
+        let fallbackCommunityId = communityId
+            ?? resolveCommunityId(explicit: nil)
+            ?? currentIdentity()?.memberships.keys.sorted().first
+        let identity = try await ensureIdentity(communityId: fallbackCommunityId)
+        let membershipCommunityId = resolveMembershipCommunityId(
+            requestedCommunityId: communityId,
+            identity: identity
         )
+        guard let membershipCommunityId,
+              let membership = identity.membership(for: membershipCommunityId) else {
+            throw AnonServiceError.missingIdentity
+        }
+        let privateKey = try loadOrCreatePrivateKey()
+        let canonical = "anon_display_community|v1|\(identity.profileId)"
+        let signature = try sign(message: canonical, privateKey: privateKey)
+        let request = AnonDisplayCommunityRequestDTO(
+            communityId: communityId,
+            asAnon: true,
+            anonProfileId: identity.profileId,
+            anonCert: membership.cert,
+            anonCertKid: membership.certKid,
+            anonSig: signature
+        )
+        let dto: AnonProfileDTO = try await apiClient.put(
+            "/v1/anon/\(identity.profileId)/display-community",
+            body: request,
+            requiresAuth: false,
+            headers: anonHeaders
+        )
+        return AnonProfile(dto: dto)
     }
 
     func postContext(content: String, communityId: Int) async throws -> AnonPostContext {
@@ -156,6 +187,8 @@ actor AnonService {
             canonical = "unsave|v1|\(postId)"
         case .postDelete(let postId):
             canonical = "post_delete|v1|\(postId)"
+        case .postEdit(let postId):
+            canonical = "post_edit|v1|\(postId)"
         case .comment(let postId):
             canonical = "comment|v1|\(postId)"
         case .commentLike(let commentId):
@@ -172,6 +205,33 @@ actor AnonService {
             canonical = "comment_replies|v1|\(commentId)"
         case .commentUserReplies(let userId):
             canonical = "comment_user_replies|v1|\(userId)"
+        }
+
+        let signature = try sign(message: canonical, privateKey: privateKey)
+        return AnonActionContext(
+            profileId: identity.profileId,
+            cert: membership.cert,
+            certKid: membership.certKid,
+            signature: signature
+        )
+    }
+
+    func profileActionContext(for action: AnonProfileAction) async throws -> AnonActionContext {
+        let identity = try await ensureIdentityForProfileAction()
+        guard let membership = identity.memberships.values.first(where: { !$0.isExpired })
+            ?? identity.memberships.values.first else {
+            throw AnonServiceError.missingIdentity
+        }
+        let privateKey = try loadOrCreatePrivateKey()
+        let canonical: String
+
+        switch action {
+        case .postsLiked:
+            canonical = "anon_posts_liked|v1|\(identity.profileId)"
+        case .postsSaved:
+            canonical = "anon_posts_saved|v1|\(identity.profileId)"
+        case .replies:
+            canonical = "comment_anon_replies|v1|\(identity.profileId)"
         }
 
         let signature = try sign(message: canonical, privateKey: privateKey)
@@ -352,6 +412,27 @@ actor AnonService {
             return lastSelected
         }
         return nil
+    }
+
+    private func resolveMembershipCommunityId(
+        requestedCommunityId: Int?,
+        identity: AnonIdentity
+    ) -> Int? {
+        if let requestedCommunityId, requestedCommunityId > 0 {
+            return requestedCommunityId
+        }
+        if let resolved = resolveCommunityId(explicit: nil) {
+            return resolved
+        }
+        return identity.memberships.keys.sorted().first
+    }
+
+    private func ensureIdentityForProfileAction() async throws -> AnonIdentity {
+        if let identity = currentIdentity() {
+            return identity
+        }
+        let fallbackCommunityId = resolveCommunityId(explicit: nil)
+        return try await ensureIdentity(communityId: fallbackCommunityId)
     }
 
     private func loadOrCreatePrivateKey() throws -> Curve25519.Signing.PrivateKey {

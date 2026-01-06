@@ -4,25 +4,29 @@ struct VerificationConfirmationView: View {
     @ObservedObject var authViewModel: AuthViewModel
     let currentStep: Int
     let totalSteps: Int
+    let onBack: () -> Void
     let onComplete: () -> Void
 
     init(
         authViewModel: AuthViewModel,
         currentStep: Int = 4,
         totalSteps: Int = 5,
+        onBack: @escaping () -> Void,
         onComplete: @escaping () -> Void
     ) {
         self.authViewModel = authViewModel
         self.currentStep = currentStep
         self.totalSteps = totalSteps
+        self.onBack = onBack
         self.onComplete = onComplete
     }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                header
                     .padding(.top, 8)
+                    .padding(.horizontal, 16)
 
                 HStack(spacing: 2) {
                     Image("logo")
@@ -77,6 +81,24 @@ struct VerificationConfirmationView: View {
     }
 }
 
+private extension VerificationConfirmationView {
+    var header: some View {
+        ZStack {
+            HStack {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.loopedTextPrimary)
+                        .frame(width: 40, height: 40)
+                }
+                Spacer()
+            }
+
+            VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+        }
+    }
+}
+
 #Preview {
-    VerificationConfirmationView(authViewModel: AuthViewModel(), onComplete: { })
+    VerificationConfirmationView(authViewModel: AuthViewModel(), onBack: { }, onComplete: { })
 }

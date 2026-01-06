@@ -164,7 +164,7 @@ struct AnonymousRecoveryView: View {
                 .font(.loopedSubheadMedium)
                 .foregroundColor(.loopedTextPrimary)
 
-            Text("Your anonymous access expires per community. Refresh by re-enrolling when needed.")
+            Text("Anonymous access expires over time. Refresh by re-enrolling when needed.")
                 .font(.loopedSubBodyRegular)
                 .foregroundColor(.loopedTextSecondary)
 

@@ -20,7 +20,7 @@ struct LoginView: View {
                             .font(.system(size: 18, weight: .medium))
                             .foregroundColor(.loopedTextPrimary)
                             .padding(10)
-                            .background(Color.white.opacity(0.85))
+                            .background(Color.loopedMutedBackground)
                             .clipShape(Circle())
                     }
                     Spacer()
@@ -56,7 +56,7 @@ struct LoginView: View {
                         }
                     }
                     .padding()
-                    .background(Color.white)
+                    .background(Color.loopedBackground)
                     .cornerRadius(18)
                     .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
 

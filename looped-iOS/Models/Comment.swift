@@ -21,6 +21,7 @@ struct Comment: Codable, Identifiable {
     let createdAt: Date
     let updatedAt: Date
     let replyToCommentId: UUID?
+    let replyToBackendId: Int?
     
     init(
         id: UUID = UUID(),
@@ -42,7 +43,8 @@ struct Comment: Codable, Identifiable {
         isLikedByCreator: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        replyToCommentId: UUID? = nil
+        replyToCommentId: UUID? = nil,
+        replyToBackendId: Int? = nil
     ) {
         self.id = id
         self.backendId = backendId
@@ -64,6 +66,7 @@ struct Comment: Codable, Identifiable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.replyToCommentId = replyToCommentId
+        self.replyToBackendId = replyToBackendId
     }
 
     init(dto: CommentDTO) {
@@ -88,7 +91,8 @@ struct Comment: Codable, Identifiable {
             isLikedByCreator: dto.likedByCreator ?? false,
             createdAt: dto.createdAt,
             updatedAt: dto.createdAt,
-            replyToCommentId: dto.parentId.map(UUID.fromBackendId)
+            replyToCommentId: dto.parentId.map(UUID.fromBackendId),
+            replyToBackendId: dto.parentId
         )
     }
 
@@ -120,7 +124,8 @@ struct Comment: Codable, Identifiable {
             isLikedByCreator: isLikedByCreator ?? self.isLikedByCreator,
             createdAt: createdAt,
             updatedAt: updatedAt,
-            replyToCommentId: replyToCommentId
+            replyToCommentId: replyToCommentId,
+            replyToBackendId: replyToBackendId
         )
     }
 }

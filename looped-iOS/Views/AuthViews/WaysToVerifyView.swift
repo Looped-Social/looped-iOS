@@ -4,12 +4,11 @@ struct WaysToVerifyView: View {
     let options: [VerificationOption]
     let currentStep: Int
     let totalSteps: Int
+    @Binding var selectedOptionId: String?
     let onBack: () -> Void
     let onContinue: (VerificationOption) -> Void
     let onSkip: (() -> Void)?
     let onLearnMore: () -> Void
-
-    @State private var selectedOption: VerificationOption?
 
     init(
         options: [VerificationOption] = [
@@ -18,6 +17,7 @@ struct WaysToVerifyView: View {
         ],
         currentStep: Int = 2,
         totalSteps: Int = 5,
+        selectedOptionId: Binding<String?> = .constant(nil),
         onBack: @escaping () -> Void,
         onContinue: @escaping (VerificationOption) -> Void,
         onSkip: (() -> Void)?,
@@ -26,11 +26,11 @@ struct WaysToVerifyView: View {
         self.options = options
         self.currentStep = currentStep
         self.totalSteps = totalSteps
+        self._selectedOptionId = selectedOptionId
         self.onBack = onBack
         self.onContinue = onContinue
         self.onSkip = onSkip
         self.onLearnMore = onLearnMore
-        _selectedOption = State(initialValue: options.first)
     }
 
     var body: some View {
@@ -53,9 +53,9 @@ struct WaysToVerifyView: View {
                     ForEach(options) { option in
                         VerificationOptionButton(
                             title: option.title,
-                            isSelected: option == selectedOption
+                            isSelected: option.id == resolvedSelectedOption?.id
                         ) {
-                            selectedOption = option
+                            selectedOptionId = option.id
                         }
                     }
                 }
@@ -131,8 +131,16 @@ private extension WaysToVerifyView {
     }
 
     func handleContinue() {
-        guard let selectedOption else { return }
-        onContinue(selectedOption)
+        guard let resolvedSelectedOption else { return }
+        onContinue(resolvedSelectedOption)
+    }
+
+    var resolvedSelectedOption: VerificationOption? {
+        if let selectedOptionId,
+           let match = options.first(where: { $0.id == selectedOptionId }) {
+            return match
+        }
+        return options.first
     }
 }
 
@@ -163,6 +171,7 @@ private struct VerificationOptionButton: View {
 
 #Preview {
     WaysToVerifyView(
+        selectedOptionId: .constant("photo_id"),
         onBack: {},
         onContinue: { _ in },
         onSkip: {},

@@ -3,12 +3,13 @@ import Foundation
 struct AnonProfile: Codable, Identifiable {
     let id: Int
     let handle: String
-    let companyId: Int
+    let companyId: Int?
     let followerCount: Int?
     let followingCount: Int?
     let postsCount: Int?
     let createdAt: Date?
     let updatedAt: Date?
+    let displayCommunity: DisplayCommunity?
 
     var formattedHandle: String {
         let trimmed = handle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -17,7 +18,19 @@ struct AnonProfile: Codable, Identifiable {
 }
 
 extension AnonProfile {
-    func asUserProfile(companyName: String?) -> UserProfile {
+    init(dto: AnonProfileDTO) {
+        id = dto.id
+        handle = dto.handle
+        companyId = dto.companyId
+        followerCount = dto.stats?.followerCount
+        followingCount = dto.stats?.followingCount
+        postsCount = dto.stats?.postsCount
+        createdAt = dto.createdAt
+        updatedAt = dto.updatedAt
+        displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
+    }
+
+    func asUserProfile(companyName: String?, isCurrentUser: Bool = true) -> UserProfile {
         let now = Date()
         let createdAt = createdAt ?? now
         let calendar = Calendar.current
@@ -41,8 +54,9 @@ extension AnonProfile {
             postsCount: postsCount ?? 0,
             commentsCount: 0,
             showFollowerCount: false,
-            isCurrentUser: true,
-            displayCommunity: nil,
+            isCurrentUser: isCurrentUser,
+            displayCommunity: displayCommunity,
+            displaySpecialization: nil,
             createdAt: createdAt,
             updatedAt: updatedAt ?? now
         )

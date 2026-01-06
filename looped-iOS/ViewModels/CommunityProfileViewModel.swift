@@ -133,6 +133,13 @@ final class CommunityProfileViewModel: ObservableObject {
         posts.removeAll { $0.backendId == backendId }
     }
 
+    func updatePost(_ updated: Post) {
+        guard let backendId = updated.backendId else { return }
+        if let index = posts.firstIndex(where: { $0.backendId == backendId }) {
+            posts[index] = updated
+        }
+    }
+
     private func updateCommunity(_ update: (inout CommunityProfileData) -> Void) {
         var next = community
         update(&next)

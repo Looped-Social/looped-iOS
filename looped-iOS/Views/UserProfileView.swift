@@ -7,6 +7,7 @@ enum UserProfileTab: String, CaseIterable {
 
 struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var fabState: FloatingActionButtonState
     @StateObject private var viewModel: UserProfileViewModel
     @StateObject private var postsViewModel: CollectionPostsViewModel
     @StateObject private var commentsViewModel = UserCommentsViewModel()
@@ -18,7 +19,7 @@ struct UserProfileView: View {
     init(userId: Int, currentUserId: Int? = nil, preloadedProfile: UserProfile? = nil) {
         _viewModel = StateObject(
             wrappedValue: UserProfileViewModel(
-                userId: userId,
+                source: .user(id: userId),
                 currentUserId: currentUserId,
                 initialProfile: preloadedProfile
             )
@@ -26,6 +27,20 @@ struct UserProfileView: View {
         _postsViewModel = StateObject(
             wrappedValue: CollectionPostsViewModel(
                 collection: .user(userId: userId)
+            )
+        )
+    }
+
+    init(anonProfileId: Int, preloadedProfile: UserProfile? = nil) {
+        _viewModel = StateObject(
+            wrappedValue: UserProfileViewModel(
+                source: .anon(id: anonProfileId),
+                initialProfile: preloadedProfile
+            )
+        )
+        _postsViewModel = StateObject(
+            wrappedValue: CollectionPostsViewModel(
+                collection: .anon(profileId: anonProfileId)
             )
         )
     }
@@ -45,11 +60,8 @@ struct UserProfileView: View {
             .task { await loadIfNeeded() }
             .refreshable { await reload() }
 
-            VStack {
-                UserProfileHeader {
-                    dismiss()
-                }
-                Spacer()
+            UserProfileHeader {
+                dismiss()
             }
             .background(
                 GeometryReader { proxy in
@@ -60,6 +72,12 @@ struct UserProfileView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
+        .onAppear {
+            fabState.isHidden = true
+        }
+        .onDisappear {
+            fabState.isHidden = false
+        }
         .overlay(
             Group {
                 if commentsManager.isPresented, let post = commentsManager.currentPost {
@@ -72,6 +90,7 @@ struct UserProfileView: View {
             }
         )
         .onChange(of: selectedTab) { newValue in
+            guard !viewModel.isAnonymousProfile else { return }
             if newValue == .comments {
                 Task { await loadCommentsIfNeeded() }
             }
@@ -92,13 +111,17 @@ struct UserProfileView: View {
         } else if let profile = viewModel.profile {
             VStack(spacing: 0) {
                 UserProfileInfoSection(userProfile: profile)
-                UserProfileTabsView(selectedTab: $selectedTab)
-                UserProfileContentView(
-                    userProfile: profile,
-                    selectedTab: selectedTab,
-                    postsViewModel: postsViewModel,
-                    commentsViewModel: commentsViewModel
-                )
+                if viewModel.isAnonymousProfile {
+                    UserPostsList(viewModel: postsViewModel)
+                } else {
+                    UserProfileTabsView(selectedTab: $selectedTab)
+                    UserProfileContentView(
+                        userProfile: profile,
+                        selectedTab: selectedTab,
+                        postsViewModel: postsViewModel,
+                        commentsViewModel: commentsViewModel
+                    )
+                }
             }
         } else {
             Text("Profile unavailable")
@@ -146,17 +169,20 @@ struct UserProfileView: View {
 
     private func reload() async {
         await viewModel.loadProfile()
-        if let backendId = viewModel.profile?.backendId {
+        if !viewModel.isAnonymousProfile, let backendId = viewModel.profile?.backendId {
             commentsViewModel.setUser(id: backendId)
         }
         await postsViewModel.loadInitial()
-        if selectedTab == .comments {
+        if !viewModel.isAnonymousProfile, selectedTab == .comments {
             await loadCommentsIfNeeded()
         }
     }
 
     private func loadCommentsIfNeeded() async {
-        guard commentsViewModel.comments.isEmpty, viewModel.profile?.backendId != nil else { return }
+        guard !viewModel.isAnonymousProfile,
+              commentsViewModel.comments.isEmpty,
+              viewModel.profile?.backendId != nil
+        else { return }
         await commentsViewModel.loadInitial()
     }
 }
@@ -243,7 +269,16 @@ struct UserProfileInfoSection: View {
                     Spacer()
                 }
 
-                if !userProfile.isAnonymous {
+                if userProfile.displaySpecializationLine != nil {
+                    DisplaySpecializationRow(
+                        specialization: userProfile.displaySpecialization,
+                        displayCommunity: userProfile.displayCommunity,
+                        fallbackText: "Member",
+                        font: .subheadline,
+                        textColor: .loopedTextSecondary,
+                        iconSize: 16
+                    )
+                } else if !userProfile.isAnonymous || userProfile.displayCommunity != nil {
                     DisplayCommunityRow(
                         displayCommunity: userProfile.displayCommunity,
                         fallbackText: "No primary community selected",
@@ -430,6 +465,9 @@ struct UserPostsList: View {
                         onBookmarkToggle: { isSaved in
                             viewModel.handleBookmarkChange(for: post, isSaved: isSaved)
                         },
+                        onUpdate: { updated in
+                            viewModel.updatePost(updated)
+                        },
                         onDelete: { deleted in
                             viewModel.removePost(backendId: deleted.backendId)
                         }
@@ -567,6 +605,7 @@ struct UserCommentsList: View {
         showFollowerCount: true,
         isCurrentUser: false,
         displayCommunity: nil,
+        displaySpecialization: nil,
         createdAt: Date(),
         updatedAt: Date()
     )
@@ -576,6 +615,7 @@ struct UserCommentsList: View {
     }
     .environmentObject(AuthViewModel())
     .environmentObject(FeedViewModel())
+    .environmentObject(FloatingActionButtonState())
 }
 
 private struct UserProfileHeaderHeightKey: PreferenceKey {

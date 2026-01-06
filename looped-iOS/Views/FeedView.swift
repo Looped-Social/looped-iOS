@@ -5,8 +5,14 @@ struct FeedView: View {
     @EnvironmentObject var viewModel: FeedViewModel
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
+    @State private var isAtTop = true
+    @State private var pollingTask: Task<Void, Never>?
 
     private let headerHeight: CGFloat = 140
+    private let pollInterval: TimeInterval = 90
+    private let toastCooldown: TimeInterval = 7 * 60
+    private let minNewPostsCount = 7
+    private let topAnchorId = "feedTop"
 
     init(onProfileTap: @escaping () -> Void = {}) {
         self.onProfileTap = onProfileTap
@@ -19,6 +25,10 @@ struct FeedView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
+                        Color.clear
+                            .frame(height: 0)
+                            .id(topAnchorId)
+
                         if viewModel.isLoading && viewModel.posts.isEmpty {
                             ForEach(0..<6, id: \.self) { index in
                                 PostCardSkeleton(showsMedia: index % 3 != 0)
@@ -31,9 +41,16 @@ struct FeedView: View {
                             EmptyFeedView()
                         } else {
                             ForEach(viewModel.posts) { post in
-                                PostCard(post: post, showsCommunityLabel: true, onDelete: { deleted in
-                                    viewModel.removePost(backendId: deleted.backendId)
-                                })
+                                PostCard(
+                                    post: post,
+                                    showsCommunityLabel: true,
+                                    onUpdate: { updated in
+                                        viewModel.updatePost(updated)
+                                    },
+                                    onDelete: { deleted in
+                                        viewModel.removePost(backendId: deleted.backendId)
+                                    }
+                                )
                                     .onAppear {
                                         Task {
                                             await viewModel.loadMoreIfNeeded(currentPost: post)
@@ -69,6 +86,24 @@ struct FeedView: View {
                     }
                     await viewModel.loadInitial()
                 }
+                .overlay(alignment: .top) {
+                    if let count = viewModel.newPostsToastCount {
+                        FeedNewPostsToast(
+                            count: count,
+                            onTap: {
+                                handleToastTap(proxy: proxy)
+                            },
+                            onDismiss: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    viewModel.dismissNewPostsToast()
+                                }
+                            }
+                        )
+                        .padding(.top, headerVisible ? headerHeight + 12 : 16)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: viewModel.newPostsToastCount)
             }
 
             // Fixed header with proper safe area handling
@@ -108,6 +143,10 @@ struct FeedView: View {
         .onAppear {
             headerVisible = true
             lastScrollOffset = 0
+            startPolling()
+        }
+        .onDisappear {
+            stopPolling()
         }
     }
 
@@ -134,7 +173,39 @@ struct FeedView: View {
             }
         }
 
+        isAtTop = offset >= -50
         lastScrollOffset = offset
+    }
+
+    private func startPolling() {
+        pollingTask?.cancel()
+        pollingTask = Task {
+            while !Task.isCancelled {
+                let delay = UInt64(pollInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: delay)
+                await viewModel.checkForNewPosts(
+                    minCount: minNewPostsCount,
+                    cooldown: toastCooldown,
+                    isAtTop: isAtTop
+                )
+            }
+        }
+    }
+
+    private func stopPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+
+    private func handleToastTap(proxy: ScrollViewProxy) {
+        viewModel.dismissNewPostsToast()
+        Task {
+            await viewModel.refreshPosts()
+            withAnimation(.easeInOut(duration: 0.25)) {
+                headerVisible = true
+                proxy.scrollTo(topAnchorId, anchor: .top)
+            }
+        }
     }
 }
 

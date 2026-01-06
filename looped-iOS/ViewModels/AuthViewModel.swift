@@ -249,6 +249,16 @@ class AuthViewModel: ObservableObject {
         updateLinkedProviders()
     }
 
+    func unlinkGoogle() async throws {
+        try await authService.unlinkGoogle()
+        updateLinkedProviders()
+    }
+
+    func unlinkApple() async throws {
+        try await authService.unlinkApple()
+        updateLinkedProviders()
+    }
+
     #if canImport(FirebaseAuth)
     func sendMfaCode(session: MFAChallengeSession, hintId: String) async throws -> String {
         guard let hint = session.phoneHints.first(where: { $0.uid == hintId }) else {

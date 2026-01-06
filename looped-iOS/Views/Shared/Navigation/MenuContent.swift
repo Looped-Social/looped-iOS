@@ -9,6 +9,7 @@ struct MenuContent: View {
     @State private var anonErrorMessage = ""
     @State private var isEnrollingAnon = false
     private let anonService = AnonService.shared
+    private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
 
     var body: some View {
         GeometryReader { proxy in
@@ -97,7 +98,15 @@ private extension MenuContent {
         isEnrollingAnon = true
         defer { isEnrollingAnon = false }
         do {
-            _ = try await anonService.ensureIdentity()
+            let communityId = await AnonCommunityResolver.resolve(
+                preferredCommunityId: authViewModel.currentUser?.displayCommunity?.id,
+                verificationService: verificationService
+            )
+            guard let communityId else {
+                throw AnonServiceError.missingCommunityContext
+            }
+            AnonCommunityResolver.cacheSelectedCommunityId(communityId)
+            _ = try await anonService.ensureIdentity(communityId: communityId)
         } catch {
             anonErrorMessage = error.localizedDescription
             showAnonError = true
@@ -288,6 +297,9 @@ private struct CollectionPostsContent: View {
                     onBookmarkToggle: { saved in
                         viewModel.handleBookmarkChange(for: post, isSaved: saved)
                     },
+                    onUpdate: { updated in
+                        viewModel.updatePost(updated)
+                    },
                     onDelete: { deleted in
                         viewModel.removePost(backendId: deleted.backendId)
                     }
@@ -342,9 +354,15 @@ private struct LikedPostsFeedList: View {
             .padding(.top, 60)
         } else {
             ForEach(viewModel.posts) { post in
-                PostCard(post: post, onDelete: { deleted in
-                    viewModel.removePost(backendId: deleted.backendId)
-                })
+                PostCard(
+                    post: post,
+                    onUpdate: { updated in
+                        viewModel.updatePost(updated)
+                    },
+                    onDelete: { deleted in
+                        viewModel.removePost(backendId: deleted.backendId)
+                    }
+                )
                     .onAppear {
                         Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                     }

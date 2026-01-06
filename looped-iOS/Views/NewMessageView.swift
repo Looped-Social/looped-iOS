@@ -165,8 +165,6 @@ struct NewMessageView: View {
                     onChatSelected(conversation, nil)
                     dismiss()
                 } catch {
-                    // Simple alert fallback
-                    print("Failed to start conversation: \(error.localizedDescription)")
                 }
             }
         }

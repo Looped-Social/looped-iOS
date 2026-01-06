@@ -6,6 +6,7 @@ struct CommunityVerificationFlowView: View {
     let onComplete: () -> Void
 
     @State private var step: VerificationStep = .intro
+    @State private var selectedOptionId: String?
 
     init(community: CommunityProfileData, onComplete: @escaping () -> Void) {
         self.community = community
@@ -47,6 +48,7 @@ struct CommunityVerificationFlowView: View {
                 options: verificationOptions,
                 currentStep: 1,
                 totalSteps: 1,
+                selectedOptionId: $selectedOptionId,
                 onBack: { step = .intro },
                 onContinue: { option in
                     if option.id == "email" {

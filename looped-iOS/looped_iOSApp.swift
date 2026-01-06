@@ -52,7 +52,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   }
 
   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-      print("APNs registration failed: \(error.localizedDescription)")
   }
 
   func userNotificationCenter(

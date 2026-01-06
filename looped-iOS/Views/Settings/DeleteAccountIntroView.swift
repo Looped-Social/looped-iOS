@@ -1,6 +1,7 @@
 import SwiftUI
 
-struct DeleteAccountIntroView: View {
+struct AccountActionIntroView: View {
+    let action: AccountActionKind
     @Environment(\.dismiss) private var dismiss
 
     private let feedbackURL = URL(string: "https://mylooped.app/feedback")!
@@ -11,29 +12,31 @@ struct DeleteAccountIntroView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Sorry to see you go")
+                    Text(headline)
                         .font(.loopedSubheadMedium)
                         .foregroundColor(.loopedTextPrimary)
 
-                    Text("Are you sure you want to delete your account?")
+                    Text(subheadline)
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextSecondary)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("This will delete both your regular account and your anonymous profile.")
+                        Text(detailText)
                             .font(.loopedBody)
                             .foregroundColor(.loopedTextPrimary)
 
-                        Link("Provide feedback here", destination: feedbackURL)
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedSecondary)
+                        if showsFeedbackLink {
+                            Link("Provide feedback here", destination: feedbackURL)
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedSecondary)
+                        }
                     }
                     .padding(16)
                     .background(Color.loopedTextSecondary.opacity(0.08))
                     .cornerRadius(12)
 
-                    NavigationLink(destination: DeleteAccountConfirmView()) {
-                        Text("Yes, delete my account")
+                    NavigationLink(destination: AccountActionConfirmView(action: action)) {
+                        Text(actionButtonTitle)
                             .font(.loopedBodyStrong)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -63,7 +66,7 @@ struct DeleteAccountIntroView: View {
 
             Spacer()
 
-            Text("Delete Account")
+            Text(title)
                 .font(.loopedSubheadMedium)
                 .foregroundColor(.loopedTextPrimary)
 
@@ -77,8 +80,69 @@ struct DeleteAccountIntroView: View {
         .padding(.top, 15)
         .padding(.bottom, 12)
     }
+
+    private var title: String {
+        switch action {
+        case .delete:
+            return "Delete Account"
+        case .deactivate:
+            return "Deactivate Account"
+        }
+    }
+
+    private var headline: String {
+        switch action {
+        case .delete:
+            return "Sorry to see you go"
+        case .deactivate:
+            return "Need a break?"
+        }
+    }
+
+    private var subheadline: String {
+        switch action {
+        case .delete:
+            return "Are you sure you want to delete your account?"
+        case .deactivate:
+            return "Deactivation is a reversible pause."
+        }
+    }
+
+    private var detailText: String {
+        switch action {
+        case .delete:
+            return "This will delete both your regular account and your anonymous profile."
+        case .deactivate:
+            return "Your profile is hidden, you will not show in search or feed, and you will not receive notifications. Log back in to reactivate. If you do not reactivate within 90 days, your account will be deleted."
+        }
+    }
+
+    private var actionButtonTitle: String {
+        switch action {
+        case .delete:
+            return "Yes, delete my account"
+        case .deactivate:
+            return "Yes, deactivate my account"
+        }
+    }
+
+    private var showsFeedbackLink: Bool {
+        action == .delete
+    }
+}
+
+struct DeleteAccountIntroView: View {
+    var body: some View {
+        AccountActionIntroView(action: .delete)
+    }
+}
+
+struct DeactivateAccountIntroView: View {
+    var body: some View {
+        AccountActionIntroView(action: .deactivate)
+    }
 }
 
 #Preview {
-    DeleteAccountIntroView()
+    AccountActionIntroView(action: .delete)
 }

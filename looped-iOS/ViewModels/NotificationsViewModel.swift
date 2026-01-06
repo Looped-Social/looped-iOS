@@ -61,9 +61,7 @@ class NotificationsViewModel: ObservableObject {
         case .postFromFollowed:
             navigateToPost(notification.targetId)
         case .announcement, .system:
-            if !openDeeplink(notification.deeplink) {
-                print("No deeplink for notification: \(notification.id)")
-            }
+            _ = openDeeplink(notification.deeplink)
         case .loopInvite, .groupInvite:
             // Navigate to loop/group
             navigateToGroup(notification.targetId)
@@ -105,33 +103,27 @@ class NotificationsViewModel: ObservableObject {
 
     // MARK: - Navigation Helpers (TODO: Implement actual navigation)
     private func navigateToPost(_ postId: UUID?) {
-        print("Navigate to post: \(postId?.uuidString ?? "unknown")")
         // TODO: Implement navigation to post detail
     }
 
     private func navigateToUserProfile(_ userId: UUID) {
-        print("Navigate to user profile: \(userId.uuidString)")
         // TODO: Implement navigation to user profile
     }
 
     private func navigateToGroup(_ groupId: UUID?) {
-        print("Navigate to group: \(groupId?.uuidString ?? "unknown")")
         // TODO: Implement navigation to group
     }
 
     // MARK: - Action Helpers (TODO: Implement actual actions)
     private func followUser(_ userId: UUID) {
-        print("Following user: \(userId.uuidString)")
         // TODO: Implement follow user API call
     }
 
     private func joinLoop(_ loopId: UUID?) {
-        print("Joining loop: \(loopId?.uuidString ?? "unknown")")
         // TODO: Implement join loop API call
     }
 
     private func joinGroup(_ groupId: UUID?) {
-        print("Joining group: \(groupId?.uuidString ?? "unknown")")
         // TODO: Implement join group API call
     }
 

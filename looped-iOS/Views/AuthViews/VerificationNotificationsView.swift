@@ -4,6 +4,7 @@ struct VerificationNotificationsView: View {
     let loopName: String
     let currentStep: Int
     let totalSteps: Int
+    let onBack: () -> Void
     let onEnableNotifications: (_ wantsRecommendations: Bool) -> Void
     let onSkip: () -> Void
 
@@ -14,12 +15,14 @@ struct VerificationNotificationsView: View {
         currentStep: Int = 5,
         totalSteps: Int = 5,
         wantsRecommendations: Bool = true,
+        onBack: @escaping () -> Void,
         onEnableNotifications: @escaping (_ wantsRecommendations: Bool) -> Void,
         onSkip: @escaping () -> Void
     ) {
         self.loopName = loopName
         self.currentStep = currentStep
         self.totalSteps = totalSteps
+        self.onBack = onBack
         self.onEnableNotifications = onEnableNotifications
         self.onSkip = onSkip
         _wantsRecommendations = State(initialValue: wantsRecommendations)
@@ -28,12 +31,8 @@ struct VerificationNotificationsView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Spacer()
-                    VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
-                    Spacer()
-                }
-                .padding(.top, 8)
+                header
+                    .padding(.top, 8)
 
                 Spacer()
                     .frame(height: geometry.size.height * 0.06)
@@ -95,9 +94,28 @@ struct VerificationNotificationsView: View {
     }
 }
 
+private extension VerificationNotificationsView {
+    var header: some View {
+        ZStack {
+            HStack {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.loopedTextPrimary)
+                        .frame(width: 40, height: 40)
+                }
+                Spacer()
+            }
+
+            VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+        }
+    }
+}
+
 #Preview {
     VerificationNotificationsView(
         loopName: "Looped",
+        onBack: { },
         onEnableNotifications: { _ in },
         onSkip: {}
     )

@@ -13,6 +13,7 @@ class FeedViewModel: ObservableObject {
     @Published var isLoadingCommunities = false
     @Published var isLoadingMoreCommunities = false
     @Published var communitiesError: String?
+    @Published var newPostsToastCount: Int?
 
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
@@ -23,6 +24,7 @@ class FeedViewModel: ObservableObject {
     private let communityPageSize = 50
     private let lastPostedCommunityKey = "lastPostedCommunityId"
     private let lastSelectedCommunityKey = "lastSelectedCommunityId"
+    private var lastToastAt: Date?
     
     init(
         feedService: FeedServiceProtocol = FeedService(),
@@ -98,12 +100,14 @@ class FeedViewModel: ObservableObject {
         guard selectedCommunity?.id != community.id else { return }
         selectedCommunity = community
         updateLastSelectedCommunityId()
+        resetNewPostsToast()
         await loadPosts(reset: true)
     }
 
     func selectAllCommunities() async {
         guard selectedCommunity != nil else { return }
         selectedCommunity = nil
+        resetNewPostsToast()
         await loadPosts(reset: true)
     }
 
@@ -121,6 +125,7 @@ class FeedViewModel: ObservableObject {
         if reset {
             if isLoading { return }
             isLoading = true
+            newPostsToastCount = nil
         } else {
             if isLoadingMore || nextCursor == nil { return }
             isLoadingMore = true
@@ -155,11 +160,55 @@ class FeedViewModel: ObservableObject {
     func selectFeedMode(_ mode: FeedMode) async {
         guard feedMode != mode else { return }
         feedMode = mode
+        resetNewPostsToast()
         await loadPosts(reset: true)
     }
     
     func refreshPosts() async {
         await loadPosts(reset: true)
+    }
+
+    func checkForNewPosts(minCount: Int, cooldown: TimeInterval, isAtTop: Bool) async {
+        guard !isLoading, !isLoadingMore else { return }
+        guard let currentTop = posts.first else { return }
+
+        do {
+            let page = try await feedService.fetchFeed(
+                limit: minCount,
+                cursor: nil,
+                communityId: selectedCommunity?.id,
+                mode: feedMode
+            )
+            let newCount = countNewPosts(in: page.posts, comparedTo: currentTop)
+            guard newCount > 0 else { return }
+
+            if isAtTop {
+                await loadPosts(reset: true)
+                return
+            }
+
+            if let existing = newPostsToastCount {
+                if newCount > existing {
+                    newPostsToastCount = newCount
+                }
+                return
+            }
+
+            let now = Date()
+            if let lastToastAt, now.timeIntervalSince(lastToastAt) < cooldown {
+                return
+            }
+
+            guard newCount >= minCount else { return }
+            newPostsToastCount = newCount
+            lastToastAt = now
+        } catch {
+            return
+        }
+    }
+
+    func dismissNewPostsToast() {
+        newPostsToastCount = nil
     }
 
     func loadMoreIfNeeded(currentPost: Post) async {
@@ -190,6 +239,13 @@ class FeedViewModel: ObservableObject {
     func removePost(backendId: Int?) {
         guard let backendId else { return }
         posts.removeAll { $0.backendId == backendId }
+    }
+
+    func updatePost(_ updated: Post) {
+        guard let backendId = updated.backendId else { return }
+        if let index = posts.firstIndex(where: { $0.backendId == backendId }) {
+            posts[index] = updated
+        }
     }
     
     @discardableResult
@@ -224,5 +280,38 @@ private extension FeedViewModel {
         if stored == 0, let fallbackId = followedCommunities.first?.id {
             UserDefaults.standard.set(fallbackId, forKey: lastSelectedCommunityKey)
         }
+    }
+
+    func resetNewPostsToast() {
+        newPostsToastCount = nil
+        lastToastAt = nil
+    }
+
+    func countNewPosts(in fetched: [Post], comparedTo currentTop: Post) -> Int {
+        guard let fetchedTop = fetched.first else { return 0 }
+        guard isNewer(fetchedTop, than: currentTop) else { return 0 }
+
+        guard let currentBackendId = currentTop.backendId else {
+            return fetched.count
+        }
+
+        for (index, post) in fetched.enumerated() {
+            if post.backendId == currentBackendId {
+                return index
+            }
+        }
+        return fetched.count
+    }
+
+    func isNewer(_ post: Post, than anchor: Post) -> Bool {
+        if post.createdAt > anchor.createdAt {
+            return true
+        }
+        if post.createdAt == anchor.createdAt,
+           let postId = post.backendId,
+           let anchorId = anchor.backendId {
+            return postId > anchorId
+        }
+        return false
     }
 }

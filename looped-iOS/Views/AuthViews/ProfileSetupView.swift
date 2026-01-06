@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileSetupView: View {
     @ObservedObject var authViewModel: AuthViewModel
+    let onBack: () -> Void
     let onContinue: () -> Void
 
     @State private var username = ""
@@ -22,6 +23,14 @@ struct ProfileSetupView: View {
 
             VStack(spacing: 0) {
                 HStack {
+                    Button(action: onBack) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.loopedTextPrimary)
+                            .padding(10)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(Circle())
+                    }
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -67,7 +76,7 @@ struct ProfileSetupView: View {
                                 }
                         }
                         .padding()
-                        .background(Color.white)
+                        .background(Color.loopedBackground)
                         .cornerRadius(18)
                         .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
 
@@ -236,7 +245,7 @@ struct ProfileSetupView: View {
 }
 
 #Preview {
-    ProfileSetupView(authViewModel: AuthViewModel(), onContinue: { })
+    ProfileSetupView(authViewModel: AuthViewModel(), onBack: { }, onContinue: { })
 }
 
 private extension ProfileSetupView {

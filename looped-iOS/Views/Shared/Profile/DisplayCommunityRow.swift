@@ -6,11 +6,18 @@ struct DisplayCommunityRow: View {
     var font: Font = .loopedSubBodyRegular
     var textColor: Color = .loopedTextSecondary
     var iconSize: CGFloat = 16
+    var showsIcon: Bool = true
     var showsDisclosure: Bool = false
 
     var body: some View {
         HStack(spacing: 8) {
-            DisplayCommunityIcon(displayCommunity: displayCommunity, size: iconSize)
+            if showsIcon {
+                DisplayCommunityIcon(
+                    isSelected: displayCommunity != nil,
+                    size: iconSize,
+                    color: textColor
+                )
+            }
 
             Text(displayCommunity?.displayText ?? fallbackText)
                 .font(font)
@@ -28,23 +35,13 @@ struct DisplayCommunityRow: View {
 }
 
 private struct DisplayCommunityIcon: View {
-    let displayCommunity: DisplayCommunity?
+    let isSelected: Bool
     let size: CGFloat
+    let color: Color
 
     var body: some View {
-        if let displayCommunity {
-            Circle()
-                .fill(Color.loopedPrimary)
-                .frame(width: size, height: size)
-                .overlay(
-                    Text(displayCommunity.initials)
-                        .font(.system(size: max(10, size * 0.6), weight: .bold))
-                        .foregroundColor(.white)
-                )
-        } else {
-            Image(systemName: "xmark.seal")
-                .font(.system(size: max(12, size)))
-                .foregroundColor(.loopedTextSecondary)
-        }
+        Image(systemName: isSelected ? "briefcase.fill" : "briefcase")
+            .font(.system(size: max(12, size)))
+            .foregroundColor(color)
     }
 }

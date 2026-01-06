@@ -34,6 +34,7 @@ struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var feedViewModel = FeedViewModel()
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
+    @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     private let onboardingStore = OnboardingProgressStore()
 
@@ -58,6 +59,13 @@ struct ContentView: View {
         } message: {
             Text("Your account and anonymous profile have been deleted.")
         }
+        .alert("Account Deactivated", isPresented: $showAccountDeactivatedAlert) {
+            Button("OK", role: .cancel) {
+                showAccountDeactivatedAlert = false
+            }
+        } message: {
+            Text("Your profile is hidden until you log back in.")
+        }
         .environmentObject(authViewModel)
         .environmentObject(feedViewModel)
         .preferredColorScheme(preferredColorScheme)
@@ -81,6 +89,7 @@ struct MainTabView: View {
     @State private var menuDestination: MenuDestination?
     @State private var showFAQSheet = false
     @StateObject private var commentsManager = CommentsModalManager()
+    @StateObject private var fabState = FloatingActionButtonState()
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
@@ -91,6 +100,7 @@ struct MainTabView: View {
         GeometryReader { geometry in
             mainLayout(for: geometry)
         }
+        .environmentObject(fabState)
         .task {
             await feedViewModel.loadFollowedCommunities()
         }
@@ -310,7 +320,10 @@ struct MainTabView: View {
 
     @ViewBuilder
     private var floatingActionButton: some View {
-        if (selectedTab == .home || selectedTab == .messages) && !commentsManager.isPresented && !isRightMenuOpen {
+        if (selectedTab == .home || selectedTab == .messages)
+            && !commentsManager.isPresented
+            && !isRightMenuOpen
+            && !fabState.isHidden {
             VStack {
                 Spacer()
                 HStack {
@@ -358,7 +371,8 @@ struct MainTabView: View {
            selectedTab == .home,
            !isRightMenuOpen,
            !commentsManager.isPresented,
-           !showingChat {
+           !showingChat,
+           !fabState.isHidden {
             CoachMarkOverlay(
                 target: step.target,
                 targets: targets,
