@@ -15,7 +15,7 @@ struct SearchView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "magnifyingglass")
                                 .foregroundColor(.loopedTextSecondary)
-                                .font(.system(size: 16))
+                                .font(.loopedCustom(size: 16))
                             Text("Search Looped")
                                 .font(.loopedBody)
                                 .foregroundColor(.loopedTextSecondary)
@@ -23,7 +23,7 @@ struct SearchView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Color.gray.opacity(0.15))
+                        .background(Color.loopedGray.opacity(0.15))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .padding(.horizontal, 16)
                     }

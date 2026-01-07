@@ -10,8 +10,10 @@ enum NotificationPreferenceType: String, CaseIterable {
     case follow
     case like
     case comment
+    case reply
     case mention
     case postFromFollowed = "post_from_followed"
+    case repost
     case announcement
     case system
 }
@@ -62,10 +64,14 @@ extension NotificationTypePreferencesDTO {
             return like
         case .comment:
             return comment
+        case .reply:
+            return reply
         case .mention:
             return mention
         case .postFromFollowed:
             return postFromFollowed
+        case .repost:
+            return repost
         case .announcement:
             return announcement
         case .system:
@@ -81,10 +87,14 @@ extension NotificationTypePreferencesDTO {
             like = value
         case .comment:
             comment = value
+        case .reply:
+            reply = value
         case .mention:
             mention = value
         case .postFromFollowed:
             postFromFollowed = value
+        case .repost:
+            repost = value
         case .announcement:
             announcement = value
         case .system:
@@ -102,10 +112,14 @@ extension NotificationTypePreferencesUpdateDTO {
             like = value
         case .comment:
             comment = value
+        case .reply:
+            reply = value
         case .mention:
             mention = value
         case .postFromFollowed:
             postFromFollowed = value
+        case .repost:
+            repost = value
         case .announcement:
             announcement = value
         case .system:

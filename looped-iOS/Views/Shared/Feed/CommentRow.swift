@@ -93,10 +93,6 @@ struct CommentRow: View {
         .loopedSmallText
     }
 
-    private var initials: String {
-        String(displayName.prefix(1)).uppercased()
-    }
-
     private var avatarView: some View {
         Group {
             if comment.isAnonymous {
@@ -104,30 +100,17 @@ struct CommentRow: View {
                     .fill(Color.loopedTextSecondary.opacity(0.15))
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.loopedCustom(.semibold, size: 12))
                             .foregroundColor(.loopedTextSecondary)
                     )
-            } else if let urlString = comment.authorProfileImageURL, let url = URL(string: urlString) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.2))
-                }
+                    .frame(width: profileSize, height: profileSize)
             } else {
-                Circle()
-                    .fill(Color.loopedTextSecondary.opacity(0.15))
-                    .overlay(
-                        Text(initials)
-                            .font(.loopedSmallTextMedium)
-                            .foregroundColor(.loopedTextPrimary)
-                    )
+                ProfileAvatarView(
+                    imageURL: comment.authorProfileImageURL,
+                    size: profileSize
+                )
             }
         }
-        .frame(width: profileSize, height: profileSize)
-        .clipShape(Circle())
     }
 
     private var collapsedRepliesLabel: String? {
@@ -203,8 +186,8 @@ struct CommentRow: View {
                             }) {
                                 HStack(spacing: 4) {
                                     Image(systemName: comment.userLiked ? "heart.fill" : "heart")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(comment.userLiked ? .red : .loopedTextSecondary)
+                                        .font(.loopedCustom(size: 12))
+                                        .foregroundColor(comment.userLiked ? .loopedError : .loopedTextSecondary)
 
                                     if comment.likeCount > 0 {
                                         Text("\(comment.likeCount)")

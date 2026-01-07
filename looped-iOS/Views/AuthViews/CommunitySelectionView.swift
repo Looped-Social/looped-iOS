@@ -44,7 +44,7 @@ struct CommunitySelectionView: View {
 
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 16))
                     .foregroundColor(.loopedTextSecondary)
 
                 TextField("Search communities", text: $searchText)
@@ -81,7 +81,7 @@ struct CommunitySelectionView: View {
             Button(action: { onContinue(selectedCommunities) }) {
                 Text(continueTitle)
                     .font(.loopedBodyMedium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.loopedWhite)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
@@ -110,7 +110,7 @@ private extension CommunitySelectionView {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 20))
                     .foregroundColor(.loopedTextPrimary)
                     .frame(width: 40, height: 40)
             }
@@ -145,7 +145,7 @@ private struct CommunityRow: View {
                 Spacer()
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .font(.loopedCustom(size: 20))
                     .foregroundColor(isSelected ? .loopedPrimary : .loopedTextSecondary.opacity(0.5))
             }
             .padding(.horizontal, 16)

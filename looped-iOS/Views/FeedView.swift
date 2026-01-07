@@ -25,7 +25,7 @@ struct FeedView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        Color.clear
+                        Color.loopedClear
                             .frame(height: 0)
                             .id(topAnchorId)
 
@@ -70,7 +70,7 @@ struct FeedView: View {
                     }
                     .background(
                         GeometryReader { geo in
-                            Color.clear
+                            Color.loopedClear
                                 .onChange(of: geo.frame(in: .global).minY) { _, newValue in
                                     handleScroll(newValue)
                                 }
@@ -78,7 +78,7 @@ struct FeedView: View {
                     )
                 }
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    Color.clear.frame(height: headerHeight)
+                    Color.loopedClear.frame(height: headerHeight)
                 }
                 .refreshable {
                     withAnimation(.easeInOut(duration: 0.25)) {

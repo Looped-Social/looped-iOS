@@ -23,6 +23,17 @@ extension CommunityProfileData {
         self.isFollowing = community.isFollowing ?? false
     }
 
+    init(details: CommunityDetailsDTO) {
+        self.id = details.id
+        self.name = details.name
+        self.description = details.description
+        self.kind = CommunityKind(rawValue: details.kind ?? "") ?? .unknown
+        self.specializationType = CommunitySpecializationType(rawValue: details.specializationType ?? "") ?? .unknown
+        self.memberCount = details.memberCount ?? 0
+        self.imageUrl = details.imageUrl
+        self.isFollowing = details.isFollowing ?? false
+    }
+
     init(summary: CommunitySummary, description: String = "", imageUrl: String? = nil) {
         self.id = summary.id
         self.name = summary.name

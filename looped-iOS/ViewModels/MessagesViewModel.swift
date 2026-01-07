@@ -8,8 +8,10 @@ class MessagesViewModel: ObservableObject {
     @Published var messageRequests: [MessageRequest] = []
     @Published var isLoading = false
     @Published var isLoadingRequests = false
+    @Published var isLoadingChannels = false
     @Published var processingRequestIds: Set<Int> = []
     @Published var errorMessage: String?
+    @Published var channelErrorMessage: String?
 
     private let messageService: MessageServiceProtocol
     private let userService: UserServiceProtocol
@@ -25,17 +27,17 @@ class MessagesViewModel: ObservableObject {
     }
 
     func loadChannels() async {
-        isLoading = true
-        errorMessage = nil
+        isLoadingChannels = true
+        channelErrorMessage = nil
 
         do {
             let page = try await messageService.getChannels(cursor: nil)
             channels = page.channels
         } catch {
-            errorMessage = error.localizedDescription
+            channelErrorMessage = error.localizedDescription
         }
 
-        isLoading = false
+        isLoadingChannels = false
     }
 
     func loadConversations() async {

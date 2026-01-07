@@ -31,10 +31,10 @@ struct ForgotPasswordView: View {
                     Spacer()
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.loopedCustom(.semibold, size: 14))
                             .foregroundColor(.loopedTextPrimary)
                             .padding(10)
-                            .background(Color.white.opacity(0.85))
+                            .background(Color.loopedWhite.opacity(0.85))
                             .clipShape(Circle())
                     }
                     .accessibilityLabel("Close")
@@ -59,7 +59,7 @@ struct ForgotPasswordView: View {
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.loopedSubBodyRegular)
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                                 .multilineTextAlignment(.center)
                         }
 
@@ -72,14 +72,14 @@ struct ForgotPasswordView: View {
                         }
                     }
                     .padding()
-                    .background(Color.white)
+                    .background(Color.loopedWhite)
                     .cornerRadius(18)
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
+                    .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
 
                     Button(action: submit) {
                         Text(didSend ? "Resend Link" : "Send Reset Link")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
                             .background(

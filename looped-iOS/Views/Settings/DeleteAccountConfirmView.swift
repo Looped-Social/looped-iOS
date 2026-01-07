@@ -129,7 +129,7 @@ struct AccountActionConfirmView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .foregroundColor(.loopedTextSecondary)
             }
 
@@ -142,7 +142,7 @@ struct AccountActionConfirmView: View {
             Spacer()
 
             Image(systemName: "chevron.left")
-                .font(.system(size: 24, weight: .medium))
+                .font(.loopedCustom(.medium, size: 24))
                 .opacity(0)
         }
         .padding(.horizontal, 20)

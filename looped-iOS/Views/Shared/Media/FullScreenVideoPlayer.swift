@@ -10,14 +10,14 @@ struct VideoPlayerSheet: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.loopedBlack.ignoresSafeArea()
 
             if let player = player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             } else {
                 ProgressView()
-                    .tint(.white)
+                    .tint(.loopedWhite)
                     .scaleEffect(1.5)
             }
 
@@ -30,10 +30,10 @@ struct VideoPlayerSheet: View {
                         isPresented = false
                     }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(.semibold, size: 20))
+                            .foregroundColor(.loopedWhite)
                             .frame(width: 44, height: 44)
-                            .background(Circle().fill(Color.black.opacity(0.5)))
+                            .background(Circle().fill(Color.loopedBlack.opacity(0.5)))
                     }
                     .padding()
                 }

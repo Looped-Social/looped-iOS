@@ -105,7 +105,7 @@ struct CreatePostView: View {
                                 showVerificationInfoAlert = true
                             }) {
                                 Image(systemName: "questionmark.circle")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.loopedCustom(.semibold, size: 14))
                                     .foregroundColor(.loopedTextSecondary)
                             }
                             .accessibilityLabel("Why verification is required")
@@ -136,7 +136,7 @@ struct CreatePostView: View {
                                         .foregroundColor(.loopedTextPrimary)
                                     Spacer()
                                     Image(systemName: "chevron.down")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.loopedCustom(.medium, size: 12))
                                         .foregroundColor(.loopedTextSecondary)
                                 }
                                 .padding(.horizontal, 16)
@@ -150,7 +150,7 @@ struct CreatePostView: View {
                     if !canPost {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "checkmark.seal")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.loopedCustom(.semibold, size: 16))
                                 .foregroundColor(.loopedSecondary)
 
                             Text(disabledPostMessage)
@@ -186,7 +186,7 @@ struct CreatePostView: View {
                         }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "photo")
-                                    .font(.system(size: 16))
+                                    .font(.loopedCustom(size: 16))
                                 Text("Photo/Video")
                                     .font(.loopedSubBodyMedium)
                             }
@@ -202,7 +202,7 @@ struct CreatePostView: View {
                         }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "camera")
-                                    .font(.system(size: 16))
+                                    .font(.loopedCustom(size: 16))
                                 Text("Camera")
                                     .font(.loopedSubBodyMedium)
                             }
@@ -232,7 +232,7 @@ struct CreatePostView: View {
                         Spacer()
                         Text("\(remainingCharacters)")
                             .font(.loopedSmallText)
-                            .foregroundColor(remainingCharacters < 20 ? .red : .loopedTextSecondary)
+                            .foregroundColor(remainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
                     }
                     
                     // Anonymous mode indicator
@@ -243,7 +243,7 @@ struct CreatePostView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "theatermasks")
-                                        .font(.system(size: 14))
+                                        .font(.loopedCustom(size: 14))
                                         .foregroundColor(.loopedTextSecondary)
 
                                     Text(isAnonymous ? "Posting anonymously" : "Posting as yourself")
@@ -259,7 +259,7 @@ struct CreatePostView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12))
+                                .font(.loopedCustom(size: 12))
                                 .foregroundColor(.loopedTextSecondary)
                         }
                         .padding(.horizontal, 16)

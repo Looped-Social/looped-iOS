@@ -11,9 +11,9 @@ private struct ShimmerModifier: ViewModifier {
         let highlightOpacity: CGFloat = colorScheme == .dark ? 0.18 : 0.55
         let gradient = LinearGradient(
             colors: [
-                Color.clear,
-                Color.white.opacity(highlightOpacity),
-                Color.clear
+                Color.loopedClear,
+                Color.loopedWhite.opacity(highlightOpacity),
+                Color.loopedClear
             ],
             startPoint: .top,
             endPoint: .bottom

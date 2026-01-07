@@ -65,10 +65,10 @@ struct VerificationConfirmationView: View {
                 Button(action: onComplete) {
                     Text("Continue")
                         .font(.loopedHeadingMedium)
-                        .foregroundColor(.white)
+                        .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Color.black)
+                        .background(Color.loopedBlack)
                         .clipShape(Capsule())
                 }
                 .padding(.horizontal, 32)
@@ -87,7 +87,7 @@ private extension VerificationConfirmationView {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 20))
                         .foregroundColor(.loopedTextPrimary)
                         .frame(width: 40, height: 40)
                 }

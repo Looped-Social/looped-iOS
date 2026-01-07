@@ -37,7 +37,7 @@ struct OrganizationSelectionView: View {
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 16))
                         .foregroundColor(.loopedTextSecondary)
 
                     TextField("", text: $searchText)
@@ -88,7 +88,7 @@ private extension OrganizationSelectionView {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 20))
                     .foregroundColor(.loopedTextPrimary)
                     .frame(width: 40, height: 40)
             }
@@ -122,7 +122,7 @@ private struct OrganizationListRow: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 18))
                         .foregroundColor(.loopedPrimary)
                 }
             }

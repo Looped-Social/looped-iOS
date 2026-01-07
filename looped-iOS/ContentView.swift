@@ -88,6 +88,7 @@ struct MainTabView: View {
     @State private var selectedChannel: Channel?
     @State private var menuDestination: MenuDestination?
     @State private var showFAQSheet = false
+    @State private var deepLinkProfile: DeepLinkProfile?
     @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var fabState = FloatingActionButtonState()
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
@@ -95,12 +96,13 @@ struct MainTabView: View {
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
     @State private var toastMessage: ToastMessage?
     private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
+    private let deepLinkFeedService: FeedServiceProtocol = FeedService()
     
     var body: some View {
         GeometryReader { geometry in
             mainLayout(for: geometry)
         }
-        .environmentObject(fabState)
+        .environment(\.floatingActionButtonState, fabState)
         .task {
             await feedViewModel.loadFollowedCommunities()
         }
@@ -168,6 +170,20 @@ struct MainTabView: View {
             SafariView(url: faqUrl)
                 .ignoresSafeArea()
         }
+        .fullScreenCover(item: $deepLinkProfile) { profile in
+            NavigationView {
+                if profile.isAnonymous {
+                    UserProfileView(anonProfileId: profile.profileId)
+                } else {
+                    UserProfileView(userId: profile.profileId)
+                }
+            }
+            .navigationViewStyle(.stack)
+            .preferredColorScheme(preferredColorScheme)
+        }
+        .onOpenURL { url in
+            handleDeepLink(url)
+        }
     }
 
     private func mainLayout(for geometry: GeometryProxy) -> some View {
@@ -232,7 +248,7 @@ struct MainTabView: View {
             // Blocking overlay when drawer is open - prevents feed interactions
             Group {
                 if selectedTab == .home && isRightMenuOpen {
-                    Color.clear
+                    Color.loopedClear
                         .contentShape(Rectangle())
                         .onTapGesture {
                             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
@@ -298,10 +314,10 @@ struct MainTabView: View {
 
                 LinearGradient(
                     gradient: Gradient(colors: [
-                        Color.clear,
-                        Color.black.opacity(0.05),
-                        Color.black.opacity(0.1),
-                        Color.black.opacity(0.2)
+                        Color.loopedClear,
+                        Color.loopedBlack.opacity(0.05),
+                        Color.loopedBlack.opacity(0.1),
+                        Color.loopedBlack.opacity(0.2)
                     ]),
                     startPoint: .leading,
                     endPoint: .trailing
@@ -430,6 +446,78 @@ struct MainTabView: View {
     private func skipFeedDiscovery() {
         didShowFeedDiscovery = true
         feedDiscoveryStep = nil
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard let destination = parseDeepLink(url) else { return }
+        switch destination {
+        case .post(let postId):
+            Task { await openPost(postId: postId, focusCommentId: nil) }
+        case .comment(let commentId, let postId):
+            if let postId {
+                Task { await openPost(postId: postId, focusCommentId: commentId) }
+            } else {
+                selectedTab = .notifications
+            }
+        case .user(let userId, let isAnonymous):
+            deepLinkProfile = DeepLinkProfile(profileId: userId, isAnonymous: isAnonymous)
+        case .announcement:
+            selectedTab = .notifications
+        }
+    }
+
+    private func openPost(postId: Int, focusCommentId: Int?) async {
+        do {
+            let post = try await deepLinkFeedService.fetchPost(postId: postId)
+            await MainActor.run {
+                selectedTab = .home
+                commentsManager.showComments(for: post, focusCommentId: focusCommentId)
+            }
+        } catch {
+            await MainActor.run {
+                toastMessage = ToastMessage(text: "Post unavailable")
+            }
+        }
+    }
+
+    private func parseDeepLink(_ url: URL) -> DeepLinkDestination? {
+        guard url.scheme == "looped" else { return nil }
+        let host = (url.host ?? "").lowercased()
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        let idValue = pathComponents.first.flatMap { Int($0) }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let postId = components?.queryItems?.first(where: { $0.name == "post_id" })?.value.flatMap(Int.init)
+        let isAnonymous = components?.queryItems?.first(where: { $0.name == "anon" })?.value == "true"
+
+        switch host {
+        case "post":
+            if let idValue { return .post(idValue) }
+        case "comment":
+            if let idValue { return .comment(idValue, postId: postId) }
+        case "user":
+            if let idValue { return .user(idValue, isAnonymous: isAnonymous) }
+        case "announcement":
+            if idValue != nil { return .announcement }
+        default:
+            break
+        }
+        return nil
+    }
+
+    private struct DeepLinkProfile: Identifiable {
+        let profileId: Int
+        let isAnonymous: Bool
+
+        var id: String {
+            "\(profileId)-\(isAnonymous ? "anon" : "user")"
+        }
+    }
+
+    private enum DeepLinkDestination {
+        case post(Int)
+        case comment(Int, postId: Int?)
+        case user(Int, isAnonymous: Bool)
+        case announcement
     }
 
     private enum FeedDiscoveryStep: Int, CaseIterable {

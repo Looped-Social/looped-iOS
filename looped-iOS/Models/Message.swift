@@ -28,6 +28,8 @@ struct Channel: Codable, Identifiable {
     let memberCount: Int
     let isPublic: Bool
     let createdAt: Date
+    let ownerUserId: Int?
+    let viewerCanManageMembers: Bool
 }
 
 struct ConversationPage {
@@ -37,6 +39,23 @@ struct ConversationPage {
 
 struct ChannelPage {
     let channels: [Channel]
+    let nextCursor: String?
+}
+
+struct ChannelMember: Codable, Identifiable {
+    let id: UUID
+    let backendUserId: Int
+    let handle: String
+    let displayName: String?
+    let profileImageUrl: String?
+    let companyId: Int
+    let canManageMembers: Bool
+    let createdAt: Date
+    let isOwner: Bool
+}
+
+struct ChannelMembersPage {
+    let members: [ChannelMember]
     let nextCursor: String?
 }
 

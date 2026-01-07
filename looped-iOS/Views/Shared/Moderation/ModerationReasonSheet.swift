@@ -56,7 +56,7 @@ struct ModerationReasonSheet: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.loopedSubBodyRegular)
-                        .foregroundColor(.red)
+                        .foregroundColor(.loopedError)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
@@ -64,12 +64,12 @@ struct ModerationReasonSheet: View {
                     HStack {
                         if isSubmitting {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .progressViewStyle(CircularProgressViewStyle(tint: .loopedWhite))
                         }
                         Text(isSubmitting ? "Submitting..." : submitTitle)
                             .font(.loopedBodyMedium)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.loopedWhite)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(isSubmitEnabled ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.3))

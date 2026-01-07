@@ -120,7 +120,7 @@ private extension CommentsView {
         HStack(alignment: .center, spacing: 12) {
             Button(action: { onDismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 18))
                     .foregroundColor(.loopedTextPrimary)
             }
 
@@ -138,14 +138,20 @@ private extension CommentsView {
 
     var threadHeader: some View {
         HStack(alignment: .top, spacing: 12) {
-            Circle()
-                .fill(Color.loopedTextSecondary.opacity(0.15))
-                .overlay(
-                    Text(String(postAuthorName.prefix(1)).uppercased())
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-                )
-                .frame(width: 40, height: 40)
+            Group {
+                if post.isAnonymous {
+                    Circle()
+                        .fill(Color.loopedTextSecondary.opacity(0.15))
+                        .overlay(
+                            Text(String(postAuthorName.prefix(1)).uppercased())
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
+                        )
+                        .frame(width: 40, height: 40)
+                } else {
+                    ProfileAvatarView(imageURL: post.authorProfileImageURL, size: 40)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 8) {
                 let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -206,7 +212,7 @@ private extension CommentsView {
             } else if let error = commentsManager.errorMessage, comments.isEmpty {
                 Text(error)
                     .font(.loopedSmallText)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
                     .frame(maxWidth: .infinity, minHeight: 140)
             } else if comments.isEmpty {
                 VStack(spacing: 10) {
@@ -224,7 +230,7 @@ private extension CommentsView {
                     if let error = commentsManager.errorMessage {
                         Text(error)
                             .font(.loopedSmallText)
-                            .foregroundColor(.red)
+                            .foregroundColor(.loopedError)
                     }
 
                     ForEach(comments) { comment in
@@ -308,7 +314,7 @@ private extension CommentsView {
             if !canComment {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark.seal")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 16))
                         .foregroundColor(.loopedSecondary)
 
                     Text(verificationMessage)
@@ -336,7 +342,7 @@ private extension CommentsView {
                         .fill(Color.loopedTextSecondary.opacity(0.15))
                         .overlay(
                             Image(systemName: "person.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.loopedCustom(.semibold, size: 14))
                                 .foregroundColor(.loopedTextSecondary)
                         )
                         .frame(width: 34, height: 34)
@@ -365,7 +371,7 @@ private extension CommentsView {
                     }
                 }) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 28))
                         .foregroundColor(
                             commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting || !canComment
                             ? .loopedTextSecondary

@@ -117,10 +117,78 @@ class MessageService: MessageServiceProtocol {
                 company: "",
                 memberCount: dto.memberCount,
                 isPublic: dto.isPublic,
-                createdAt: dto.createdAt
+                createdAt: dto.createdAt ?? Date(),
+                ownerUserId: dto.ownerUserId,
+                viewerCanManageMembers: dto.viewerCanManageMembers ?? false
             )
         }
         return ChannelPage(channels: channels, nextCursor: response.nextCursor)
+    }
+
+    func createChannel(name: String, memberUserIds: [Int]) async throws -> Channel {
+        let request = CreateChannelRequestDTO(
+            name: name,
+            memberUserIds: memberUserIds.isEmpty ? nil : memberUserIds
+        )
+        let dto: ChannelDTO = try await apiClient.post("/v1/channels", body: request)
+        return Channel(
+            id: UUID.fromBackendId(dto.id),
+            backendId: dto.id,
+            name: dto.name,
+            company: "",
+            memberCount: dto.memberCount,
+            isPublic: dto.isPublic,
+            createdAt: dto.createdAt ?? Date(),
+            ownerUserId: dto.ownerUserId,
+            viewerCanManageMembers: dto.viewerCanManageMembers ?? false
+        )
+    }
+
+    func getChannelMembers(channelBackendId: Int, cursor: String?) async throws -> ChannelMembersPage {
+        var endpoint = "/v1/channels/\(channelBackendId)/members?limit=50"
+        if let cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: ChannelMembersResponseDTO = try await apiClient.get(endpoint)
+        let members = response.items.map { dto in
+            ChannelMember(
+                id: UUID.fromBackendId(dto.userId),
+                backendUserId: dto.userId,
+                handle: dto.handle,
+                displayName: dto.displayName,
+                profileImageUrl: dto.profileImageUrl,
+                companyId: dto.companyId,
+                canManageMembers: dto.canManageMembers,
+                createdAt: dto.createdAt,
+                isOwner: dto.isOwner
+            )
+        }
+        return ChannelMembersPage(members: members, nextCursor: response.nextCursor)
+    }
+
+    func addChannelMembers(channelBackendId: Int, userIds: [Int]) async throws -> Int {
+        let request = ChannelMembersAddRequestDTO(userIds: userIds)
+        let response: ChannelMembersAddResponseDTO = try await apiClient.post(
+            "/v1/channels/\(channelBackendId)/members",
+            body: request
+        )
+        return response.addedCount
+    }
+
+    func removeChannelMember(channelBackendId: Int, userId: Int) async throws {
+        let _: ChannelMemberActionResponseDTO = try await apiClient.delete(
+            "/v1/channels/\(channelBackendId)/members/\(userId)",
+            expecting: ChannelMemberActionResponseDTO.self
+        )
+    }
+
+    func updateChannelMemberPermission(channelBackendId: Int, userId: Int, canManageMembers: Bool) async throws {
+        let request = ChannelMemberPermissionUpdateDTO(canManageMembers: canManageMembers)
+        let _: ChannelMemberActionResponseDTO = try await apiClient.put(
+            "/v1/channels/\(channelBackendId)/members/\(userId)",
+            body: request
+        )
     }
     
     func getChannelMessages(channelBackendId: Int, cursor: String?) async throws -> MessagePage {

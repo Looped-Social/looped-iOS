@@ -162,7 +162,7 @@ struct SearchResultsView: View {
     private var emptySearchState: some View {
         VStack(spacing: 16) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 48))
+                .font(.loopedCustom(size: 48))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
             Text("No results found")
@@ -192,7 +192,7 @@ struct SearchResultsView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 40))
+                .font(.loopedCustom(size: 40))
                 .foregroundColor(.loopedTextSecondary.opacity(0.7))
 
             Text("Something went wrong")

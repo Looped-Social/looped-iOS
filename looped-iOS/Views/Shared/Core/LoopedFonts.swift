@@ -1,5 +1,13 @@
 import SwiftUI
 
+enum LoopedFontWeight {
+    case regular
+    case medium
+    case semibold
+    case bold
+    case extrabold
+}
+
 // MARK: - Looped Font System
 extension Font {
     
@@ -22,6 +30,8 @@ extension Font {
     static let loopedHeadingMedium32 = Font.custom("Poppins-Medium", size: 32)
     
     static let loopedHeadingMedium28 = Font.custom("Poppins-Medium", size: 28)
+    
+    static let loopedHeaderStrong = Font.custom("Poppins-SemiBold", size: 32)
 
     /// Body text (16pt, Regular) - Main content, paragraphs
     static let loopedBody = Font.custom("Poppins-Regular", size: 16)
@@ -43,6 +53,7 @@ extension Font {
     /// Body strong text (16pt, SemiBold) - Strong emphasized body text
     static let loopedBodyStrong = Font.custom("Poppins-SemiBold", size: 16)
     static let loopedBodyStrong32 = Font.custom("Poppins-SemiBold", size: 32)
+    static let loopedHeaderProfile = Font.custom("Poppins-SemiBold", size: 24)
 
     
     // MARK: - Fallback System Fonts (when custom fonts fail)
@@ -58,6 +69,18 @@ extension Font {
     static func loopedScaled(_ fontName: String, size: CGFloat) -> Font {
         return Font.custom(fontName, size: size, relativeTo: .body)
     }
+
+    static func loopedCustom(_ weight: LoopedFontWeight = .regular, size: CGFloat) -> Font {
+        return Font.custom(loopedFontName(for: weight), size: size)
+    }
+
+    static func loopedCustom(
+        _ weight: LoopedFontWeight = .regular,
+        size: CGFloat,
+        relativeTo textStyle: Font.TextStyle
+    ) -> Font {
+        return Font.custom(loopedFontName(for: weight), size: size, relativeTo: textStyle)
+    }
     
     
     /// Body text with Dynamic Type scaling
@@ -65,6 +88,25 @@ extension Font {
     
     /// Headline text with Dynamic Type scaling
     static let loopedHeadlineScaled = Font.custom("Poppins-SemiBold", size: 17, relativeTo: .headline)
+
+    static let loopedSubheadlineScaled = Font.custom("Poppins-Regular", size: 15, relativeTo: .subheadline)
+    static let loopedCaptionScaled = Font.custom("Poppins-Regular", size: 12, relativeTo: .caption)
+    static let loopedTitle2Scaled = Font.custom("Poppins-Regular", size: 22, relativeTo: .title2)
+
+    private static func loopedFontName(for weight: LoopedFontWeight) -> String {
+        switch weight {
+        case .regular:
+            return "Poppins-Regular"
+        case .medium:
+            return "Poppins-Medium"
+        case .semibold:
+            return "Poppins-SemiBold"
+        case .bold:
+            return "Poppins-Bold"
+        case .extrabold:
+            return "Poppins-ExtraBold"
+        }
+    }
 }
 
 // MARK: - Font Loading Utilities

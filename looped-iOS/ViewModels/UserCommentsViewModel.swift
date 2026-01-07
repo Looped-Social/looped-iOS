@@ -6,28 +6,45 @@ final class UserCommentsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingMore = false
     @Published var errorMessage: String?
+    @Published var postLookup: [Int: Post] = [:]
+
+    private enum Target: Equatable {
+        case user(Int)
+        case anon(Int)
+    }
 
     private let userService: UserServiceProtocol
+    private let apiClient: APIClient
+    private let feedService: FeedServiceProtocol
     private var nextCursor: String?
-    private var userId: Int?
+    private var target: Target?
     private let pageSize = 20
+    private var loadingPostIds = Set<Int>()
 
-    init(userService: UserServiceProtocol = UserService()) {
+    init(
+        userService: UserServiceProtocol = UserService(),
+        apiClient: APIClient = APIClient(),
+        feedService: FeedServiceProtocol = FeedService()
+    ) {
         self.userService = userService
+        self.apiClient = apiClient
+        self.feedService = feedService
     }
 
     func setUser(id: Int?) {
-        guard userId != id else { return }
-        userId = id
-        comments = []
-        nextCursor = nil
-        errorMessage = nil
+        updateTarget(id.map(Target.user))
+    }
+
+    func setAnonProfile(id: Int?) {
+        updateTarget(id.map(Target.anon))
     }
 
     func loadInitial() async {
         guard !isLoading else { return }
         nextCursor = nil
         comments = []
+        postLookup = [:]
+        loadingPostIds = []
         await load(reset: true)
     }
 
@@ -37,7 +54,7 @@ final class UserCommentsViewModel: ObservableObject {
     }
 
     private func load(reset: Bool) async {
-        guard !isLoading, !isLoadingMore, let userId else { return }
+        guard !isLoading, !isLoadingMore, let target else { return }
         if reset {
             isLoading = true
         } else {
@@ -47,7 +64,20 @@ final class UserCommentsViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let page = try await userService.fetchUserComments(userId: userId, limit: pageSize, cursor: reset ? nil : nextCursor)
+            let page: UserCommentsPage
+            switch target {
+            case .user(let userId):
+                page = try await userService.fetchUserComments(
+                    userId: userId,
+                    limit: pageSize,
+                    cursor: reset ? nil : nextCursor
+                )
+            case .anon(let anonProfileId):
+                page = try await fetchAnonReplies(
+                    anonProfileId: anonProfileId,
+                    cursor: reset ? nil : nextCursor
+                )
+            }
             if reset {
                 comments = page.comments
             } else {
@@ -63,6 +93,52 @@ final class UserCommentsViewModel: ObservableObject {
         } else {
             isLoadingMore = false
         }
+    }
+
+    private func updateTarget(_ newTarget: Target?) {
+        guard target != newTarget else { return }
+        target = newTarget
+        comments = []
+        nextCursor = nil
+        errorMessage = nil
+        postLookup = [:]
+        loadingPostIds = []
+    }
+
+    func loadPostPreview(for comment: Comment) async {
+        guard let postId = comment.postBackendId else { return }
+        if postLookup[postId] != nil || loadingPostIds.contains(postId) { return }
+        loadingPostIds.insert(postId)
+        defer { loadingPostIds.remove(postId) }
+        do {
+            let post = try await feedService.fetchPost(postId: postId)
+            postLookup[postId] = post
+        } catch {
+            // Ignore preview failures for now.
+        }
+    }
+
+    func postPreview(for comment: Comment) -> Post? {
+        guard let postId = comment.postBackendId else { return nil }
+        return postLookup[postId]
+    }
+
+    func fetchPostForReply(_ comment: Comment) async -> Post? {
+        guard let postId = comment.postBackendId else { return nil }
+        if let existing = postLookup[postId] { return existing }
+        await loadPostPreview(for: comment)
+        return postLookup[postId]
+    }
+
+    private func fetchAnonReplies(anonProfileId: Int, cursor: String?) async throws -> UserCommentsPage {
+        var endpoint = "/v1/anon/\(anonProfileId)/replies?limit=\(pageSize)"
+        if let cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: CommentListResponseDTO = try await apiClient.get(endpoint)
+        let comments = response.items.map(Comment.init(dto:))
+        return UserCommentsPage(comments: comments, nextCursor: response.nextCursor)
     }
 }
 

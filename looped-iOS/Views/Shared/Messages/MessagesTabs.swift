@@ -16,17 +16,17 @@ struct MessagesTabs: View {
                     selectedTab = tab
                 }) {
                     Text(tab.rawValue)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(selectedTab == tab ? .white : .loopedTextSecondary)
+                        .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                        .foregroundColor(selectedTab == tab ? .loopedWhite : .loopedTextSecondary)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 20)
-                                .fill(selectedTab == tab ? Color.loopedPrimary : Color.clear)
+                                .fill(selectedTab == tab ? Color.loopedPrimary : Color.loopedClear)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(selectedTab == tab ? Color.clear : Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                                .stroke(selectedTab == tab ? Color.loopedClear : Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
                         )
                 }
                 .buttonStyle(PlainButtonStyle())

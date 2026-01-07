@@ -33,7 +33,7 @@ struct CustomRefreshableScrollView<Content: View>: View {
         }
         .background(
             GeometryReader { geometry in
-                Color.clear
+                Color.loopedClear
                     .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
             }
         )
@@ -97,7 +97,7 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
                 ForEach(0..<20, id: \.self) { i in
                     Text("Item \(i)")
                         .padding()
-                        .background(Color.gray.opacity(0.1))
+                        .background(Color.loopedGray.opacity(0.1))
                         .cornerRadius(8)
                 }
             }

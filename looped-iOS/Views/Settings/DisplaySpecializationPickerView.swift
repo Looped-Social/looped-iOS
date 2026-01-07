@@ -68,7 +68,7 @@ struct DisplaySpecializationPickerView: View {
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
+                .font(.loopedCustom(.medium, size: 16))
                 .foregroundColor(.loopedTextSecondary)
 
             TextField("Search majors or departments", text: $searchText)
@@ -94,7 +94,7 @@ struct DisplaySpecializationPickerView: View {
         } else if let errorMessage {
             Text(errorMessage)
                 .font(.loopedSubBodyRegular)
-                .foregroundColor(.red)
+                .foregroundColor(.loopedError)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else if results.isEmpty {
             Text(emptyStateText)

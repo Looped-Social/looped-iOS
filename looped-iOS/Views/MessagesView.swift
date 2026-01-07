@@ -42,6 +42,15 @@ struct MessagesView: View {
         }
     }
 
+    private var filteredChannels: [Channel] {
+        if searchText.isEmpty {
+            return viewModel.channels
+        }
+        return viewModel.channels.filter { channel in
+            channel.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -96,6 +105,42 @@ struct MessagesView: View {
                                 .padding(.vertical, 6)
                             }
                         }
+                    } else if selectedTab == .groups {
+                        if viewModel.isLoadingChannels && viewModel.channels.isEmpty {
+                            ProgressView("Loading groups...")
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 24)
+                        } else if filteredChannels.isEmpty {
+                            if searchText.isEmpty {
+                                EmptyMessagesView(
+                                    title: "No groups yet",
+                                    subtitle: "Nothing to see here… yet. Start a conversation and it’ll show up.",
+                                    buttonTitle: "Start a new chat",
+                                    onButtonTap: { showNewMessage = true }
+                                )
+                            } else {
+                                EmptyMessagesView(
+                                    title: "No matches",
+                                    subtitle: "We looked everywhere for “\(searchText)”.",
+                                    buttonTitle: "Clear search",
+                                    onButtonTap: { searchText = "" }
+                                )
+                            }
+                        } else {
+                            ForEach(filteredChannels) { channel in
+                                Button(action: {
+                                    onChatSelected(nil, channel)
+                                }) {
+                                    GroupChannelRow(channel: channel)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
+                                Rectangle()
+                                    .frame(height: 1)
+                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                    .padding(.leading, 78)
+                            }
+                        }
                     } else if viewModel.isLoading && viewModel.conversations.isEmpty {
                         ForEach(0..<10, id: \.self) { _ in
                             ConversationRowSkeleton()
@@ -143,6 +188,8 @@ struct MessagesView: View {
             .refreshable {
                 if selectedTab == .requests {
                     await viewModel.loadMessageRequests()
+                } else if selectedTab == .groups {
+                    await viewModel.loadChannels()
                 } else {
                     await viewModel.refreshInbox()
                 }
@@ -156,6 +203,9 @@ struct MessagesView: View {
         .onChange(of: selectedTab) { _, newValue in
             if newValue == .requests, viewModel.messageRequests.isEmpty {
                 Task { await viewModel.loadMessageRequests() }
+            }
+            if newValue == .groups, viewModel.channels.isEmpty {
+                Task { await viewModel.loadChannels() }
             }
         }
         .sheet(isPresented: $showNewMessage) {

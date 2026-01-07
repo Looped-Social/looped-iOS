@@ -26,12 +26,12 @@ struct HashtagFeedView: View {
                     dismiss()
                 }) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 24, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 24))
                         .foregroundColor(.loopedTextSecondary)
                 }
 
                 Text(displayHashtag)
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.loopedCustom(.bold, size: 32))
                     .foregroundColor(.loopedPrimary)
 
                 Spacer()
@@ -50,7 +50,7 @@ struct HashtagFeedView: View {
                     } else if viewModel.posts.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "number")
-                                .font(.system(size: 44))
+                                .font(.loopedCustom(size: 44))
                                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
                             Text("No posts for \(displayHashtag)")
                                 .font(.loopedBodyMedium)
@@ -64,6 +64,7 @@ struct HashtagFeedView: View {
                         ForEach(viewModel.posts) { post in
                             PostCard(
                                 post: post,
+                                showsCommunityLabel: true,
                                 onUpdate: { updated in
                                     viewModel.updatePost(updated)
                                 },

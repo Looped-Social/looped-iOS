@@ -31,7 +31,7 @@ struct TrendingPostCard: View {
             .background(Color.loopedBackground)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .shadow(color: Color.loopedBlack.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 
     private var trendingImage: some View {
@@ -68,7 +68,7 @@ struct TrendingPostCard: View {
             .fill(Color.loopedMutedBackground)
             .overlay(
                 Image(systemName: "photo")
-                    .font(.system(size: 40))
+                    .font(.loopedCustom(size: 40))
                     .foregroundColor(.loopedTextSecondary.opacity(0.5))
             )
             .shimmering(shimmer)

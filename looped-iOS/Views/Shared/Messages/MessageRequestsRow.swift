@@ -11,7 +11,7 @@ struct MessageRequestsRow: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Image(systemName: "tray.full.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 18))
                         .foregroundColor(.loopedPrimary)
                 )
 
@@ -24,7 +24,7 @@ struct MessageRequestsRow: View {
                     if count > 0 {
                         Text("\(count)")
                             .font(.loopedSmallTextMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
                             .background(
@@ -43,7 +43,7 @@ struct MessageRequestsRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.loopedCustom(.semibold, size: 14))
                 .foregroundColor(.loopedTextSecondary)
         }
         .padding(.horizontal, 16)

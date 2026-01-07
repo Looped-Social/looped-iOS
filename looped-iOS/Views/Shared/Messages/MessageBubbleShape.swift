@@ -88,36 +88,36 @@ struct TailCornerShape: Shape {
     VStack(spacing: 20) {
         // Sent message with tail corner
         Text("Good morning!")
-            .font(.body)
-            .foregroundColor(.black)
+            .font(.loopedBodyScaled)
+            .foregroundColor(.loopedBlack)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color.loopedWhite)
             .clipShape(TailCornerShape(isFromCurrentUser: true, showTail: true))
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            .shadow(color: .loopedBlack.opacity(0.1), radius: 2, x: 0, y: 1)
             .frame(maxWidth: .infinity, alignment: .trailing)
 
         // Received message with tail corner
         Text("Japan looks amazing!")
-            .font(.body)
-            .foregroundColor(.black)
+            .font(.loopedBodyScaled)
+            .foregroundColor(.loopedBlack)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(red: 0.7, green: 0.9, blue: 0.9))
+            .background(Color.loopedMessageColor)
             .clipShape(TailCornerShape(isFromCurrentUser: false, showTail: true))
             .frame(maxWidth: .infinity, alignment: .leading)
 
         // Messages without tail
         Text("Normal message")
-            .font(.body)
-            .foregroundColor(.black)
+            .font(.loopedBodyScaled)
+            .foregroundColor(.loopedBlack)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.white)
+            .background(Color.loopedWhite)
             .clipShape(TailCornerShape(isFromCurrentUser: true, showTail: false))
-            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            .shadow(color: .loopedBlack.opacity(0.1), radius: 2, x: 0, y: 1)
             .frame(maxWidth: .infinity, alignment: .trailing)
     }
     .padding()
-    .background(Color(.systemGroupedBackground))
+    .background(Color.loopedMutedBackground)
 }

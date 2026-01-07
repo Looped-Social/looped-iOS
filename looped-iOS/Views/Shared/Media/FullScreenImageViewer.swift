@@ -24,7 +24,7 @@ struct FullScreenImageViewer: View {
     var body: some View {
         ZStack {
             // Background
-            Color.black
+            Color.loopedBlack
                 .ignoresSafeArea()
 
             // TabView for swiping between images
@@ -62,10 +62,10 @@ struct FullScreenImageViewer: View {
                             isPresented = false
                         }) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(.white)
+                                .font(.loopedCustom(.semibold, size: 20))
+                                .foregroundColor(.loopedWhite)
                                 .frame(width: 44, height: 44)
-                                .background(Circle().fill(Color.black.opacity(0.5)))
+                                .background(Circle().fill(Color.loopedBlack.opacity(0.5)))
                         }
 
                         Spacer()
@@ -73,11 +73,11 @@ struct FullScreenImageViewer: View {
                         // Page indicator (if multiple images)
                         if imageUrls.count > 1 {
                             Text("\(currentIndex + 1) / \(imageUrls.count)")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .font(.loopedCustom(.semibold, size: 16))
+                                .foregroundColor(.loopedWhite)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(RoundedRectangle(cornerRadius: 20).fill(Color.black.opacity(0.5)))
+                                .background(RoundedRectangle(cornerRadius: 20).fill(Color.loopedBlack.opacity(0.5)))
                         }
 
                         Spacer()
@@ -86,10 +86,10 @@ struct FullScreenImageViewer: View {
                             showShareSheet = true
                         }) {
                             Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(.white)
+                                .font(.loopedCustom(.semibold, size: 20))
+                                .foregroundColor(.loopedWhite)
                                 .frame(width: 44, height: 44)
-                                .background(Circle().fill(Color.black.opacity(0.5)))
+                                .background(Circle().fill(Color.loopedBlack.opacity(0.5)))
                         }
                     }
                     .padding()
@@ -215,15 +215,15 @@ struct SingleImageView: View {
             case .failure(_):
                 VStack(spacing: 16) {
                     Image(systemName: "photo")
-                        .font(.system(size: 60))
-                        .foregroundColor(.white.opacity(0.5))
+                        .font(.loopedCustom(size: 60))
+                        .foregroundColor(.loopedWhite.opacity(0.5))
                     Text("Failed to load image")
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.loopedWhite.opacity(0.7))
                 }
 
             case .empty:
                 ProgressView()
-                    .tint(.white)
+                    .tint(.loopedWhite)
                     .scaleEffect(1.5)
 
             @unknown default:

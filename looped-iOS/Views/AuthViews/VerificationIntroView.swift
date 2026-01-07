@@ -60,10 +60,10 @@ struct VerificationIntroView: View {
                     Button(action: onContinue) {
                         Text("Continue")
                             .font(.loopedHeadingMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
-                            .background(Color.black)
+                            .background(Color.loopedBlack)
                             .clipShape(Capsule())
                     }
 
@@ -88,7 +88,7 @@ private extension VerificationIntroView {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 20))
                         .foregroundColor(.loopedTextPrimary)
                         .frame(width: 40, height: 40)
                 }

@@ -26,11 +26,11 @@ struct CommunityProfileView: View {
                     headerContent
                     tabBar
                     tabContent
-                    Color.clear.frame(height: 80)
+                    Color.loopedClear.frame(height: 80)
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: overlayHeaderHeight)
+                Color.loopedClear.frame(height: overlayHeaderHeight)
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .refreshable {
@@ -41,7 +41,7 @@ struct CommunityProfileView: View {
             CommunityProfileHeader { dismiss() }
                 .background(
                     GeometryReader { proxy in
-                        Color.clear.preference(key: CommunityProfileHeaderHeightKey.self, value: proxy.size.height)
+                        Color.loopedClear.preference(key: CommunityProfileHeaderHeightKey.self, value: proxy.size.height)
                     }
                 )
         }
@@ -141,7 +141,7 @@ struct CommunityProfileView: View {
         }) {
             Text(viewModel.community.isFollowing ? "Following" : "Follow")
                 .font(.loopedBodyMedium)
-                .foregroundColor(viewModel.community.isFollowing ? .loopedTextPrimary : .white)
+                .foregroundColor(viewModel.community.isFollowing ? .loopedTextPrimary : .loopedWhite)
                 .padding(.horizontal, 28)
                 .padding(.vertical, 10)
                 .background(viewModel.community.isFollowing ? Color.loopedMutedBackground : Color.loopedPrimary)
@@ -187,11 +187,11 @@ struct CommunityProfileView: View {
                 Button(action: { selectedTab = tab }) {
                     VStack(spacing: 6) {
                         Text(tab.rawValue)
-                            .font(.loopedSubBodyMedium)
+                            .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
                             .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
 
                         Rectangle()
-                            .fill(selectedTab == tab ? Color.loopedPrimary : Color.clear)
+                            .fill(selectedTab == tab ? Color.loopedPrimary : Color.loopedClear)
                             .frame(height: 2)
                     }
                     .frame(maxWidth: .infinity)
@@ -229,6 +229,7 @@ struct CommunityProfileView: View {
                 ForEach(viewModel.posts) { post in
                     PostCard(
                         post: post,
+                        showsCommunityLabel: true,
                         onUpdate: { updated in
                             viewModel.updatePost(updated)
                         },
@@ -345,7 +346,7 @@ struct CommunityProfileHeader: View {
             Button(action: onBack) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 18))
                         .foregroundColor(.loopedPrimary)
 
                     Text("Back")
@@ -381,7 +382,7 @@ struct CommunityProfileBanner: View {
                 .minimumScaleFactor(0.7)
                 .frame(maxWidth: .infinity, minHeight: hasBannerImage ? 0 : 120)
                 .padding(.horizontal, hasBannerImage ? 0 : 16)
-                .background(hasBannerImage ? Color.clear : Color.loopedMutedBackground)
+                .background(hasBannerImage ? Color.loopedClear : Color.loopedMutedBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .padding(.horizontal, 20)

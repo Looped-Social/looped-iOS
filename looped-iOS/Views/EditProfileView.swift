@@ -41,21 +41,11 @@ struct EditProfileView: View {
                                         .frame(width: 100, height: 100)
                                         .clipShape(Circle())
                                 } else {
-                                    AsyncImage(url: URL(string: viewModel.user?.profileImageURL ?? "")) { image in
-                                        image
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                    } placeholder: {
-                                        Circle()
-                                            .fill(Color.loopedTextSecondary.opacity(0.1))
-                                            .overlay(
-                                                Image(systemName: "person.fill")
-                                                    .font(.system(size: 40))
-                                                    .foregroundColor(.loopedTextSecondary)
-                                            )
-                                    }
-                                    .frame(width: 100, height: 100)
-                                    .clipShape(Circle())
+                                    ProfileAvatarView(
+                                        imageURL: viewModel.user?.profileImageURL,
+                                        size: 100,
+                                        iconScale: 0.4
+                                    )
                                 }
 
                                 // Edit icon overlay
@@ -64,8 +54,8 @@ struct EditProfileView: View {
                                     .frame(width: 32, height: 32)
                                     .overlay(
                                         Image(systemName: "camera.fill")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(.white)
+                                            .font(.loopedCustom(size: 14))
+                                            .foregroundColor(.loopedWhite)
                                     )
                             }
                         }
@@ -96,7 +86,7 @@ struct EditProfileView: View {
                                 .font(.loopedBody)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 14)
-                                .background(Color.white)
+                                .background(Color.loopedWhite)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
                                         .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
@@ -125,7 +115,7 @@ struct EditProfileView: View {
                                     .padding(.vertical, 10)
                                     .frame(minHeight: 120)
                                     .scrollContentBackground(.hidden)
-                                    .background(Color.white)
+                                    .background(Color.loopedWhite)
                             }
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
@@ -160,7 +150,7 @@ struct EditProfileView: View {
 
                                 Spacer()
                             }
-                            .background(Color.white)
+                            .background(Color.loopedWhite)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
                                     .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
@@ -206,7 +196,7 @@ struct EditProfileView: View {
                                     Spacer()
 
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 14))
+                                        .font(.loopedCustom(size: 14))
                                         .foregroundColor(.loopedTextSecondary)
                                 }
                                 .padding(.horizontal, 16)
@@ -231,14 +221,14 @@ struct EditProfileView: View {
                     if showSuccessMessage {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                                .foregroundColor(.loopedSuccess)
                             Text("Profile updated successfully")
                                 .font(.loopedSubBodyMedium)
                                 .foregroundColor(.loopedTextPrimary)
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 12)
-                        .background(Color.green.opacity(0.1))
+                        .background(Color.loopedSuccess.opacity(0.1))
                         .cornerRadius(8)
                         .padding(.horizontal, 20)
                     }
@@ -247,14 +237,14 @@ struct EditProfileView: View {
                     if let error = viewModel.errorMessage {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                             Text(error)
                                 .font(.loopedSubBodyMedium)
                                 .foregroundColor(.loopedTextPrimary)
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 12)
-                        .background(Color.red.opacity(0.1))
+                        .background(Color.loopedError.opacity(0.1))
                         .cornerRadius(8)
                         .padding(.horizontal, 20)
                     }
@@ -320,7 +310,7 @@ struct EditProfileHeader: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .foregroundColor(.loopedTextSecondary)
             }
 

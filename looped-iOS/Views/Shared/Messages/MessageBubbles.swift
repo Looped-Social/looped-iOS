@@ -45,12 +45,12 @@ struct SentMessageBubble: View {
 
                                 // Play button overlay
                                 Circle()
-                                    .fill(Color.black.opacity(0.6))
+                                    .fill(Color.loopedBlack.opacity(0.6))
                                     .frame(width: 50, height: 50)
                                     .overlay(
                                         Image(systemName: "play.fill")
-                                            .font(.system(size: 22))
-                                            .foregroundColor(.white)
+                                            .font(.loopedCustom(size: 22))
+                                            .foregroundColor(.loopedWhite)
                                             .offset(x: 2)
                                     )
                             }
@@ -93,7 +93,7 @@ struct SentMessageBubble: View {
                             Color.loopedMessageColor
                         )
                         .clipShape(TailCornerShape(isFromCurrentUser: true, showTail: showTail))
-                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
+                        .shadow(color: .loopedBlack.opacity(0.2), radius: 2, x: 0, y: 3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -154,21 +154,7 @@ struct ReceivedMessageBubble: View {
                 Button(action: {
                     onProfileTap?(message.senderId)
                 }) {
-                    AsyncImage(url: URL(string: "")) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.loopedPrimary.opacity(0.3))
-                            .overlay(
-                                Text(String(message.senderDisplayName?.prefix(1) ?? "U").uppercased())
-                                    .font(.caption)
-                                    .foregroundColor(.loopedPrimary)
-                            )
-                    }
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
+                    ProfileAvatarView(imageURL: nil, size: 32)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -203,12 +189,12 @@ struct ReceivedMessageBubble: View {
 
                                     // Play button overlay
                                     Circle()
-                                        .fill(Color.black.opacity(0.6))
+                                        .fill(Color.loopedBlack.opacity(0.6))
                                         .frame(width: 50, height: 50)
                                         .overlay(
                                             Image(systemName: "play.fill")
-                                                .font(.system(size: 22))
-                                                .foregroundColor(.white)
+                                                .font(.loopedCustom(size: 22))
+                                                .foregroundColor(.loopedWhite)
                                                 .offset(x: 2)
                                         )
                                 }
@@ -252,7 +238,7 @@ struct ReceivedMessageBubble: View {
                             )
                             .clipShape(TailCornerShape(isFromCurrentUser: false, showTail: showTail))
                             .fixedSize(horizontal: false, vertical: true)
-                            .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 3)
+                            .shadow(color: .loopedBlack.opacity(0.2), radius: 2, x: 0, y: 3)
                     }
 
                     Text(formatMessageTime(message.createdAt))
@@ -298,21 +284,7 @@ struct ImageMessageBubble: View {
             if !isFromCurrentUser {
                 // Profile Picture (only for group chats and received messages)
                 if showProfilePicture {
-                    AsyncImage(url: URL(string: "")) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.loopedPrimary.opacity(0.3))
-                            .overlay(
-                                Text(String(message.senderDisplayName?.prefix(1) ?? "U").uppercased())
-                                    .font(.caption)
-                                    .foregroundColor(.loopedPrimary)
-                            )
-                    }
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
+                    ProfileAvatarView(imageURL: nil, size: 32)
                 }
             }
 
@@ -340,7 +312,7 @@ struct ImageMessageBubble: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         } placeholder: {
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.gray.opacity(0.3))
+                                .fill(Color.loopedGray.opacity(0.3))
                                 .frame(width: 200, height: 200)
                                 .overlay(
                                     Text("IMG_\(String(imageUrl.suffix(4)))")
@@ -361,8 +333,8 @@ struct ImageMessageBubble: View {
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(isFromCurrentUser ? Color.white : Color(red: 0.7, green: 0.9, blue: 0.9))
-                            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                            .fill(isFromCurrentUser ? Color.loopedWhite : Color.loopedMessageColor)
+                            .shadow(color: .loopedBlack.opacity(0.1), radius: 2, x: 0, y: 1)
                     )
 
                     Text(formatMessageTime(message.createdAt))

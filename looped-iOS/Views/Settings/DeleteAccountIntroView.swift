@@ -38,7 +38,7 @@ struct AccountActionIntroView: View {
                     NavigationLink(destination: AccountActionConfirmView(action: action)) {
                         Text(actionButtonTitle)
                             .font(.loopedBodyStrong)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
                             .background(Color.loopedPrimary)
@@ -60,7 +60,7 @@ struct AccountActionIntroView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .foregroundColor(.loopedTextSecondary)
             }
 
@@ -73,7 +73,7 @@ struct AccountActionIntroView: View {
             Spacer()
 
             Image(systemName: "chevron.left")
-                .font(.system(size: 24, weight: .medium))
+                .font(.loopedCustom(.medium, size: 24))
                 .opacity(0)
         }
         .padding(.horizontal, 20)

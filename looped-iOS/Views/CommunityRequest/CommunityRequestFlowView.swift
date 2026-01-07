@@ -116,7 +116,7 @@ private struct CommunityRequestStepOneView: View {
                                 .foregroundColor(draft.type == nil ? .loopedTextSecondary : .loopedTextPrimary)
                             Spacer()
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.loopedCustom(.medium, size: 12))
                                 .foregroundColor(.loopedTextSecondary)
                         }
                         .padding(.horizontal, 14)
@@ -149,7 +149,7 @@ private struct CommunityRequestStepOneView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 14))
                             } else {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.loopedCustom(.semibold, size: 20))
                                     .foregroundColor(.loopedTextSecondary)
                             }
                         }
@@ -178,7 +178,7 @@ private struct CommunityRequestStepOneView: View {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .font(.loopedSubBodyRegular)
-                        .foregroundColor(.red)
+                        .foregroundColor(.loopedError)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, 8)
@@ -195,7 +195,7 @@ private struct CommunityRequestStepOneView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", action: onCancel)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
             }
         }
         .onChange(of: selectedImage) { _, newValue in
@@ -320,7 +320,7 @@ private struct CommunityRequestStepTwoView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", action: onCancel)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
             }
         }
     }

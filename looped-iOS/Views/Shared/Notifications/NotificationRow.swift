@@ -12,28 +12,20 @@ struct NotificationRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             // Profile Picture
-            AsyncImage(url: URL(string: notification.actorProfileImageUrl ?? "")) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Circle()
-                    .fill(Color.loopedPrimary.opacity(0.2))
-                    .overlay(
-                        Group {
-                            if notification.actorIsAnonymous && notification.type != .announcement && notification.type != .system {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                            } else {
-                                Text(actorInitial)
-                                    .font(.loopedBodyMedium)
-                            }
-                        }
-                        .foregroundColor(.loopedPrimary)
-                    )
+            Group {
+                if notification.actorIsAnonymous && notification.type != .announcement && notification.type != .system {
+                    Circle()
+                        .fill(Color.loopedPrimary.opacity(0.2))
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.loopedCustom(.semibold, size: 16))
+                                .foregroundColor(.loopedPrimary)
+                        )
+                        .frame(width: 40, height: 40)
+                } else {
+                    ProfileAvatarView(imageURL: notification.actorProfileImageUrl, size: 40)
+                }
             }
-            .frame(width: 40, height: 40)
-            .clipShape(Circle())
 
             // Content
             VStack(alignment: .leading, spacing: 6) {
@@ -111,12 +103,6 @@ struct NotificationRow: View {
         return text
     }
 
-    private var actorInitial: String {
-        guard let first = notification.actorName.trimmingCharacters(in: .whitespacesAndNewlines).first else {
-            return "?"
-        }
-        return String(first).uppercased()
-    }
 }
 
 #Preview {

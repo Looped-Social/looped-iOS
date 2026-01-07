@@ -19,7 +19,7 @@ struct CommunityVerificationFlowView: View {
 
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 16))
                     .foregroundColor(.loopedTextSecondary)
                     .frame(width: 36, height: 36)
                     .background(Color.loopedMutedBackground)

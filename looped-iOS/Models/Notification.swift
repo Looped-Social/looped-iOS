@@ -5,6 +5,7 @@ struct Notification: Codable, Identifiable {
     let id: UUID
     let type: NotificationType
     let actorId: UUID?
+    let actorAnonProfileId: UUID?
     let actorName: String
     let actorProfileImageUrl: String?
     let actorIsAnonymous: Bool
@@ -15,6 +16,7 @@ struct Notification: Codable, Identifiable {
     let title: String?
     let body: String?
     let deeplink: String?
+    let actionDeeplink: String?
     let mentionContext: NotificationMentionContext?
     let isRead: Bool
     let createdAt: Date
@@ -23,6 +25,7 @@ struct Notification: Codable, Identifiable {
         id: UUID = UUID(),
         type: NotificationType,
         actorId: UUID? = nil,
+        actorAnonProfileId: UUID? = nil,
         actorName: String,
         actorProfileImageUrl: String? = nil,
         actorIsAnonymous: Bool = false,
@@ -33,6 +36,7 @@ struct Notification: Codable, Identifiable {
         title: String? = nil,
         body: String? = nil,
         deeplink: String? = nil,
+        actionDeeplink: String? = nil,
         mentionContext: NotificationMentionContext? = nil,
         isRead: Bool = false,
         createdAt: Date = Date()
@@ -40,6 +44,7 @@ struct Notification: Codable, Identifiable {
         self.id = id
         self.type = type
         self.actorId = actorId
+        self.actorAnonProfileId = actorAnonProfileId
         self.actorName = actorName
         self.actorProfileImageUrl = actorProfileImageUrl
         self.actorIsAnonymous = actorIsAnonymous
@@ -50,6 +55,7 @@ struct Notification: Codable, Identifiable {
         self.title = title
         self.body = body
         self.deeplink = deeplink
+        self.actionDeeplink = actionDeeplink
         self.mentionContext = mentionContext
         self.isRead = isRead
         self.createdAt = createdAt
@@ -242,6 +248,7 @@ extension Notification {
             id: id,
             type: type,
             actorId: actorId,
+            actorAnonProfileId: actorAnonProfileId,
             actorName: name,
             actorProfileImageUrl: profileImageUrl,
             actorIsAnonymous: actorIsAnonymous,
@@ -252,6 +259,7 @@ extension Notification {
             title: title,
             body: body,
             deeplink: deeplink,
+            actionDeeplink: actionDeeplink,
             mentionContext: mentionContext,
             isRead: isRead,
             createdAt: createdAt
@@ -263,6 +271,7 @@ extension Notification {
             id: id,
             type: type,
             actorId: actorId,
+            actorAnonProfileId: actorAnonProfileId,
             actorName: actorName,
             actorProfileImageUrl: actorProfileImageUrl,
             actorIsAnonymous: actorIsAnonymous,
@@ -273,6 +282,7 @@ extension Notification {
             title: title,
             body: body,
             deeplink: deeplink,
+            actionDeeplink: actionDeeplink,
             mentionContext: mentionContext,
             isRead: true,
             createdAt: createdAt

@@ -56,11 +56,11 @@ struct ProfileView: View {
                     }
 
                     // Bottom spacer
-                    Color.clear.frame(height: 100)
+                    Color.loopedClear.frame(height: 100)
                 }
                 .background(
                     GeometryReader { geo in
-                        Color.clear
+                        Color.loopedClear
                             .onChange(of: geo.frame(in: .global).minY) { _, newValue in
                                 handleScroll(newValue)
                             }
@@ -68,7 +68,7 @@ struct ProfileView: View {
                 )
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: headerHeight)
+                Color.loopedClear.frame(height: headerHeight)
             }
             .background(Color.loopedBackground.ignoresSafeArea())
 
@@ -107,7 +107,7 @@ struct ProfileView: View {
             )
             .background(
                 GeometryReader { proxy in
-                    Color.clear.preference(key: ProfileHeaderHeightKey.self, value: proxy.size.height)
+                    Color.loopedClear.preference(key: ProfileHeaderHeightKey.self, value: proxy.size.height)
                 }
             )
             .offset(y: headerVisible ? 0 : -headerHeight)
@@ -118,14 +118,14 @@ struct ProfileView: View {
             if displayProfile?.isCurrentUser ?? true {
                 NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
                     Image(systemName: "gearshape.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.loopedTextPrimary)
+                        .font(.loopedCustom(.semibold, size: 18))
+                        .foregroundColor(.loopedTextSecondary)
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
                 .accessibilityLabel("Settings")
-                .padding(.top, 10)
+                .padding(.top, 16)
                 .padding(.trailing, 16)
                 .coachMarkTarget(.profileSettingsButton)
             }
@@ -496,17 +496,17 @@ struct ProfileHeaderView: View {
                     .frame(width: 64, height: 64)
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(.semibold, size: 28))
+                            .foregroundColor(.loopedWhite)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(displayName)
-                        .font(.loopedSubheadMedium)
+                        .font(.loopedHeaderProfile)
                         .foregroundColor(isAnonymous ? .loopedSecondary : .loopedTextPrimary)
 
                     Text(handle)
-                        .font(.loopedSubBodyRegular)
+                        .font(.loopedBody)
                         .foregroundColor(.loopedTextSecondary)
                 }
 
@@ -515,8 +515,8 @@ struct ProfileHeaderView: View {
 
             if !resolvedBio.isEmpty {
                 Text(resolvedBio)
-                    .font(.loopedBody)
-                    .foregroundColor(isBioAvailable ? .loopedTextPrimary : .loopedTextSecondary)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextPrimary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -541,7 +541,7 @@ struct ProfileStatsView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "calendar")
                             .foregroundColor(.loopedTextSecondary)
-                            .font(.system(size: 16))
+                            .font(.loopedCustom(size: 16))
 
                         Text(yearsText)
                             .font(.loopedSubBodyRegular)
@@ -604,20 +604,24 @@ struct ProfileStatsView: View {
 
             if showFollowerStats {
                 if let followingCount = followingCount, let followersCount = followersCount {
-                    HStack(spacing: 12) {
-                        Text("\(followingCount)")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-                        Text("Following")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
+                    HStack(spacing: 16) {
+                        HStack(spacing: 4) {
+                            Text("\(followingCount)")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedContrast)
+                            Text("Following")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
 
-                        Text("\(followersCount)")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-                        Text("Followers")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
+                        HStack(spacing: 4) {
+                            Text("\(followersCount)")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedContrast)
+                            Text("Followers")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
 
                         Spacer()
                     }
@@ -724,8 +728,8 @@ private struct CompanyIconView: View {
                     .frame(width: 16, height: 16)
                     .overlay(
                         Text(String(company.prefix(1)).uppercased())
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(.bold, size: 10))
+                            .foregroundColor(.loopedWhite)
                     )
             }
         }
@@ -738,44 +742,66 @@ struct ProfileActionButtons: View {
     @Binding var isAnonymous: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 0) {
             if userProfile?.isCurrentUser ?? true {
                 NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
-                    ProfileActionButton(title: "Edit Profile", style: .outline)
+                    ProfileActionButton(
+                        title: "Edit Profile",
+                        style: .outline,
+                        textColor: .loopedTextSecondary,
+                        borderColor: .loopedTextSecondary
+                    )
                         .coachMarkTarget(.profileEditButton)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .frame(maxWidth: .infinity, alignment: .center)
 
                 Button(action: {
                     isAnonymous.toggle()
                 }) {
                     ProfileActionButton(
                         title: "Anonymous",
-                        style: isAnonymous ? .filled : .outline
+                        style: isAnonymous ? .filled : .outline,
+                        textColor: isAnonymous ? .loopedWhite : .loopedTextSecondary,
+                        borderColor: isAnonymous ? .loopedWhite : .loopedTextSecondary,
+                        showBorderWhenFilled: true
                     )
                     .coachMarkTarget(.profileAnonymousButton)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 Button(action: {
                     // TODO: Implement follow action
                 }) {
-                    ProfileActionButton(title: "Follow", style: .outline)
+                    ProfileActionButton(
+                        title: "Follow",
+                        style: .outline,
+                        textColor: .loopedTextSecondary,
+                        borderColor: .loopedTextSecondary
+                    )
                 }
                 .buttonStyle(PlainButtonStyle())
+                .frame(maxWidth: .infinity, alignment: .center)
 
                 if !isAnonymous {
                     Button(action: {
                         // TODO: Implement message action
                     }) {
-                        ProfileActionButton(title: "Message", style: .outline)
+                        ProfileActionButton(
+                            title: "Message",
+                            style: .outline,
+                            textColor: .loopedTextSecondary,
+                            borderColor: .loopedTextSecondary
+                        )
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 6)
+        .padding(.horizontal, 24)
+        .padding(.top, 4)
         .padding(.bottom, 8)
     }
 }
@@ -788,25 +814,32 @@ private enum ProfileActionButtonStyle {
 private struct ProfileActionButton: View {
     let title: String
     let style: ProfileActionButtonStyle
+    var textColor: Color? = nil
+    var borderColor: Color? = nil
+    var showBorderWhenFilled: Bool = false
 
     var body: some View {
         Text(title)
-            .font(.loopedSubBodyMedium)
-            .foregroundColor(style == .filled ? .white : .loopedTextPrimary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .font(.loopedSubBodyRegular)
+            .foregroundColor(textColor ?? (style == .filled ? .loopedWhite : .loopedTextPrimary))
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .frame(minWidth: 120)
             .background(
                 Group {
                     if style == .filled {
                         Color.loopedSecondary
                     } else {
-                        Color.clear
+                        Color.loopedClear
                     }
                 }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: style == .filled ? 0 : 1)
+                    .stroke(
+                        borderColor ?? Color.loopedTextSecondary.opacity(0.3),
+                        lineWidth: style == .filled && !showBorderWhenFilled ? 0 : 1
+                    )
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -823,8 +856,7 @@ struct ProfileTabsView: View {
                         selectedTab = tab
                     }) {
                         Text(tab.rawValue)
-                            .font(.headline)
-                            .fontWeight(.medium)
+                            .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
                             .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -899,6 +931,7 @@ struct PostsList: View {
             ForEach(posts) { post in
                 PostCard(
                     post: post,
+                    showsCommunityLabel: true,
                     onUpdate: onUpdate,
                     onDelete: onDelete
                 )
@@ -923,7 +956,7 @@ struct SavedPostsList: View {
             VStack(spacing: 12) {
                 Text(error)
                     .font(.loopedBody)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
                 Button("Retry") {
                     Task { await viewModel.loadInitial() }
                 }
@@ -933,7 +966,7 @@ struct SavedPostsList: View {
         } else if viewModel.posts.isEmpty {
             VStack(spacing: 16) {
                 Image(systemName: "bookmark")
-                    .font(.system(size: 48))
+                    .font(.loopedCustom(size: 48))
                     .foregroundColor(.loopedTextSecondary.opacity(0.5))
                 Text("No saved posts yet")
                     .font(.loopedBodyMedium)
@@ -941,29 +974,34 @@ struct SavedPostsList: View {
             }
             .padding(.top, 60)
         } else {
-            ForEach(viewModel.posts) { post in
-                PostCard(
-                    post: post,
-                    onBookmarkToggle: { saved in
-                        viewModel.handleBookmarkChange(for: post, isSaved: saved)
-                    },
-                    onUpdate: { updated in
-                        viewModel.updatePost(updated)
-                    },
-                    onDelete: { deleted in
-                        viewModel.removePost(backendId: deleted.backendId)
+            LazyVStack(spacing: 0) {
+                ForEach(viewModel.posts) { post in
+                    PostCard(
+                        post: post,
+                        showsCommunityLabel: true,
+                        onBookmarkToggle: { saved in
+                            viewModel.handleBookmarkChange(for: post, isSaved: saved)
+                        },
+                        onUpdate: { updated in
+                            viewModel.updatePost(updated)
+                        },
+                        onDelete: { deleted in
+                            viewModel.removePost(backendId: deleted.backendId)
+                        }
+                    )
+                    .onAppear {
+                        Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                     }
-                )
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
-                .onAppear {
-                    Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
-                }
-            }
 
-            if viewModel.isLoadingMore {
-                ProgressView()
-                    .padding()
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                }
+
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .padding()
+                }
             }
         }
     }
@@ -974,7 +1012,7 @@ struct EmptyPostsListView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "text.bubble")
-                .font(.system(size: 48))
+                .font(.loopedCustom(size: 48))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
             Text(message)
@@ -989,7 +1027,7 @@ struct RepliesPlaceholderView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 48))
+                .font(.loopedCustom(size: 48))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
             Text("Replies coming soon")
@@ -1029,7 +1067,7 @@ struct UserRepliesList: View {
             } else if viewModel.replies.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 48))
+                        .font(.loopedCustom(size: 48))
                         .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
                     Text("No replies yet")
@@ -1039,40 +1077,10 @@ struct UserRepliesList: View {
                 .padding(.top, 60)
             } else {
                 ForEach(viewModel.replies) { reply in
-                    Button(action: {
+                    let previewText = previewText(for: viewModel.postPreview(for: reply))
+                    ProfileReplyRow(comment: reply, previewText: previewText) {
                         Task { await openReply(reply) }
-                    }) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            if let post = viewModel.postPreview(for: reply) {
-                                let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("In reply to")
-                                        .font(.loopedSmallText)
-                                        .foregroundColor(.loopedTextSecondary)
-
-                                    Text(preview.isEmpty ? "Post unavailable" : preview)
-                                        .font(.loopedSubBodyRegular)
-                                        .foregroundColor(.loopedTextSecondary)
-                                        .lineLimit(2)
-                                }
-                                .padding(10)
-                                .background(Color.loopedMutedBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            }
-
-                            Text(reply.isDeleted ? "Comment deleted" : reply.content)
-                                .font(.loopedBody)
-                                .foregroundColor(reply.isDeleted ? .loopedTextSecondary : .loopedTextPrimary)
-                                .multilineTextAlignment(.leading)
-
-                            Text(reply.createdAt, style: .date)
-                                .font(.loopedSmallText)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
                     }
-                    .buttonStyle(PlainButtonStyle())
                     .task {
                         await viewModel.loadPostPreview(for: reply)
                         await viewModel.loadMoreIfNeeded(current: reply)
@@ -1091,6 +1099,12 @@ struct UserRepliesList: View {
         .padding(.bottom, 80)
     }
 
+    private func previewText(for post: Post?) -> String? {
+        guard let post else { return nil }
+        let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return preview.isEmpty ? "Post unavailable" : preview
+    }
+
     private func openReply(_ reply: Comment) async {
         guard let post = await viewModel.fetchPostForReply(reply) else { return }
         commentsManager.showComments(
@@ -1105,7 +1119,7 @@ struct SavedPlaceholderView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "bookmark")
-                .font(.system(size: 48))
+                .font(.loopedCustom(size: 48))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
             Text("No saved posts yet")

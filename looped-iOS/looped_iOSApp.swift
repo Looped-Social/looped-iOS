@@ -72,10 +72,29 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   }
 
   private func handleDeeplink(userInfo: [AnyHashable: Any]) {
+      markNotificationRead(userInfo: userInfo)
       guard let deeplink = userInfo["deeplink"] as? String,
             let url = URL(string: deeplink) else { return }
       DispatchQueue.main.async {
           UIApplication.shared.open(url)
+      }
+  }
+
+  private func markNotificationRead(userInfo: [AnyHashable: Any]) {
+      let rawValue = userInfo["notification_id"]
+      let notificationId: Int? = {
+          if let intValue = rawValue as? Int {
+              return intValue
+          }
+          if let stringValue = rawValue as? String {
+              return Int(stringValue)
+          }
+          return nil
+      }()
+      guard let notificationId else { return }
+
+      Task {
+          try? await NotificationService().markRead(notificationId: notificationId)
       }
   }
 }

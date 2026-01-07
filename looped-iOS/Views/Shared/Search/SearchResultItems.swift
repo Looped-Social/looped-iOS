@@ -17,21 +17,7 @@ struct PersonSearchResultItem: View {
 
     private var rowContent: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: URL(string: person.avatarURL ?? "")) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Circle()
-                    .fill(Color.loopedMutedBackground)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .foregroundColor(.loopedTextSecondary)
-                            .font(.system(size: 16))
-                    )
-            }
-            .frame(width: 40, height: 40)
-            .clipShape(Circle())
+            ProfileAvatarView(imageURL: person.avatarURL, size: 40)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name)
@@ -192,7 +178,7 @@ struct LoopSearchResultItem: View {
             .overlay(
                 Image(systemName: "person.3.fill")
                     .foregroundColor(.loopedTextSecondary)
-                    .font(.system(size: 16))
+                    .font(.loopedCustom(size: 16))
             )
     }
 }

@@ -18,7 +18,7 @@ struct SecurityView: View {
             HStack {
                 Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 24, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 24))
                         .foregroundColor(.loopedTextSecondary)
                 }
 
@@ -32,7 +32,7 @@ struct SecurityView: View {
 
                 // Invisible button for symmetry
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .opacity(0)
             }
             .padding(.horizontal, 20)
@@ -153,7 +153,7 @@ struct SecurityToggleRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20, weight: .medium))
+                .font(.loopedCustom(.medium, size: 20))
                 .foregroundColor(.loopedSecondary)
                 .frame(width: 28, height: 28)
 
@@ -170,7 +170,7 @@ struct SecurityToggleRow: View {
             Spacer()
 
             Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.4, green: 0.7, blue: 0.6)))
+                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -193,7 +193,7 @@ struct SecurityActionRow: View {
         }) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 20))
                     .foregroundColor(.loopedSecondary)
                     .frame(width: 28, height: 28)
 
@@ -210,7 +210,7 @@ struct SecurityActionRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 14))
                     .foregroundColor(.loopedTextSecondary)
             }
             .padding(.horizontal, 16)
@@ -228,7 +228,7 @@ struct SecurityNavigationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20, weight: .medium))
+                .font(.loopedCustom(.medium, size: 20))
                 .foregroundColor(.loopedSecondary)
                 .frame(width: 28, height: 28)
 
@@ -245,7 +245,7 @@ struct SecurityNavigationRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.loopedCustom(.semibold, size: 14))
                 .foregroundColor(.loopedTextSecondary)
         }
         .padding(.horizontal, 16)

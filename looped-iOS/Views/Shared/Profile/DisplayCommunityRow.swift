@@ -27,7 +27,7 @@ struct DisplayCommunityRow: View {
 
             if showsDisclosure {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 12))
                     .foregroundColor(.loopedTextSecondary)
             }
         }
@@ -41,7 +41,7 @@ private struct DisplayCommunityIcon: View {
 
     var body: some View {
         Image(systemName: isSelected ? "briefcase.fill" : "briefcase")
-            .font(.system(size: max(12, size)))
+            .font(.loopedCustom(size: max(12, size)))
             .foregroundColor(color)
     }
 }

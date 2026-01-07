@@ -14,14 +14,18 @@ struct NotificationDTO: Codable {
 }
 
 struct NotificationPayloadDTO: Codable {
-    let actorPrincipalId: String?
+    let actorPrincipalId: Int?
     let actorUserId: Int?
+    let actorAnonProfileId: Int?
     let actorIsAnonymous: Bool?
+    let actorDisplayName: String?
+    let actorProfileImageUrl: String?
     let postId: Int?
     let commentId: Int?
     let context: String?
     let title: String?
     let body: String?
     let deeplink: String?
+    let actionDeeplink: String?
     let companyId: Int?
 }

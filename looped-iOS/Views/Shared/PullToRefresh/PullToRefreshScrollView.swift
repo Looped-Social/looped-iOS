@@ -39,7 +39,7 @@ struct PullToRefreshScrollView<Content: View>: View {
                 }
                 .background(
                     GeometryReader { contentGeometry in
-                        Color.clear
+                        Color.loopedClear
                             .preference(
                                 key: ScrollOffsetPreferenceKey.self,
                                 value: contentGeometry.frame(in: .named("scrollView")).minY
@@ -133,14 +133,14 @@ struct PullToRefreshScrollView<Content: View>: View {
             ForEach(0..<20, id: \.self) { index in
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Post \(index)")
-                        .font(.headline)
+                        .font(.loopedHeadlineScaled)
                     Text("This is sample content for post \(index)")
-                        .font(.body)
-                        .foregroundColor(.secondary)
+                        .font(.loopedBodyScaled)
+                        .foregroundColor(.loopedTextSecondary)
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.systemGray6))
+                .background(Color.loopedMutedBackground)
                 .cornerRadius(8)
                 .padding(.horizontal)
                 .padding(.vertical, 4)

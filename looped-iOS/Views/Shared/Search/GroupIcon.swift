@@ -13,7 +13,7 @@ struct GroupIcon: View {
                 .frame(width: 50, height: 50)
                 .overlay(
                     Image(systemName: iconName)
-                        .font(.system(size: 20))
+                        .font(.loopedCustom(size: 20))
                         .foregroundColor(.loopedTextSecondary)
                 )
 

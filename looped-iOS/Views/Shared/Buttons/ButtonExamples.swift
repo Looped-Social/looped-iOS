@@ -11,7 +11,7 @@ struct ButtonExamples: View {
                 // MARK: - Individual Button Components
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Individual Button Components")
-                        .font(.headline)
+                        .font(.loopedHeadlineScaled)
                     
                     PrimaryButton(title: "Sign In") { }
                     
@@ -32,7 +32,7 @@ struct ButtonExamples: View {
                 // MARK: - Styled Button Examples
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Generic Styled Buttons")
-                        .font(.headline)
+                        .font(.loopedHeadlineScaled)
                     
                     StyledButton(
                         title: "Primary Style",
@@ -55,7 +55,7 @@ struct ButtonExamples: View {
                 // MARK: - Button States
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Button States")
-                        .font(.headline)
+                        .font(.loopedHeadlineScaled)
                     
                     PrimaryButton(title: "Enabled", isEnabled: true) { }
                     

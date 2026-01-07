@@ -3,6 +3,7 @@ import SwiftUI
 struct FeedHeader: View {
     let onProfileTap: () -> Void
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     init(onProfileTap: @escaping (() -> Void) = {}) {
         self.onProfileTap = onProfileTap
@@ -10,21 +11,10 @@ struct FeedHeader: View {
 
     var body: some View {
         HStack {
-            // Looped logo/text
-            HStack(spacing: 6) {
-                HStack(spacing: 2) {
-                    // Logo
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 32)
-
-                    Text("ooped")
-                        .font(.loopedHeading)
-                        .foregroundColor(.loopedContrast)
-                }
-
-            }
+            Image("logo-banner")
+                .resizable()
+                .scaledToFit()
+                .frame(height: bannerHeight)
             
             Spacer()
             
@@ -32,20 +22,33 @@ struct FeedHeader: View {
                 Button(action: {
                     onProfileTap()
                 }) {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.1))
-                        .overlay(
-                            Text(initials)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.loopedTextPrimary)
-                        )
-                        .frame(width: 40, height: 40)
+                    Group {
+                        if authViewModel.currentUser?.isAnonymous == true {
+                            Circle()
+                                .fill(Color.loopedTextSecondary.opacity(0.1))
+                                .overlay(
+                                    Text(initials)
+                                        .font(.loopedCustom(.semibold, size: 16))
+                                        .foregroundColor(.loopedTextPrimary)
+                                )
+                                .frame(width: 40, height: 40)
+                        } else {
+                            ProfileAvatarView(
+                                imageURL: authViewModel.currentUser?.profileImageURL,
+                                size: 40
+                            )
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
 //        .padding(.vertical, 2)
+    }
+
+    private var bannerHeight: CGFloat {
+        horizontalSizeClass == .regular ? 80 : 60
     }
 
     private var initials: String {

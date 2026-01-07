@@ -15,7 +15,7 @@ struct NotificationsView: View {
                     Spacer()
 
                     Image(systemName: "bell.slash")
-                        .font(.system(size: 48))
+                        .font(.loopedCustom(size: 48))
                         .foregroundColor(.loopedTextSecondary.opacity(0.3))
 
                     Text("No notifications yet")
@@ -85,7 +85,7 @@ struct NotificationsHeader: View {
                 // TODO: Mark all as read
             }) {
                 Image(systemName: "checkmark.circle")
-                    .font(.system(size: 20))
+                    .font(.loopedCustom(size: 20))
                     .foregroundColor(.loopedTextSecondary)
             }
         }

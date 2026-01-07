@@ -4,7 +4,7 @@ struct EmptyFeedView: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "road.lanes")
-                .font(.system(size: 36, weight: .semibold))
+                .font(.loopedCustom(.semibold, size: 36))
                 .foregroundColor(.loopedTextSecondary.opacity(0.7))
                 .padding(.bottom, 2)
 

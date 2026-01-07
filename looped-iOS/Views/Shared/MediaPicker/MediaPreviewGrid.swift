@@ -53,12 +53,12 @@ struct SingleMediaPreview: View {
 
                     // Play button overlay
                     Circle()
-                        .fill(Color.black.opacity(0.6))
+                        .fill(Color.loopedBlack.opacity(0.6))
                         .frame(width: 60, height: 60)
                         .overlay(
                             Image(systemName: "play.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white)
+                                .font(.loopedCustom(size: 24))
+                                .foregroundColor(.loopedWhite)
                         )
 
                     // Duration label
@@ -69,10 +69,10 @@ struct SingleMediaPreview: View {
                                 Spacer()
                                 Text(formatDuration(duration))
                                     .font(.loopedSmallText)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.loopedWhite)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(Color.loopedBlack.opacity(0.7))
                                     .clipShape(RoundedRectangle(cornerRadius: 4))
                                     .padding(12)
                             }
@@ -91,12 +91,12 @@ struct SingleMediaPreview: View {
             // Remove button
             Button(action: { onRemove(item) }) {
                 Circle()
-                    .fill(Color.black.opacity(0.6))
+                    .fill(Color.loopedBlack.opacity(0.6))
                     .frame(width: 32, height: 32)
                     .overlay(
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(.bold, size: 14))
+                            .foregroundColor(.loopedWhite)
                     )
             }
             .padding(8)
@@ -122,12 +122,12 @@ struct MediaThumbnail: View {
 
                     // Play icon
                     Circle()
-                        .fill(Color.black.opacity(0.6))
+                        .fill(Color.loopedBlack.opacity(0.6))
                         .frame(width: 40, height: 40)
                         .overlay(
                             Image(systemName: "play.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
+                                .font(.loopedCustom(size: 16))
+                                .foregroundColor(.loopedWhite)
                         )
                 }
             } else if let image = item.image {
@@ -142,12 +142,12 @@ struct MediaThumbnail: View {
             // Remove button
             Button(action: { onRemove(item) }) {
                 Circle()
-                    .fill(Color.black.opacity(0.6))
+                    .fill(Color.loopedBlack.opacity(0.6))
                     .frame(width: 28, height: 28)
                     .overlay(
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(.bold, size: 12))
+                            .foregroundColor(.loopedWhite)
                     )
             }
             .padding(6)
@@ -268,12 +268,12 @@ struct SinglePostedMedia: View {
 
                 // Play button overlay
                 Circle()
-                    .fill(Color.black.opacity(0.6))
+                    .fill(Color.loopedBlack.opacity(0.6))
                     .frame(width: 70, height: 70)
                     .overlay(
                         Image(systemName: "play.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(size: 30))
+                            .foregroundColor(.loopedWhite)
                             .offset(x: 2)
                     )
 
@@ -285,10 +285,10 @@ struct SinglePostedMedia: View {
                             Spacer()
                             Text(formatDuration(duration))
                                 .font(.loopedSmallText)
-                                .foregroundColor(.white)
+                                .foregroundColor(.loopedWhite)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.black.opacity(0.7))
+                                .background(Color.loopedBlack.opacity(0.7))
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                                 .padding(12)
                         }
@@ -341,12 +341,12 @@ struct PostedMediaThumbnail: View {
 
             if attachment.type == .video {
                 Circle()
-                    .fill(Color.black.opacity(0.6))
+                    .fill(Color.loopedBlack.opacity(0.6))
                     .frame(width: 40, height: 40)
                     .overlay(
                         Image(systemName: "play.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(size: 16))
+                            .foregroundColor(.loopedWhite)
                             .offset(x: 1)
                     )
             }

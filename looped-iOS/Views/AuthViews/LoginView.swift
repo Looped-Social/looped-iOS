@@ -17,7 +17,7 @@ struct LoginView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.loopedCustom(.medium, size: 18))
                             .foregroundColor(.loopedTextPrimary)
                             .padding(10)
                             .background(Color.loopedMutedBackground)
@@ -58,14 +58,14 @@ struct LoginView: View {
                     .padding()
                     .background(Color.loopedBackground)
                     .cornerRadius(18)
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
+                    .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
 
                     Button(action: {
                         Task { await viewModel.login(email: email, password: password) }
                     }) {
                         Text("Log In")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
                             .background(
@@ -84,7 +84,7 @@ struct LoginView: View {
                     if let error = viewModel.errorMessage {
                         Text(error)
                             .font(.loopedSubBodyRegular)
-                            .foregroundColor(.red)
+                            .foregroundColor(.loopedError)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
                     }

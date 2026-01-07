@@ -72,6 +72,11 @@ protocol MessageServiceProtocol {
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage
     func sendConversationMessage(conversationId: Int, content: String) async throws -> Message
     func getChannels(cursor: String?) async throws -> ChannelPage
+    func createChannel(name: String, memberUserIds: [Int]) async throws -> Channel
+    func getChannelMembers(channelBackendId: Int, cursor: String?) async throws -> ChannelMembersPage
+    func addChannelMembers(channelBackendId: Int, userIds: [Int]) async throws -> Int
+    func removeChannelMember(channelBackendId: Int, userId: Int) async throws
+    func updateChannelMemberPermission(channelBackendId: Int, userId: Int, canManageMembers: Bool) async throws
     func getChannelMessages(channelBackendId: Int, cursor: String?) async throws -> MessagePage
     func sendChannelMessage(channelBackendId: Int, content: String) async throws -> Message
     func fetchMessageRequests(cursor: String?) async throws -> MessageRequestPage
@@ -114,6 +119,7 @@ protocol CommentsServiceProtocol {
 protocol CommunityServiceProtocol {
     func fetchFollowedCommunities(limit: Int, cursor: String?, order: CommunityFollowOrder) async throws -> CommunityPage
     func fetchRecommendedCommunities(limit: Int) async throws -> [CommunitySearchResult]
+    func fetchCommunityDetails(communityId: Int) async throws -> CommunityProfileData
     func fetchCommunityDomains(communityId: Int) async throws -> [String]
     func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult>
     func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult]

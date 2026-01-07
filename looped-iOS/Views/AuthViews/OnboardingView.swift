@@ -46,7 +46,7 @@ struct OnboardingView: View {
                     }) {
                         Text("Get Started")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
                             .background(Color.loopedPrimary)
@@ -110,7 +110,7 @@ struct OnboardingView: View {
                     if let error = authViewModel.errorMessage {
                         Text(error)
                             .font(.loopedSubBodyRegular)
-                            .foregroundColor(.red)
+                            .foregroundColor(.loopedError)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                     }

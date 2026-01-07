@@ -12,12 +12,14 @@ final class CommunityProfileViewModel: ObservableObject {
     @Published var isLoadingVerification = false
     @Published var verificationError: String?
     @Published var isFollowActionInFlight = false
+    @Published var isLoadingDetails = false
 
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
     private let verificationService: CommunityVerificationServiceProtocol
     private var nextCursor: String?
     private let pageSize = 20
+    private var hasLoadedDetails = false
 
     init(
         community: CommunityProfileData,
@@ -32,6 +34,7 @@ final class CommunityProfileViewModel: ObservableObject {
     }
 
     func loadIfNeeded() async {
+        await loadCommunityDetails()
         if posts.isEmpty {
             await loadPosts(reset: true)
         }
@@ -39,6 +42,7 @@ final class CommunityProfileViewModel: ObservableObject {
     }
 
     func refresh() async {
+        await loadCommunityDetails(force: true)
         await loadPosts(reset: true)
         await loadVerification()
     }
@@ -90,6 +94,20 @@ final class CommunityProfileViewModel: ObservableObject {
         } catch {
             verification = nil
             verificationError = error.localizedDescription
+        }
+    }
+
+    func loadCommunityDetails(force: Bool = false) async {
+        guard force || !hasLoadedDetails else { return }
+        guard !isLoadingDetails else { return }
+        isLoadingDetails = true
+        defer { isLoadingDetails = false }
+        do {
+            let details = try await communityService.fetchCommunityDetails(communityId: community.id)
+            hasLoadedDetails = true
+            community = details
+        } catch {
+            // Keep placeholders if details fetch fails.
         }
     }
 

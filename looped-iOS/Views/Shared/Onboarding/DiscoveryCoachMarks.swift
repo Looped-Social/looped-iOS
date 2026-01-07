@@ -38,7 +38,7 @@ struct CoachMarkOverlay: View {
             let highlightRect = rect?.insetBy(dx: -8, dy: -8)
 
             ZStack {
-                Color.black.opacity(0.55)
+                Color.loopedBlack.opacity(0.55)
 
                 if let highlightRect {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -100,7 +100,7 @@ private struct CoachMarkCard: View {
 
                 Button(primaryTitle, action: onPrimary)
                     .font(.loopedSubBodyMedium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.loopedWhite)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(Color.loopedPrimary)
@@ -114,6 +114,6 @@ private struct CoachMarkCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.loopedTextSecondary.opacity(0.15), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
+        .shadow(color: Color.loopedBlack.opacity(0.2), radius: 12, x: 0, y: 6)
     }
 }

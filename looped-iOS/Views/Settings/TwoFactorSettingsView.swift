@@ -30,7 +30,7 @@ struct TwoFactorSettingsView: View {
                     Button(action: { showEnrollSheet = true }) {
                         Text("Add Phone")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
                             .background(Color.loopedContrast)
@@ -103,7 +103,7 @@ private extension TwoFactorSettingsView {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .foregroundColor(.loopedTextSecondary)
             }
 
@@ -116,7 +116,7 @@ private extension TwoFactorSettingsView {
             Spacer()
 
             Image(systemName: "chevron.left")
-                .font(.system(size: 24, weight: .medium))
+                .font(.loopedCustom(.medium, size: 24))
                 .opacity(0)
         }
         .padding(.horizontal, 20)
@@ -139,9 +139,9 @@ private extension TwoFactorSettingsView {
                 .foregroundColor(.loopedTextSecondary)
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color.loopedWhite)
         .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 8)
+        .shadow(color: Color.loopedBlack.opacity(0.05), radius: 10, x: 0, y: 8)
     }
 
     var emptyState: some View {
@@ -164,7 +164,7 @@ private extension TwoFactorSettingsView {
             ForEach(viewModel.phoneFactors) { factor in
                 HStack(spacing: 12) {
                     Image(systemName: "phone")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 20))
                         .foregroundColor(.loopedSecondary)
                         .frame(width: 28, height: 28)
 
@@ -185,7 +185,7 @@ private extension TwoFactorSettingsView {
                         showRemovalConfirm = true
                     }
                     .font(.loopedSmallTextMedium)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
@@ -218,7 +218,7 @@ private struct TwoFactorEnrollmentView: View {
             HStack {
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 18))
                         .foregroundColor(.loopedTextSecondary)
                 }
 
@@ -231,7 +231,7 @@ private struct TwoFactorEnrollmentView: View {
                 Spacer()
 
                 Image(systemName: "xmark")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 18))
                     .opacity(0)
             }
             .padding(.horizontal, 20)
@@ -257,7 +257,7 @@ private struct TwoFactorEnrollmentView: View {
                     }) {
                         Text(viewModel.isLoading ? "Sending..." : "Send Code")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
                             .background(Color.loopedContrast)
@@ -287,7 +287,7 @@ private struct TwoFactorEnrollmentView: View {
                     }) {
                         Text(viewModel.isLoading ? "Verifying..." : "Verify & Add")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
                             .background(Color.loopedContrast)
@@ -307,7 +307,7 @@ private struct TwoFactorEnrollmentView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.loopedSubBodyRegular)
-                        .foregroundColor(.red)
+                        .foregroundColor(.loopedError)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 }
@@ -342,7 +342,7 @@ private struct PasswordReauthView: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.loopedSubBodyRegular)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
                     .multilineTextAlignment(.center)
             }
 
@@ -357,7 +357,7 @@ private struct PasswordReauthView: View {
 
                 Button("Continue", action: onConfirm)
                     .font(.loopedBodyMedium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.loopedWhite)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Color.loopedContrast)

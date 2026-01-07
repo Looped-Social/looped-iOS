@@ -30,6 +30,12 @@ class CommunityService: CommunityServiceProtocol {
         return response.items.map(CommunitySearchResult.init(dto:))
     }
 
+    func fetchCommunityDetails(communityId: Int) async throws -> CommunityProfileData {
+        let endpoint = "/v1/communities/\(communityId)"
+        let response: CommunityDetailsDTO = try await apiClient.get(endpoint)
+        return CommunityProfileData(details: response)
+    }
+
     func fetchCommunityDomains(communityId: Int) async throws -> [String] {
         let response: CommunityDomainsResponseDTO = try await apiClient.get("/v1/communities/\(communityId)/domains")
         return response.items

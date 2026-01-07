@@ -48,22 +48,23 @@ class NotificationsViewModel: ObservableObject {
         // Mark notification as read
         markAsRead(notification)
 
-        // Navigate to relevant content based on notification type
+        if openDeeplink(notification.deeplink) {
+            return
+        }
+
+        // Fallback routing if deeplink missing.
         switch notification.type {
         case .like, .comment, .reply, .mention, .repost:
-            // Navigate to post/comment
             navigateToPost(notification.targetId)
         case .follow:
-            // Navigate to user profile
             if let actorId = notification.actorId {
                 navigateToUserProfile(actorId)
             }
         case .postFromFollowed:
             navigateToPost(notification.targetId)
         case .announcement, .system:
-            _ = openDeeplink(notification.deeplink)
+            _ = openDeeplink(notification.actionDeeplink)
         case .loopInvite, .groupInvite:
-            // Navigate to loop/group
             navigateToGroup(notification.targetId)
         }
     }
@@ -134,8 +135,14 @@ class NotificationsViewModel: ObservableObject {
     }
 
     private func hydrateActorProfiles(for notifications: [Notification]) async {
-        let idsToFetch = Set(notifications.compactMap { $0.actorId?.backendInt })
-            .subtracting(actorCache.keys)
+        let idsToFetch = Set(
+            notifications.compactMap { notification in
+                guard !notification.actorIsAnonymous else { return nil }
+                guard notification.actorProfileImageUrl == nil else { return nil }
+                return notification.actorId?.backendInt
+            }
+        )
+        .subtracting(actorCache.keys)
         guard !idsToFetch.isEmpty else { return }
 
         var fetchedProfiles: [Int: ActorProfile] = [:]
@@ -165,10 +172,9 @@ class NotificationsViewModel: ObservableObject {
             guard
                 let backendId = notification.actorId?.backendInt,
                 let profile = actorCache[backendId],
-                notification.actorIsAnonymous == false
-            else {
-                return notification
-            }
+                notification.actorIsAnonymous == false,
+                notification.actorProfileImageUrl == nil
+            else { return notification }
             return notification.updatingActor(name: profile.name, profileImageUrl: profile.profileImageUrl)
         }
     }

@@ -76,7 +76,7 @@ struct ViolationsView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .foregroundColor(.loopedTextSecondary)
             }
 
@@ -89,7 +89,7 @@ struct ViolationsView: View {
             Spacer()
 
             Image(systemName: "chevron.left")
-                .font(.system(size: 24, weight: .medium))
+                .font(.loopedCustom(.medium, size: 24))
                 .opacity(0)
         }
         .padding(.horizontal, 20)
@@ -116,7 +116,7 @@ struct ViolationsView: View {
         if let errorMessage = viewModel.errorMessage, viewModel.violations.isEmpty {
             Text(errorMessage)
                 .font(.loopedSubBodyRegular)
-                .foregroundColor(.red)
+                .foregroundColor(.loopedError)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
         }
@@ -143,7 +143,7 @@ struct ViolationsView: View {
         if let errorMessage = appealsViewModel.errorMessage, appealsViewModel.appeals.isEmpty {
             Text(errorMessage)
                 .font(.loopedSubBodyRegular)
-                .foregroundColor(.red)
+                .foregroundColor(.loopedError)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
         }
@@ -160,7 +160,7 @@ struct ViolationsView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.seal")
-                .font(.system(size: 32, weight: .semibold))
+                .font(.loopedCustom(.semibold, size: 32))
                 .foregroundColor(.loopedSecondary)
             Text("No violations found")
                 .font(.loopedBodyMedium)
@@ -177,7 +177,7 @@ struct ViolationsView: View {
     private var emptyAppealsState: some View {
         VStack(spacing: 12) {
             Image(systemName: "doc.text")
-                .font(.system(size: 32, weight: .semibold))
+                .font(.loopedCustom(.semibold, size: 32))
                 .foregroundColor(.loopedSecondary)
             Text("No appeals yet")
                 .font(.loopedBodyMedium)
@@ -311,9 +311,9 @@ struct ViolationsView: View {
         case .open:
             return .loopedSecondary
         case .approved:
-            return .green
+            return .loopedSuccess
         case .rejected:
-            return .red
+            return .loopedError
         case .unknown:
             return .loopedTextSecondary
         }

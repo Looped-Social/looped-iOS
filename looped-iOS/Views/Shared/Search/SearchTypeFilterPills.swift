@@ -15,8 +15,8 @@ struct SearchTypeFilterPills: View {
                         onSelect(isSelected ? nil : filter)
                     }) {
                         Text(filter.rawValue)
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(isSelected ? .white : .loopedTextSecondary)
+                            .font(isSelected ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                            .foregroundColor(isSelected ? .loopedWhite : .loopedTextSecondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(

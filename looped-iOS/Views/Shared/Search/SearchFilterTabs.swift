@@ -31,8 +31,8 @@ struct FilterTab: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.loopedBodyMedium)
-                .foregroundColor(isSelected ? .white : .loopedTextPrimary)
+                .font(isSelected ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                .foregroundColor(isSelected ? .loopedWhite : .loopedTextPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(

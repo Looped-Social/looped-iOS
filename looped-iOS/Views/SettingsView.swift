@@ -40,9 +40,15 @@ struct SettingsView: View {
     @State private var isUnlinkingApple = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @State private var showFeedback = false
+    @State private var showContentPolicy = false
+    @State private var showPrivacyPolicy = false
+    @State private var showUserAgreement = false
     @State private var pendingDisconnectProvider: LinkedProvider?
 
-    private let feedbackUrl = URL(string: "https://mylooped.app/contact")!
+    private let feedbackUrl = URL(string: "https://www.mylooped.app/contact")!
+    private let contentPolicyUrl = URL(string: "https://www.mylooped.app/community-rules")!
+    private let privacyPolicyUrl = URL(string: "https://www.mylooped.app/privacy-policy")!
+    private let userAgreementUrl = URL(string: "https://www.mylooped.app/terms")!
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -103,9 +109,15 @@ struct SettingsView: View {
                         SettingsRow(icon: .asset("help-icon"), title: "Feedback") {
                             showFeedback = true
                         }
-                        SettingsRow(icon: .asset("rules-icon"), title: "Content Policy")
-                        SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Privacy Policy")
-                        SettingsRow(icon: .asset("user-agreement-icon"), title: "User Agreement")
+                        SettingsRow(icon: .asset("rules-icon"), title: "Content Policy") {
+                            showContentPolicy = true
+                        }
+                        SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Privacy Policy") {
+                            showPrivacyPolicy = true
+                        }
+                        SettingsRow(icon: .asset("user-agreement-icon"), title: "User Agreement") {
+                            showUserAgreement = true
+                        }
                     }
 
                     // Community Section
@@ -193,6 +205,15 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showFeedback) {
             SafariView(url: feedbackUrl)
+        }
+        .sheet(isPresented: $showContentPolicy) {
+            SafariView(url: contentPolicyUrl)
+        }
+        .sheet(isPresented: $showPrivacyPolicy) {
+            SafariView(url: privacyPolicyUrl)
+        }
+        .sheet(isPresented: $showUserAgreement) {
+            SafariView(url: userAgreementUrl)
         }
         .onChange(of: anonymousMode) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }
@@ -358,20 +379,14 @@ struct SettingsHeader: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .foregroundColor(.loopedTextSecondary)
             }
 
-            HStack(spacing: 2) {
-                Image("logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 24)
-
-                Text("ooped")
-                    .font(.loopedBody24)
-                    .foregroundColor(.loopedContrast)
-            }
+            Image("logo-banner")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 36)
 
             Spacer()
 
@@ -443,7 +458,7 @@ struct SettingsRow: View {
                         switch icon {
                         case .system(let name):
                             Image(systemName: name)
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.loopedCustom(.medium, size: 16))
                                 .foregroundColor(.loopedTextSecondary)
                                 .frame(width: 20, height: 10)
                         case .asset(let name):
@@ -477,7 +492,7 @@ struct AppearanceModeRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "circle.lefthalf.filled")
-                .font(.system(size: 16, weight: .medium))
+                .font(.loopedCustom(.medium, size: 16))
                 .foregroundColor(.loopedTextSecondary)
                 .frame(width: 20, height: 20)
 
@@ -512,7 +527,7 @@ struct SettingsToggleRow: View {
             switch icon {
             case .system(let name):
                 Image(systemName: name)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 16))
                     .foregroundColor(.loopedTextSecondary)
                     .frame(width: 20, height: 20)
             case .asset(let name):
@@ -530,7 +545,7 @@ struct SettingsToggleRow: View {
             Spacer()
 
             Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.4, green: 0.7, blue: 0.6)))
+                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -560,7 +575,7 @@ struct SettingsNavigationRow: View {
                 switch icon {
                 case .system(let name):
                     Image(systemName: name)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 16))
                         .foregroundColor(.loopedTextSecondary)
                         .frame(width: 20, height: 10)
                 case .asset(let name):
@@ -580,7 +595,7 @@ struct SettingsNavigationRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.loopedCustom(.semibold, size: 13))
                 .foregroundColor(.loopedTextSecondary)
         }
         .padding(.horizontal, 28)
@@ -615,7 +630,7 @@ struct ConnectedAccountRow: View {
             switch icon {
             case .system(let name):
                 Image(systemName: name)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 16))
                     .foregroundColor(.loopedTextPrimary)
                     .frame(width: 20, height: 20)
             case .asset(let name):

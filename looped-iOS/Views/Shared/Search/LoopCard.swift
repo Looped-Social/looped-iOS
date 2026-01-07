@@ -74,7 +74,7 @@ struct LoopCard: View {
             .fill(Color.loopedMutedBackground)
             .overlay(
                 Image(systemName: "person.3")
-                    .font(.system(size: 20))
+                    .font(.loopedCustom(size: 20))
                     .foregroundColor(.loopedTextSecondary.opacity(0.6))
             )
     }

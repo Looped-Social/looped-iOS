@@ -10,7 +10,7 @@ struct HalfScreenModal<ModalContent: View>: ViewModifier {
             
             if isPresented {
                 // Background overlay with dimming
-                Color.black.opacity(0.5)
+                Color.loopedBlack.opacity(0.5)
                     .ignoresSafeArea()
                     .onTapGesture {
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -36,7 +36,7 @@ struct HalfScreenModal<ModalContent: View>: ViewModifier {
                     .frame(maxHeight: UIScreen.main.bounds.height * 0.7) // 70% of screen height
                     .background(Color.loopedBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: -5)
+                    .shadow(color: .loopedBlack.opacity(0.1), radius: 10, x: 0, y: -5)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 .ignoresSafeArea(edges: .bottom)

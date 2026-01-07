@@ -16,7 +16,7 @@ struct LoopedToastView: View {
             .padding(.vertical, 10)
             .background(Color.loopedContrast)
             .cornerRadius(14)
-            .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 3)
+            .shadow(color: Color.loopedBlack.opacity(0.12), radius: 6, x: 0, y: 3)
     }
 }
 

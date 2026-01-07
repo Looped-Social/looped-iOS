@@ -25,7 +25,7 @@ struct ProfileSetupView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.loopedCustom(.medium, size: 18))
                             .foregroundColor(.loopedTextPrimary)
                             .padding(10)
                             .background(Color.loopedMutedBackground)
@@ -78,12 +78,12 @@ struct ProfileSetupView: View {
                         .padding()
                         .background(Color.loopedBackground)
                         .cornerRadius(18)
-                        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
+                        .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
 
                         Button(action: handleContinue) {
                             Text("Continue")
                                 .font(.loopedBodyMedium)
-                                .foregroundColor(.white)
+                                .foregroundColor(.loopedWhite)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
                                 .background(isFormValid ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.3))
@@ -99,7 +99,7 @@ struct ProfileSetupView: View {
                         if let submitError {
                             Text(submitError)
                                 .font(.loopedSubBodyRegular)
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 8)
                         }
@@ -287,11 +287,11 @@ private extension ProfileSetupView {
     var usernameStatusColor: Color {
         switch usernameState {
         case .available:
-            return .green
+            return .loopedSuccess
         case .checking:
             return .loopedTextSecondary
         default:
-            return .red
+            return .loopedError
         }
     }
 

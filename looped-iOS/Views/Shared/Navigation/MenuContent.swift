@@ -25,8 +25,8 @@ struct MenuContent: View {
                         .frame(width: 72, height: 72)
                         .overlay(
                             Image(systemName: "person.fill")
-                                .font(.system(size: 30, weight: .semibold))
-                                .foregroundColor(.white)
+                                .font(.loopedCustom(.semibold, size: 30))
+                                .foregroundColor(.loopedWhite)
                         )
                         .padding(.top, 16)
 
@@ -125,7 +125,7 @@ struct MenuItemButton: View {
         Button(action: action) {
             HStack(spacing: 16) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.loopedCustom(size: 20))
                     .foregroundColor(.loopedTextSecondary)
                     .frame(width: 24)
 
@@ -166,7 +166,7 @@ private struct HeartsRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "heart.fill")
-                .foregroundColor(.red)
+                .foregroundColor(.loopedError)
             Text(text)
                 .font(.loopedSubBodyMedium)
                 .foregroundColor(.loopedTextSecondary)
@@ -273,7 +273,7 @@ private struct CollectionPostsContent: View {
             VStack(spacing: 12) {
                 Text(error)
                     .font(.loopedBody)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
                 Button("Retry") {
                     Task { await viewModel.loadInitial() }
                 }
@@ -283,7 +283,7 @@ private struct CollectionPostsContent: View {
         } else if viewModel.posts.isEmpty {
             VStack(spacing: 16) {
                 Image(systemName: emptyIcon)
-                    .font(.system(size: 48))
+                    .font(.loopedCustom(size: 48))
                     .foregroundColor(.loopedTextSecondary.opacity(0.5))
                 Text(emptyMessage)
                     .font(.loopedBodyMedium)
@@ -291,28 +291,34 @@ private struct CollectionPostsContent: View {
             }
             .padding(.top, 60)
         } else {
-            ForEach(viewModel.posts) { post in
-                PostCard(
-                    post: post,
-                    onBookmarkToggle: { saved in
-                        viewModel.handleBookmarkChange(for: post, isSaved: saved)
-                    },
-                    onUpdate: { updated in
-                        viewModel.updatePost(updated)
-                    },
-                    onDelete: { deleted in
-                        viewModel.removePost(backendId: deleted.backendId)
-                    }
-                )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+            LazyVStack(spacing: 0) {
+                ForEach(viewModel.posts) { post in
+                    PostCard(
+                        post: post,
+                        showsCommunityLabel: true,
+                        onBookmarkToggle: { saved in
+                            viewModel.handleBookmarkChange(for: post, isSaved: saved)
+                        },
+                        onUpdate: { updated in
+                            viewModel.updatePost(updated)
+                        },
+                        onDelete: { deleted in
+                            viewModel.removePost(backendId: deleted.backendId)
+                        }
+                    )
                     .onAppear {
                         Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                     }
-            }
-            if viewModel.isLoadingMore {
-                ProgressView()
-                    .padding()
+
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                }
+
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .padding()
+                }
             }
         }
     }
@@ -335,7 +341,7 @@ private struct LikedPostsFeedList: View {
             VStack(spacing: 12) {
                 Text(error)
                     .font(.loopedBody)
-                    .foregroundColor(.red)
+                    .foregroundColor(.loopedError)
                 Button("Retry") {
                     Task { await viewModel.loadInitial() }
                 }
@@ -345,7 +351,7 @@ private struct LikedPostsFeedList: View {
         } else if viewModel.posts.isEmpty {
             VStack(spacing: 16) {
                 Image(systemName: "heart")
-                    .font(.system(size: 48))
+                    .font(.loopedCustom(size: 48))
                     .foregroundColor(.loopedTextSecondary.opacity(0.5))
                 Text("No liked posts yet")
                     .font(.loopedBodyMedium)
@@ -356,6 +362,7 @@ private struct LikedPostsFeedList: View {
             ForEach(viewModel.posts) { post in
                 PostCard(
                     post: post,
+                    showsCommunityLabel: true,
                     onUpdate: { updated in
                         viewModel.updatePost(updated)
                     },
@@ -415,7 +422,7 @@ struct DraftsView: View {
                 Section {
                     VStack(spacing: 12) {
                         Image(systemName: "doc.text")
-                            .font(.system(size: 48))
+                            .font(.loopedCustom(size: 48))
                             .foregroundColor(.loopedTextSecondary.opacity(0.5))
                         Text("No drafts yet")
                             .font(.loopedBodyMedium)

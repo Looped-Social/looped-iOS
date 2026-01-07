@@ -9,7 +9,7 @@ struct HashtagText: View {
 
     init(
         text: String,
-        font: Font = .body,
+        font: Font = .loopedBodyScaled,
         textColor: Color = .loopedTextPrimary,
         hashtagColor: Color = .loopedPrimary,
         onHashtagTap: @escaping (String) -> Void
@@ -109,7 +109,7 @@ struct HashtagText: View {
 
         HashtagText(
             text: "Check out #TGIF #productdesign and let me know!",
-            font: .headline,
+            font: .loopedHeadlineScaled,
             onHashtagTap: { _ in }
         )
     }

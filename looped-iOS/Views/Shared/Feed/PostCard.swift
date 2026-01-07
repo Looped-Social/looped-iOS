@@ -25,6 +25,8 @@ struct PostCard: View {
     @State private var showVideoPlayer = false
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
+    @ScaledMetric private var actionIconSize: CGFloat = 22
+    @ScaledMetric private var actionLabelSpacing: CGFloat = 4
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var showActionMenu = false
@@ -90,8 +92,8 @@ struct PostCard: View {
         return base
     }
 
-    private var displayCommunityText: String? {
-        post.authorDisplayCommunity?.displayText
+    private var authorDisplayLine: String? {
+        post.authorDisplaySpecializationLine
     }
 
     private var communityContextText: String? {
@@ -106,8 +108,29 @@ struct PostCard: View {
         return nil
     }
 
+    private var communityProfileData: CommunityProfileData? {
+        guard let communityId = post.communityId else { return nil }
+        let trimmedName = post.communityName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedName = trimmedName.isEmpty
+            ? post.communityKind?.rawValue.capitalized ?? "Community"
+            : trimmedName
+        return CommunityProfileData(
+            id: communityId,
+            name: resolvedName,
+            description: "",
+            kind: post.communityKind ?? .unknown,
+            specializationType: .unknown,
+            memberCount: 0,
+            imageUrl: nil,
+            isFollowing: false
+        )
+    }
+
     private var authorProfileId: Int? {
-        post.authorBackendId ?? post.authorId.backendInt
+        if post.isAnonymous {
+            return post.anonProfileId
+        }
+        return post.authorBackendId ?? post.authorId.backendInt
     }
 
     @ViewBuilder
@@ -123,14 +146,20 @@ struct PostCard: View {
     }
 
     private var avatarContent: some View {
-        Circle()
-            .fill(Color.loopedTextSecondary.opacity(0.2))
-            .overlay(
-                Text(initials(from: post.resolvedAuthorName))
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.loopedTextPrimary)
-            )
-            .frame(width: 40, height: 40)
+        Group {
+            if post.isAnonymous {
+                Circle()
+                    .fill(Color.loopedTextSecondary.opacity(0.2))
+                    .overlay(
+                        Text(initials(from: post.resolvedAuthorName))
+                            .font(.loopedCustom(.semibold, size: 16))
+                            .foregroundColor(.loopedTextPrimary)
+                    )
+                    .frame(width: 40, height: 40)
+            } else {
+                ProfileAvatarView(imageURL: post.authorProfileImageURL, size: 40)
+            }
+        }
     }
 
     @ViewBuilder
@@ -138,14 +167,18 @@ struct PostCard: View {
         if let authorProfileId {
             NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
                 Text(post.resolvedAuthorName)
-                    .font(.headline)
+                    .font(.loopedHeadlineScaled)
                     .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             .buttonStyle(PlainButtonStyle())
         } else {
             Text(post.resolvedAuthorName)
-                .font(.headline)
+                .font(.loopedHeadlineScaled)
                 .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 
@@ -173,12 +206,12 @@ struct PostCard: View {
                             // Name and primary community
                             authorName
 
-                            if let displayCommunityText {
+                            if let authorDisplayLine {
                                 Text("•")
-                                    .font(.subheadline)
+                                    .font(.loopedSubheadlineScaled)
                                     .foregroundColor(.loopedTextSecondary)
-                                Text(displayCommunityText)
-                                    .font(.subheadline)
+                                Text(authorDisplayLine)
+                                    .font(.loopedSubheadlineScaled)
                                     .foregroundColor(.loopedTextSecondary)
                                     .lineLimit(1)
                                     .truncationMode(.tail)
@@ -194,9 +227,22 @@ struct PostCard: View {
                         }
 
                         if let communityContextText {
-                            Text(communityContextText)
-                                .font(.subheadline)
-                                .foregroundColor(.loopedTextSecondary)
+                            if let communityProfileData {
+                                NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
+                                    Text(communityContextText)
+                                        .font(.loopedSubheadlineScaled)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            } else {
+                                Text(communityContextText)
+                                    .font(.loopedSubheadlineScaled)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
                         }
                     }
                 }
@@ -205,7 +251,7 @@ struct PostCard: View {
                 if !post.content.isEmpty {
                     HashtagText(
                         text: post.content,
-                        font: .body,
+                        font: .loopedBodyScaled,
                         textColor: .loopedTextPrimary,
                         hashtagColor: .loopedPrimary
                     ) { hashtag in
@@ -244,17 +290,17 @@ struct PostCard: View {
                 }
 
                 // Engagement buttons
-                HStack(spacing: 24) {
+                HStack(spacing: 16) {
                     // Like button
                     Button(action: { handleLikeToggle() }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: actionLabelSpacing) {
                             Image(systemName: isLiked ? "heart.fill" : "heart")
                                 .resizable()
                                 .renderingMode(.template)
-                                .frame(width: 20, height: 20)
-                                .foregroundColor(isLiked ? .red : .loopedTextSecondary)
+                                .frame(width: actionIconSize, height: actionIconSize)
+                                .foregroundColor(isLiked ? .loopedError : .loopedTextSecondary)
                             Text("\(displayedReactionCount)")
-                                .font(.caption)
+                                .font(.loopedSubheadlineScaled)
                                 .foregroundColor(.loopedTextSecondary)
                         }
                     }
@@ -263,25 +309,30 @@ struct PostCard: View {
                     Button(action: {
                         commentsManager.showComments(for: post)
                     }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: actionLabelSpacing) {
                             Image("comment-icon")
                                 .resizable()
                                 .renderingMode(.template)
-                                .frame(width: 18, height: 18)
+                                .frame(width: actionIconSize, height: actionIconSize)
                                 .foregroundColor(.loopedTextSecondary)
                             Text("\(post.commentsCount)")
-                                .font(.caption)
+                                .font(.loopedSubheadlineScaled)
                                 .foregroundColor(.loopedTextSecondary)
                         }
                     }
 
                     // Share button
                     Button(action: { showShareSheet = true }) {
-                        Image("send-icon")
-                            .resizable()
-                            .renderingMode(.template)
-                            .frame(width: 19, height: 19)
-                            .foregroundColor(.loopedTextSecondary)
+                        HStack(spacing: actionLabelSpacing) {
+                            Image("send-icon")
+                                .resizable()
+                                .renderingMode(.template)
+                                .frame(width: actionIconSize, height: actionIconSize)
+                                .foregroundColor(.loopedTextSecondary)
+                            Text("\(currentShareCount)")
+                                .font(.loopedSubheadlineScaled)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
                     }
 
                     Spacer()
@@ -291,7 +342,7 @@ struct PostCard: View {
                         Image(isBookmarked ? "saved-icon" : "save-icon")
                             .resizable()
                             .renderingMode(.template)
-                            .frame(width: 18, height: 18)
+                            .frame(width: actionIconSize, height: actionIconSize)
                             .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
                             .opacity(isBookmarkLoading ? 0.6 : 1)
                     }
@@ -301,7 +352,7 @@ struct PostCard: View {
                 // Timestamp at bottom
                 HStack {
                     Text(formattedTimeAgo)
-                        .font(.subheadline)
+                        .font(.loopedSubheadlineScaled)
                         .foregroundColor(.loopedTextSecondary)
                     Spacer()
                 }
@@ -309,8 +360,8 @@ struct PostCard: View {
 
             if showHeartBurst {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 72, weight: .bold))
-                    .foregroundColor(.red)
+                    .font(.loopedCustom(.bold, size: 72))
+                    .foregroundColor(.loopedError)
                     .scaleEffect(heartScale)
                     .opacity(heartOpacity)
                     .allowsHitTesting(false)
@@ -346,20 +397,20 @@ struct PostCard: View {
                     isPresented: $showImageViewer
                 )
             } else {
-                Color.black.ignoresSafeArea()
+                Color.loopedBlack.ignoresSafeArea()
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "exclamationmark.triangle")
-                                .font(.system(size: 60))
-                                .foregroundColor(.white.opacity(0.5))
+                                .font(.loopedCustom(size: 60))
+                                .foregroundColor(.loopedWhite.opacity(0.5))
                             Text("No images available")
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.loopedWhite.opacity(0.7))
                             Button("Close") {
                                 showImageViewer = false
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .padding()
-                            .background(Color.white.opacity(0.2))
+                            .background(Color.loopedWhite.opacity(0.2))
                             .cornerRadius(8)
                         }
                     )
@@ -371,20 +422,20 @@ struct PostCard: View {
             if let videoUrl = selectedVideoUrl, !videoUrl.isEmpty, URL(string: videoUrl) != nil {
                 VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
             } else {
-                Color.black.ignoresSafeArea()
+                Color.loopedBlack.ignoresSafeArea()
                     .overlay(
                         VStack(spacing: 16) {
                             Image(systemName: "exclamationmark.triangle")
-                                .font(.system(size: 60))
-                                .foregroundColor(.white.opacity(0.5))
+                                .font(.loopedCustom(size: 60))
+                                .foregroundColor(.loopedWhite.opacity(0.5))
                             Text("Invalid video URL")
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.loopedWhite.opacity(0.7))
                             Button("Close") {
                                 showVideoPlayer = false
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .padding()
-                            .background(Color.white.opacity(0.2))
+                            .background(Color.loopedWhite.opacity(0.2))
                             .cornerRadius(8)
                         }
                     )
@@ -767,7 +818,7 @@ struct EditPostSheet: View {
                     Spacer()
                     Text("\(remainingCharacters)")
                         .font(.loopedSmallText)
-                        .foregroundColor(remainingCharacters < 20 ? .red : .loopedTextSecondary)
+                        .foregroundColor(remainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
                 }
 
                 Spacer()

@@ -12,21 +12,18 @@ struct ConversationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Profile Picture or Group Icon
-            AsyncImage(url: URL(string: conversation.userProfileImageUrl ?? "")) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
+            if conversation.isGroup {
                 Circle()
-                    .fill(Color.loopedPrimary.opacity(0.3))
+                    .fill(Color.loopedSecondary)
+                    .frame(width: 50, height: 50)
                     .overlay(
-                        Text(String(conversation.userName.prefix(1)).uppercased())
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedPrimary)
+                        Text(groupInitials)
+                            .font(.loopedCustom(.semibold, size: 16))
+                            .foregroundColor(.loopedWhite)
                     )
+            } else {
+                ProfileAvatarView(imageURL: conversation.userProfileImageUrl, size: 50)
             }
-            .frame(width: 50, height: 50)
-            .clipShape(Circle())
 
             // Content: Name and Last Message
             VStack(alignment: .leading, spacing: 4) {
@@ -38,7 +35,7 @@ struct ConversationRow: View {
                     // Special status icon (like typing indicator or message status)
                     if conversation.hasSpecialStatus {
                         Image(systemName: "message.fill")
-                            .font(.system(size: 12))
+                            .font(.loopedCustom(size: 12))
                             .foregroundColor(.loopedPrimary)
                     }
 
@@ -61,17 +58,17 @@ struct ConversationRow: View {
                 if conversation.hasUnreadMessages {
                     ZStack {
                         Circle()
-                            .fill(Color.green)
+                            .fill(Color.loopedSuccess)
                             .frame(width: 20, height: 20)
 
                         Text("\(conversation.unreadCount)")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white)
+                            .font(.loopedCustom(.medium, size: 12))
+                            .foregroundColor(.loopedWhite)
                     }
                 } else {
                     // Empty space to maintain alignment
                     Circle()
-                        .fill(Color.clear)
+                        .fill(Color.loopedClear)
                         .frame(width: 20, height: 20)
                 }
             }

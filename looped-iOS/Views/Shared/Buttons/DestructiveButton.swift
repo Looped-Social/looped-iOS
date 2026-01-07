@@ -28,19 +28,19 @@ struct DestructiveButton: View {
             HStack {
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .loopedWhite))
                         .scaleEffect(0.8)
                 }
                 
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .font(.loopedCustom(.semibold, size: 16))
+                    .foregroundColor(.loopedWhite)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isEnabled ? Color.loopedPrimary : Color.gray)
+                    .fill(isEnabled ? Color.loopedPrimary : Color.loopedGray)
             )
         }
         .disabled(!isEnabled || isLoading)

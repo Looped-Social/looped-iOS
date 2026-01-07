@@ -9,21 +9,18 @@ struct MessageRequestRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                AsyncImage(url: URL(string: request.senderProfileImageUrl ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
+                if request.isGroup {
                     Circle()
-                        .fill(Color.loopedPrimary.opacity(0.3))
+                        .fill(Color.loopedSecondary)
+                        .frame(width: 44, height: 44)
                         .overlay(
                             Text(String(request.displayName.prefix(1)).uppercased())
                                 .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedPrimary)
+                                .foregroundColor(.loopedWhite)
                         )
+                } else {
+                    ProfileAvatarView(imageURL: request.senderProfileImageUrl, size: 44)
                 }
-                .frame(width: 44, height: 44)
-                .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
@@ -97,23 +94,23 @@ private struct RequestActionButton: View {
             HStack(spacing: 6) {
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: style == .primary ? .white : .loopedPrimary))
+                        .progressViewStyle(CircularProgressViewStyle(tint: style == .primary ? .loopedWhite : .loopedPrimary))
                         .scaleEffect(0.8)
                 }
 
                 Text(title)
                     .font(.loopedSubBodyBold)
-                    .foregroundColor(style == .primary ? .white : .loopedPrimary)
+                    .foregroundColor(style == .primary ? .loopedWhite : .loopedPrimary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(style == .primary ? Color.loopedPrimary : Color.clear)
+                    .fill(style == .primary ? Color.loopedPrimary : Color.loopedClear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(style == .primary ? Color.clear : Color.loopedPrimary, lineWidth: 1)
+                    .stroke(style == .primary ? Color.loopedClear : Color.loopedPrimary, lineWidth: 1)
             )
         }
         .disabled(isLoading)

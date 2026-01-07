@@ -56,7 +56,7 @@ struct EmailVerificationView: View {
                     if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
                             .font(.loopedSmallText)
-                            .foregroundColor(.red)
+                            .foregroundColor(.loopedError)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
                     }
@@ -90,7 +90,7 @@ struct EmailVerificationView: View {
                 Button(action: handlePrimaryAction) {
                     Text(primaryButtonTitle)
                         .font(.loopedBodyMedium)
-                        .foregroundColor(.white)
+                        .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
                         .background(Color.loopedContrast)
@@ -139,7 +139,7 @@ private extension EmailVerificationView {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 20))
                         .foregroundColor(.loopedTextPrimary)
                         .frame(width: 40, height: 40)
                 }
@@ -171,7 +171,7 @@ private extension EmailVerificationView {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color.white)
+            .background(Color.loopedWhite)
             .cornerRadius(10)
 
             if viewModel.domains.count > 1 {
@@ -261,9 +261,9 @@ private struct VerificationCodeEntryView: View {
                 ForEach(0..<digits, id: \.self) { index in
                     let character = characterAt(index)
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.white)
+                        .fill(Color.loopedWhite)
                         .frame(width: 28, height: 36)
-                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        .shadow(color: Color.loopedBlack.opacity(0.1), radius: 2, x: 0, y: 1)
                         .overlay(
                             Text(character)
                                 .font(.loopedSubBodyMedium)

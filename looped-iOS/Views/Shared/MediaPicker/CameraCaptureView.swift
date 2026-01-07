@@ -32,7 +32,7 @@ struct CameraCaptureView: View {
                     captureControls
                 }
             } else {
-                Color.black.ignoresSafeArea()
+                Color.loopedBlack.ignoresSafeArea()
             }
         }
         .onAppear {
@@ -56,10 +56,10 @@ private extension CameraCaptureView {
             HStack {
                 Button(action: handleCancel) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.loopedCustom(.semibold, size: 18))
+                        .foregroundColor(.loopedWhite)
                         .padding(12)
-                        .background(Color.black.opacity(0.5))
+                        .background(Color.loopedBlack.opacity(0.5))
                         .clipShape(Circle())
                 }
                 Spacer()
@@ -80,16 +80,16 @@ private extension CameraCaptureView {
                     let width = geometry.size.width * 0.78
                     let height = width / 1.58
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.white.opacity(0.9), lineWidth: 2)
+                        .stroke(Color.loopedWhite.opacity(0.9), lineWidth: 2)
                         .frame(width: width, height: height)
-                        .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 4)
+                        .shadow(color: Color.loopedBlack.opacity(0.25), radius: 6, x: 0, y: 4)
                 }
 
                 Spacer()
 
                 Text(instruction)
                     .font(.loopedSubBodyMedium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.loopedWhite)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                     .padding(.bottom, 28)
@@ -104,10 +104,10 @@ private extension CameraCaptureView {
             Button(action: controller.capture) {
                 ZStack {
                     Circle()
-                        .stroke(Color.white.opacity(0.7), lineWidth: 4)
+                        .stroke(Color.loopedWhite.opacity(0.7), lineWidth: 4)
                         .frame(width: 74, height: 74)
                     Circle()
-                        .fill(Color.white)
+                        .fill(Color.loopedWhite)
                         .frame(width: 58, height: 58)
                 }
             }
@@ -123,10 +123,10 @@ private extension CameraCaptureView {
                 Button(action: controller.retake) {
                     Text("Retake")
                         .font(.loopedBodyMedium)
-                        .foregroundColor(.white)
+                        .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.black.opacity(0.55))
+                        .background(Color.loopedBlack.opacity(0.55))
                         .clipShape(Capsule())
                 }
 
@@ -136,7 +136,7 @@ private extension CameraCaptureView {
                         .foregroundColor(.loopedBackground)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.white)
+                        .background(Color.loopedWhite)
                         .clipShape(Capsule())
                 }
             }

@@ -35,6 +35,10 @@ struct ChatDetailsView: View {
         return conversation.backendUserId ?? conversation.userId.backendInt
     }
 
+    private var memberCount: Int {
+        channel?.memberCount ?? currentMemberIds.count
+    }
+
     init(conversation: Conversation?, channel: Channel?) {
         self.conversation = conversation
         self.channel = channel
@@ -66,38 +70,19 @@ struct ChatDetailsView: View {
                         ZStack(alignment: .bottomTrailing) {
                             if isGroupChat {
                                 Circle()
-                                    .fill(Color.purple)
+                                    .fill(Color.loopedSecondary)
                                     .frame(width: 120, height: 120)
                                     .overlay(
                                         Text("VP")
-                                            .font(.system(size: 40, weight: .bold))
-                                            .foregroundColor(.white)
+                                            .font(.loopedCustom(.bold, size: 40))
+                                            .foregroundColor(.loopedWhite)
                                     )
-                            } else if let profileImageUrl = conversation?.userProfileImageUrl {
-                                AsyncImage(url: URL(string: profileImageUrl)) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Circle()
-                                        .fill(Color.loopedPrimary.opacity(0.3))
-                                        .overlay(
-                                            Text(String(chatTitle.prefix(1)).uppercased())
-                                                .font(.system(size: 40, weight: .bold))
-                                                .foregroundColor(.loopedPrimary)
-                                        )
-                                }
-                                .frame(width: 120, height: 120)
-                                .clipShape(Circle())
                             } else {
-                                Circle()
-                                    .fill(Color.loopedPrimary.opacity(0.3))
-                                    .frame(width: 120, height: 120)
-                                    .overlay(
-                                        Text(String(chatTitle.prefix(1)).uppercased())
-                                            .font(.system(size: 40, weight: .bold))
-                                            .foregroundColor(.loopedPrimary)
-                                    )
+                                ProfileAvatarView(
+                                    imageURL: conversation?.userProfileImageUrl,
+                                    size: 120,
+                                    iconScale: 0.4
+                                )
                             }
 
                             // Edit photo button
@@ -109,8 +94,8 @@ struct ChatDetailsView: View {
                                     .frame(width: 36, height: 36)
                                     .overlay(
                                         Image(systemName: "camera.fill")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(.white)
+                                            .font(.loopedCustom(size: 16))
+                                            .foregroundColor(.loopedWhite)
                                     )
                             }
                             .offset(x: -5, y: -5)
@@ -136,12 +121,12 @@ struct ChatDetailsView: View {
                                     isEditingName.toggle()
                                 }) {
                                     Image(systemName: isEditingName ? "checkmark.circle.fill" : "pencil")
-                                        .font(.system(size: 20))
+                                        .font(.loopedCustom(size: 20))
                                         .foregroundColor(.loopedPrimary)
                                 }
                             }
 
-                            Text("\(currentMemberIds.count) members")
+                            Text("\(memberCount) members")
                                 .font(.loopedBody)
                                 .foregroundColor(.loopedTextSecondary)
                         } else {
@@ -155,7 +140,7 @@ struct ChatDetailsView: View {
                                         .textFieldStyle(.plain)
 
                                     Image(systemName: "pencil")
-                                        .font(.system(size: 16))
+                                        .font(.loopedCustom(size: 16))
                                         .foregroundColor(.loopedPrimary)
                                 }
 
@@ -208,7 +193,7 @@ struct ChatDetailsView: View {
                             ChatDetailsActionRow(
                                 icon: "hand.raised",
                                 title: "Block User",
-                                textColor: .red,
+                                textColor: .loopedError,
                                 action: {
                                     showBlockUserAlert = true
                                 }
@@ -226,7 +211,7 @@ struct ChatDetailsView: View {
                         }) {
                             Text("Leave Group")
                                 .font(.loopedBodyMedium)
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(Color.loopedTextSecondary.opacity(0.05))
@@ -254,10 +239,10 @@ struct ChatDetailsView: View {
         }
         .navigationViewStyle(.stack)
         .sheet(isPresented: $showAddMembers) {
-            NewMessageView(onChatSelected: { _, _ in
-                // TODO: Handle adding members
-                showAddMembers = false
-            })
+            NewMessageView(
+                onChatSelected: { _, _ in },
+                channelToAddMembers: channel
+            )
         }
         .sheet(isPresented: $showImagePicker) {
             CameraPickerView(selectedImage: $selectedImage)
@@ -299,7 +284,7 @@ struct ChatDetailsActionRow: View {
         }) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 20))
                     .foregroundColor(.loopedPrimary)
                     .frame(width: 28, height: 28)
 
@@ -311,7 +296,7 @@ struct ChatDetailsActionRow: View {
 
                 if showChevron {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 14))
                         .foregroundColor(.loopedTextSecondary)
                 }
             }
@@ -331,7 +316,7 @@ struct ChatDetailsToggleRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20, weight: .medium))
+                .font(.loopedCustom(.medium, size: 20))
                 .foregroundColor(.loopedPrimary)
                 .frame(width: 28, height: 28)
 
@@ -342,7 +327,7 @@ struct ChatDetailsToggleRow: View {
             Spacer()
 
             Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.4, green: 0.7, blue: 0.6)))
+                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -376,32 +361,11 @@ struct GroupMemberDetailsView: View {
                     VStack(spacing: 16) {
                         // Large profile photo
                         ZStack(alignment: .bottomTrailing) {
-                            if let profileImageUrl = profile.profileImageURL {
-                                AsyncImage(url: URL(string: profileImageUrl)) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Circle()
-                                        .fill(Color.loopedPrimary.opacity(0.3))
-                                        .overlay(
-                                            Text(String((profile.displayName ?? "U").prefix(1)).uppercased())
-                                                .font(.system(size: 40, weight: .bold))
-                                                .foregroundColor(.loopedPrimary)
-                                        )
-                                }
-                                .frame(width: 120, height: 120)
-                                .clipShape(Circle())
-                            } else {
-                                Circle()
-                                    .fill(Color.loopedPrimary.opacity(0.3))
-                                    .frame(width: 120, height: 120)
-                                    .overlay(
-                                        Text(String((profile.displayName ?? "U").prefix(1)).uppercased())
-                                            .font(.system(size: 40, weight: .bold))
-                                            .foregroundColor(.loopedPrimary)
-                                    )
-                            }
+                            ProfileAvatarView(
+                                imageURL: profile.profileImageURL,
+                                size: 120,
+                                iconScale: 0.4
+                            )
 
                             // View full photo button
                             Button(action: {
@@ -412,8 +376,8 @@ struct GroupMemberDetailsView: View {
                                     .frame(width: 36, height: 36)
                                     .overlay(
                                         Image(systemName: "eye.fill")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(.white)
+                                            .font(.loopedCustom(size: 16))
+                                            .foregroundColor(.loopedWhite)
                                     )
                             }
                             .offset(x: -5, y: -5)
@@ -429,7 +393,7 @@ struct GroupMemberDetailsView: View {
                                     .textFieldStyle(.plain)
 
                                 Image(systemName: "pencil")
-                                    .font(.system(size: 16))
+                                    .font(.loopedCustom(size: 16))
                                     .foregroundColor(.loopedPrimary)
                             }
 
@@ -481,7 +445,7 @@ struct GroupMemberDetailsView: View {
                         ChatDetailsActionRow(
                             icon: "person.fill.xmark",
                             title: "Remove from Group",
-                            textColor: .red,
+                            textColor: .loopedError,
                             action: {
                                 showRemoveMemberAlert = true
                             }
@@ -492,7 +456,7 @@ struct GroupMemberDetailsView: View {
                         ChatDetailsActionRow(
                             icon: "hand.raised",
                             title: "Block User",
-                            textColor: .red,
+                            textColor: .loopedError,
                             action: {
                                 showBlockUserAlert = true
                             }
@@ -530,7 +494,7 @@ struct GroupMemberDetailsView: View {
                     ProgressView()
                 }
                 .ignoresSafeArea()
-                .background(Color.black)
+                .background(Color.loopedBlack)
             }
         }
         .alert("Block User", isPresented: $showBlockUserAlert) {
@@ -569,21 +533,7 @@ struct ChatDetailsMemberRow: View {
         }) {
             HStack(spacing: 12) {
                 // Profile Picture
-                AsyncImage(url: URL(string: profile.profileImageURL ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedPrimary.opacity(0.3))
-                        .overlay(
-                            Text(String((profile.displayName ?? "U").prefix(1)).uppercased())
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.loopedPrimary)
-                        )
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
+                ProfileAvatarView(imageURL: profile.profileImageURL, size: 40)
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
@@ -613,7 +563,7 @@ struct ChatDetailsMemberRow: View {
                     }) {
                         Text("Remove")
                             .font(.loopedSubBodyMedium)
-                            .foregroundColor(.red)
+                            .foregroundColor(.loopedError)
                     }
                 }
             }

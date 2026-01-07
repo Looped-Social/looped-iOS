@@ -43,12 +43,65 @@ struct ChannelDTO: Codable {
     let name: String
     let memberCount: Int
     let isPublic: Bool
-    let createdAt: Date
+    let createdAt: Date?
+    let ownerUserId: Int?
+    let viewerCanManageMembers: Bool?
 }
 
 struct SendMessageRequestDTO: Codable {
     let content: String
     let attachments: [MediaAttachmentDTO]?
+}
+
+struct CreateChannelRequestDTO: Codable {
+    let name: String
+    let memberUserIds: [Int]?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case memberUserIds = "member_user_ids"
+    }
+}
+
+struct ChannelMembersResponseDTO: Codable {
+    let items: [ChannelMemberDTO]
+    let nextCursor: String?
+}
+
+struct ChannelMemberDTO: Codable {
+    let userId: Int
+    let handle: String
+    let displayName: String?
+    let profileImageUrl: String?
+    let companyId: Int
+    let canManageMembers: Bool
+    let createdAt: Date
+    let isOwner: Bool
+}
+
+struct ChannelMembersAddRequestDTO: Codable {
+    let userIds: [Int]
+
+    enum CodingKeys: String, CodingKey {
+        case userIds = "user_ids"
+    }
+}
+
+struct ChannelMemberPermissionUpdateDTO: Codable {
+    let canManageMembers: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case canManageMembers = "can_manage_members"
+    }
+}
+
+struct ChannelMembersAddResponseDTO: Codable {
+    let status: String
+    let addedCount: Int
+}
+
+struct ChannelMemberActionResponseDTO: Codable {
+    let status: String
 }
 
 struct MediaAttachmentDTO: Codable {

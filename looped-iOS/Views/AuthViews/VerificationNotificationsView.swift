@@ -42,7 +42,7 @@ struct VerificationNotificationsView: View {
                     .foregroundColor(.loopedContrast)
 
                 Image(systemName: "bell")
-                    .font(.system(size: 48, weight: .regular))
+                    .font(.loopedCustom(.regular, size: 48))
                     .foregroundColor(.loopedContrast)
                     .padding(.top, 18)
 
@@ -68,7 +68,7 @@ struct VerificationNotificationsView: View {
                     Button(action: { onEnableNotifications(wantsRecommendations) }) {
                         Text("Yes Notify me")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.white)
+                            .foregroundColor(.loopedWhite)
                             .frame(width: 200, height: 44)
                             .background(Color.loopedContrast)
                             .clipShape(Capsule())
@@ -100,7 +100,7 @@ private extension VerificationNotificationsView {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 20))
                         .foregroundColor(.loopedTextPrimary)
                         .frame(width: 40, height: 40)
                 }

@@ -52,7 +52,7 @@ struct ChatView: View {
                 // Back Button
                 Button(action: onBackTapped) {
                     Image(systemName: "chevron.left")
-                        .font(.title2)
+                        .font(.loopedTitle2Scaled)
                         .foregroundColor(.loopedSecondary)
                 }
 
@@ -85,31 +85,16 @@ struct ChatView: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
 
-                        if !isGroupChat, let profileImageUrl = profileImageUrl {
-                            AsyncImage(url: URL(string: profileImageUrl)) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Circle()
-                                    .fill(Color.loopedPrimary.opacity(0.3))
-                                    .overlay(
-                                        Text(String(chatTitle.prefix(1)).uppercased())
-                                            .font(.caption)
-                                            .foregroundColor(.loopedPrimary)
-                                    )
-                            }
-                            .frame(width: 32, height: 32)
-                            .clipShape(Circle())
+                        if !isGroupChat {
+                            ProfileAvatarView(imageURL: profileImageUrl, size: 32)
                         } else if isGroupChat {
                             Circle()
-                                .fill(Color.purple)
+                                .fill(Color.loopedSecondary)
                                 .frame(width: 32, height: 32)
                                 .overlay(
                                     Text(groupInitials)
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
+                                        .font(.loopedCustom(.medium, size: 12, relativeTo: .caption))
+                                        .foregroundColor(.loopedWhite)
                                 )
                         }
                     }

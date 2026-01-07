@@ -14,7 +14,7 @@ struct SearchResultsBar: View {
                 if !searchText.isEmpty {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.loopedTextSecondary)
-                        .font(.system(size: 16))
+                        .font(.loopedCustom(size: 16))
                 }
 
                 TextField("", text: $searchText)
@@ -29,7 +29,7 @@ struct SearchResultsBar: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: "magnifyingglass")
                                         .foregroundColor(.loopedTextSecondary)
-                                        .font(.system(size: 16))
+                                        .font(.loopedCustom(size: 16))
                                     Text(placeholder)
                                         .font(.loopedBody)
                                         .foregroundColor(.loopedTextSecondary)
@@ -44,7 +44,7 @@ struct SearchResultsBar: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(Color.gray.opacity(0.15))
+            .background(Color.loopedGray.opacity(0.15))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.loopedContrast, lineWidth: 3)

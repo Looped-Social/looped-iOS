@@ -21,11 +21,11 @@ struct AnonymousRecoveryView: View {
                     restoreSection
 
                     if let success = viewModel.successMessage {
-                        statusBanner(text: success, color: .green)
+                        statusBanner(text: success, color: .loopedSuccess)
                     }
 
                     if let error = viewModel.errorMessage {
-                        statusBanner(text: error, color: .red)
+                        statusBanner(text: error, color: .loopedError)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -41,20 +41,14 @@ struct AnonymousRecoveryView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 22))
                     .foregroundColor(.loopedTextSecondary)
             }
 
-            HStack(spacing: 2) {
-                Image("logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 24)
-
-                Text("ooped")
-                    .font(.loopedBody24)
-                    .foregroundColor(.loopedContrast)
-            }
+            Image("logo-banner")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 36)
 
             Spacer()
 
@@ -78,7 +72,7 @@ struct AnonymousRecoveryView: View {
                 .foregroundColor(.loopedTextSecondary)
             Text("Save your Recovery Code and passphrase. If you lose them, we can’t restore your anonymous account.")
                 .font(.loopedSmallText)
-                .foregroundColor(.red)
+                .foregroundColor(.loopedError)
 
             if let state = viewModel.backupState {
                 VStack(alignment: .leading, spacing: 8) {
@@ -113,7 +107,7 @@ struct AnonymousRecoveryView: View {
 
                     Text("Save your Recovery Code and passphrase. If you lose them, you’ll need to generate a new backup.")
                         .font(.loopedSmallText)
-                        .foregroundColor(.red)
+                        .foregroundColor(.loopedError)
                 }
             }
 
@@ -126,7 +120,7 @@ struct AnonymousRecoveryView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
-                    .background(Color.white)
+                    .background(Color.loopedWhite)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
@@ -139,7 +133,7 @@ struct AnonymousRecoveryView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
-                    .background(Color.white)
+                    .background(Color.loopedWhite)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
@@ -187,7 +181,7 @@ struct AnonymousRecoveryView: View {
 
                                 Text(expiryText(for: membership))
                                     .font(.loopedSubBodyRegular)
-                                    .foregroundColor(membership.isExpired ? .red : .loopedTextSecondary)
+                                    .foregroundColor(membership.isExpired ? .loopedError : .loopedTextSecondary)
                             }
 
                             Spacer()
@@ -233,7 +227,7 @@ struct AnonymousRecoveryView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
-                    .background(Color.white)
+                    .background(Color.loopedWhite)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
@@ -246,7 +240,7 @@ struct AnonymousRecoveryView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
-                    .background(Color.white)
+                    .background(Color.loopedWhite)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
@@ -266,7 +260,7 @@ struct AnonymousRecoveryView: View {
 
     private func statusBanner(text: String, color: Color) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: color == .green ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+            Image(systemName: color == .loopedSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .foregroundColor(color)
             Text(text)
                 .font(.loopedSubBodyMedium)

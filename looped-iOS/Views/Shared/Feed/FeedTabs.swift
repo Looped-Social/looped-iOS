@@ -30,8 +30,7 @@ struct FeedTabs: View {
                             onSelectMode(tab.feedMode)
                         }) {
                             Text(tab.rawValue)
-                                .font(.headline)
-                                .fontWeight(.medium)
+                                .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
                                 .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.bottom, 12)
@@ -89,9 +88,8 @@ struct FeedTabs: View {
                                 onSelectAll()
                             }) {
                                 Text("All Loops")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(selectedCommunityId == nil ? .white : .loopedTextSecondary)
+                                    .font(selectedCommunityId == nil ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                                    .foregroundColor(selectedCommunityId == nil ? .loopedWhite : .loopedTextSecondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 8)
                                     .background(
@@ -110,9 +108,8 @@ struct FeedTabs: View {
                                     onSelectCommunity(community)
                                 }) {
                                     Text(community.name)
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(selectedCommunityId == community.id ? .white : .loopedTextSecondary)
+                                        .font(selectedCommunityId == community.id ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                                        .foregroundColor(selectedCommunityId == community.id ? .loopedWhite : .loopedTextSecondary)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 8)
                                         .background(

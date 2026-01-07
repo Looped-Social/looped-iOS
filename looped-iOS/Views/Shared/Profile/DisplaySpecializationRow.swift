@@ -15,7 +15,7 @@ struct DisplaySpecializationRow: View {
         HStack(spacing: 8) {
             if showsIcon {
                 Image(systemName: isSelected ? "graduationcap.fill" : "graduationcap")
-                    .font(.system(size: max(12, iconSize)))
+                    .font(.loopedCustom(size: max(12, iconSize)))
                     .foregroundColor(textColor)
             }
 
@@ -27,7 +27,7 @@ struct DisplaySpecializationRow: View {
 
             if showsDisclosure {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 12))
                     .foregroundColor(.loopedTextSecondary)
             }
         }

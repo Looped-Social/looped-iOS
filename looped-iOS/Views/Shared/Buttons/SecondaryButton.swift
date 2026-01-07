@@ -28,14 +28,14 @@ struct SecondaryButton: View {
                 }
                 
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(isEnabled ? .loopedPrimary : .gray)
+                    .font(.loopedCustom(.semibold, size: 16))
+                    .foregroundColor(isEnabled ? .loopedPrimary : .loopedGray)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isEnabled ? Color.loopedPrimary : Color.gray, lineWidth: 2)
+                    .stroke(isEnabled ? Color.loopedPrimary : Color.loopedGray, lineWidth: 2)
             )
         }
         .disabled(!isEnabled || isLoading)

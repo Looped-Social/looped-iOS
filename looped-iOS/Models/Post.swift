@@ -4,6 +4,7 @@ struct Post: Codable, Identifiable {
     let id: UUID
     let backendId: Int?
     let authorBackendId: Int?
+    let anonProfileId: Int?
     let content: String
     let authorId: UUID
     let authorDisplayName: String?
@@ -24,6 +25,7 @@ struct Post: Codable, Identifiable {
     let attachments: [MediaAttachment]?
     let isSaved: Bool
     let authorDisplayCommunity: DisplayCommunity?
+    let authorDisplaySpecialization: DisplayCommunity?
     let createdAt: Date
     let updatedAt: Date
 
@@ -31,6 +33,7 @@ struct Post: Codable, Identifiable {
         id: UUID,
         backendId: Int? = nil,
         authorBackendId: Int? = nil,
+        anonProfileId: Int? = nil,
         content: String,
         authorId: UUID,
         authorDisplayName: String? = nil,
@@ -51,12 +54,14 @@ struct Post: Codable, Identifiable {
         attachments: [MediaAttachment]? = nil,
         isSaved: Bool = false,
         authorDisplayCommunity: DisplayCommunity? = nil,
+        authorDisplaySpecialization: DisplayCommunity? = nil,
         createdAt: Date,
         updatedAt: Date
     ) {
         self.id = id
         self.backendId = backendId
         self.authorBackendId = authorBackendId
+        self.anonProfileId = anonProfileId
         self.content = content
         self.authorId = authorId
         self.authorDisplayName = authorDisplayName
@@ -77,6 +82,7 @@ struct Post: Codable, Identifiable {
         self.attachments = attachments
         self.isSaved = isSaved
         self.authorDisplayCommunity = authorDisplayCommunity
+        self.authorDisplaySpecialization = authorDisplaySpecialization
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -103,12 +109,13 @@ extension Post {
             .joined(separator: " ")
         let trimmedDisplayName = dto.authorDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDisplayName = fullName.isEmpty ? trimmedDisplayName : fullName
-        let authorIdValue: Int? = dto.authorId
+        let authorIdValue: Int? = dto.authorId ?? dto.anonProfileId
         let resolvedAuthorId = authorIdValue.map(UUID.fromBackendId) ?? UUID()
         self.init(
             id: UUID(),
             backendId: dto.id,
             authorBackendId: dto.authorId,
+            anonProfileId: dto.anonProfileId,
             content: dto.content,
             authorId: resolvedAuthorId,
             authorDisplayName: resolvedDisplayName,
@@ -129,6 +136,7 @@ extension Post {
             attachments: nil,
             isSaved: dto.isSaved ?? false,
             authorDisplayCommunity: dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:)),
+            authorDisplaySpecialization: dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:)),
             createdAt: dto.createdAt,
             updatedAt: dto.createdAt
         )
@@ -144,12 +152,14 @@ extension Post {
         communityName: String? = nil,
         communityKind: CommunityKind? = nil,
         authorDisplayCommunity: DisplayCommunity? = nil,
+        authorDisplaySpecialization: DisplayCommunity? = nil,
         updatedAt: Date? = nil
     ) -> Post {
         Post(
             id: id,
             backendId: backendId ?? self.backendId,
             authorBackendId: authorBackendId,
+            anonProfileId: anonProfileId,
             content: content,
             authorId: authorId,
             authorDisplayName: authorDisplayName,
@@ -170,6 +180,7 @@ extension Post {
             attachments: attachments,
             isSaved: isSaved ?? self.isSaved,
             authorDisplayCommunity: authorDisplayCommunity ?? self.authorDisplayCommunity,
+            authorDisplaySpecialization: authorDisplaySpecialization ?? self.authorDisplaySpecialization,
             createdAt: createdAt,
             updatedAt: updatedAt ?? self.updatedAt
         )
@@ -207,5 +218,25 @@ extension Post {
         let parts = [normalized(firstName), normalized(lastName)].compactMap { $0 }
         let fullName = parts.joined(separator: " ")
         return fullName.isEmpty ? nil : fullName
+    }
+}
+
+extension Post {
+    var authorDisplaySpecializationLine: String? {
+        guard !isAnonymous else { return nil }
+        let specializationName = normalizedOptional(authorDisplaySpecialization?.name)
+        let communityName = normalizedOptional(authorDisplayCommunity?.name)
+        if let communityName {
+            return "\(specializationName ?? "Member") @ \(communityName)"
+        }
+        if let specializationName {
+            return specializationName
+        }
+        return nil
+    }
+
+    private func normalizedOptional(_ value: String?) -> String? {
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

@@ -21,7 +21,7 @@ struct RecentSearchItem: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 16))
                     .foregroundColor(.loopedTextSecondary)
                     .frame(width: 20, height: 20)
             }

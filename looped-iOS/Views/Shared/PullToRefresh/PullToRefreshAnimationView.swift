@@ -14,7 +14,7 @@ struct PullToRefreshAnimationView: View {
                 switch state {
                 case .idle:
                     // Hidden state
-                    Color.clear
+                    Color.loopedClear
                         .frame(height: 0)
                     
                 case .pulling(let progress):

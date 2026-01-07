@@ -20,15 +20,15 @@ struct FloatingActionButton: View {
                 switch type {
                 case .addPost:
                     Image(systemName: "plus")
-                        .font(.system(size: 33, weight: .regular))
-                        .foregroundColor(.white)
+                        .font(.loopedCustom(.regular, size: 33))
+                        .foregroundColor(.loopedWhite)
                 case .sendMessage:
                     Image("send-icon-fab")
                         .resizable()
                         .renderingMode(.template)
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 30, height: 30)
-                        .foregroundColor(.white)
+                        .foregroundColor(.loopedWhite)
                 }
             }
             .frame(width: 56, height: 56)

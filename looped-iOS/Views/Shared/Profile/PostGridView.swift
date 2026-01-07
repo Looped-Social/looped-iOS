@@ -59,10 +59,10 @@ struct PostGridCell: View {
                             HStack {
                                 Spacer()
                                 Image(systemName: "play.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.white)
+                                    .font(.loopedCustom(size: 12))
+                                    .foregroundColor(.loopedWhite)
                                     .padding(6)
-                                    .background(Color.black.opacity(0.6))
+                                    .background(Color.loopedBlack.opacity(0.6))
                                     .clipShape(Circle())
                                     .padding(8)
                             }
@@ -80,15 +80,15 @@ struct PostGridCell: View {
                         HStack {
                             HStack(spacing: 4) {
                                 Image(systemName: "heart.fill")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.red)
+                                    .font(.loopedCustom(size: 10))
+                                    .foregroundColor(.loopedError)
                                 Text("\(post.reactionCount)")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.white)
+                                    .font(.loopedCustom(.medium, size: 10))
+                                    .foregroundColor(.loopedWhite)
                             }
                             .padding(.horizontal, 6)
                             .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.6))
+                            .background(Color.loopedBlack.opacity(0.6))
                             .clipShape(Capsule())
                             .padding(8)
                             Spacer()
@@ -112,13 +112,23 @@ struct MiniaturePostCard: View {
             // Mini header
             HStack(spacing: 6) {
                 // Small avatar circle
-                Circle()
-                    .fill(post.isAnonymous ? Color.loopedSecondary.opacity(0.3) : Color.loopedTextSecondary.opacity(0.3))
-                    .frame(width: 16, height: 16)
+                Group {
+                    if post.isAnonymous {
+                        Circle()
+                            .fill(Color.loopedSecondary.opacity(0.3))
+                            .frame(width: 16, height: 16)
+                    } else {
+                        ProfileAvatarView(
+                            imageURL: post.authorProfileImageURL,
+                            size: 16,
+                            iconScale: 0.5
+                        )
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(post.resolvedAuthorName)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 9))
                         .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
                         .lineLimit(1)
                 }
@@ -128,7 +138,7 @@ struct MiniaturePostCard: View {
 
             // Post content
             Text(post.content)
-                .font(.system(size: 8))
+                .font(.loopedCustom(size: 8))
                 .foregroundColor(.loopedTextPrimary)
                 .lineLimit(8)
                 .multilineTextAlignment(.leading)
@@ -140,19 +150,19 @@ struct MiniaturePostCard: View {
             HStack(spacing: 8) {
                 HStack(spacing: 2) {
                     Image(systemName: "heart")
-                        .font(.system(size: 8))
+                        .font(.loopedCustom(size: 8))
                         .foregroundColor(.loopedTextSecondary)
                     Text("\(post.reactionCount)")
-                        .font(.system(size: 7))
+                        .font(.loopedCustom(size: 7))
                         .foregroundColor(.loopedTextSecondary)
                 }
 
                 HStack(spacing: 2) {
                     Image(systemName: "bubble.left")
-                        .font(.system(size: 8))
+                        .font(.loopedCustom(size: 8))
                         .foregroundColor(.loopedTextSecondary)
                     Text("\(post.commentsCount)")
-                        .font(.system(size: 7))
+                        .font(.loopedCustom(size: 7))
                         .foregroundColor(.loopedTextSecondary)
                 }
 
@@ -173,7 +183,7 @@ struct EmptyPostsView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "square.grid.2x2")
-                .font(.system(size: 48))
+                .font(.loopedCustom(size: 48))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
             Text("No posts yet")

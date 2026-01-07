@@ -40,7 +40,7 @@ struct TwoFactorChallengeView: View {
                         Button(action: sendCode) {
                             Text(isLoading ? "Sending..." : "Send Code")
                                 .font(.loopedBodyMedium)
-                                .foregroundColor(.white)
+                                .foregroundColor(.loopedWhite)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
                                 .background(Color.loopedContrast)
@@ -59,7 +59,7 @@ struct TwoFactorChallengeView: View {
                         Button(action: verifyCode) {
                             Text(isLoading ? "Verifying..." : "Verify")
                                 .font(.loopedBodyMedium)
-                                .foregroundColor(.white)
+                                .foregroundColor(.loopedWhite)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
                                 .background(Color.loopedContrast)
@@ -77,7 +77,7 @@ struct TwoFactorChallengeView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.loopedSubBodyRegular)
-                            .foregroundColor(.red)
+                            .foregroundColor(.loopedError)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                     }
@@ -101,7 +101,7 @@ private extension TwoFactorChallengeView {
         HStack {
             Button(action: handleCancel) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.loopedCustom(.semibold, size: 18))
                     .foregroundColor(.loopedTextSecondary)
             }
 
@@ -114,7 +114,7 @@ private extension TwoFactorChallengeView {
             Spacer()
 
             Image(systemName: "xmark")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.loopedCustom(.semibold, size: 18))
                 .opacity(0)
         }
         .padding(.horizontal, 20)

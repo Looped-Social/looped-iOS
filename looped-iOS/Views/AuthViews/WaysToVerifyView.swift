@@ -77,7 +77,7 @@ struct WaysToVerifyView: View {
                 Button(action: handleContinue) {
                     Text("Continue")
                         .font(.loopedBodyMedium)
-                        .foregroundColor(.white)
+                        .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
                         .background(Color.loopedContrast)
@@ -116,7 +116,7 @@ private extension WaysToVerifyView {
             HStack {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 20))
                         .foregroundColor(.loopedTextPrimary)
                         .frame(width: 40, height: 40)
                 }
@@ -156,7 +156,7 @@ private struct VerificationOptionButton: View {
                 .foregroundColor(.loopedContrast)
                 .frame(maxWidth: 260)
                 .frame(height: 44)
-                .background(Color.white)
+                .background(Color.loopedWhite)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22)
                         .stroke(

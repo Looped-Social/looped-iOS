@@ -9,7 +9,7 @@ struct MessagesSearchBar: View {
             // Search icon on the left
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.loopedTextSecondary)
-                .font(.system(size: 16))
+                .font(.loopedCustom(size: 16))
 
             // Search text field
             TextField(placeholder, text: $searchText)
@@ -23,7 +23,7 @@ struct MessagesSearchBar: View {
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.loopedTextSecondary)
-                        .font(.system(size: 16))
+                        .font(.loopedCustom(size: 16))
                 }
             }
         }

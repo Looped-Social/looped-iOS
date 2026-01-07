@@ -2,6 +2,8 @@ import SwiftUI
 
 struct NewMessageView: View {
     let onChatSelected: (Conversation?, Channel?) -> Void
+    var channelToAddMembers: Channel? = nil
+    var onMembersAdded: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
@@ -158,6 +160,23 @@ struct NewMessageView: View {
     private func handleNextButtonTap() {
         guard !selectedRecipients.isEmpty else { return }
 
+        if let channelToAddMembers {
+            let backendIds = selectedRecipients.compactMap { $0.backendId }
+            guard !backendIds.isEmpty else { return }
+            Task {
+                do {
+                    _ = try await messageService.addChannelMembers(
+                        channelBackendId: channelToAddMembers.backendId,
+                        userIds: backendIds
+                    )
+                    onMembersAdded?()
+                    dismiss()
+                } catch {
+                }
+            }
+            return
+        }
+
         if selectedRecipients.count == 1, let backendId = selectedRecipients[0].backendId {
             Task {
                 do {
@@ -167,7 +186,35 @@ struct NewMessageView: View {
                 } catch {
                 }
             }
+            return
         }
+
+        let backendIds = selectedRecipients.compactMap { $0.backendId }
+        guard !backendIds.isEmpty else { return }
+        let groupName = makeGroupName(from: selectedRecipients)
+        Task {
+            do {
+                let channel = try await messageService.createChannel(name: groupName, memberUserIds: backendIds)
+                onChatSelected(nil, channel)
+                dismiss()
+            } catch {
+            }
+        }
+    }
+
+    private func makeGroupName(from recipients: [UserProfile]) -> String {
+        let names = recipients.compactMap { profile in
+            let primary = profile.displayName ?? profile.username
+            let trimmedPrimary = primary.trimmingCharacters(in: .whitespacesAndNewlines)
+            let fallback = profile.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmedPrimary.isEmpty ? fallback : trimmedPrimary
+        }
+        .filter { !$0.isEmpty }
+
+        guard !names.isEmpty else { return "New Group" }
+        if names.count == 1 { return names[0] }
+        if names.count == 2 { return "\(names[0]) & \(names[1])" }
+        return "\(names[0]), \(names[1]) +\(names.count - 2)"
     }
 }
 
@@ -184,7 +231,7 @@ struct RecipientChip: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 12))
                     .foregroundColor(.loopedPrimary)
             }
         }
@@ -215,8 +262,8 @@ struct ContactRow: View {
                         .overlay(
                             Image("profile-icon")
                                 .renderingMode(.template)
-                                .font(.system(size: 16))
-                                .foregroundColor(.white)
+                                .font(.loopedCustom(size: 16))
+                                .foregroundColor(.loopedWhite)
                         )
                 }
                 .frame(width: 40, height: 40)
@@ -237,7 +284,7 @@ struct ContactRow: View {
                 // Selection indicator
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.loopedCustom(size: 20))
                         .foregroundColor(.loopedPrimary)
                 } else {
                     Circle()

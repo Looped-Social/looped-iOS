@@ -22,7 +22,7 @@ struct CommunityVerificationsView: View {
                     }
 
                     if let errorMessage = viewModel.errorMessage {
-                        statusBanner(text: errorMessage, color: .red)
+                        statusBanner(text: errorMessage, color: .loopedError)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -38,20 +38,14 @@ struct CommunityVerificationsView: View {
         HStack {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 22))
                     .foregroundColor(.loopedTextSecondary)
             }
 
-            HStack(spacing: 2) {
-                Image("logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 24)
-
-                Text("ooped")
-                    .font(.loopedBody24)
-                    .foregroundColor(.loopedContrast)
-            }
+            Image("logo-banner")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 36)
 
             Spacer()
 
@@ -67,7 +61,7 @@ struct CommunityVerificationsView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.seal")
-                .font(.system(size: 36))
+                .font(.loopedCustom(size: 36))
                 .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
             Text("No community verifications yet")
@@ -104,7 +98,7 @@ struct CommunityVerificationsView: View {
 
             Text(expiryText(for: verification))
                 .font(.loopedSubBodyRegular)
-                .foregroundColor(verification.isExpired ? .red : .loopedTextSecondary)
+                .foregroundColor(verification.isExpired ? .loopedError : .loopedTextSecondary)
 
             if verification.isExpired || !verification.active {
                 Text("Re-verify to post in this community.")
@@ -140,7 +134,7 @@ struct CommunityVerificationsView: View {
             return .loopedSecondary
         }
         if verification.isExpired || !verification.active {
-            return .red
+            return .loopedError
         }
         return .loopedPrimary
     }

@@ -23,8 +23,10 @@ struct NotificationTypePreferencesDTO: Codable {
     var follow: Bool
     var like: Bool
     var comment: Bool
+    var reply: Bool
     var mention: Bool
     var postFromFollowed: Bool
+    var repost: Bool
     var announcement: Bool
     var system: Bool
 }
@@ -34,9 +36,9 @@ struct NotificationPreferencesUpdateRequest: Codable {
 }
 
 struct NotificationChannelsUpdateDTO: Codable {
-    var inApp: NotificationChannelUpdateDTO?
-    var push: NotificationChannelUpdateDTO?
-    var email: NotificationChannelUpdateDTO?
+    var inApp: NotificationChannelUpdateDTO? = nil
+    var push: NotificationChannelUpdateDTO? = nil
+    var email: NotificationChannelUpdateDTO? = nil
 
     enum CodingKeys: String, CodingKey {
         case inApp = "in_app"
@@ -51,20 +53,24 @@ struct NotificationChannelUpdateDTO: Codable {
 }
 
 struct NotificationTypePreferencesUpdateDTO: Codable {
-    var follow: Bool?
-    var like: Bool?
-    var comment: Bool?
-    var mention: Bool?
-    var postFromFollowed: Bool?
-    var announcement: Bool?
-    var system: Bool?
+    var follow: Bool? = nil
+    var like: Bool? = nil
+    var comment: Bool? = nil
+    var reply: Bool? = nil
+    var mention: Bool? = nil
+    var postFromFollowed: Bool? = nil
+    var repost: Bool? = nil
+    var announcement: Bool? = nil
+    var system: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
         case follow
         case like
         case comment
+        case reply
         case mention
         case postFromFollowed = "post_from_followed"
+        case repost
         case announcement
         case system
     }

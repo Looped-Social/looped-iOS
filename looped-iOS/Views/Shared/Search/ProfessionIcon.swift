@@ -11,7 +11,7 @@ struct ProfessionIcon: View {
                 .frame(width: 50, height: 50)
                 .overlay(
                     Text(initials)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 18))
                         .foregroundColor(.loopedTextSecondary)
                 )
 

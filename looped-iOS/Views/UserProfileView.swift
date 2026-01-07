@@ -2,12 +2,12 @@ import SwiftUI
 
 enum UserProfileTab: String, CaseIterable {
     case posts = "Posts"
-    case comments = "Comments"
+    case replies = "Replies"
 }
 
 struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var fabState: FloatingActionButtonState
+    @Environment(\.floatingActionButtonState) private var fabState
     @StateObject private var viewModel: UserProfileViewModel
     @StateObject private var postsViewModel: CollectionPostsViewModel
     @StateObject private var commentsViewModel = UserCommentsViewModel()
@@ -15,6 +15,7 @@ struct UserProfileView: View {
     @State private var selectedTab: UserProfileTab = .posts
     @State private var hasLoaded = false
     @State private var overlayHeaderHeight: CGFloat = 0
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     init(userId: Int, currentUserId: Int? = nil, preloadedProfile: UserProfile? = nil) {
         _viewModel = StateObject(
@@ -50,11 +51,11 @@ struct UserProfileView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     content
-                    Color.clear.frame(height: 80)
+                    Color.loopedClear.frame(height: 80)
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: overlayHeaderHeight)
+                Color.loopedClear.frame(height: overlayHeaderHeight)
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .task { await loadIfNeeded() }
@@ -65,7 +66,7 @@ struct UserProfileView: View {
             }
             .background(
                 GeometryReader { proxy in
-                    Color.clear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
+                    Color.loopedClear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
                 }
             )
         }
@@ -90,8 +91,7 @@ struct UserProfileView: View {
             }
         )
         .onChange(of: selectedTab) { newValue in
-            guard !viewModel.isAnonymousProfile else { return }
-            if newValue == .comments {
+            if newValue == .replies {
                 Task { await loadCommentsIfNeeded() }
             }
         }
@@ -110,18 +110,14 @@ struct UserProfileView: View {
             errorState(error)
         } else if let profile = viewModel.profile {
             VStack(spacing: 0) {
-                UserProfileInfoSection(userProfile: profile)
-                if viewModel.isAnonymousProfile {
-                    UserPostsList(viewModel: postsViewModel)
-                } else {
-                    UserProfileTabsView(selectedTab: $selectedTab)
-                    UserProfileContentView(
-                        userProfile: profile,
-                        selectedTab: selectedTab,
-                        postsViewModel: postsViewModel,
-                        commentsViewModel: commentsViewModel
-                    )
-                }
+                UserProfileInfoSection(userProfile: profile, isAnonymousMode: $isAnonymousMode)
+                UserProfileTabsView(selectedTab: $selectedTab)
+                UserProfileContentView(
+                    userProfile: profile,
+                    selectedTab: selectedTab,
+                    postsViewModel: postsViewModel,
+                    commentsViewModel: commentsViewModel
+                )
             }
         } else {
             Text("Profile unavailable")
@@ -169,18 +165,21 @@ struct UserProfileView: View {
 
     private func reload() async {
         await viewModel.loadProfile()
-        if !viewModel.isAnonymousProfile, let backendId = viewModel.profile?.backendId {
-            commentsViewModel.setUser(id: backendId)
+        if let backendId = viewModel.profile?.backendId {
+            if viewModel.isAnonymousProfile {
+                commentsViewModel.setAnonProfile(id: backendId)
+            } else {
+                commentsViewModel.setUser(id: backendId)
+            }
         }
         await postsViewModel.loadInitial()
-        if !viewModel.isAnonymousProfile, selectedTab == .comments {
+        if selectedTab == .replies {
             await loadCommentsIfNeeded()
         }
     }
 
     private func loadCommentsIfNeeded() async {
-        guard !viewModel.isAnonymousProfile,
-              commentsViewModel.comments.isEmpty,
+        guard commentsViewModel.comments.isEmpty,
               viewModel.profile?.backendId != nil
         else { return }
         await commentsViewModel.loadInitial()
@@ -196,13 +195,21 @@ struct UserProfileHeader: View {
             Button(action: onBack) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 18))
                         .foregroundColor(.loopedPrimary)
 
                     Text("Back")
                         .font(.loopedBody)
                         .foregroundColor(.loopedPrimary)
                 }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .background(Color.loopedBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.loopedTextSecondary, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
             Spacer()
@@ -215,58 +222,85 @@ struct UserProfileHeader: View {
 // MARK: - Profile Info Section
 struct UserProfileInfoSection: View {
     let userProfile: UserProfile
+    @Binding var isAnonymousMode: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 16) {
-                AsyncImage(url: URL(string: userProfile.profileImageURL ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.1))
-                        .overlay(
-                            Image("profile-icon")
-                                .renderingMode(.template)
-                                .font(.system(size: 32))
-                                .foregroundColor(.loopedTextSecondary)
-                        )
-                }
-                .frame(width: 80, height: 80)
-                .clipShape(Circle())
+        VStack(spacing: 0) {
+            headerSection
+            statsSection
+            ProfileActionButtons(userProfile: userProfile, isAnonymous: $isAnonymousMode)
+        }
+    }
 
-                VStack(alignment: .leading, spacing: 4) {
+    private var bioDisplay: (text: String, isPlaceholder: Bool) {
+        if userProfile.isAnonymous {
+            return ("", false)
+        }
+        let rawBio = userProfile.bio ?? ""
+        let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return ("No bio yet", true)
+        }
+        return (trimmed, false)
+    }
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                if userProfile.isAnonymous {
+                    Circle()
+                        .fill(Color.loopedSecondary)
+                        .frame(width: 64, height: 64)
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.loopedCustom(.semibold, size: 28))
+                                .foregroundColor(.loopedWhite)
+                        )
+                } else {
+                    ProfileAvatarView(imageURL: userProfile.profileImageURL, size: 64)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
                     Text(userProfile.resolvedDisplayName)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.loopedTextPrimary)
+                        .font(.loopedHeaderProfile)
+                        .foregroundColor(userProfile.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
 
                     Text(userProfile.formattedHandle)
-                        .font(.subheadline)
+                        .font(.loopedBody)
                         .foregroundColor(.loopedTextSecondary)
                 }
 
                 Spacer()
             }
 
-            Text(bioDisplay.text)
-                .font(.body)
-                .foregroundColor(bioDisplay.isPlaceholder ? .loopedTextSecondary : .loopedTextPrimary)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if !bioDisplay.text.isEmpty {
+                Text(bioDisplay.text)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextPrimary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+    }
 
+    private var statsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "calendar")
-                        .foregroundColor(.loopedTextSecondary)
-                        .font(.system(size: 16))
+                if !userProfile.isAnonymous {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar")
+                            .foregroundColor(.loopedTextSecondary)
+                            .font(.loopedCustom(size: 16))
 
-                    Text(userProfile.formattedYearsInLoop)
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
+                        Text(userProfile.formattedYearsInLoop)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
 
-                    Spacer()
+                        Spacer()
+                    }
                 }
 
                 if userProfile.displaySpecializationLine != nil {
@@ -274,7 +308,7 @@ struct UserProfileInfoSection: View {
                         specialization: userProfile.displaySpecialization,
                         displayCommunity: userProfile.displayCommunity,
                         fallbackText: "Member",
-                        font: .subheadline,
+                        font: .loopedSubBodyRegular,
                         textColor: .loopedTextSecondary,
                         iconSize: 16
                     )
@@ -282,7 +316,7 @@ struct UserProfileInfoSection: View {
                     DisplayCommunityRow(
                         displayCommunity: userProfile.displayCommunity,
                         fallbackText: "No primary community selected",
-                        font: .subheadline,
+                        font: .loopedSubBodyRegular,
                         textColor: .loopedTextSecondary,
                         iconSize: 16
                     )
@@ -291,104 +325,31 @@ struct UserProfileInfoSection: View {
 
             if userProfile.showFollowerCount {
                 HStack(spacing: 16) {
-                    Text("\(userProfile.followingCount)")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.loopedTextPrimary)
-                    +
-                    Text(" Following")
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
+                    HStack(spacing: 4) {
+                        Text("\(userProfile.followingCount)")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedContrast)
+                        Text("Following")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
 
-                    Text("\(userProfile.followersCount)")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.loopedTextPrimary)
-                    +
-                    Text(" Followers")
-                        .font(.subheadline)
-                        .foregroundColor(.loopedTextSecondary)
+                    HStack(spacing: 4) {
+                        Text("\(userProfile.followersCount)")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedContrast)
+                        Text("Followers")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
 
                     Spacer()
                 }
             }
-
-            UserProfileActionButtons(userProfile: userProfile)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
-        .padding(.top, 50)
-        .padding(.bottom, 20)
-    }
-
-    private var bioDisplay: (text: String, isPlaceholder: Bool) {
-        let rawBio = userProfile.bio ?? ""
-        let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            return ("No bio yet", true)
-        }
-        return (trimmed, false)
-    }
-}
-
-// MARK: - Action Buttons
-struct UserProfileActionButtons: View {
-    let userProfile: UserProfile
-    @EnvironmentObject private var authViewModel: AuthViewModel
-    @AppStorage("anonymousMode") private var isAnonymous = false
-
-    var body: some View {
-        HStack(spacing: 16) {
-            Button(action: {
-                // TODO: Handle edit profile / follow
-            }) {
-                Text(userProfile.isCurrentUser ? "Edit Profile" : "Follow")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.loopedTextPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                    )
-            }
-            .buttonStyle(PlainButtonStyle())
-
-            if userProfile.isCurrentUser {
-                NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
-                    Text("Settings")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.loopedTextPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                if !isAnonymous {
-                    Button(action: {
-                        // TODO: Handle message
-                    }) {
-                        Text("Message")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.loopedTextPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-        }
-        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
 }
 
@@ -404,8 +365,7 @@ struct UserProfileTabsView: View {
                         selectedTab = tab
                     }) {
                         Text(tab.rawValue)
-                            .font(.headline)
-                            .fontWeight(.medium)
+                            .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
                             .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -437,51 +397,57 @@ struct UserProfileContentView: View {
 
     var body: some View {
         LazyVStack(spacing: 0) {
-            Color.clear.frame(height: contentTopSpacing)
+            Color.loopedClear.frame(height: contentTopSpacing)
             switch selectedTab {
             case .posts:
                 UserPostsList(viewModel: postsViewModel)
-            case .comments:
+            case .replies:
                 UserCommentsList(userProfile: userProfile, viewModel: commentsViewModel)
             }
         }
     }
 }
 
+
 // MARK: - Posts List
 struct UserPostsList: View {
     @ObservedObject var viewModel: CollectionPostsViewModel
 
     var body: some View {
-        VStack(spacing: 16) {
+        Group {
             if viewModel.isLoading {
                 ProgressView()
                     .scaleEffect(1.1)
                     .padding(.top, 32)
             } else if !viewModel.posts.isEmpty {
-                ForEach(viewModel.posts) { post in
-                    PostCard(
-                        post: post,
-                        onBookmarkToggle: { isSaved in
-                            viewModel.handleBookmarkChange(for: post, isSaved: isSaved)
-                        },
-                        onUpdate: { updated in
-                            viewModel.updatePost(updated)
-                        },
-                        onDelete: { deleted in
-                            viewModel.removePost(backendId: deleted.backendId)
+                LazyVStack(spacing: 0) {
+                    ForEach(viewModel.posts) { post in
+                        PostCard(
+                            post: post,
+                            showsCommunityLabel: true,
+                            onBookmarkToggle: { isSaved in
+                                viewModel.handleBookmarkChange(for: post, isSaved: isSaved)
+                            },
+                            onUpdate: { updated in
+                                viewModel.updatePost(updated)
+                            },
+                            onDelete: { deleted in
+                                viewModel.removePost(backendId: deleted.backendId)
+                            }
+                        )
+                        .task {
+                            await viewModel.loadMoreIfNeeded(currentPost: post)
                         }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, post.id == viewModel.posts.first?.id ? 0 : 16)
-                    .task {
-                        await viewModel.loadMoreIfNeeded(currentPost: post)
-                    }
-                }
 
-                if viewModel.isLoadingMore {
-                    ProgressView()
-                        .padding(.vertical, 16)
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    }
+
+                    if viewModel.isLoadingMore {
+                        ProgressView()
+                            .padding(.vertical, 16)
+                    }
                 }
             } else if let error = viewModel.errorMessage {
                 VStack(spacing: 8) {
@@ -501,7 +467,7 @@ struct UserPostsList: View {
             } else {
                 VStack(spacing: 16) {
                     Image(systemName: "text.bubble")
-                        .font(.system(size: 48))
+                        .font(.loopedCustom(size: 48))
                         .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
                     Text("No posts yet")
@@ -519,6 +485,7 @@ struct UserPostsList: View {
 struct UserCommentsList: View {
     let userProfile: UserProfile
     @ObservedObject var viewModel: UserCommentsViewModel
+    @EnvironmentObject var commentsManager: CommentsModalManager
 
     var body: some View {
         VStack(spacing: 16) {
@@ -544,29 +511,22 @@ struct UserCommentsList: View {
             } else if viewModel.comments.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 48))
+                        .font(.loopedCustom(size: 48))
                         .foregroundColor(.loopedTextSecondary.opacity(0.5))
 
-                    Text("No comments yet")
+                    Text("No replies yet")
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextSecondary)
                 }
                 .padding(.top, 60)
             } else {
                 ForEach(viewModel.comments) { comment in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(comment.isDeleted ? "Comment deleted" : comment.content)
-                            .font(.loopedBody)
-                            .foregroundColor(comment.isDeleted ? .loopedTextSecondary : .loopedTextPrimary)
-                            .multilineTextAlignment(.leading)
-
-                        Text(comment.createdAt, style: .date)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
+                    let previewText = previewText(for: viewModel.postPreview(for: comment))
+                    ProfileReplyRow(comment: comment, previewText: previewText) {
+                        Task { await openReply(comment) }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
                     .task {
+                        await viewModel.loadPostPreview(for: comment)
                         await viewModel.loadMoreIfNeeded(current: comment)
                     }
 
@@ -581,6 +541,21 @@ struct UserCommentsList: View {
             }
         }
         .padding(.bottom, 80)
+    }
+
+    private func previewText(for post: Post?) -> String? {
+        guard let post else { return nil }
+        let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return preview.isEmpty ? "Post unavailable" : preview
+    }
+
+    private func openReply(_ comment: Comment) async {
+        guard let post = await viewModel.fetchPostForReply(comment) else { return }
+        commentsManager.showComments(
+            for: post,
+            focusCommentId: comment.backendId,
+            focusParentId: comment.replyToBackendId
+        )
     }
 }
 
@@ -615,7 +590,7 @@ struct UserCommentsList: View {
     }
     .environmentObject(AuthViewModel())
     .environmentObject(FeedViewModel())
-    .environmentObject(FloatingActionButtonState())
+    .environment(\.floatingActionButtonState, FloatingActionButtonState())
 }
 
 private struct UserProfileHeaderHeightKey: PreferenceKey {

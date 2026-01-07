@@ -13,7 +13,7 @@ protocol LoopedButtonStyle {
 // MARK: - Button Style Implementations
 struct PrimaryButtonStyle: LoopedButtonStyle {
     let backgroundColor: Color = .loopedPrimary
-    let foregroundColor: Color = .white
+    let foregroundColor: Color = .loopedWhite
     let cornerRadius: CGFloat = 12
     let height: CGFloat = 50
     let borderColor: Color? = nil
@@ -31,7 +31,7 @@ struct SecondaryButtonStyle: LoopedButtonStyle {
 
 struct DestructiveButtonStyle: LoopedButtonStyle {
     let backgroundColor: Color = .loopedPrimary
-    let foregroundColor: Color = .white
+    let foregroundColor: Color = .loopedWhite
     let cornerRadius: CGFloat = 12
     let height: CGFloat = 50
     let borderColor: Color? = nil
@@ -70,18 +70,18 @@ struct StyledButton<Style: LoopedButtonStyle>: View {
                 }
                 
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(isEnabled ? style.foregroundColor : .gray)
+                    .font(.loopedCustom(.semibold, size: 16))
+                    .foregroundColor(isEnabled ? style.foregroundColor : .loopedGray)
             }
             .frame(maxWidth: .infinity)
             .frame(height: style.height)
             .background(
                 RoundedRectangle(cornerRadius: style.cornerRadius)
-                    .fill(isEnabled ? style.backgroundColor : Color.gray.opacity(0.3))
+                    .fill(isEnabled ? style.backgroundColor : Color.loopedGray.opacity(0.3))
                     .overlay(
                         RoundedRectangle(cornerRadius: style.cornerRadius)
                             .stroke(
-                                style.borderColor ?? Color.clear,
+                                style.borderColor ?? Color.loopedClear,
                                 lineWidth: style.borderWidth
                             )
                     )

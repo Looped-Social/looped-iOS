@@ -17,25 +17,32 @@ class NotificationService: NotificationServiceProtocol {
         let notifications: [Notification] = response.items.map { dto -> Notification in
             let type = NotificationType(rawValue: dto.type) ?? .like
             let payload = dto.payload
-            let actorIsAnonymous = payload?.actorIsAnonymous ?? (payload?.actorUserId == nil)
+            let actorIsAnonymous = payload?.actorIsAnonymous
+                ?? (payload?.actorUserId == nil && payload?.actorAnonProfileId != nil)
             let actorId = actorIsAnonymous ? nil : payload?.actorUserId.map(UUID.fromBackendId)
-            let actorName = defaultActorName(for: type, isAnonymous: actorIsAnonymous)
+            let actorAnonProfileId = actorIsAnonymous ? payload?.actorAnonProfileId.map(UUID.fromBackendId) : nil
+            let actorName = resolvedActorName(
+                payloadName: payload?.actorDisplayName,
+                type: type,
+                isAnonymous: actorIsAnonymous
+            )
             let mentionContext = payload?.context.flatMap(NotificationMentionContext.init(rawValue:))
-            let targetIdValue = payload?.postId ?? payload?.commentId
             return Notification(
                 id: UUID.fromBackendId(dto.id),
                 type: type,
                 actorId: actorId,
+                actorAnonProfileId: actorAnonProfileId,
                 actorName: actorName,
-                actorProfileImageUrl: nil,
+                actorProfileImageUrl: payload?.actorProfileImageUrl,
                 actorIsAnonymous: actorIsAnonymous,
                 additionalActors: nil,
-                targetId: targetIdValue.map(UUID.fromBackendId),
+                targetId: payload?.postId.map(UUID.fromBackendId),
                 targetCommentId: payload?.commentId.map(UUID.fromBackendId),
                 targetContent: nil,
                 title: payload?.title,
                 body: payload?.body,
                 deeplink: payload?.deeplink,
+                actionDeeplink: payload?.actionDeeplink,
                 mentionContext: mentionContext,
                 isRead: !dto.unread,
                 createdAt: dto.createdAt
@@ -63,6 +70,14 @@ class NotificationService: NotificationServiceProtocol {
 private struct EmptyBody: Codable {}
 
 private extension NotificationService {
+    func resolvedActorName(payloadName: String?, type: NotificationType, isAnonymous: Bool) -> String {
+        let trimmed = (payloadName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+        return defaultActorName(for: type, isAnonymous: isAnonymous)
+    }
+
     func defaultActorName(for type: NotificationType, isAnonymous: Bool) -> String {
         switch type {
         case .announcement:

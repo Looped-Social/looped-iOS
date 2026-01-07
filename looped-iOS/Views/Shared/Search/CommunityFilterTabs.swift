@@ -15,9 +15,8 @@ struct CommunityFilterTabs: View {
                     onSelectAll()
                 }) {
                     Text("All Communities")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(selectedCommunityId == nil ? .white : .loopedTextSecondary)
+                        .font(selectedCommunityId == nil ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                        .foregroundColor(selectedCommunityId == nil ? .loopedWhite : .loopedTextSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 8)
                         .background(
@@ -36,9 +35,8 @@ struct CommunityFilterTabs: View {
                         onSelectCommunity(community)
                     }) {
                         Text(community.name)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(selectedCommunityId == community.id ? .white : .loopedTextSecondary)
+                            .font(selectedCommunityId == community.id ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                            .foregroundColor(selectedCommunityId == community.id ? .loopedWhite : .loopedTextSecondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 8)
                             .background(

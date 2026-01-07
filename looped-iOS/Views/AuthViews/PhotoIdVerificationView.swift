@@ -75,7 +75,7 @@ private extension PhotoIdVerificationView {
             HStack {
                 Button(action: handleBack) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.loopedCustom(.semibold, size: 20))
                         .foregroundColor(.loopedTextPrimary)
                         .frame(width: 40, height: 40)
                 }
@@ -105,7 +105,7 @@ private extension PhotoIdVerificationView {
         VStack(spacing: 20) {
             Button(action: { showSelfieCamera = true }) {
                 Circle()
-                    .fill(Color(red: 0.86, green: 0.28, blue: 0.27))
+                    .fill(Color.loopedPrimary)
                     .frame(width: 180, height: 180)
                     .overlay(
                         Group {
@@ -115,8 +115,8 @@ private extension PhotoIdVerificationView {
                                     .scaledToFill()
                             } else {
                                 Image(systemName: "person.fill")
-                                    .font(.system(size: 60, weight: .regular))
-                                    .foregroundColor(.white)
+                                    .font(.loopedCustom(.regular, size: 60))
+                                    .foregroundColor(.loopedWhite)
                             }
                         }
                             .clipShape(Circle())
@@ -138,7 +138,7 @@ private extension PhotoIdVerificationView {
             Button(action: { stage = .workId }) {
                 Text("Continue")
                     .font(.loopedBodyMedium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.loopedWhite)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(Color.loopedContrast)
@@ -171,7 +171,7 @@ private extension PhotoIdVerificationView {
             Button(action: onComplete) {
                 Text("Continue")
                     .font(.loopedBodyMedium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.loopedWhite)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(Color.loopedContrast)
@@ -202,9 +202,9 @@ private struct WorkIdCardView: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color.white)
+            .fill(Color.loopedWhite)
             .frame(width: 280, height: 170)
-            .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
+            .shadow(color: Color.loopedBlack.opacity(0.12), radius: 10, x: 0, y: 6)
             .overlay(
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -232,7 +232,7 @@ private struct WorkIdCardView: View {
                                         .scaledToFill()
                                 } else {
                                     Image(systemName: "person.fill")
-                                        .font(.system(size: 36, weight: .regular))
+                                        .font(.loopedCustom(.regular, size: 36))
                                         .foregroundColor(.loopedTextSecondary)
                                 }
                             }

@@ -16,7 +16,7 @@ struct SignUpView: View {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(.loopedCustom(.medium, size: 18))
                             .foregroundColor(.loopedTextPrimary)
                             .padding(10)
                             .background(Color.loopedMutedBackground)
@@ -46,7 +46,7 @@ struct SignUpView: View {
                         .padding()
                         .background(Color.loopedBackground)
                         .cornerRadius(18)
-                        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 8)
+                        .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
 
                         PasswordRequirementsView(
                             requirements: passwordRequirements,
@@ -65,7 +65,7 @@ struct SignUpView: View {
                         }) {
                             Text("Create Account")
                                 .font(.loopedBodyMedium)
-                                .foregroundColor(.white)
+                                .foregroundColor(.loopedWhite)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
                                 .background(
@@ -84,13 +84,13 @@ struct SignUpView: View {
                         if didAttemptSubmit, !isPasswordValid {
                             Text("Password must meet all requirements.")
                                 .font(.loopedSubBodyRegular)
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 8)
                         } else if let error = viewModel.errorMessage {
                             Text(error)
                                 .font(.loopedSubBodyRegular)
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 8)
                         }
@@ -200,7 +200,7 @@ private struct PasswordRequirementsView: View {
                 if !showMissingOnly || !requirement.isMet {
                     HStack(spacing: 8) {
                         Image(systemName: requirement.isMet ? "checkmark.circle" : "circle")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.loopedCustom(.medium, size: 12))
                             .foregroundColor(requirement.isMet ? .loopedSecondary : .loopedTextSecondary.opacity(0.6))
 
                         Text(requirement.title)

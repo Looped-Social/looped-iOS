@@ -27,12 +27,12 @@ struct ChatInputView: View {
 
                                 if item.type == .video {
                                     Circle()
-                                        .fill(Color.black.opacity(0.6))
+                                        .fill(Color.loopedBlack.opacity(0.6))
                                         .frame(width: 24, height: 24)
                                         .overlay(
                                             Image(systemName: "play.fill")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.white)
+                                                .font(.loopedCustom(size: 10))
+                                                .foregroundColor(.loopedWhite)
                                         )
                                 }
 
@@ -41,12 +41,12 @@ struct ChatInputView: View {
                                     selectedMedia.removeAll { $0.id == item.id }
                                 }) {
                                     Circle()
-                                        .fill(Color.black.opacity(0.7))
+                                        .fill(Color.loopedBlack.opacity(0.7))
                                         .frame(width: 20, height: 20)
                                         .overlay(
                                             Image(systemName: "xmark")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.white)
+                                                .font(.loopedCustom(.bold, size: 10))
+                                                .foregroundColor(.loopedWhite)
                                         )
                                 }
                                 .padding(4)
@@ -65,7 +65,7 @@ struct ChatInputView: View {
                     showAttachmentOptions.toggle()
                 }) {
                     Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 20))
                         .foregroundColor(.loopedPrimary)
                 }
 
@@ -85,7 +85,7 @@ struct ChatInputView: View {
                             showCamera = true
                         }) {
                             Image(systemName: "camera")
-                                .font(.system(size: 20))
+                                .font(.loopedCustom(size: 20))
                                 .foregroundColor(.loopedPrimary)
                         }
 
@@ -94,7 +94,7 @@ struct ChatInputView: View {
                             showMediaPicker = true
                         }) {
                             Image(systemName: "photo")
-                                .font(.system(size: 20))
+                                .font(.loopedCustom(size: 20))
                                 .foregroundColor(.loopedPrimary)
                         }
 
@@ -102,7 +102,7 @@ struct ChatInputView: View {
                         if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedMedia.isEmpty {
                             Button(action: onSendTapped) {
                                 Image(systemName: "arrow.up.circle.fill")
-                                    .font(.system(size: 28))
+                                    .font(.loopedCustom(size: 28))
                                     .foregroundColor(.loopedPrimary)
                             }
                         }
@@ -113,7 +113,7 @@ struct ChatInputView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 24)
                         .fill(Color.loopedMessageMutedColor)
-                        .shadow(color: .black.opacity(0.10), radius: 1, x: 0, y: 1)
+                        .shadow(color: .loopedBlack.opacity(0.10), radius: 1, x: 0, y: 1)
                 )
             }
             .padding(.horizontal, 16)
@@ -122,7 +122,7 @@ struct ChatInputView: View {
         }
         .background(Color.loopedBackground)
         .safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: 0)
+            Color.loopedClear.frame(height: 0)
         }
         .actionSheet(isPresented: $showAttachmentOptions) {
             ActionSheet(

@@ -90,6 +90,14 @@ Current structure is minimal template code. Implement features following this pl
 - **Protocol-oriented programming** for shared behavior via protocol extensions
 - **Functional approaches** for data transformations
 
+### Design System (Required)
+- **Fonts**: Use only `Views/Shared/Core/LoopedFonts.swift` (no `.system`, `.headline`, `.body`, etc). Always check if a font token already exists before adding a new one.
+- **Colors**: Use only `Views/Shared/Core/LoopedColors.swift` (no `Color.white/black/gray/red/green` or system colors).
+- **Tokens first**: Always search for existing font/color tokens before adding new ones. If missing, add the token to the design system file (`LoopedFonts.swift` or `LoopedColors.swift`), and for colors also add an asset in `Assets.xcassets/Colors`.
+- **Background/Contrast semantics**: `loopedBackground` is company white (light) / company black (dark). `loopedContrast` is the inverse.
+- **Transparency**: Use `Color.loopedClear` only for true transparency (e.g., hit targets/overlays).
+- **Reporting**: Call out any necessary exceptions in responses.
+
 ### State Management Patterns
 - `@State`: View-local simple state
 - `@StateObject`: ViewModel instances owned by view

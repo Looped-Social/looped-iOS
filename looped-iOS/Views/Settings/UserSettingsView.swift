@@ -46,7 +46,7 @@ struct UserSettingsView: View {
             HStack {
                 Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 24, weight: .medium))
+                        .font(.loopedCustom(.medium, size: 24))
                         .foregroundColor(.loopedTextSecondary)
                 }
 
@@ -60,7 +60,7 @@ struct UserSettingsView: View {
 
                 // Invisible button for symmetry
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.loopedCustom(.medium, size: 24))
                     .opacity(0)
             }
             .padding(.horizontal, 20)
@@ -73,7 +73,7 @@ struct UserSettingsView: View {
                     // Profile Picture Section
                     VStack(spacing: 12) {
                         Image(systemName: "person.circle.fill")
-                            .font(.system(size: 80))
+                            .font(.loopedCustom(size: 80))
                             .foregroundColor(.loopedTextSecondary)
 
                         Button("Change Profile Picture") {
@@ -168,7 +168,7 @@ struct UserSettingsView: View {
                         if let displayCommunityError {
                             Text(displayCommunityError)
                                 .font(.loopedSmallText)
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -204,7 +204,7 @@ struct UserSettingsView: View {
                         if let displaySpecializationError {
                             Text(displaySpecializationError)
                                 .font(.loopedSmallText)
-                                .foregroundColor(.red)
+                                .foregroundColor(.loopedError)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -266,7 +266,7 @@ struct UserSettingsView: View {
                             if let anonDisplayCommunityError {
                                 Text(anonDisplayCommunityError)
                                     .font(.loopedSmallText)
-                                    .foregroundColor(.red)
+                                    .foregroundColor(.loopedError)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -348,12 +348,12 @@ struct UserSettingsView: View {
                         HStack {
                             if isSaving {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .loopedWhite))
                             }
                             Text(isSaving ? "Saving..." : "Save Changes")
                                 .font(.loopedBodyStrong)
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(saveButtonColor)
@@ -366,7 +366,7 @@ struct UserSettingsView: View {
                     if let saveError = saveError {
                         Text(saveError)
                             .font(.loopedSubBodyRegular)
-                            .foregroundColor(.red)
+                            .foregroundColor(.loopedError)
                             .padding(.horizontal, 20)
                     }
                 }
@@ -699,11 +699,11 @@ private extension UserSettingsView {
     var usernameStatusColor: Color {
         switch usernameState {
         case .available:
-            return .green
+            return .loopedSuccess
         case .checking:
             return .loopedTextSecondary
         default:
-            return .red
+            return .loopedError
         }
     }
 
