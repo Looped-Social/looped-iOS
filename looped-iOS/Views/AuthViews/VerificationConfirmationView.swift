@@ -68,7 +68,7 @@ struct VerificationConfirmationView: View {
                         .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Color.loopedBlack)
+                        .background(Color.loopedPrimary)
                         .clipShape(Capsule())
                 }
                 .padding(.horizontal, 32)

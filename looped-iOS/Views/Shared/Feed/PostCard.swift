@@ -3,13 +3,13 @@ import SwiftUI
 struct PostCard: View {
     let post: Post
     let showsCommunityLabel: Bool
+    let showsAppealPostRemoval: Bool
     let onBookmarkToggle: ((Bool) -> Void)?
     let onUpdate: ((Post) -> Void)?
     let onDelete: ((Post) -> Void)?
     private let feedService: FeedServiceProtocol
     @State private var isLiked = false
     @State private var isBookmarked = false
-    @State private var bookmarkInitialized = false
     @State private var isBookmarkLoading = false
     @State private var isLikeLoading = false
     @State private var showHeartBurst = false
@@ -45,6 +45,7 @@ struct PostCard: View {
         post: Post,
         feedService: FeedServiceProtocol = FeedService(),
         showsCommunityLabel: Bool = false,
+        showsAppealPostRemoval: Bool = false,
         onBookmarkToggle: ((Bool) -> Void)? = nil,
         onUpdate: ((Post) -> Void)? = nil,
         onDelete: ((Post) -> Void)? = nil
@@ -52,6 +53,7 @@ struct PostCard: View {
         self.post = post
         self.feedService = feedService
         self.showsCommunityLabel = showsCommunityLabel
+        self.showsAppealPostRemoval = showsAppealPostRemoval
         self.onBookmarkToggle = onBookmarkToggle
         self.onUpdate = onUpdate
         self.onDelete = onDelete
@@ -88,6 +90,9 @@ struct PostCard: View {
         let base = post.reactionCount
         if isLiked, post.userReaction != .like {
             return base + 1
+        }
+        if !isLiked, post.userReaction == .like {
+            return max(base - 1, 0)
         }
         return base
     }
@@ -371,14 +376,14 @@ struct PostCard: View {
         .background(Color.loopedBackground)
         .cornerRadius(0)
         .onAppear {
-            if !bookmarkInitialized {
-                isBookmarked = post.isSaved
-                bookmarkInitialized = true
-            }
+            syncBookmarkState()
             syncLikeState()
         }
         .onChange(of: post.userReaction) { _, _ in
             syncLikeState()
+        }
+        .onChange(of: post.isSaved) { _, _ in
+            syncBookmarkState()
         }
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: [shareText]) { completed in
@@ -609,6 +614,8 @@ struct PostCard: View {
                     )
                     if removed {
                         isBookmarked = false
+                        let updated = post.updating(isSaved: false, updatedAt: Date())
+                        onUpdate?(updated)
                         onBookmarkToggle?(false)
                     }
                 } else {
@@ -618,6 +625,8 @@ struct PostCard: View {
                     )
                     if saved {
                         isBookmarked = true
+                        let updated = post.updating(isSaved: true, updatedAt: Date())
+                        onUpdate?(updated)
                         onBookmarkToggle?(true)
                     }
                 }
@@ -675,13 +684,34 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle() {
-        guard let postId = post.backendId else { return }
-        if isLiked { return }
+        guard let postId = post.backendId, !isLikeLoading else { return }
+        if isLiked {
+            isLiked = false
+            isLikeLoading = true
+            Task {
+                defer { isLikeLoading = false }
+                do {
+                    let response = try await feedService.unlikePost(
+                        postId: postId,
+                        communityId: post.communityId
+                    )
+                    let updated = post.updating(
+                        reactionCount: response.likesCount,
+                        userReaction: .some(nil),
+                        updatedAt: Date()
+                    )
+                    onUpdate?(updated)
+                } catch {
+                    isLiked = true
+                }
+            }
+            return
+        }
+
         isLiked = true
         triggerHeartBurst()
+        isLikeLoading = true
         Task {
-            guard !isLikeLoading else { return }
-            isLikeLoading = true
             defer { isLikeLoading = false }
             do {
                 let response = try await feedService.reactToPost(
@@ -711,6 +741,11 @@ struct PostCard: View {
 
     private func syncLikeState() {
         isLiked = post.userReaction == .like
+    }
+
+    private func syncBookmarkState() {
+        guard !isBookmarkLoading else { return }
+        isBookmarked = post.isSaved
     }
 
     private func triggerHeartBurst() {
@@ -777,6 +812,7 @@ private extension PostCard {
     }
 
     var canAppealPostRemoval: Bool {
+        guard showsAppealPostRemoval else { return false }
         guard let currentUser = authViewModel.currentUser else { return false }
         return post.backendId != nil && post.authorBackendId == currentUser.backendId
     }
@@ -830,7 +866,7 @@ struct EditPostSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { onCancel() }
-                        .foregroundColor(.loopedPrimary)
+                        .foregroundColor(.loopedSecondary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { onSave() }

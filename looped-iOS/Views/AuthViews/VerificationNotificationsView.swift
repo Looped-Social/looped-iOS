@@ -70,7 +70,7 @@ struct VerificationNotificationsView: View {
                             .font(.loopedBodyMedium)
                             .foregroundColor(.loopedWhite)
                             .frame(width: 200, height: 44)
-                            .background(Color.loopedContrast)
+                            .background(Color.loopedPrimary)
                             .clipShape(Capsule())
                     }
 

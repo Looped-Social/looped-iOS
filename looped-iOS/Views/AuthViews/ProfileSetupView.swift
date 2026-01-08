@@ -194,6 +194,8 @@ struct ProfileSetupView: View {
 
             TextField(placeholder, text: text)
                 .font(.loopedBody)
+                .foregroundColor(.loopedTextPrimary)
+                .tint(.loopedPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .background(Color.loopedMutedBackground.opacity(0.6))
@@ -212,6 +214,8 @@ struct ProfileSetupView: View {
             DatePicker("", selection: date, in: ...Date(), displayedComponents: .date)
                 .datePickerStyle(.compact)
                 .labelsHidden()
+                .foregroundColor(.loopedTextPrimary)
+                .tint(.loopedPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)

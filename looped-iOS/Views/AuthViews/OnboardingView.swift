@@ -68,7 +68,7 @@ struct OnboardingView: View {
                                 .frame(width: 24, height: 24)
 
                             Text("Continue with Google")
-                                .font(.loopedBodyMedium)
+                                .font(.loopedCustom(.medium, size: 17))
                                 .foregroundColor(.loopedTextPrimary)
                         }
                         .frame(maxWidth: .infinity)
@@ -105,6 +105,7 @@ struct OnboardingView: View {
                     if authViewModel.isLoading {
                         ProgressView()
                             .scaleEffect(1.2)
+                            .tint(.loopedPrimary)
                     }
 
                     if let error = authViewModel.errorMessage {

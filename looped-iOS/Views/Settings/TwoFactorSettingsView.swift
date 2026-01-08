@@ -33,7 +33,7 @@ struct TwoFactorSettingsView: View {
                             .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(Color.loopedContrast)
+                            .background(Color.loopedPrimary)
                             .clipShape(Capsule())
                     }
                     .padding(.top, 8)
@@ -260,7 +260,7 @@ private struct TwoFactorEnrollmentView: View {
                             .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(Color.loopedContrast)
+                            .background(Color.loopedPrimary)
                             .clipShape(Capsule())
                     }
                     .disabled(viewModel.isLoading)
@@ -290,7 +290,7 @@ private struct TwoFactorEnrollmentView: View {
                             .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(Color.loopedContrast)
+                            .background(Color.loopedPrimary)
                             .clipShape(Capsule())
                     }
                     .disabled(viewModel.isLoading)
@@ -360,7 +360,7 @@ private struct PasswordReauthView: View {
                     .foregroundColor(.loopedWhite)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(Color.loopedContrast)
+                    .background(Color.loopedPrimary)
                     .clipShape(Capsule())
             }
         }

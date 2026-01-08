@@ -9,6 +9,8 @@ struct NewMessageView: View {
     @State private var searchText = ""
     @State private var selectedRecipients: [UserProfile] = []
     @StateObject private var searchViewModel = NewMessageSearchViewModel()
+    @State private var errorMessage: String?
+    @State private var showErrorAlert = false
     private let messageService: MessageServiceProtocol = MessageService()
 
     private var filteredContacts: [UserProfile] {
@@ -33,7 +35,7 @@ struct NewMessageView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(.loopedPrimary)
+                    .foregroundColor(.loopedSecondary)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -48,6 +50,13 @@ struct NewMessageView: View {
         .navigationViewStyle(.stack)
         .onChange(of: searchText) { newValue in
             Task { await searchViewModel.search(query: newValue) }
+        }
+        .alert("Unable to Start Chat", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "Something went wrong.")
         }
     }
 
@@ -184,6 +193,7 @@ struct NewMessageView: View {
                     onChatSelected(conversation, nil)
                     dismiss()
                 } catch {
+                    presentStartConversationError(error)
                 }
             }
             return
@@ -215,6 +225,16 @@ struct NewMessageView: View {
         if names.count == 1 { return names[0] }
         if names.count == 2 { return "\(names[0]) & \(names[1])" }
         return "\(names[0]), \(names[1]) +\(names.count - 2)"
+    }
+
+    private func presentStartConversationError(_ error: Error) {
+        if case let APIError.apiError(code, apiError, _) = error,
+           code == 403 || apiError == "forbidden" {
+            errorMessage = "This person isn't accepting new message requests."
+        } else {
+            errorMessage = error.localizedDescription
+        }
+        showErrorAlert = true
     }
 }
 

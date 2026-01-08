@@ -141,7 +141,7 @@ private extension PhotoIdVerificationView {
                     .foregroundColor(.loopedWhite)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.loopedContrast)
+                    .background(Color.loopedPrimary)
                     .clipShape(Capsule())
             }
             .disabled(selfieImage == nil)
@@ -174,7 +174,7 @@ private extension PhotoIdVerificationView {
                     .foregroundColor(.loopedWhite)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.loopedContrast)
+                    .background(Color.loopedPrimary)
                     .clipShape(Capsule())
             }
             .disabled(workIdImage == nil)

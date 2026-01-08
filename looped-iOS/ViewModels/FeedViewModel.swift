@@ -219,17 +219,31 @@ class FeedViewModel: ObservableObject {
     func reactToPost(_ post: Post, reaction: ReactionType) async {
         guard let backendId = post.backendId else { return }
         do {
-            let response = try await feedService.reactToPost(
-                postId: backendId,
-                communityId: post.communityId,
-                reaction: reaction
-            )
-            if let index = posts.firstIndex(where: { $0.backendId == response.postId }) {
-                posts[index] = posts[index].updating(
-                    reactionCount: response.likesCount,
-                    userReaction: .some(.like),
-                    updatedAt: Date()
+            if post.userReaction == .like {
+                let response = try await feedService.unlikePost(
+                    postId: backendId,
+                    communityId: post.communityId
                 )
+                if let index = posts.firstIndex(where: { $0.backendId == response.postId }) {
+                    posts[index] = posts[index].updating(
+                        reactionCount: response.likesCount,
+                        userReaction: .some(nil),
+                        updatedAt: Date()
+                    )
+                }
+            } else {
+                let response = try await feedService.reactToPost(
+                    postId: backendId,
+                    communityId: post.communityId,
+                    reaction: reaction
+                )
+                if let index = posts.firstIndex(where: { $0.backendId == response.postId }) {
+                    posts[index] = posts[index].updating(
+                        reactionCount: response.likesCount,
+                        userReaction: .some(.like),
+                        updatedAt: Date()
+                    )
+                }
             }
         } catch {
             errorMessage = error.localizedDescription

@@ -93,7 +93,7 @@ struct EmailVerificationView: View {
                         .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Color.loopedContrast)
+                        .background(Color.loopedPrimary)
                         .clipShape(Capsule())
                 }
                 .disabled(!primaryActionEnabled)
@@ -119,6 +119,7 @@ struct EmailVerificationView: View {
                 if viewModel.isFetchingDomains || viewModel.isSendingCode || viewModel.isVerifyingCode {
                     ProgressView()
                         .padding(.top, 12)
+                        .tint(.loopedPrimary)
                 }
 
                 Spacer()
@@ -162,6 +163,7 @@ private extension EmailVerificationView {
                 TextField("username", text: $viewModel.emailLocalPart)
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
+                    .tint(.loopedPrimary)
                     .textInputAutocapitalization(.none)
                     .autocapitalization(.none)
                     .autocorrectionDisabled()
@@ -188,6 +190,8 @@ private extension EmailVerificationView {
                 Picker(selection: $viewModel.selectedDomain) {
                     ForEach(viewModel.domains, id: \.self) { domain in
                         Text("@\(domain)")
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextPrimary)
                             .tag(domain)
                     }
                 } label: {
@@ -276,6 +280,8 @@ private struct VerificationCodeEntryView: View {
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
                 .focused($isFocused)
+                .foregroundColor(.loopedTextPrimary)
+                .tint(.loopedPrimary)
                 .opacity(0.01)
                 .onChange(of: code) { _, newValue in
                     let filtered = newValue.filter { $0.isNumber }

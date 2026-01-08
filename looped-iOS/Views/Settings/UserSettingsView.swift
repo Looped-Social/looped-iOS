@@ -579,7 +579,8 @@ private extension UserSettingsView {
                     displayName: displayName,
                     bio: bio.isEmpty ? nil : bio,
                     isAnonymous: false,
-                    showFollowerCount: nil
+                    showFollowerCount: nil,
+                    messagePermission: authViewModel.currentUser?.messagePermission
                 )
                 if displayCommunityId != initialDisplayCommunityId {
                     _ = try await userService.updateDisplayCommunity(communityId: displayCommunityId)
@@ -600,10 +601,10 @@ private extension UserSettingsView {
                     initialAnonDisplayCommunityId = anonDisplayCommunityId
                 }
                 await authViewModel.loadCurrentUser()
-                presentToast(message: "Changes saved")
+                presentToast(message: "Changes saved", kind: .success)
             } catch {
                 saveError = mapSaveError(error)
-                presentToast(message: "Changes not saved")
+                presentToast(message: "Changes not saved", kind: .error)
             }
         }
     }
@@ -741,9 +742,9 @@ private extension UserSettingsView {
         return error.localizedDescription
     }
 
-    func presentToast(message: String) {
+    func presentToast(message: String, kind: ToastKind = .info) {
         withAnimation(.easeOut(duration: 0.2)) {
-            toastMessage = ToastMessage(text: message)
+            toastMessage = ToastMessage(text: message, kind: kind)
         }
     }
 }

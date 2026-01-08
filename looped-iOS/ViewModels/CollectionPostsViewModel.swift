@@ -100,6 +100,10 @@ final class CollectionPostsViewModel: ObservableObject {
     
     private func applyOverrides(to posts: [Post]) -> [Post] {
         switch collection {
+        case .liked:
+            return posts.map { post in
+                post.userReaction == .like ? post : post.updating(userReaction: .some(.like))
+            }
         case .saved:
             return posts.map { $0.updating(isSaved: true) }
         default:

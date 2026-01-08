@@ -24,8 +24,8 @@ extension Color {
     static let loopedGray = Color("TextSecondaryColor")
     static let loopedClear = Color.clear
 
-    static let loopedError = loopedPrimary
-    static let loopedSuccess = loopedSecondary
+    static let loopedError = Color("ErrorColor")
+    static let loopedSuccess = Color("SuccessColor")
     
     
 

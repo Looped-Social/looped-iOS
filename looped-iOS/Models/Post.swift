@@ -111,6 +111,7 @@ extension Post {
         let resolvedDisplayName = fullName.isEmpty ? trimmedDisplayName : fullName
         let authorIdValue: Int? = dto.authorId ?? dto.anonProfileId
         let resolvedAuthorId = authorIdValue.map(UUID.fromBackendId) ?? UUID()
+        let resolvedReaction: ReactionType? = (dto.userLiked ?? false) ? .like : nil
         self.init(
             id: UUID(),
             backendId: dto.id,
@@ -131,7 +132,7 @@ extension Post {
             reactionCount: dto.likesCount ?? 0,
             commentsCount: dto.commentsCount ?? 0,
             shareCount: dto.shareCount ?? 0,
-            userReaction: nil,
+            userReaction: resolvedReaction,
             mediaAssetId: dto.mediaAssetId,
             attachments: nil,
             isSaved: dto.isSaved ?? false,

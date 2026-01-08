@@ -31,33 +31,39 @@ struct AuthView: View {
             case .selectCompany:
                 OrganizationSelectionView(
                     title: "Search for your school or\nplace of work",
-                    organizations: MockOrganizations.companies + MockOrganizations.schools,
+                    scope: .companiesAndSchools,
                     searchText: $companySearchText,
                     selectedOrganizationId: authViewModel.selectedOrganization?.id,
                     onSelect: { organization in
                         authViewModel.selectedOrganization = organization
+                        selectedLoopName = organization.name
+                        selectedCommunityId = organization.backendId
                     },
                     onBack: {
                         currentScreen = .profileSetup
+                    },
+                    onNavigate: { screen in
+                        currentScreen = screen
                     }
-                ) { screen in
-                    currentScreen = screen
-                }
+                )
             case .selectSchool:
                 OrganizationSelectionView(
                     title: "Select your school",
-                    organizations: MockOrganizations.schools,
+                    scope: .schoolsOnly,
                     searchText: $schoolSearchText,
                     selectedOrganizationId: authViewModel.selectedOrganization?.id,
                     onSelect: { organization in
                         authViewModel.selectedOrganization = organization
+                        selectedLoopName = organization.name
+                        selectedCommunityId = organization.backendId
                     },
                     onBack: {
                         currentScreen = .profileSetup
+                    },
+                    onNavigate: { screen in
+                        currentScreen = screen
                     }
-                ) { screen in
-                    currentScreen = screen
-                }
+                )
             case .communitySelection(let isStudent):
                 CommunitySelectionView(
                     communities: MockSearchContent.communities,
@@ -114,7 +120,7 @@ struct AuthView: View {
                     currentStep: 1,
                     totalSteps: 5,
                     onBack: {
-                        currentScreen = .communitySelection(isStudent: isStudent)
+                        currentScreen = .selectCompany
                     },
                     onContinue: {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany

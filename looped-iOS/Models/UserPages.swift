@@ -5,6 +5,11 @@ struct UserSearchPage {
     let nextCursor: String?
 }
 
+struct BlockedUsersPage {
+    let users: [BlockedUser]
+    let nextCursor: String?
+}
+
 struct UserCommentsPage {
     let comments: [Comment]
     let nextCursor: String?

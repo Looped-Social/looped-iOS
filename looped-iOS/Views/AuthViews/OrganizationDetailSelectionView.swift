@@ -34,10 +34,11 @@ struct OrganizationDetailSelectionView: View {
                         .font(.loopedCustom(.medium, size: 16))
                         .foregroundColor(.loopedTextSecondary)
 
-                    TextField("", text: $searchText)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextPrimary)
-                }
+                TextField("", text: $searchText)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextPrimary)
+                    .tint(.loopedPrimary)
+            }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.loopedMutedBackground)

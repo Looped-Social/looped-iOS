@@ -14,10 +14,10 @@ struct FeedNewPostsToast: View {
             Text("\(count) new posts")
                 .font(.loopedSubBodyRegular)
         }
-        .foregroundColor(.loopedBackground)
+        .foregroundColor(.loopedWhite)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.loopedContrast)
+        .background(Color.loopedSecondary)
         .cornerRadius(14)
         .shadow(color: Color.loopedBlack.opacity(0.12), radius: 6, x: 0, y: 3)
         .offset(y: dragOffset)

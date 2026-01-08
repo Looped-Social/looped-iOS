@@ -283,7 +283,7 @@ struct CreatePostView: View {
                     Button("Cancel") {
                         handleCancel()
                     }
-                    .foregroundColor(.loopedPrimary)
+                    .foregroundColor(.loopedSecondary)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -379,7 +379,7 @@ struct CreatePostView: View {
             onPostCreated?()
             dismiss()
         } else {
-            presentToast(message: "Post not created")
+            presentToast(message: "Post not created", kind: .error)
         }
     }
 
@@ -449,9 +449,9 @@ struct CreatePostView: View {
         dismiss()
     }
 
-    private func presentToast(message: String) {
+    private func presentToast(message: String, kind: ToastKind = .info) {
         withAnimation(.easeOut(duration: 0.2)) {
-            toastMessage = ToastMessage(text: message)
+            toastMessage = ToastMessage(text: message, kind: kind)
         }
     }
 }

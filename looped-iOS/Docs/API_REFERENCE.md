@@ -98,6 +98,7 @@ GET /v1/users?limit=&cursor=
 
 GET /v1/feed?limit=<int>&cursor=<string>
 - Auth required; returns posts for the caller’s company only
+- Post payloads include per-viewer flags: `user_liked` and `is_saved`
 - 200 OK
 ```
 {
@@ -109,6 +110,8 @@ GET /v1/feed?limit=<int>&cursor=<string>
       "content": "hello",
       "media_asset_id": 77,          // nullable
       "likes_count": 3,
+      "user_liked": false,
+      "is_saved": false,
       "comments_count": 0,
       "share_count": 0,
       "created_at": "2024-01-02T03:04:05Z"
@@ -142,6 +145,8 @@ GET /v1/posts/{id}
   "content": "hello",
   "media_asset_id": 77,     // nullable
   "likes_count": 3,
+  "user_liked": false,
+  "is_saved": false,
   "comments_count": 0,
   "share_count": 0,
   "created_at": "2024-01-02T03:04:05Z"
@@ -157,6 +162,13 @@ POST /v1/posts/{id}/like
   - 403 forbidden (cross‑company); 404 not found
 ```
 { "post_id": 101, "likes_count": 4 }
+```
+
+DELETE /v1/posts/{id}/like
+- Auth required; removes caller like
+- 200 OK
+```
+{ "post_id": 101, "likes_count": 3 }
 ```
 
 ### Comments

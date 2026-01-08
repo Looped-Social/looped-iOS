@@ -139,7 +139,7 @@ struct MainTabView: View {
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(feedViewModel: feedViewModel, onPostCreated: {
                 showCreatePost = false
-                toastMessage = ToastMessage(text: "Post created")
+                toastMessage = ToastMessage(text: "Post created", kind: .success)
             })
                 .preferredColorScheme(preferredColorScheme)
         }
@@ -189,12 +189,10 @@ struct MainTabView: View {
     private func mainLayout(for geometry: GeometryProxy) -> some View {
         let safeWidth = max(geometry.size.width, 0)
         let drawerWidth = safeWidth * 0.8
-        let shadowSpacerWidth = safeWidth - drawerWidth
 
         return ZStack(alignment: .leading) {
             rightMenu(drawerWidth: drawerWidth)
             mainContent(drawerWidth: drawerWidth)
-            shadowOverlay(drawerWidth: drawerWidth, shadowSpacerWidth: shadowSpacerWidth)
             floatingActionButton
             chatOverlay
         }
@@ -302,35 +300,6 @@ struct MainTabView: View {
                 ProfileView()
             }
             .navigationViewStyle(.stack)
-        }
-    }
-
-    @ViewBuilder
-    private func shadowOverlay(drawerWidth: CGFloat, shadowSpacerWidth: CGFloat) -> some View {
-        if selectedTab == .home {
-            HStack(spacing: 0) {
-                Spacer()
-                    .frame(width: shadowSpacerWidth)
-
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.loopedClear,
-                        Color.loopedBlack.opacity(0.05),
-                        Color.loopedBlack.opacity(0.1),
-                        Color.loopedBlack.opacity(0.2)
-                    ]),
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: 20)
-
-                Spacer()
-                    .frame(width: max(drawerWidth - 20, 0))
-            }
-            .opacity(isRightMenuOpen ? 1 : 0)
-            .animation(.linear(duration: 0.0), value: isRightMenuOpen)
-            .ignoresSafeArea(.all)
-            .allowsHitTesting(false)
         }
     }
 
@@ -475,7 +444,7 @@ struct MainTabView: View {
             }
         } catch {
             await MainActor.run {
-                toastMessage = ToastMessage(text: "Post unavailable")
+                toastMessage = ToastMessage(text: "Post unavailable", kind: .error)
             }
         }
     }

@@ -19,6 +19,7 @@ struct TrendingPostDTO: Codable {
     let likesCount: Int
     let commentsCount: Int?
     let shareCount: Int?
+    let userLiked: Bool?
     let createdAt: Date
     let isSaved: Bool?
     let isAnonymous: Bool?
@@ -48,6 +49,7 @@ struct PostDTO: Codable {
     let content: String
     let mediaAssetId: Int?
     let likesCount: Int?
+    let userLiked: Bool?
     let commentsCount: Int?
     let shareCount: Int?
     let createdAt: Date

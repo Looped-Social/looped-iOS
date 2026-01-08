@@ -45,6 +45,7 @@ struct DisplaySpecializationPickerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(.loopedSecondary)
                 }
                 if selectedSpecialization != nil {
                     ToolbarItem(placement: .confirmationAction) {
@@ -52,6 +53,7 @@ struct DisplaySpecializationPickerView: View {
                             selectedSpecialization = nil
                             dismiss()
                         }
+                        .foregroundColor(.loopedSecondary)
                     }
                 }
             }

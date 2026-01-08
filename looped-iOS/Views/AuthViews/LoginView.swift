@@ -123,6 +123,8 @@ struct LoginView: View {
                 }
             }
             .font(.loopedBody)
+            .foregroundColor(.loopedTextPrimary)
+            .tint(.loopedPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(Color.loopedMutedBackground.opacity(0.6))
@@ -147,6 +149,8 @@ struct LoginView: View {
                 .textInputAutocapitalization(.none)
                 .autocorrectionDisabled()
                 .textContentType(.password)
+                .foregroundColor(.loopedTextPrimary)
+                .tint(.loopedPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button(isPasswordVisible ? "Hide" : "Show") {

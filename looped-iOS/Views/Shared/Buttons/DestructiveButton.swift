@@ -40,7 +40,7 @@ struct DestructiveButton: View {
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isEnabled ? Color.loopedPrimary : Color.loopedGray)
+                    .fill(isEnabled ? Color.loopedError : Color.loopedGray)
             )
         }
         .disabled(!isEnabled || isLoading)

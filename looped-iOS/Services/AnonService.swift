@@ -18,6 +18,7 @@ struct AnonActionContext {
 
 enum AnonAction {
     case like(postId: Int)
+    case unlike(postId: Int)
     case save(postId: Int)
     case unsave(postId: Int)
     case postDelete(postId: Int)
@@ -181,6 +182,8 @@ actor AnonService {
         switch action {
         case .like(let postId):
             canonical = "like|v1|\(postId)"
+        case .unlike(let postId):
+            canonical = "unlike|v1|\(postId)"
         case .save(let postId):
             canonical = "save|v1|\(postId)"
         case .unsave(let postId):

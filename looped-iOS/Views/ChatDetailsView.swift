@@ -233,7 +233,7 @@ struct ChatDetailsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(.loopedPrimary)
+                    .foregroundColor(.loopedSecondary)
                 }
             }
         }
@@ -478,7 +478,7 @@ struct GroupMemberDetailsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(.loopedPrimary)
+                    .foregroundColor(.loopedSecondary)
                 }
             }
         }

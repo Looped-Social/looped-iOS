@@ -252,6 +252,11 @@ class APIClient {
             }
 
             guard 200...299 ~= httpResponse.statusCode else {
+                #if DEBUG
+                if shouldLogErrorResponse(request: request) {
+                    logErrorResponse(request: request, data: data, statusCode: httpResponse.statusCode)
+                }
+                #endif
                 if httpResponse.statusCode == 401 {
                     throw APIError.unauthorized
                 }
@@ -311,6 +316,11 @@ class APIClient {
             }
 
             guard 200...299 ~= httpResponse.statusCode else {
+                #if DEBUG
+                if shouldLogErrorResponse(request: request) {
+                    logErrorResponse(request: request, data: data, statusCode: httpResponse.statusCode)
+                }
+                #endif
                 if httpResponse.statusCode == 401 {
                     throw APIError.unauthorized
                 }
@@ -332,6 +342,22 @@ class APIClient {
         guard request.httpMethod == "GET", let path = request.url?.path else { return false }
         return path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/")
     }
+
+    #if DEBUG
+    private func shouldLogErrorResponse(request: URLRequest) -> Bool {
+        guard let path = request.url?.path else { return false }
+        return path.hasPrefix("/v1/appeals") || path.hasPrefix("/v1/violations")
+    }
+
+    private func logErrorResponse(request: URLRequest, data: Data, statusCode: Int) {
+        let method = request.httpMethod ?? "GET"
+        let url = request.url?.absoluteString ?? "unknown"
+        let snippet = String(decoding: data, as: UTF8.self)
+        let body = snippet.isEmpty ? "<empty>" : (snippet.count > 4000 ? String(snippet.prefix(4000)) + "..." : snippet)
+        print("API error response: \(method) \(url) status=\(statusCode)")
+        print("API error body: \(body)")
+    }
+    #endif
 
 }
 

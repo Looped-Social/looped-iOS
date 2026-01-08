@@ -160,15 +160,15 @@ private struct CommunityRequestStepOneView: View {
                     HStack(spacing: 8) {
                         if viewModel.isSubmitting {
                             ProgressView()
-                                .tint(.loopedBackground)
+                                .tint(.loopedWhite)
                         }
                         Text(viewModel.isSubmitting ? "Submitting..." : "Continue")
                             .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedBackground)
+                            .foregroundColor(.loopedWhite)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Color.loopedContrast)
+                    .background(Color.loopedPrimary)
                     .cornerRadius(26)
                 }
                 .disabled(!isStepComplete || viewModel.isSubmitting)
@@ -195,7 +195,7 @@ private struct CommunityRequestStepOneView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", action: onCancel)
-                    .foregroundColor(.loopedError)
+                    .foregroundColor(.loopedSecondary)
             }
         }
         .onChange(of: selectedImage) { _, newValue in
@@ -303,10 +303,10 @@ private struct CommunityRequestStepTwoView: View {
                 Button(action: onDone) {
                     Text("Done")
                         .font(.loopedHeadingMedium)
-                        .foregroundColor(.loopedBackground)
+                        .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Color.loopedContrast)
+                        .background(Color.loopedPrimary)
                         .clipShape(Capsule())
                 }
                 .padding(.horizontal, 32)
@@ -320,7 +320,7 @@ private struct CommunityRequestStepTwoView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", action: onCancel)
-                    .foregroundColor(.loopedError)
+                    .foregroundColor(.loopedSecondary)
             }
         }
     }

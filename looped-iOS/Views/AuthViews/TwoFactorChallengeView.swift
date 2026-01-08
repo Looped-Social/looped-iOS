@@ -43,13 +43,15 @@ struct TwoFactorChallengeView: View {
                                 .foregroundColor(.loopedWhite)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
-                                .background(Color.loopedContrast)
+                                .background(Color.loopedPrimary)
                                 .clipShape(Capsule())
                         }
                         .disabled(isLoading || selectedHintId == nil)
                     } else {
                         TextField("Verification code", text: $code)
                             .font(.loopedBody)
+                            .foregroundColor(.loopedTextPrimary)
+                            .tint(.loopedPrimary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
                             .background(Color.loopedMutedBackground.opacity(0.6))
@@ -62,7 +64,7 @@ struct TwoFactorChallengeView: View {
                                 .foregroundColor(.loopedWhite)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
-                                .background(Color.loopedContrast)
+                                .background(Color.loopedPrimary)
                                 .clipShape(Capsule())
                         }
                         .disabled(isLoading || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -144,6 +146,7 @@ private extension TwoFactorChallengeView {
                 if hint.uid != session.phoneHints.last?.uid {
                     Divider()
                         .padding(.leading, 16)
+                        .background(Color.loopedTextSecondary.opacity(0.2))
                 }
             }
         }

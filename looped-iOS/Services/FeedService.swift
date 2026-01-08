@@ -161,6 +161,32 @@ class FeedService: FeedServiceProtocol {
         return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
     }
 
+    func unlikePost(postId: Int, communityId: Int?) async throws -> PostReactionResponse {
+        if anonService.isAnonymousEnabled {
+            let anonContext = try await anonService.actionContext(for: .unlike(postId: postId), communityId: communityId)
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: PostLikeResponseDTO = try await apiClient.delete(
+                "/v1/posts/\(postId)/like",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+            return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
+        }
+
+        let response: PostLikeResponseDTO = try await apiClient.delete(
+            "/v1/posts/\(postId)/like",
+            expecting: PostLikeResponseDTO.self
+        )
+        return PostReactionResponse(postId: response.postId, likesCount: response.likesCount)
+    }
+
     func sharePost(postId: Int) async throws -> PostShareResponse {
         let response: PostShareResponseDTO = try await apiClient.post("/v1/posts/\(postId)/share", body: EmptyBody())
         return PostShareResponse(postId: response.postId, shareCount: response.shareCount)

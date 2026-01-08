@@ -56,7 +56,7 @@ struct SearchResultsBar: View {
                 onCancel()
             }
             .font(.loopedBody)
-            .foregroundColor(.loopedTextPrimary)
+            .foregroundColor(.loopedSecondary)
         }
         .padding(.horizontal, 16)
     }

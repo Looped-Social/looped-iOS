@@ -39,6 +39,7 @@ protocol FeedServiceProtocol {
     func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
     func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
+    func unlikePost(postId: Int, communityId: Int?) async throws -> PostReactionResponse
     func sharePost(postId: Int) async throws -> PostShareResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage
@@ -88,7 +89,13 @@ protocol UserServiceProtocol {
     func getIdentity() async throws -> IdentityResponseDTO
     func getCurrentUser() async throws -> User
     func getUser(by id: Int) async throws -> User
-    func updateProfile(displayName: String?, bio: String?, isAnonymous: Bool, showFollowerCount: Bool?) async throws -> User
+    func updateProfile(
+        displayName: String?,
+        bio: String?,
+        isAnonymous: Bool,
+        showFollowerCount: Bool?,
+        messagePermission: MessagePermission?
+    ) async throws -> User
     func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
     func updateDisplayCommunity(communityId: Int?) async throws -> User
     func updateDisplaySpecialization(specializationId: Int?) async throws -> User
@@ -99,6 +106,17 @@ protocol UserServiceProtocol {
     func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO
     func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
+}
+
+protocol BlockServiceProtocol {
+    func fetchBlockedUsers(limit: Int, cursor: String?) async throws -> BlockedUsersPage
+    func blockUser(userId: Int) async throws -> BlockActionResult
+    func unblockUser(userId: Int) async throws -> BlockActionResult
+}
+
+struct BlockActionResult {
+    let userId: Int
+    let blocked: Bool
 }
 
 enum DeleteAccountMode: String {

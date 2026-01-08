@@ -26,6 +26,7 @@ struct UserDTO: Codable {
     let displaySpecialization: DisplayCommunityDTO?
     let profileImageUrl: String?
     let showFollowerCount: Bool?
+    let messagePermission: MessagePermission?
     let createdAt: Date?
     let updatedAt: Date?
 }
@@ -51,6 +52,7 @@ struct UserProfileDTO: Codable {
     let postsCount: Int?
     let commentsCount: Int?
     let showFollowerCount: Bool?
+    let messagePermission: MessagePermission?
 }
 
 struct UserStatsDTO: Codable {

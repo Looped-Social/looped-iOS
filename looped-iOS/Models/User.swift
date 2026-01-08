@@ -22,6 +22,7 @@ struct User: Codable, Identifiable {
     let postsCount: Int?
     let commentsCount: Int?
     let showFollowerCount: Bool?
+    let messagePermission: MessagePermission?
     let displayCommunity: DisplayCommunity?
     let displaySpecialization: DisplayCommunity?
     
@@ -47,6 +48,7 @@ struct User: Codable, Identifiable {
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
         showFollowerCount: Bool? = nil,
+        messagePermission: MessagePermission? = nil,
         displayCommunity: DisplayCommunity? = nil,
         displaySpecialization: DisplayCommunity? = nil
     ) {
@@ -71,6 +73,7 @@ struct User: Codable, Identifiable {
         self.postsCount = postsCount
         self.commentsCount = commentsCount
         self.showFollowerCount = showFollowerCount
+        self.messagePermission = messagePermission
         self.displayCommunity = displayCommunity
         self.displaySpecialization = displaySpecialization
     }
@@ -106,6 +109,7 @@ extension User {
         self.postsCount = stats?.postsCount ?? profile?.postsCount
         self.commentsCount = stats?.commentsCount ?? profile?.commentsCount
         self.showFollowerCount = profile?.showFollowerCount ?? dto.showFollowerCount
+        self.messagePermission = dto.messagePermission ?? profile?.messagePermission
         self.displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
         self.displaySpecialization = dto.displaySpecialization.map(DisplayCommunity.init(dto:))
     }
@@ -130,6 +134,7 @@ extension User {
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
         showFollowerCount: Bool? = nil,
+        messagePermission: MessagePermission? = nil,
         displayCommunity: DisplayCommunity? = nil,
         displaySpecialization: DisplayCommunity? = nil
     ) {
@@ -155,6 +160,7 @@ extension User {
             postsCount: postsCount,
             commentsCount: commentsCount,
             showFollowerCount: showFollowerCount,
+            messagePermission: messagePermission,
             displayCommunity: displayCommunity,
             displaySpecialization: displaySpecialization
         )

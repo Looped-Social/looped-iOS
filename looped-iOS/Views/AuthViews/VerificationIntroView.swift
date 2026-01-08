@@ -63,7 +63,7 @@ struct VerificationIntroView: View {
                             .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
-                            .background(Color.loopedBlack)
+                            .background(Color.loopedPrimary)
                             .clipShape(Capsule())
                     }
 

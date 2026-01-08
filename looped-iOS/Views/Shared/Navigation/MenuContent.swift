@@ -70,6 +70,20 @@ struct MenuContent: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color.loopedBackground)
+        .overlay(alignment: .leading) {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.loopedClear,
+                    Color.loopedBlack.opacity(0.05),
+                    Color.loopedBlack.opacity(0.1),
+                    Color.loopedBlack.opacity(0.2)
+                ]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: 20)
+            .allowsHitTesting(false)
+        }
         .clipShape(SideDrawerShape(radius: 44))
         .ignoresSafeArea(.all)
         .onChange(of: isAnonymous) { _, newValue in
@@ -194,13 +208,9 @@ struct LikedPostsView: View {
     @StateObject private var likedViewModel = CollectionPostsViewModel(collection: .liked)
 
     var body: some View {
-        List {
-            Section {
-                LikedPostsFeedList(viewModel: likedViewModel)
-            }
+        ScrollView {
+            LikedPostsFeedList(viewModel: likedViewModel)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Liked Posts")
         .navigationBarTitleDisplayMode(.inline)
@@ -209,7 +219,7 @@ struct LikedPostsView: View {
                 Button("Close") {
                     dismiss()
                 }
-                .foregroundColor(.loopedPrimary)
+                .foregroundColor(.loopedSecondary)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
@@ -230,13 +240,13 @@ struct SavedPostsView: View {
     @StateObject private var savedViewModel = CollectionPostsViewModel(collection: .saved)
 
     var body: some View {
-        List {
-            Section {
-                CollectionPostsContent(viewModel: savedViewModel, emptyMessage: "No saved posts yet", emptyIcon: "bookmark")
-            }
+        ScrollView {
+            CollectionPostsContent(
+                viewModel: savedViewModel,
+                emptyMessage: "No saved posts yet",
+                emptyIcon: "bookmark"
+            )
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Saved Posts")
         .navigationBarTitleDisplayMode(.inline)
@@ -245,7 +255,7 @@ struct SavedPostsView: View {
                 Button("Close") {
                     dismiss()
                 }
-                .foregroundColor(.loopedPrimary)
+                .foregroundColor(.loopedSecondary)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
@@ -266,32 +276,34 @@ private struct CollectionPostsContent: View {
     @EnvironmentObject private var commentsManager: CommentsModalManager
     
     var body: some View {
-        if viewModel.isLoading && viewModel.posts.isEmpty {
-            ProgressView()
-                .padding(.top, 60)
-        } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
-            VStack(spacing: 12) {
-                Text(error)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedError)
-                Button("Retry") {
-                    Task { await viewModel.loadInitial() }
+        LazyVStack(spacing: 0) {
+            if viewModel.isLoading && viewModel.posts.isEmpty {
+                ProgressView()
+                    .padding(.top, 60)
+            } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
+                VStack(spacing: 12) {
+                    Text(error)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedError)
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
-            }
-            .padding(.top, 60)
-        } else if viewModel.posts.isEmpty {
-            VStack(spacing: 16) {
-                Image(systemName: emptyIcon)
-                    .font(.loopedCustom(size: 48))
-                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
-                Text(emptyMessage)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .padding(.top, 60)
-        } else {
-            LazyVStack(spacing: 0) {
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
+            } else if viewModel.posts.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: emptyIcon)
+                        .font(.loopedCustom(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                    Text(emptyMessage)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
+            } else {
                 ForEach(viewModel.posts) { post in
                     PostCard(
                         post: post,
@@ -329,59 +341,63 @@ private struct LikedPostsFeedList: View {
     @EnvironmentObject private var commentsManager: CommentsModalManager
 
     var body: some View {
-        if viewModel.isLoading && viewModel.posts.isEmpty {
-            ForEach(0..<6, id: \.self) { index in
-                PostCardSkeleton(showsMedia: index % 3 != 0)
+        LazyVStack(spacing: 0) {
+            if viewModel.isLoading && viewModel.posts.isEmpty {
+                ForEach(0..<6, id: \.self) { index in
+                    PostCardSkeleton(showsMedia: index % 3 != 0)
 
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
-            }
-        } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
-            VStack(spacing: 12) {
-                Text(error)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedError)
-                Button("Retry") {
-                    Task { await viewModel.loadInitial() }
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
                 }
-                .buttonStyle(.bordered)
-            }
-            .padding(.top, 60)
-        } else if viewModel.posts.isEmpty {
-            VStack(spacing: 16) {
-                Image(systemName: "heart")
-                    .font(.loopedCustom(size: 48))
-                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
-                Text("No liked posts yet")
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .padding(.top, 60)
-        } else {
-            ForEach(viewModel.posts) { post in
-                PostCard(
-                    post: post,
-                    showsCommunityLabel: true,
-                    onUpdate: { updated in
-                        viewModel.updatePost(updated)
-                    },
-                    onDelete: { deleted in
-                        viewModel.removePost(backendId: deleted.backendId)
+            } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
+                VStack(spacing: 12) {
+                    Text(error)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedError)
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
                     }
-                )
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
+            } else if viewModel.posts.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "heart")
+                        .font(.loopedCustom(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                    Text("No liked posts yet")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
+            } else {
+                ForEach(viewModel.posts) { post in
+                    PostCard(
+                        post: post,
+                        showsCommunityLabel: true,
+                        onUpdate: { updated in
+                            viewModel.updatePost(updated)
+                        },
+                        onDelete: { deleted in
+                            viewModel.removePost(backendId: deleted.backendId)
+                        }
+                    )
                     .onAppear {
                         Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                     }
 
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
-            }
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                }
 
-            if viewModel.isLoadingMore {
-                ProgressView()
-                    .padding()
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .padding()
+                }
             }
         }
     }
@@ -459,7 +475,7 @@ struct DraftsView: View {
                 Button("Close") {
                     dismiss()
                 }
-                .foregroundColor(.loopedPrimary)
+                .foregroundColor(.loopedSecondary)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())

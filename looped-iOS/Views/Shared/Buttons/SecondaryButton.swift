@@ -23,19 +23,19 @@ struct SecondaryButton: View {
             HStack {
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .loopedPrimary))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .loopedSecondary))
                         .scaleEffect(0.8)
                 }
                 
                 Text(title)
                     .font(.loopedCustom(.semibold, size: 16))
-                    .foregroundColor(isEnabled ? .loopedPrimary : .loopedGray)
+                    .foregroundColor(isEnabled ? .loopedSecondary : .loopedGray)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isEnabled ? Color.loopedPrimary : Color.loopedGray, lineWidth: 2)
+                    .stroke(isEnabled ? Color.loopedSecondary : Color.loopedGray, lineWidth: 2)
             )
         }
         .disabled(!isEnabled || isLoading)

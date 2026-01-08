@@ -160,8 +160,14 @@ struct SettingsView: View {
                             title: "Show Follower Count",
                             isOn: $showFollowerCount
                         )
-                        SettingsRow(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
-                        SettingsRow(icon: .asset("blocked-icon"), title: "Blocked")
+                        NavigationLink(destination: MessagingPermissionsView().environmentObject(authViewModel)) {
+                            SettingsNavigationRow(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        NavigationLink(destination: BlockedUsersView()) {
+                            SettingsNavigationRow(icon: .asset("blocked-icon"), title: "Blocked")
+                        }
+                        .buttonStyle(PlainButtonStyle())
                         NavigationLink(destination: ViolationsView()) {
                             SettingsNavigationRow(icon: .system("exclamationmark.triangle"), title: "Appeals & Violations")
                         }
@@ -356,7 +362,8 @@ private extension SettingsView {
                 displayName: nil,
                 bio: nil,
                 isAnonymous: user.isAnonymous,
-                showFollowerCount: newValue
+                showFollowerCount: newValue,
+                messagePermission: user.messagePermission
             )
             await MainActor.run {
                 authViewModel.currentUser = updatedUser

@@ -80,7 +80,7 @@ struct WaysToVerifyView: View {
                         .foregroundColor(.loopedWhite)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Color.loopedContrast)
+                        .background(Color.loopedPrimary)
                         .clipShape(Capsule())
                 }
                 .padding(.top, 16)

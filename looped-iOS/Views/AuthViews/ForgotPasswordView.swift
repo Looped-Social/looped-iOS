@@ -142,6 +142,8 @@ struct ForgotPasswordView: View {
             TextField(placeholder, text: text)
                 .focused($isEmailFocused)
                 .font(.loopedBody)
+                .foregroundColor(.loopedTextPrimary)
+                .tint(.loopedPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .background(Color.loopedMutedBackground.opacity(0.6))
@@ -161,4 +163,3 @@ struct ForgotPasswordView: View {
         sendResetLink: { _ in }
     )
 }
-

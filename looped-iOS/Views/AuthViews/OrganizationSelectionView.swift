@@ -4,20 +4,32 @@ import SwiftUI
 
 struct OrganizationSelectionView: View {
     let title: String
-    let organizations: [Organization]
+    let scope: OnboardingOrganizationSearchViewModel.Scope
     @Binding var searchText: String
     let selectedOrganizationId: UUID?
     let onSelect: (Organization) -> Void
     let onBack: () -> Void
     let onNavigate: (AuthScreen) -> Void
 
-    private var filteredOrganizations: [Organization] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return organizations }
-        let query = trimmed.lowercased()
-        return organizations.filter { org in
-            org.name.lowercased().contains(query) || org.logoText.lowercased().contains(query)
-        }
+    @StateObject private var viewModel: OnboardingOrganizationSearchViewModel
+
+    init(
+        title: String,
+        scope: OnboardingOrganizationSearchViewModel.Scope,
+        searchText: Binding<String>,
+        selectedOrganizationId: UUID?,
+        onSelect: @escaping (Organization) -> Void,
+        onBack: @escaping () -> Void,
+        onNavigate: @escaping (AuthScreen) -> Void
+    ) {
+        self.title = title
+        self.scope = scope
+        _searchText = searchText
+        self.selectedOrganizationId = selectedOrganizationId
+        self.onSelect = onSelect
+        self.onBack = onBack
+        self.onNavigate = onNavigate
+        _viewModel = StateObject(wrappedValue: OnboardingOrganizationSearchViewModel(scope: scope))
     }
 
     var body: some View {
@@ -40,9 +52,10 @@ struct OrganizationSelectionView: View {
                         .font(.loopedCustom(.medium, size: 16))
                         .foregroundColor(.loopedTextSecondary)
 
-                    TextField("", text: $searchText)
+                    TextField("Search", text: $searchText)
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
+                        .tint(.loopedPrimary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -55,19 +68,41 @@ struct OrganizationSelectionView: View {
                 .padding(.horizontal, 32)
                 .padding(.top, 16)
 
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedError)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 10)
+                }
+
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(filteredOrganizations) { organization in
+                        if viewModel.isLoading, viewModel.organizations.isEmpty {
+                            ProgressView()
+                                .tint(.loopedPrimary)
+                                .padding(.top, 24)
+                        }
+
+                        if !viewModel.isLoading, viewModel.organizations.isEmpty {
+                            Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? "Start typing to search."
+                                : "No matches found."
+                            )
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 24)
+                        }
+
+                        ForEach(viewModel.organizations) { organization in
                             OrganizationListRow(
                                 organization: organization,
                                 isSelected: organization.id == selectedOrganizationId
                             ) {
                                 onSelect(organization)
-                                if organization.kind == .school {
-                                    onNavigate(.degreeSelection)
-                                } else {
-                                    onNavigate(.departmentSelection)
-                                }
+                                onNavigate(.verificationIntro(isStudent: organization.kind == .school))
                             }
                         }
                     }
@@ -79,6 +114,13 @@ struct OrganizationSelectionView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
+        }
+        .onAppear {
+            viewModel.query = searchText
+            viewModel.refresh()
+        }
+        .onChange(of: searchText) { _, newValue in
+            viewModel.query = newValue
         }
     }
 }
@@ -145,10 +187,11 @@ private struct OrganizationListRow: View {
 #Preview {
     OrganizationSelectionView(
         title: "Where do you work?",
-        organizations: MockOrganizations.companies,
+        scope: .companiesOnly,
         searchText: .constant(""),
         selectedOrganizationId: nil,
         onSelect: { _ in },
-        onBack: { }
-    ) { _ in }
+        onBack: { },
+        onNavigate: { _ in }
+    )
 }
