@@ -357,7 +357,8 @@ struct MainTabView: View {
            !isRightMenuOpen,
            !commentsManager.isPresented,
            !showingChat,
-           !fabState.isHidden {
+           !fabState.isHidden,
+           targets[step.target] != nil {
             CoachMarkOverlay(
                 target: step.target,
                 targets: targets,
@@ -399,7 +400,10 @@ struct MainTabView: View {
         guard selectedTab == .home else { return }
         guard !isRightMenuOpen, !commentsManager.isPresented, !showingChat else { return }
         guard feedDiscoveryStep == nil else { return }
-        feedDiscoveryStep = .postButton
+        DispatchQueue.main.async {
+            guard feedDiscoveryStep == nil else { return }
+            feedDiscoveryStep = .postButton
+        }
     }
 
     private func advanceFeedDiscovery() {

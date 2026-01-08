@@ -24,12 +24,16 @@ struct ProfileView: View {
     @State private var pendingAnonymousDiscovery = false
     @EnvironmentObject private var authViewModel: AuthViewModel
 
-    @State private var headerHeight: CGFloat = 300
-    @State private var hasActiveVerifications: Bool?
-    private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+	@State private var headerHeight: CGFloat = 300
+	@State private var hasActiveVerifications: Bool?
+	private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
 
-    var body: some View {
-        ZStack(alignment: .top) {
+	private var isShowingDiscoveryOverlay: Bool {
+		profileDiscoveryStep != nil || anonymousDiscoveryStep != nil
+	}
+
+	var body: some View {
+		ZStack(alignment: .top) {
             // ScrollView with content (bottom layer)
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -114,22 +118,22 @@ struct ProfileView: View {
             .opacity(headerVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.25), value: headerVisible)
         }
-        .overlay(alignment: .topTrailing) {
-            if displayProfile?.isCurrentUser ?? true {
-                NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.loopedCustom(.semibold, size: 18))
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(PlainButtonStyle())
-                .accessibilityLabel("Settings")
-                .padding(.top, 16)
-                .padding(.trailing, 16)
-                .coachMarkTarget(.profileSettingsButton)
-            }
-        }
+		.overlay(alignment: .topTrailing) {
+			if displayProfile?.isCurrentUser ?? true {
+				NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
+					Image(systemName: "gearshape.fill")
+						.font(.loopedCustom(.semibold, size: 18))
+						.foregroundColor(.loopedTextSecondary)
+						.frame(width: 28, height: 28)
+						.contentShape(Rectangle())
+						.coachMarkTarget(.profileSettingsButton)
+				}
+				.buttonStyle(PlainButtonStyle())
+				.accessibilityLabel("Settings")
+				.padding(.top, 16)
+				.padding(.trailing, 16)
+			}
+		}
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .environmentObject(commentsManager)
@@ -222,30 +226,30 @@ struct ProfileView: View {
             if newValue > 0, abs(newValue - headerHeight) > 1 {
                 headerHeight = newValue
             }
-        }
-        .overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
-            if let step = profileDiscoveryStep {
-                CoachMarkOverlay(
-                    target: step.target,
-                    targets: targets,
-                    message: step.message,
-                    primaryTitle: step.primaryTitle,
-                    secondaryTitle: step.secondaryTitle,
-                    onPrimary: advanceProfileDiscovery,
-                    onSecondary: skipProfileDiscovery
-                )
-            } else if let step = anonymousDiscoveryStep {
-                CoachMarkOverlay(
-                    target: step.target,
-                    targets: targets,
-                    message: step.message,
-                    primaryTitle: step.primaryTitle,
-                    secondaryTitle: nil,
-                    onPrimary: advanceAnonymousDiscovery,
-                    onSecondary: nil
-                )
-            }
-        }
+		}
+		.overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
+			if let step = profileDiscoveryStep, targets[step.target] != nil {
+				CoachMarkOverlay(
+					target: step.target,
+					targets: targets,
+					message: step.message,
+					primaryTitle: step.primaryTitle,
+					secondaryTitle: step.secondaryTitle,
+					onPrimary: advanceProfileDiscovery,
+					onSecondary: skipProfileDiscovery
+				)
+			} else if let step = anonymousDiscoveryStep, targets[step.target] != nil {
+				CoachMarkOverlay(
+					target: step.target,
+					targets: targets,
+					message: step.message,
+					primaryTitle: step.primaryTitle,
+					secondaryTitle: nil,
+					onPrimary: advanceAnonymousDiscovery,
+					onSecondary: nil
+				)
+			}
+		}
         .alert("Anonymous Mode Failed", isPresented: $showAnonError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -253,11 +257,21 @@ struct ProfileView: View {
         }
     }
 
-    private func handleScroll(_ offset: CGFloat) {
-        let delta = offset - lastScrollOffset
+	private func handleScroll(_ offset: CGFloat) {
+		guard !isShowingDiscoveryOverlay else {
+			if !headerVisible {
+				withAnimation(.easeInOut(duration: 0.25)) {
+					headerVisible = true
+				}
+			}
+			lastScrollOffset = offset
+			return
+		}
 
-        // Show header when near top
-        if offset >= -50 {
+		let delta = offset - lastScrollOffset
+
+		// Show header when near top
+		if offset >= -50 {
             withAnimation(.easeInOut(duration: 0.25)) {
                 headerVisible = true
             }
@@ -309,12 +323,16 @@ private extension ProfileView {
         return viewModel.userProfile
     }
 
-    func startProfileDiscoveryIfNeeded() {
-        guard authViewModel.onboardingComplete else { return }
-        guard !didShowProfileDiscovery else { return }
-        guard profileDiscoveryStep == nil else { return }
-        profileDiscoveryStep = .editProfile
-    }
+	func startProfileDiscoveryIfNeeded() {
+		guard authViewModel.onboardingComplete else { return }
+		guard !didShowProfileDiscovery else { return }
+		guard profileDiscoveryStep == nil else { return }
+		DispatchQueue.main.async {
+			guard profileDiscoveryStep == nil else { return }
+			headerVisible = true
+			profileDiscoveryStep = .editProfile
+		}
+	}
 
     func advanceProfileDiscovery() {
         guard let step = profileDiscoveryStep else { return }
@@ -333,20 +351,22 @@ private extension ProfileView {
         showPendingAnonymousDiscoveryIfNeeded()
     }
 
-    func queueAnonymousDiscoveryIfNeeded() {
-        guard !didShowAnonymousModeDiscovery else { return }
-        if profileDiscoveryStep == nil {
-            anonymousDiscoveryStep = .privacy
-        } else {
-            pendingAnonymousDiscovery = true
-        }
-    }
+	func queueAnonymousDiscoveryIfNeeded() {
+		guard !didShowAnonymousModeDiscovery else { return }
+		headerVisible = true
+		if profileDiscoveryStep == nil {
+			anonymousDiscoveryStep = .privacy
+		} else {
+			pendingAnonymousDiscovery = true
+		}
+	}
 
-    func showPendingAnonymousDiscoveryIfNeeded() {
-        guard pendingAnonymousDiscovery, isAnonymous, !didShowAnonymousModeDiscovery else { return }
-        pendingAnonymousDiscovery = false
-        anonymousDiscoveryStep = .privacy
-    }
+	func showPendingAnonymousDiscoveryIfNeeded() {
+		guard pendingAnonymousDiscovery, isAnonymous, !didShowAnonymousModeDiscovery else { return }
+		pendingAnonymousDiscovery = false
+		headerVisible = true
+		anonymousDiscoveryStep = .privacy
+	}
 
     func advanceAnonymousDiscovery() {
         guard let step = anonymousDiscoveryStep else { return }
@@ -811,25 +831,26 @@ private enum ProfileActionButtonStyle {
     case filled
 }
 
-private struct ProfileActionButton: View {
-    let title: String
-    let style: ProfileActionButtonStyle
-    var textColor: Color? = nil
-    var borderColor: Color? = nil
-    var showBorderWhenFilled: Bool = false
+	private struct ProfileActionButton: View {
+		let title: String
+		let style: ProfileActionButtonStyle
+		var textColor: Color? = nil
+		var borderColor: Color? = nil
+		var showBorderWhenFilled: Bool = false
 
-    var body: some View {
-        Text(title)
-            .font(.loopedSubBodyRegular)
-            .foregroundColor(textColor ?? (style == .filled ? .loopedWhite : .loopedTextPrimary))
-            .padding(.vertical, 8)
-            .padding(.horizontal, 16)
-            .frame(minWidth: 120)
-            .background(
-                Group {
-                    if style == .filled {
-                        Color.loopedSecondary
-                    } else {
+		var body: some View {
+			Text(title)
+				.font(.loopedSubBodyRegular)
+				.foregroundColor(textColor ?? (style == .filled ? .loopedWhite : .loopedTextPrimary))
+				.padding(.vertical, 8)
+				.padding(.horizontal, 16)
+				.frame(minWidth: 120)
+				.fixedSize(horizontal: true, vertical: false)
+				.background(
+					Group {
+						if style == .filled {
+							Color.loopedSecondary
+						} else {
                         Color.loopedClear
                     }
                 }
