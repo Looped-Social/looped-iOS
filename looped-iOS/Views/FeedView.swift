@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FeedView: View {
     let onProfileTap: () -> Void
+    @Binding private var isTabBarVisible: Bool
     @EnvironmentObject var viewModel: FeedViewModel
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
@@ -14,7 +15,11 @@ struct FeedView: View {
     private let minNewPostsCount = 7
     private let topAnchorId = "feedTop"
 
-    init(onProfileTap: @escaping () -> Void = {}) {
+    init(
+        isTabBarVisible: Binding<Bool> = .constant(true),
+        onProfileTap: @escaping () -> Void = {}
+    ) {
+        self._isTabBarVisible = isTabBarVisible
         self.onProfileTap = onProfileTap
     }
 
@@ -83,6 +88,7 @@ struct FeedView: View {
                 .refreshable {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         headerVisible = true
+                        isTabBarVisible = true
                     }
                     await viewModel.loadInitial()
                 }
@@ -142,6 +148,7 @@ struct FeedView: View {
         }
         .onAppear {
             headerVisible = true
+            isTabBarVisible = true
             lastScrollOffset = 0
             startPolling()
         }
@@ -153,23 +160,26 @@ struct FeedView: View {
 
     private func handleScroll(_ offset: CGFloat) {
         let delta = offset - lastScrollOffset
+        var updatedVisibility: Bool?
 
         // Show header when near top
         if offset >= -50 {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                headerVisible = true
-            }
+            updatedVisibility = true
         }
         // Hide when scrolling down significantly
         else if delta < -30 && offset < -100 {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                headerVisible = false
-            }
+            updatedVisibility = false
         }
         // Show when scrolling up significantly
         else if delta > 30 {
+            updatedVisibility = true
+        }
+
+        if let updatedVisibility,
+           headerVisible != updatedVisibility || isTabBarVisible != updatedVisibility {
             withAnimation(.easeInOut(duration: 0.25)) {
-                headerVisible = true
+                headerVisible = updatedVisibility
+                isTabBarVisible = updatedVisibility
             }
         }
 
@@ -203,6 +213,7 @@ struct FeedView: View {
             await viewModel.refreshPosts()
             withAnimation(.easeInOut(duration: 0.25)) {
                 headerVisible = true
+                isTabBarVisible = true
                 proxy.scrollTo(topAnchorId, anchor: .top)
             }
         }

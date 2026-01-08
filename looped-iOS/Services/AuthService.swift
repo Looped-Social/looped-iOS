@@ -14,6 +14,11 @@ class AuthService: AuthServiceProtocol {
     private let tokenStorage: TokenStorage
     
     @Published private var _isAuthenticated = false
+
+    // ASAuthorizationController does not strongly retain its delegate/presentationContextProvider.
+    // Keep these alive for the duration of an in-flight Apple authorization request.
+    private var appleAuthController: ASAuthorizationController?
+    private var appleAuthDelegate: AppleAuthDelegate?
     
     var authStateChanged: AnyPublisher<Bool, Never> {
         $_isAuthenticated.eraseToAnyPublisher()
@@ -404,18 +409,35 @@ enum AuthError: Error, LocalizedError {
 private extension AuthService {
     func performAppleAuthorization(request: ASAuthorizationAppleIDRequest, anchor: ASPresentationAnchor) async throws -> ASAuthorizationAppleIDCredential {
         try await withCheckedThrowingContinuation { continuation in
-            let controller = ASAuthorizationController(authorizationRequests: [request])
-            let delegate = AppleAuthDelegate(anchor: anchor) { result in
-                switch result {
-                case .success(let credential):
-                    continuation.resume(returning: credential)
-                case .failure(let error):
-                    continuation.resume(throwing: error)
+            Task { @MainActor [weak self] in
+                guard let self else {
+                    continuation.resume(throwing: AuthError.networkError)
+                    return
                 }
+
+                var didResume = false
+                let controller = ASAuthorizationController(authorizationRequests: [request])
+                let delegate = AppleAuthDelegate(anchor: anchor) { [weak self] result in
+                    guard !didResume else { return }
+                    didResume = true
+
+                    switch result {
+                    case .success(let credential):
+                        continuation.resume(returning: credential)
+                    case .failure(let error):
+                        continuation.resume(throwing: error)
+                    }
+
+                    self?.appleAuthController = nil
+                    self?.appleAuthDelegate = nil
+                }
+
+                self.appleAuthController = controller
+                self.appleAuthDelegate = delegate
+                controller.delegate = delegate
+                controller.presentationContextProvider = delegate
+                controller.performRequests()
             }
-            controller.delegate = delegate
-            controller.presentationContextProvider = delegate
-            controller.performRequests()
         }
     }
 

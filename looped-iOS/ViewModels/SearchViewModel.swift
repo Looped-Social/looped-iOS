@@ -56,7 +56,7 @@ class SearchViewModel: ObservableObject {
 
     func loadRecommendedCommunities() async {
         do {
-            recommendedCommunities = try await communityService.fetchRecommendedCommunities(limit: 8)
+            recommendedCommunities = try await communityService.fetchRecommendedCommunities(kind: nil, limit: 8)
         } catch {
             recommendedCommunities = []
         }

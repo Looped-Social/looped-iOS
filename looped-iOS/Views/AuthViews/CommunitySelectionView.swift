@@ -1,27 +1,41 @@
 import SwiftUI
 
 struct CommunitySelectionView: View {
-    let communities: [SearchResultLoop]
+    let recommendedKind: CommunitySearchKind?
     @Binding var searchText: String
     @Binding var selectedIds: Set<UUID>
     let onBack: () -> Void
     let onContinue: ([SearchResultLoop]) -> Void
 
-    private var filteredCommunities: [SearchResultLoop] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return communities }
-        let query = trimmed.lowercased()
-        return communities.filter { loop in
-            loop.name.lowercased().contains(query) || loop.description.lowercased().contains(query)
-        }
-    }
+    @StateObject private var viewModel: OnboardingCommunitySelectionViewModel
+    @State private var selectedLookup: [UUID: SearchResultLoop] = [:]
 
     private var selectedCommunities: [SearchResultLoop] {
-        communities.filter { selectedIds.contains($0.id) }
+        if selectedLookup.isEmpty {
+            return viewModel.communities.filter { selectedIds.contains($0.id) }
+        }
+        return selectedLookup.values.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
     }
 
     private var continueTitle: String {
         selectedIds.isEmpty ? "Continue with no communities" : "Continue"
+    }
+
+    init(
+        recommendedKind: CommunitySearchKind? = nil,
+        searchText: Binding<String>,
+        selectedIds: Binding<Set<UUID>>,
+        onBack: @escaping () -> Void,
+        onContinue: @escaping ([SearchResultLoop]) -> Void
+    ) {
+        self.recommendedKind = recommendedKind
+        _searchText = searchText
+        _selectedIds = selectedIds
+        self.onBack = onBack
+        self.onContinue = onContinue
+        _viewModel = StateObject(wrappedValue: OnboardingCommunitySelectionViewModel(recommendedKind: recommendedKind))
     }
 
     var body: some View {
@@ -63,9 +77,35 @@ struct CommunitySelectionView: View {
             .padding(.horizontal, 32)
             .padding(.top, 16)
 
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedError)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 10)
+            }
+
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(filteredCommunities) { community in
+                    if viewModel.isLoading, viewModel.communities.isEmpty {
+                        ProgressView()
+                            .tint(.loopedPrimary)
+                            .padding(.top, 24)
+                    }
+
+                    if !viewModel.isLoading, viewModel.communities.isEmpty {
+                        Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? "Start typing to search."
+                            : "No matches found."
+                        )
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 24)
+                    }
+
+                    ForEach(viewModel.communities) { community in
                         CommunityRow(
                             community: community,
                             isSelected: selectedIds.contains(community.id)
@@ -95,13 +135,22 @@ struct CommunitySelectionView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.loopedBackground.ignoresSafeArea())
+        .onAppear {
+            viewModel.query = searchText
+            viewModel.refresh()
+        }
+        .onChange(of: searchText) { _, newValue in
+            viewModel.query = newValue
+        }
     }
 
     private func toggleSelection(for community: SearchResultLoop) {
         if selectedIds.contains(community.id) {
             selectedIds.remove(community.id)
+            selectedLookup.removeValue(forKey: community.id)
         } else {
             selectedIds.insert(community.id)
+            selectedLookup[community.id] = community
         }
     }
 }
@@ -173,7 +222,7 @@ private struct CommunityRow: View {
 
 #Preview {
     CommunitySelectionView(
-        communities: MockSearchContent.communities,
+        recommendedKind: nil,
         searchText: .constant(""),
         selectedIds: .constant([]),
         onBack: { },

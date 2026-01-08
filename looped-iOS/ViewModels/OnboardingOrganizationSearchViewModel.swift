@@ -74,8 +74,19 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
     }
 
     private func loadSuggestedOrganizations() async throws -> [Organization] {
-        let items = try await communityService.fetchRecommendedCommunities(limit: 40)
-        return normalize(items)
+        switch scope {
+        case .companiesOnly:
+            let items = try await communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
+            return normalize(items)
+        case .schoolsOnly:
+            let items = try await communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
+            return normalize(items)
+        case .companiesAndSchools:
+            async let companies = communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
+            async let schools = communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
+            let (companyItems, schoolItems) = try await (companies, schools)
+            return normalize(companyItems + schoolItems)
+        }
     }
 
     private func searchOrganizations(query: String) async throws -> [Organization] {

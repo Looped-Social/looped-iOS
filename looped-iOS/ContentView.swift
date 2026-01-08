@@ -91,6 +91,7 @@ struct MainTabView: View {
     @State private var deepLinkProfile: DeepLinkProfile?
     @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var fabState = FloatingActionButtonState()
+    @State private var isTabBarVisible = true
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
@@ -110,6 +111,9 @@ struct MainTabView: View {
             startFeedDiscoveryIfNeeded()
         }
         .onChange(of: selectedTab) { _, _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isTabBarVisible = true
+            }
             startFeedDiscoveryIfNeeded()
         }
         .onChange(of: isRightMenuOpen) { _, _ in
@@ -234,13 +238,15 @@ struct MainTabView: View {
 
     @ViewBuilder
     private func mainContent(drawerWidth: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            tabContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Custom Tab Bar
-            CustomTabBar(selectedTab: $selectedTab)
-        }
+        tabContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isTabBarVisible {
+                    CustomTabBar(selectedTab: $selectedTab)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: isTabBarVisible)
         .background(Color.loopedBackground.ignoresSafeArea())
         .overlay(
             // Blocking overlay when drawer is open - prevents feed interactions
@@ -268,6 +274,7 @@ struct MainTabView: View {
         case .home:
             NavigationView {
                 FeedView(
+                    isTabBarVisible: $isTabBarVisible,
                     onProfileTap: {
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                             isRightMenuOpen.toggle()
@@ -326,7 +333,8 @@ struct MainTabView: View {
                         }
                     }
                     .padding(.trailing, 20)
-                    .padding(.bottom, 60) // Position above tab bar
+                    .padding(.bottom, isTabBarVisible ? 60 : 16)
+                    .animation(.easeInOut(duration: 0.25), value: isTabBarVisible)
                 }
             }
         }

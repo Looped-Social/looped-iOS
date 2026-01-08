@@ -2,13 +2,12 @@ import SwiftUI
 
 struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var draftStore = PostDraftStore()
     @State private var postText: String = ""
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
     @State private var selectedCommunityId: Int?
     @State private var isSubmitting: Bool = false
-    @State private var showSettings: Bool = false
+    @State private var isEnrollingAnon: Bool = false
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var showMediaPicker: Bool = false
     @State private var showCamera: Bool = false
@@ -235,39 +234,38 @@ struct CreatePostView: View {
                             .foregroundColor(remainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
                     }
                     
-                    // Anonymous mode indicator
-                    Button(action: {
-                        showSettings = true
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "theatermasks")
-                                        .font(.loopedCustom(size: 14))
-                                        .foregroundColor(.loopedTextSecondary)
+                    // Anonymous mode toggle
+                    HStack(spacing: 12) {
+                        Image(systemName: "theatermasks")
+                            .font(.loopedCustom(size: 14))
+                            .foregroundColor(.loopedTextSecondary)
 
-                                    Text(isAnonymous ? "Posting anonymously" : "Posting as yourself")
-                                        .font(.loopedSubBodyMedium)
-                                        .foregroundColor(.loopedTextPrimary)
-                                }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(isAnonymous ? "Posting anonymously" : "Posting as yourself")
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
 
-                                Text(isAnonymous ? "Your identity is hidden" : "Tap to change in settings")
-                                    .font(.loopedSmallText)
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.loopedCustom(size: 12))
+                            Text(isAnonymous ? "Your identity is hidden" : "Toggle to post anonymously")
+                                .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color.loopedMutedBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                        Spacer()
+
+                        if isEnrollingAnon {
+                            ProgressView()
+                                .tint(.loopedSecondary)
+                        }
+
+                        Toggle("", isOn: $isAnonymous)
+                            .labelsHidden()
+                            .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
+                            .disabled(isEnrollingAnon || (!isAnonymous && selectedCommunityId == nil))
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.loopedMutedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     
                     Spacer()
                 }
@@ -315,10 +313,6 @@ struct CreatePostView: View {
         } message: {
             Text(draftPromptMessage)
         }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(authViewModel)
-        }
         .sheet(isPresented: $showMediaPicker) {
             MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 4)
         }
@@ -352,7 +346,8 @@ struct CreatePostView: View {
         .onChange(of: selectedCommunityId) { _ in
             updateAnonMembershipStatus()
         }
-        .onChange(of: isAnonymous) { _ in
+        .onChange(of: isAnonymous) { newValue in
+            Task { await handleAnonToggle(isOn: newValue) }
             updateAnonMembershipStatus()
         }
     }
@@ -411,6 +406,28 @@ struct CreatePostView: View {
         }
     }
 
+    @MainActor
+    private func handleAnonToggle(isOn: Bool) async {
+        guard isOn, !isEnrollingAnon else { return }
+        guard let communityId = selectedCommunityId else {
+            presentToast(message: "Select a community to enable anonymous mode.", kind: .error)
+            isAnonymous = false
+            return
+        }
+
+        isEnrollingAnon = true
+        defer { isEnrollingAnon = false }
+
+        do {
+            AnonCommunityResolver.cacheSelectedCommunityId(communityId)
+            _ = try await AnonService.shared.ensureIdentity(communityId: communityId)
+        } catch {
+            presentToast(message: error.localizedDescription, kind: .error)
+            isAnonymous = false
+        }
+        updateAnonMembershipStatus()
+    }
+
     private var hasDraftableContent: Bool {
         !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -458,5 +475,4 @@ struct CreatePostView: View {
 
 #Preview {
     CreatePostView(feedViewModel: FeedViewModel())
-        .environmentObject(AuthViewModel())
 }

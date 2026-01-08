@@ -31,7 +31,7 @@ struct SettingsView: View {
 
     // Toggle states
     @State private var showFollowerCount = true
-    @AppStorage("anonymousMode") private var anonymousMode = true
+    @AppStorage("anonymousMode") private var anonymousMode = false
     @State private var showCommunityRequest = false
     @State private var isEnrollingAnon = false
     @State private var isLinkingGoogle = false
@@ -303,12 +303,18 @@ private extension SettingsView {
         guard !isLinkingGoogle, !authViewModel.isGoogleLinked else { return }
         isLinkingGoogle = true
         Task {
-            defer { isLinkingGoogle = false }
+            defer {
+                Task { @MainActor in
+                    isLinkingGoogle = false
+                }
+            }
             do {
                 try await authViewModel.linkGoogle()
             } catch {
-                linkErrorMessage = error.localizedDescription
-                showLinkErrorAlert = true
+                await MainActor.run {
+                    linkErrorMessage = error.localizedDescription
+                    showLinkErrorAlert = true
+                }
             }
         }
     }
@@ -317,12 +323,18 @@ private extension SettingsView {
         guard !isLinkingApple, !authViewModel.isAppleLinked else { return }
         isLinkingApple = true
         Task {
-            defer { isLinkingApple = false }
+            defer {
+                Task { @MainActor in
+                    isLinkingApple = false
+                }
+            }
             do {
                 try await authViewModel.linkApple()
             } catch {
-                linkErrorMessage = error.localizedDescription
-                showLinkErrorAlert = true
+                await MainActor.run {
+                    linkErrorMessage = error.localizedDescription
+                    showLinkErrorAlert = true
+                }
             }
         }
     }
@@ -332,22 +344,34 @@ private extension SettingsView {
         case .google:
             guard !isUnlinkingGoogle else { return }
             isUnlinkingGoogle = true
-            defer { isUnlinkingGoogle = false }
+            defer {
+                Task { @MainActor in
+                    isUnlinkingGoogle = false
+                }
+            }
             do {
                 try await authViewModel.unlinkGoogle()
             } catch {
-                linkErrorMessage = error.localizedDescription
-                showLinkErrorAlert = true
+                await MainActor.run {
+                    linkErrorMessage = error.localizedDescription
+                    showLinkErrorAlert = true
+                }
             }
         case .apple:
             guard !isUnlinkingApple else { return }
             isUnlinkingApple = true
-            defer { isUnlinkingApple = false }
+            defer {
+                Task { @MainActor in
+                    isUnlinkingApple = false
+                }
+            }
             do {
                 try await authViewModel.unlinkApple()
             } catch {
-                linkErrorMessage = error.localizedDescription
-                showLinkErrorAlert = true
+                await MainActor.run {
+                    linkErrorMessage = error.localizedDescription
+                    showLinkErrorAlert = true
+                }
             }
         }
     }

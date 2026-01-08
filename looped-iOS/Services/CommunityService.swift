@@ -24,8 +24,11 @@ class CommunityService: CommunityServiceProtocol {
         return CommunityPage(items: items, nextCursor: response.nextCursor)
     }
 
-    func fetchRecommendedCommunities(limit: Int) async throws -> [CommunitySearchResult] {
-        let endpoint = "/v1/communities/recommended?limit=\(limit > 0 ? limit : defaultLimit)"
+    func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int) async throws -> [CommunitySearchResult] {
+        var endpoint = "/v1/communities/recommended?limit=\(limit > 0 ? limit : defaultLimit)"
+        if let kindValue = kind?.queryValue {
+            endpoint += "&kind=\(kindValue)"
+        }
         let response: CommunityRecommendedResponseDTO = try await apiClient.get(endpoint)
         return response.items.map(CommunitySearchResult.init(dto:))
     }
@@ -56,9 +59,7 @@ class CommunityService: CommunityServiceProtocol {
     }
 
     func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult] {
-        let endpoint = "/v1/communities/search?kind=profession&limit=\(limit > 0 ? limit : defaultLimit)"
-        let response: CommunitySearchResponseDTO = try await apiClient.get(endpoint)
-        return response.items.map(CommunitySearchResult.init(dto:))
+        try await fetchRecommendedCommunities(kind: .profession, limit: limit)
     }
 
     func followCommunity(id: Int) async throws {

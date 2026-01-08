@@ -2,17 +2,29 @@ import SwiftUI
 
 struct OrganizationDetailSelectionView: View {
     let title: String
-    let items: [String]
+    let kind: CommunitySearchKind
     @Binding var searchText: String
-    @Binding var selectedItem: String?
-    let onSelect: (String) -> Void
+    @Binding var selectedItem: CommunitySearchResult?
+    let onSelect: (CommunitySearchResult) -> Void
     let onBack: () -> Void
 
-    private var filteredItems: [String] {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return items }
-        let query = trimmed.lowercased()
-        return items.filter { $0.lowercased().contains(query) }
+    @StateObject private var viewModel: OnboardingSpecializationSelectionViewModel
+
+    init(
+        title: String,
+        kind: CommunitySearchKind,
+        searchText: Binding<String>,
+        selectedItem: Binding<CommunitySearchResult?>,
+        onSelect: @escaping (CommunitySearchResult) -> Void,
+        onBack: @escaping () -> Void
+    ) {
+        self.title = title
+        self.kind = kind
+        _searchText = searchText
+        _selectedItem = selectedItem
+        self.onSelect = onSelect
+        self.onBack = onBack
+        _viewModel = StateObject(wrappedValue: OnboardingSpecializationSelectionViewModel(kind: kind))
     }
 
     var body: some View {
@@ -34,11 +46,11 @@ struct OrganizationDetailSelectionView: View {
                         .font(.loopedCustom(.medium, size: 16))
                         .foregroundColor(.loopedTextSecondary)
 
-                TextField("", text: $searchText)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedTextPrimary)
-                    .tint(.loopedPrimary)
-            }
+                    TextField("Search", text: $searchText)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedTextPrimary)
+                        .tint(.loopedPrimary)
+                }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.loopedMutedBackground)
@@ -50,12 +62,41 @@ struct OrganizationDetailSelectionView: View {
                 .padding(.horizontal, 32)
                 .padding(.top, 16)
 
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedError)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 10)
+                }
+
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(filteredItems, id: \.self) { item in
-                            OrganizationDetailRow(title: item, isSelected: item == selectedItem) {
-                                selectedItem = item
-                                onSelect(item)
+                        if viewModel.isLoading, viewModel.results.isEmpty {
+                            ProgressView()
+                                .tint(.loopedPrimary)
+                                .padding(.top, 24)
+                        }
+
+                        if !viewModel.isLoading, viewModel.results.isEmpty {
+                            Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? "Start typing to search."
+                                : "No matches found."
+                            )
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 24)
+                        }
+
+                        ForEach(viewModel.results) { result in
+                            OrganizationDetailRow(
+                                title: result.name,
+                                isSelected: result.id == selectedItem?.id
+                            ) {
+                                selectedItem = result
+                                onSelect(result)
                             }
                         }
                     }
@@ -68,6 +109,13 @@ struct OrganizationDetailSelectionView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
+        }
+        .onAppear {
+            viewModel.query = searchText
+            viewModel.refresh()
+        }
+        .onChange(of: searchText) { _, newValue in
+            viewModel.query = newValue
         }
     }
 }
@@ -125,9 +173,9 @@ private struct OrganizationDetailRow: View {
 #Preview {
     OrganizationDetailSelectionView(
         title: "Department",
-        items: MockOnboardingDetails.departments,
+        kind: .department,
         searchText: .constant(""),
-        selectedItem: .constant(nil),
+        selectedItem: .constant(nil as CommunitySearchResult?),
         onSelect: { _ in },
         onBack: { }
     )

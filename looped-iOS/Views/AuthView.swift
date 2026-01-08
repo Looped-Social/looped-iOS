@@ -14,8 +14,8 @@ struct AuthView: View {
     @State private var studentCommunitySearchText: String = ""
     @State private var companySelectedCommunityIds: Set<UUID> = []
     @State private var studentSelectedCommunityIds: Set<UUID> = []
-    @State private var selectedDepartment: String?
-    @State private var selectedDegree: String?
+    @State private var selectedDepartment: CommunitySearchResult?
+    @State private var selectedDegree: CommunitySearchResult?
     @State private var companyVerificationOptionId: String?
     @State private var studentVerificationOptionId: String?
     @State private var verificationContext: VerificationContext?
@@ -66,22 +66,13 @@ struct AuthView: View {
                 )
             case .communitySelection(let isStudent):
                 CommunitySelectionView(
-                    communities: MockSearchContent.communities,
+                    recommendedKind: nil,
                     searchText: isStudent ? $studentCommunitySearchText : $companyCommunitySearchText,
                     selectedIds: isStudent ? $studentSelectedCommunityIds : $companySelectedCommunityIds,
                     onBack: {
                         currentScreen = isStudent ? .degreeSelection : .departmentSelection
                     }
                 ) { selected in
-                    if let first = selected.first {
-                        selectedLoopName = first.name
-                        if let backendId = first.backendId {
-                            UserDefaults.standard.set(backendId, forKey: "lastSelectedCommunityId")
-                            selectedCommunityId = backendId
-                        }
-                    } else {
-                        selectedCommunityId = nil
-                    }
                     if selected.isEmpty {
                         authViewModel.onboardingComplete = true
                     } else {
@@ -91,7 +82,7 @@ struct AuthView: View {
             case .departmentSelection:
                 OrganizationDetailSelectionView(
                     title: "Department",
-                    items: MockOnboardingDetails.departments,
+                    kind: .department,
                     searchText: $departmentSearchText,
                     selectedItem: $selectedDepartment,
                     onSelect: { _ in
@@ -104,14 +95,14 @@ struct AuthView: View {
             case .degreeSelection:
                 OrganizationDetailSelectionView(
                     title: "Degree",
-                    items: MockOnboardingDetails.degrees,
+                    kind: .major,
                     searchText: $degreeSearchText,
                     selectedItem: $selectedDegree,
                     onSelect: { _ in
                         currentScreen = .communitySelection(isStudent: true)
                     },
                     onBack: {
-                        currentScreen = .selectSchool
+                        currentScreen = .selectCompany
                     }
                 )
             case .verificationIntro(let isStudent):
@@ -120,7 +111,7 @@ struct AuthView: View {
                     currentStep: 1,
                     totalSteps: 5,
                     onBack: {
-                        currentScreen = .selectCompany
+                        currentScreen = .communitySelection(isStudent: isStudent)
                     },
                     onContinue: {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
