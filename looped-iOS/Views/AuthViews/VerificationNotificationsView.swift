@@ -107,7 +107,9 @@ private extension VerificationNotificationsView {
                 Spacer()
             }
 
-            VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+            if totalSteps > 1 {
+                VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+            }
         }
     }
 }

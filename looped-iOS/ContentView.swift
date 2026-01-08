@@ -91,6 +91,7 @@ struct MainTabView: View {
     @State private var deepLinkProfile: DeepLinkProfile?
     @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var fabState = FloatingActionButtonState()
+    @StateObject private var coachMarkPresenter = CoachMarkPresenter()
     @State private var isTabBarVisible = true
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
@@ -141,10 +142,15 @@ struct MainTabView: View {
             }
         )
         .sheet(isPresented: $showCreatePost) {
-            CreatePostView(feedViewModel: feedViewModel, onPostCreated: {
-                showCreatePost = false
-                toastMessage = ToastMessage(text: "Post created", kind: .success)
-            })
+            CreatePostView(
+                feedViewModel: feedViewModel,
+                onPostCreated: {
+                    showCreatePost = false
+                },
+                onPostStatus: { message in
+                    toastMessage = message
+                }
+            )
                 .preferredColorScheme(preferredColorScheme)
         }
         .sheet(isPresented: $showNewMessage) {
@@ -200,8 +206,29 @@ struct MainTabView: View {
             floatingActionButton
             chatOverlay
         }
+        .environmentObject(coachMarkPresenter)
         .overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
-            feedDiscoveryOverlay(targets: targets)
+            ZStack {
+                feedDiscoveryOverlay(targets: targets)
+                presentedCoachMarkOverlay(targets: targets)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func presentedCoachMarkOverlay(targets: [CoachMarkTarget: Anchor<CGRect>]) -> some View {
+        if feedDiscoveryStep == nil,
+           let overlay = coachMarkPresenter.overlay,
+           targets[overlay.target] != nil {
+            CoachMarkOverlay(
+                target: overlay.target,
+                targets: targets,
+                message: overlay.message,
+                primaryTitle: overlay.primaryTitle,
+                secondaryTitle: overlay.secondaryTitle,
+                onPrimary: overlay.onPrimary,
+                onSecondary: overlay.onSecondary
+            )
         }
     }
 

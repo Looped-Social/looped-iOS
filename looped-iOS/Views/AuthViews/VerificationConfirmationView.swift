@@ -5,6 +5,7 @@ struct VerificationConfirmationView: View {
     let currentStep: Int
     let totalSteps: Int
     let onBack: () -> Void
+    let onSkip: (() -> Void)?
     let onComplete: () -> Void
 
     init(
@@ -12,12 +13,14 @@ struct VerificationConfirmationView: View {
         currentStep: Int = 4,
         totalSteps: Int = 5,
         onBack: @escaping () -> Void,
+        onSkip: (() -> Void)? = nil,
         onComplete: @escaping () -> Void
     ) {
         self.authViewModel = authViewModel
         self.currentStep = currentStep
         self.totalSteps = totalSteps
         self.onBack = onBack
+        self.onSkip = onSkip
         self.onComplete = onComplete
     }
 
@@ -62,18 +65,14 @@ struct VerificationConfirmationView: View {
 
                 Spacer()
 
-                Button(action: onComplete) {
-                    Text("Continue")
-                        .font(.loopedHeadingMedium)
-                        .foregroundColor(.loopedWhite)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.loopedPrimary)
-                        .clipShape(Capsule())
-                }
+                PrimaryButton(
+                    title: "Continue",
+                    isEnabled: !authViewModel.isLoading,
+                    isLoading: authViewModel.isLoading,
+                    action: onComplete
+                )
                 .padding(.horizontal, 32)
                 .padding(.bottom, 28)
-                .disabled(authViewModel.isLoading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
@@ -92,13 +91,24 @@ private extension VerificationConfirmationView {
                         .frame(width: 40, height: 40)
                 }
                 Spacer()
+
+                if let onSkip {
+                    Button(action: onSkip) {
+                        Text("Skip")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedSecondary)
+                    }
+                    .padding(.trailing, 4)
+                }
             }
 
-            VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+            if totalSteps > 1 {
+                VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+            }
         }
     }
 }
 
 #Preview {
-    VerificationConfirmationView(authViewModel: AuthViewModel(), onBack: { }, onComplete: { })
+    VerificationConfirmationView(authViewModel: AuthViewModel(), onBack: { }, onSkip: { }, onComplete: { })
 }

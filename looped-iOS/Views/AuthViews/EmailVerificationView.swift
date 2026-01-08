@@ -6,6 +6,7 @@ struct EmailVerificationView: View {
     let currentStep: Int
     let totalSteps: Int
     let onBack: () -> Void
+    let onSkip: (() -> Void)?
     let onComplete: () -> Void
 
     @StateObject private var viewModel: CommunityEmailVerificationViewModel
@@ -16,6 +17,7 @@ struct EmailVerificationView: View {
         currentStep: Int,
         totalSteps: Int,
         onBack: @escaping () -> Void,
+        onSkip: (() -> Void)? = nil,
         onComplete: @escaping () -> Void
     ) {
         self.communityId = communityId
@@ -23,6 +25,7 @@ struct EmailVerificationView: View {
         self.currentStep = currentStep
         self.totalSteps = totalSteps
         self.onBack = onBack
+        self.onSkip = onSkip
         self.onComplete = onComplete
         _viewModel = StateObject(
             wrappedValue: CommunityEmailVerificationViewModel(
@@ -145,6 +148,15 @@ private extension EmailVerificationView {
                         .frame(width: 40, height: 40)
                 }
                 Spacer()
+
+                if let onSkip {
+                    Button(action: onSkip) {
+                        Text("Skip")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedSecondary)
+                    }
+                    .padding(.trailing, 4)
+                }
             }
 
             if totalSteps > 1 {

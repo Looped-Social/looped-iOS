@@ -8,6 +8,7 @@ enum FloatingActionButtonType {
 struct FloatingActionButton: View {
     let type: FloatingActionButtonType
     let action: () -> Void
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     init(type: FloatingActionButtonType = .addPost, action: @escaping () -> Void) {
         self.type = type
@@ -32,10 +33,19 @@ struct FloatingActionButton: View {
                 }
             }
             .frame(width: 56, height: 56)
-            .background(Color.loopedPrimary)
+            .background(backgroundColor)
             .clipShape(Circle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var backgroundColor: Color {
+        switch type {
+        case .addPost:
+            return Color.loopedAccent(isAnonymousMode: isAnonymousMode)
+        case .sendMessage:
+            return .loopedPrimary
+        }
     }
 }
 

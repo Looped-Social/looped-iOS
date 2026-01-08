@@ -7,6 +7,8 @@ struct SearchResultsView: View {
     @FocusState private var searchFieldFocused: Bool
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
+    @State private var submittedQuery: String?
+    @State private var showPostSearchFeed = false
     @State private var selectedCommunity: CommunityProfileData?
     @State private var showCommunityProfile = false
 
@@ -68,6 +70,17 @@ struct SearchResultsView: View {
 
                     NavigationLink(
                         destination: Group {
+                            if let query = submittedQuery {
+                                SearchPostsFeedView(query: query)
+                                    .environmentObject(commentsManager)
+                            }
+                        },
+                        isActive: $showPostSearchFeed,
+                        label: { EmptyView() }
+                    )
+
+                    NavigationLink(
+                        destination: Group {
                             if let community = selectedCommunity {
                                 CommunityProfileView(community: community)
                             }
@@ -97,7 +110,7 @@ struct SearchResultsView: View {
                 isSearchFieldFocused: $searchFieldFocused
             )
             .onSubmit {
-                viewModel.addRecentSearch(viewModel.searchText)
+                handleSearchSubmit()
             }
             .padding(.top, 8)
             .padding(.bottom, 4)
@@ -135,7 +148,7 @@ struct SearchResultsView: View {
                 )
 
                 // Divider between hashtags and profiles if we have both
-                if !viewModel.searchResults.people.isEmpty || !viewModel.searchResults.loops.isEmpty {
+                if !viewModel.searchResults.people.isEmpty || !viewModel.searchResults.posts.isEmpty || !viewModel.searchResults.loops.isEmpty {
                     Divider()
                         .padding(.horizontal, 16)
                 }
@@ -214,6 +227,24 @@ struct SearchResultsView: View {
         guard !cleanHashtag.isEmpty else { return }
         selectedHashtag = cleanHashtag
         showHashtagFeed = true
+    }
+
+    private func handleSearchSubmit() {
+        let trimmed = viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        searchFieldFocused = false
+        viewModel.addRecentSearch(trimmed)
+
+        if trimmed.hasPrefix("#") {
+            handleHashtagTap(trimmed)
+            return
+        }
+
+        let filter = viewModel.selectedFilter
+        if filter == nil || filter == .all || filter == .posts {
+            submittedQuery = trimmed
+            showPostSearchFeed = true
+        }
     }
 }
 

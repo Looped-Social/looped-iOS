@@ -74,15 +74,7 @@ struct WaysToVerifyView: View {
                     }
                 }
 
-                Button(action: handleContinue) {
-                    Text("Continue")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedWhite)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.loopedPrimary)
-                        .clipShape(Capsule())
-                }
+                PrimaryButton(title: "Continue", action: handleContinue)
                 .padding(.top, 16)
                 .padding(.horizontal, 32)
 

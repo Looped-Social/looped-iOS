@@ -3,6 +3,7 @@ import Combine
 
 enum SearchResultsFilter: String, CaseIterable, Identifiable {
     case users = "Users"
+    case posts = "Posts"
     case all = "All"
     case communities = "Communities"
     case sectors = "Sectors"
@@ -12,6 +13,10 @@ enum SearchResultsFilter: String, CaseIterable, Identifiable {
     case departments = "Departments"
 
     var id: String { rawValue }
+
+    static var uiCases: [SearchResultsFilter] {
+        [.all, .posts, .users, .communities, .sectors, .companies, .colleges, .majors, .departments]
+    }
 
     var searchKind: CommunitySearchKind? {
         switch self {
@@ -46,17 +51,20 @@ class SearchResultsViewModel: ObservableObject {
     private let userService: UserServiceProtocol
     private let discoveryService: DiscoveryServiceProtocol
     private let communityService: CommunityServiceProtocol
+    private let feedService: FeedServiceProtocol
     private let recentSearchesKey = "recentSearches"
     private let recentSearchesLimit = 5
 
     init(
         userService: UserServiceProtocol = UserService(),
         discoveryService: DiscoveryServiceProtocol = DiscoveryService(),
-        communityService: CommunityServiceProtocol = CommunityService()
+        communityService: CommunityServiceProtocol = CommunityService(),
+        feedService: FeedServiceProtocol = FeedService()
     ) {
         self.userService = userService
         self.discoveryService = discoveryService
         self.communityService = communityService
+        self.feedService = feedService
         loadRecentSearches()
         setupSearchDebouncing()
     }
@@ -108,6 +116,19 @@ class SearchResultsViewModel: ObservableObject {
                         title: "Member",
                         company: user.company,
                         avatarURL: user.profileImageURL
+                    )
+                }
+                searchResults = results
+                hashtagSuggestions = []
+            case .posts:
+                let page = try await feedService.searchPosts(query: trimmedQuery, limit: 20, cursor: nil)
+                results.posts = page.posts.map { post in
+                    SearchResultPost(
+                        backendId: post.backendId,
+                        content: post.content,
+                        authorName: post.resolvedAuthorName,
+                        timestamp: post.createdAt,
+                        reactionCount: post.reactionCount
                     )
                 }
                 searchResults = results
@@ -164,8 +185,10 @@ class SearchResultsViewModel: ObservableObject {
                 )
                 let hashtagQuery = trimmedQuery.hasPrefix("#") ? String(trimmedQuery.dropFirst()) : trimmedQuery
                 async let hashtagPage = discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
+                async let postsPage = feedService.searchPosts(query: trimmedQuery, limit: 10, cursor: nil)
 
                 let (page, loopResults, hashtags) = try await (peoplePage, loopsPage, hashtagPage)
+                let postPage = try? await postsPage
                 results.people = page.users.map { user in
                     SearchResultPerson(
                         id: user.id,
@@ -196,6 +219,18 @@ class SearchResultsViewModel: ObservableObject {
                         name: tag.name.hasPrefix("#") ? tag.name : "#\(tag.name)",
                         usageCount: tag.usageCount
                     )
+                }
+
+                if let postPage {
+                    results.posts = postPage.posts.map { post in
+                        SearchResultPost(
+                            backendId: post.backendId,
+                            content: post.content,
+                            authorName: post.resolvedAuthorName,
+                            timestamp: post.createdAt,
+                            reactionCount: post.reactionCount
+                        )
+                    }
                 }
                 hashtagSuggestions = results.hashtags.map { $0.name }
                 searchResults = results

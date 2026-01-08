@@ -118,6 +118,7 @@ struct SearchResultPerson: Identifiable {
 
 struct SearchResultPost: Identifiable {
     let id: UUID
+    let backendId: Int?
     let content: String
     let authorName: String
     let timestamp: Date
@@ -125,12 +126,14 @@ struct SearchResultPost: Identifiable {
 
     init(
         id: UUID = UUID(),
+        backendId: Int? = nil,
         content: String,
         authorName: String,
         timestamp: Date,
         reactionCount: Int
     ) {
         self.id = id
+        self.backendId = backendId
         self.content = content
         self.authorName = authorName
         self.timestamp = timestamp

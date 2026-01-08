@@ -6,6 +6,7 @@ struct VerificationIntroView: View {
     let totalSteps: Int
     let onBack: () -> Void
     let onContinue: () -> Void
+    let onSkip: (() -> Void)?
     let onHowItWorks: () -> Void
 
     init(
@@ -14,6 +15,7 @@ struct VerificationIntroView: View {
         totalSteps: Int = 5,
         onBack: @escaping () -> Void,
         onContinue: @escaping () -> Void,
+        onSkip: (() -> Void)? = nil,
         onHowItWorks: @escaping () -> Void = {}
     ) {
         self.loopName = loopName
@@ -21,6 +23,7 @@ struct VerificationIntroView: View {
         self.totalSteps = totalSteps
         self.onBack = onBack
         self.onContinue = onContinue
+        self.onSkip = onSkip
         self.onHowItWorks = onHowItWorks
     }
 
@@ -57,20 +60,20 @@ struct VerificationIntroView: View {
                 Spacer()
 
                 VStack(spacing: 14) {
-                    Button(action: onContinue) {
-                        Text("Continue")
-                            .font(.loopedHeadingMedium)
-                            .foregroundColor(.loopedWhite)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.loopedPrimary)
-                            .clipShape(Capsule())
-                    }
+                    PrimaryButton(title: "Continue", action: onContinue)
 
                     Button(action: onHowItWorks) {
                         Text("How Verification Works")
                             .font(.loopedBodyMedium)
                             .foregroundColor(.loopedSecondary)
+                    }
+
+                    if let onSkip {
+                        Button(action: onSkip) {
+                            Text("Skip for now")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
                     }
                 }
                 .padding(.horizontal, 32)
@@ -108,6 +111,7 @@ private extension VerificationIntroView {
         loopName: "Looped",
         onBack: {},
         onContinue: {},
+        onSkip: {},
         onHowItWorks: {}
     )
 }

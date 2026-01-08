@@ -50,30 +50,55 @@ struct LoopedToastView: View {
 struct ToastPresenter: ViewModifier {
     @Binding var toast: ToastMessage?
     let duration: TimeInterval
+    @State private var presentedToast: ToastMessage?
+    @State private var isPresented = false
     @State private var dismissTask: Task<Void, Never>?
 
     func body(content: Content) -> some View {
         ZStack(alignment: .bottom) {
             content
 
-            if let toast {
-                LoopedToastView(message: toast)
+            if let presentedToast {
+                LoopedToastView(message: presentedToast)
                     .padding(.bottom, 24)
                     .padding(.horizontal, 20)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .offset(y: isPresented ? 0 : 14)
+                    .scaleEffect(isPresented ? 1 : 0.98)
+                    .opacity(isPresented ? 1 : 0)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.86), value: isPresented)
+                    .allowsHitTesting(false)
             }
         }
         .onChange(of: toast) { _, newValue in
             dismissTask?.cancel()
-            guard newValue != nil else { return }
-            let delay = UInt64(duration * 1_000_000_000)
-            dismissTask = Task {
-                try? await Task.sleep(nanoseconds: delay)
-                await MainActor.run {
-                    withAnimation(.easeIn(duration: 0.2)) {
-                        toast = nil
-                    }
+            guard let newValue else {
+                withAnimation(.easeIn(duration: 0.2)) {
+                    isPresented = false
                 }
+                dismissTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                    presentedToast = nil
+                }
+                return
+            }
+
+            let toastId = newValue.id
+            presentedToast = newValue
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                isPresented = true
+            }
+
+            let delay = UInt64(duration * 1_000_000_000)
+            dismissTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: delay)
+                guard presentedToast?.id == toastId else { return }
+                withAnimation(.easeIn(duration: 0.2)) {
+                    isPresented = false
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                guard presentedToast?.id == toastId else { return }
+                toast = nil
+                presentedToast = nil
             }
         }
     }

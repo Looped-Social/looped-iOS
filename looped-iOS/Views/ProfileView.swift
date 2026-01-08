@@ -23,6 +23,7 @@ struct ProfileView: View {
     @State private var anonymousDiscoveryStep: AnonymousModeDiscoveryStep?
     @State private var pendingAnonymousDiscovery = false
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var coachMarkPresenter: CoachMarkPresenter
 
 	@State private var headerHeight: CGFloat = 300
 	@State private var hasActiveVerifications: Bool?
@@ -187,6 +188,7 @@ struct ProfileView: View {
             if isAnonymous {
                 queueAnonymousDiscoveryIfNeeded()
             }
+            syncCoachMarkOverlay()
         }
         .onChange(of: selectedTab) { _, newValue in
             if newValue == .replies {
@@ -222,38 +224,24 @@ struct ProfileView: View {
                 }
             }
         }
+        .onChange(of: profileDiscoveryStep) { _, _ in
+            syncCoachMarkOverlay()
+        }
+        .onChange(of: anonymousDiscoveryStep) { _, _ in
+            syncCoachMarkOverlay()
+        }
         .onPreferenceChange(ProfileHeaderHeightKey.self) { newValue in
             if newValue > 0, abs(newValue - headerHeight) > 1 {
                 headerHeight = newValue
             }
 		}
-		.overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
-			if let step = profileDiscoveryStep, targets[step.target] != nil {
-				CoachMarkOverlay(
-					target: step.target,
-					targets: targets,
-					message: step.message,
-					primaryTitle: step.primaryTitle,
-					secondaryTitle: step.secondaryTitle,
-					onPrimary: advanceProfileDiscovery,
-					onSecondary: skipProfileDiscovery
-				)
-			} else if let step = anonymousDiscoveryStep, targets[step.target] != nil {
-				CoachMarkOverlay(
-					target: step.target,
-					targets: targets,
-					message: step.message,
-					primaryTitle: step.primaryTitle,
-					secondaryTitle: nil,
-					onPrimary: advanceAnonymousDiscovery,
-					onSecondary: nil
-				)
-			}
-		}
         .alert("Anonymous Mode Failed", isPresented: $showAnonError) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(anonErrorMessage)
+        }
+        .onDisappear {
+            coachMarkPresenter.dismissIfSource(.profile)
         }
     }
 
@@ -367,6 +355,40 @@ private extension ProfileView {
 		headerVisible = true
 		anonymousDiscoveryStep = .privacy
 	}
+
+    func syncCoachMarkOverlay() {
+        if let step = profileDiscoveryStep {
+            coachMarkPresenter.show(
+                CoachMarkPresenter.Overlay(
+                    source: .profile,
+                    target: step.target,
+                    message: step.message,
+                    primaryTitle: step.primaryTitle,
+                    secondaryTitle: step.secondaryTitle,
+                    onPrimary: advanceProfileDiscovery,
+                    onSecondary: skipProfileDiscovery
+                )
+            )
+            return
+        }
+
+        if let step = anonymousDiscoveryStep {
+            coachMarkPresenter.show(
+                CoachMarkPresenter.Overlay(
+                    source: .profile,
+                    target: step.target,
+                    message: step.message,
+                    primaryTitle: step.primaryTitle,
+                    secondaryTitle: nil,
+                    onPrimary: advanceAnonymousDiscovery,
+                    onSecondary: nil
+                )
+            )
+            return
+        }
+
+        coachMarkPresenter.dismissIfSource(.profile)
+    }
 
     func advanceAnonymousDiscovery() {
         guard let step = anonymousDiscoveryStep else { return }
@@ -511,14 +533,20 @@ struct ProfileHeaderView: View {
     private var headerContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                Circle()
-                    .fill(isAnonymous ? Color.loopedSecondary : Color.loopedPrimary)
-                    .frame(width: 64, height: 64)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.loopedCustom(.semibold, size: 28))
-                            .foregroundColor(.loopedWhite)
-                    )
+                Group {
+                    if isAnonymous {
+                        Circle()
+                            .fill(Color.loopedSecondary)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .font(.loopedCustom(.semibold, size: 28))
+                                    .foregroundColor(.loopedWhite)
+                            )
+                    } else {
+                        ProfileAvatarView(imageURL: resolvedProfile?.profileImageURL, size: 64)
+                    }
+                }
+                .frame(width: 64, height: 64)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(displayName)

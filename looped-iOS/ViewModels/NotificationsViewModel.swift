@@ -6,19 +6,24 @@ import UIKit
 class NotificationsViewModel: ObservableObject {
     @Published var notifications: [Notification] = []
     @Published var isLoading = false
+    @Published var isLoadingMore = false
     @Published var errorMessage: String?
 
     private let notificationService: NotificationServiceProtocol
     private let userService: UserServiceProtocol
+    private let cacheStore: NotificationCacheStore
     private var nextCursor: String?
     private var actorCache: [Int: ActorProfile] = [:]
 
     init(
         notificationService: NotificationServiceProtocol = NotificationService(),
-        userService: UserServiceProtocol = UserService()
+        userService: UserServiceProtocol = UserService(),
+        cacheStore: NotificationCacheStore = NotificationCacheStore()
     ) {
         self.notificationService = notificationService
         self.userService = userService
+        self.cacheStore = cacheStore
+        self.notifications = cacheStore.load()
     }
 
     // MARK: - Load Notifications
@@ -27,11 +32,12 @@ class NotificationsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let page = try await notificationService.fetchNotifications(limit: 20, cursor: nil)
-            notifications = page.notifications
+            let page = try await notificationService.fetchNotifications(limit: 50, cursor: nil)
+            notifications = mergeCachedAndFetched(cached: notifications, fetched: page.notifications)
             nextCursor = page.nextCursor
             errorMessage = nil
-            await hydrateActorProfiles(for: page.notifications)
+            cacheStore.save(notifications)
+            await hydrateActorProfiles(for: notifications)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -41,6 +47,24 @@ class NotificationsViewModel: ObservableObject {
     func refreshNotifications() async {
         nextCursor = nil
         await loadNotifications()
+    }
+
+    func loadMoreNotifications() async {
+        guard !isLoadingMore else { return }
+        guard let nextCursor, !nextCursor.isEmpty else { return }
+
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+
+        do {
+            let page = try await notificationService.fetchNotifications(limit: 50, cursor: nextCursor)
+            self.nextCursor = page.nextCursor
+            notifications = mergeCachedAndFetched(cached: notifications, fetched: page.notifications)
+            cacheStore.save(notifications)
+            await hydrateActorProfiles(for: notifications)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     // MARK: - Handle Notification Tap
@@ -93,6 +117,7 @@ class NotificationsViewModel: ObservableObject {
             }
             if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
                 notifications[index] = notifications[index].markingRead()
+                cacheStore.save(notifications)
             }
         }
     }
@@ -100,6 +125,7 @@ class NotificationsViewModel: ObservableObject {
     // MARK: - Mark All As Read
     func markAllAsRead() {
         notifications = notifications.map { $0.markingRead() }
+        cacheStore.save(notifications)
     }
 
     // MARK: - Navigation Helpers (TODO: Implement actual navigation)
@@ -177,6 +203,21 @@ class NotificationsViewModel: ObservableObject {
             else { return notification }
             return notification.updatingActor(name: profile.name, profileImageUrl: profile.profileImageUrl)
         }
+    }
+
+    private func mergeCachedAndFetched(cached: [Notification], fetched: [Notification]) -> [Notification] {
+        var mergedById: [UUID: Notification] = [:]
+        for item in cached {
+            mergedById[item.id] = item
+        }
+        for item in fetched {
+            mergedById[item.id] = item
+        }
+        return mergedById.values
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
+                return lhs.id.uuidString > rhs.id.uuidString
+            }
     }
 }
 

@@ -98,7 +98,18 @@ struct MessagesView: View {
                                 MessageRequestRow(
                                     request: request,
                                     isProcessing: viewModel.processingRequestIds.contains(request.backendId),
-                                    onApprove: { Task { await viewModel.approveMessageRequest(request) } },
+                                    onApprove: {
+                                        Task {
+                                            let conversation = await viewModel.approveMessageRequest(request)
+                                            await MainActor.run {
+                                                searchText = ""
+                                                selectedTab = request.isGroup ? .groups : .messages
+                                                if let conversation {
+                                                    onChatSelected(conversation, nil)
+                                                }
+                                            }
+                                        }
+                                    },
                                     onReject: { Task { await viewModel.rejectMessageRequest(request) } }
                                 )
                                 .padding(.horizontal, 16)

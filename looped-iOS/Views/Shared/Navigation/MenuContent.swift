@@ -20,14 +20,20 @@ struct MenuContent: View {
                 // Profile Header Section
                 VStack(alignment: .center, spacing: 12) {
                     // Profile Avatar
-                    Circle()
-                        .fill(isAnonymous ? Color.loopedSecondary : Color.loopedPrimary)
-                        .frame(width: 72, height: 72)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.loopedCustom(.semibold, size: 30))
-                                .foregroundColor(.loopedWhite)
-                        )
+                    Group {
+                        if isAnonymous {
+                            Circle()
+                                .fill(Color.loopedSecondary)
+                                .overlay(
+                                    Image(systemName: "person.fill")
+                                        .font(.loopedCustom(.semibold, size: 30))
+                                        .foregroundColor(.loopedWhite)
+                                )
+                        } else {
+                            ProfileAvatarView(imageURL: authViewModel.currentUser?.profileImageURL, size: 72)
+                        }
+                    }
+                    .frame(width: 72, height: 72)
                         .padding(.top, 16)
 
                     // Display Name
@@ -482,9 +488,13 @@ struct DraftsView: View {
         .sheet(item: $selectedDraft, onDismiss: {
             draftStore.reload()
         }) { draft in
-            CreatePostView(feedViewModel: feedViewModel, draft: draft, onPostCreated: {
-                selectedDraft = nil
-            })
+            CreatePostView(
+                feedViewModel: feedViewModel,
+                draft: draft,
+                onPostCreated: {
+                    selectedDraft = nil
+                }
+            )
         }
     }
 }

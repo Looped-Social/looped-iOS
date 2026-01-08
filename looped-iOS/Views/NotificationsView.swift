@@ -9,7 +9,40 @@ struct NotificationsView: View {
             NotificationsHeader()
 
             // Notifications List
-            if viewModel.notifications.isEmpty {
+            if viewModel.notifications.isEmpty, let errorMessage = viewModel.errorMessage {
+                VStack(spacing: 16) {
+                    Spacer()
+
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.loopedCustom(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.3))
+
+                    Text("Couldn’t load notifications")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+
+                    Text(errorMessage)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+
+                    Button(action: { Task { await viewModel.loadNotifications() } }) {
+                        Text("Retry")
+                            .font(.loopedSubBodyBold)
+                            .foregroundColor(.loopedWhite)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.loopedPrimary)
+                            )
+                    }
+
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+            } else if viewModel.notifications.isEmpty {
                 // Empty State
                 VStack(spacing: 16) {
                     Spacer()
@@ -46,6 +79,11 @@ struct NotificationsView: View {
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
+                            .onAppear {
+                                if notification.id == viewModel.notifications.last?.id {
+                                    Task { await viewModel.loadMoreNotifications() }
+                                }
+                            }
 
                             // Divider
                             if notification.id != viewModel.notifications.last?.id {

@@ -119,16 +119,8 @@ struct CommunitySelectionView: View {
                 .padding(.bottom, 20)
             }
 
-            Button(action: { onContinue(selectedCommunities) }) {
-                Text(continueTitle)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedWhite)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(Color.loopedPrimary)
-                    .cornerRadius(14)
+            PrimaryButton(title: continueTitle) {
+                onContinue(selectedCommunities)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)

@@ -3,6 +3,7 @@ import Foundation
 
 struct AuthView: View {
     @ObservedObject var authViewModel: AuthViewModel
+    @Environment(\.openURL) private var openURL
     @State private var currentScreen: AuthScreen = .onboarding
     @State private var selectedLoopName: String = "Looped"
     @State private var selectedCommunityId: Int?
@@ -20,6 +21,9 @@ struct AuthView: View {
     @State private var studentVerificationOptionId: String?
     @State private var verificationContext: VerificationContext?
     private let onboardingStore = OnboardingProgressStore()
+    @State private var verificationFlowMode: VerificationFlowMode = .full
+    private let communityService: CommunityServiceProtocol = CommunityService()
+    private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
 
     var body: some View {
         Group {
@@ -38,6 +42,12 @@ struct AuthView: View {
                         authViewModel.selectedOrganization = organization
                         selectedLoopName = organization.name
                         selectedCommunityId = organization.backendId
+                        if let id = organization.backendId {
+                            UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
+                        } else {
+                            UserDefaults.standard.removeObject(forKey: "lastSelectedCommunityId")
+                        }
+                        followCommunityIfPossible(organization.backendId)
                     },
                     onBack: {
                         currentScreen = .profileSetup
@@ -56,6 +66,12 @@ struct AuthView: View {
                         authViewModel.selectedOrganization = organization
                         selectedLoopName = organization.name
                         selectedCommunityId = organization.backendId
+                        if let id = organization.backendId {
+                            UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
+                        } else {
+                            UserDefaults.standard.removeObject(forKey: "lastSelectedCommunityId")
+                        }
+                        followCommunityIfPossible(organization.backendId)
                     },
                     onBack: {
                         currentScreen = .profileSetup
@@ -73,6 +89,9 @@ struct AuthView: View {
                         currentScreen = isStudent ? .degreeSelection : .departmentSelection
                     }
                 ) { selected in
+                    verificationFlowMode = .full
+                    verificationContext = nil
+                    followCommunities(selected)
                     if selected.isEmpty {
                         authViewModel.onboardingComplete = true
                     } else {
@@ -85,49 +104,52 @@ struct AuthView: View {
                     kind: .department,
                     searchText: $departmentSearchText,
                     selectedItem: $selectedDepartment,
-                    onSelect: { _ in
+                    onSelect: { selection in
+                        followCommunityIfPossible(selection.id)
                         currentScreen = .communitySelection(isStudent: false)
                     },
                     onBack: {
                         currentScreen = .selectCompany
                     }
                 )
-            case .degreeSelection:
-                OrganizationDetailSelectionView(
-                    title: "Degree",
-                    kind: .major,
-                    searchText: $degreeSearchText,
-                    selectedItem: $selectedDegree,
-                    onSelect: { _ in
-                        currentScreen = .communitySelection(isStudent: true)
-                    },
-                    onBack: {
-                        currentScreen = .selectCompany
-                    }
-                )
-            case .verificationIntro(let isStudent):
-                VerificationIntroView(
-                    loopName: selectedLoopName,
-                    currentStep: 1,
-                    totalSteps: 5,
+	            case .degreeSelection:
+	                OrganizationDetailSelectionView(
+	                    title: "Degree",
+	                    kind: .major,
+	                    searchText: $degreeSearchText,
+	                    selectedItem: $selectedDegree,
+	                    onSelect: { selection in
+	                        followCommunityIfPossible(selection.id)
+	                        currentScreen = .communitySelection(isStudent: true)
+	                    },
+	                    onBack: {
+	                        currentScreen = .selectSchool
+	                    }
+	                )
+	            case .verificationIntro(let isStudent):
+	                VerificationIntroView(
+	                    loopName: selectedLoopName,
+	                    currentStep: verificationStep(for: .verificationIntro(isStudent: isStudent)),
+	                    totalSteps: verificationTotalSteps,
                     onBack: {
                         currentScreen = .communitySelection(isStudent: isStudent)
                     },
-                    onContinue: {
-                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
-                    },
-                    onHowItWorks: {
-                        // TODO: Wire up "How Verification Works" content.
-                    }
-                )
+	                    onContinue: {
+	                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
+	                    },
+	                    onSkip: skipToNotifications,
+	                    onHowItWorks: {
+	                        openURL(verificationInfoURL)
+	                    }
+	                )
             case .waysToVerifyCompany:
                 WaysToVerifyView(
                     options: [
                         VerificationOption(id: "photo_id", title: "Photo With Gov. ID"),
                         VerificationOption(id: "company_email", title: "Company Email")
                     ],
-                    currentStep: 2,
-                    totalSteps: 5,
+                    currentStep: verificationStep(for: .waysToVerifyCompany),
+                    totalSteps: verificationTotalSteps,
                     selectedOptionId: $companyVerificationOptionId,
                     onBack: {
                         currentScreen = .verificationIntro(isStudent: false)
@@ -141,21 +163,21 @@ struct AuthView: View {
                             currentScreen = .emailVerification(isStudent: false)
                         }
                     },
-                    onSkip: {
-                        currentScreen = .verificationConfirmation
-                    },
-                    onLearnMore: {
-                        // TODO: Wire up "learn more" to verification info page.
-                    }
-                )
+	                    onSkip: {
+	                        skipToNotifications()
+	                    },
+	                    onLearnMore: {
+	                        openURL(verificationInfoURL)
+	                    }
+	                )
             case .waysToVerifyStudent:
                 WaysToVerifyView(
                     options: [
                         VerificationOption(id: "photo_id", title: "Photo With Gov. ID"),
                         VerificationOption(id: "student_email", title: "Student Email")
                     ],
-                    currentStep: 2,
-                    totalSteps: 5,
+                    currentStep: verificationStep(for: .waysToVerifyStudent),
+                    totalSteps: verificationTotalSteps,
                     selectedOptionId: $studentVerificationOptionId,
                     onBack: {
                         currentScreen = .verificationIntro(isStudent: true)
@@ -169,18 +191,18 @@ struct AuthView: View {
                             currentScreen = .emailVerification(isStudent: true)
                         }
                     },
-                    onSkip: {
-                        currentScreen = .verificationConfirmation
-                    },
-                    onLearnMore: {
-                        // TODO: Wire up "learn more" to verification info page.
-                    }
-                )
+	                    onSkip: {
+	                        skipToNotifications()
+	                    },
+	                    onLearnMore: {
+	                        openURL(verificationInfoURL)
+	                    }
+	                )
             case .verificationConfirmation:
                 VerificationConfirmationView(
                     authViewModel: authViewModel,
-                    currentStep: 4,
-                    totalSteps: 5,
+                    currentStep: verificationStep(for: .verificationConfirmation),
+                    totalSteps: verificationTotalSteps,
                     onBack: {
                         guard let context = verificationContext else {
                             currentScreen = .verificationIntro(isStudent: false)
@@ -190,17 +212,19 @@ struct AuthView: View {
                             ? .photoIdVerification(isStudent: context.isStudent)
                             : .emailVerification(isStudent: context.isStudent)
                     },
+                    onSkip: skipToNotifications,
                     onComplete: {
                         currentScreen = .verificationNotifications
                     }
                 )
             case .photoIdVerification(let isStudent):
                 PhotoIdVerificationView(
-                    currentStep: 3,
-                    totalSteps: 5,
+                    currentStep: verificationStep(for: .photoIdVerification(isStudent: isStudent)),
+                    totalSteps: verificationTotalSteps,
                     onBack: {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
                     },
+                    onSkip: skipToNotifications,
                     onComplete: {
                         if verificationContext == nil {
                             verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
@@ -212,11 +236,12 @@ struct AuthView: View {
                 EmailVerificationView(
                     communityId: selectedCommunityId,
                     communityName: selectedLoopName,
-                    currentStep: 3,
-                    totalSteps: 5,
+                    currentStep: verificationStep(for: .emailVerification(isStudent: isStudent)),
+                    totalSteps: verificationTotalSteps,
                     onBack: {
                         currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
                     },
+                    onSkip: skipToNotifications,
                     onComplete: {
                         if verificationContext == nil {
                             verificationContext = VerificationContext(isStudent: isStudent, method: .email)
@@ -227,10 +252,15 @@ struct AuthView: View {
             case .verificationNotifications:
                 VerificationNotificationsView(
                     loopName: selectedLoopName,
-                    currentStep: 5,
-                    totalSteps: 5,
+                    currentStep: verificationStep(for: .verificationNotifications),
+                    totalSteps: verificationTotalSteps,
                     onBack: {
-                        currentScreen = .verificationConfirmation
+                        if verificationFlowMode == .skipped {
+                            let isStudent = authViewModel.selectedOrganization?.kind == .school
+                            currentScreen = .communitySelection(isStudent: isStudent)
+                        } else {
+                            currentScreen = .verificationConfirmation
+                        }
                     },
                     onEnableNotifications: { wantsRecommendations in
                         Task { @MainActor in
@@ -297,12 +327,66 @@ private extension AuthView {
         let method: VerificationMethod
     }
 
+    enum VerificationFlowMode {
+        case full
+        case skipped
+    }
+
     enum VerificationMethod: Equatable {
         case photoId
         case email
 
         static func from(optionId: String) -> VerificationMethod {
             optionId == "photo_id" ? .photoId : .email
+        }
+    }
+
+    var verificationTotalSteps: Int {
+        verificationFlowMode == .full ? 5 : 1
+    }
+
+    func verificationStep(for screen: AuthScreen) -> Int {
+        guard verificationFlowMode == .full else { return 1 }
+        switch screen {
+        case .verificationIntro:
+            return 1
+        case .waysToVerifyCompany, .waysToVerifyStudent:
+            return 2
+        case .photoIdVerification, .emailVerification:
+            return 3
+        case .verificationConfirmation:
+            return 4
+        case .verificationNotifications:
+            return 5
+        default:
+            return 1
+        }
+    }
+
+    func skipToNotifications() {
+        verificationFlowMode = .skipped
+        verificationContext = nil
+        currentScreen = .verificationNotifications
+    }
+
+    func followCommunityIfPossible(_ communityId: Int?) {
+        guard let communityId else { return }
+        Task {
+            try? await communityService.followCommunity(id: communityId)
+        }
+    }
+
+    func followCommunities(_ communities: [SearchResultLoop]) {
+        let ids = communities.compactMap(\.backendId)
+        guard !ids.isEmpty else { return }
+        Task {
+            await withTaskGroup(of: Void.self) { group in
+                for id in ids {
+                    group.addTask {
+                        try? await communityService.followCommunity(id: id)
+                    }
+                }
+            }
         }
     }
 }

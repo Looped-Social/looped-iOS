@@ -106,11 +106,6 @@ struct CoachMarkOverlay: View {
             }
         }
         .compositingGroup()
-        .overlay {
-            if let highlightFrame {
-                highlightStroke(frame: highlightFrame)
-            }
-        }
     }
 
     @ViewBuilder
@@ -122,22 +117,6 @@ struct CoachMarkOverlay: View {
                 .position(x: frame.midX, y: frame.midY)
         case .circle:
             Circle()
-                .frame(width: frame.width, height: frame.height)
-                .position(x: frame.midX, y: frame.midY)
-        }
-    }
-
-    @ViewBuilder
-    private func highlightStroke(frame: CGRect) -> some View {
-        switch target.highlightShape {
-        case .roundedRect(let cornerRadius):
-            RoundedRectangle(cornerRadius: min(cornerRadius, min(frame.width, frame.height) / 2), style: .continuous)
-                .stroke(Color.loopedPrimary, lineWidth: 2)
-                .frame(width: frame.width, height: frame.height)
-                .position(x: frame.midX, y: frame.midY)
-        case .circle:
-            Circle()
-                .stroke(Color.loopedPrimary, lineWidth: 2)
                 .frame(width: frame.width, height: frame.height)
                 .position(x: frame.midX, y: frame.midY)
         }
@@ -285,5 +264,33 @@ private struct CoachMarkCard: View {
                 .stroke(Color.loopedTextSecondary.opacity(0.15), lineWidth: 1)
         )
         .shadow(color: Color.loopedBlack.opacity(0.2), radius: 12, x: 0, y: 6)
+    }
+}
+
+// MARK: - Presentation
+enum CoachMarkOverlaySource {
+    case profile
+}
+
+final class CoachMarkPresenter: ObservableObject {
+    struct Overlay {
+        let source: CoachMarkOverlaySource
+        let target: CoachMarkTarget
+        let message: String
+        let primaryTitle: String
+        let secondaryTitle: String?
+        let onPrimary: () -> Void
+        let onSecondary: (() -> Void)?
+    }
+
+    @Published var overlay: Overlay?
+
+    func show(_ overlay: Overlay) {
+        self.overlay = overlay
+    }
+
+    func dismissIfSource(_ source: CoachMarkOverlaySource) {
+        guard overlay?.source == source else { return }
+        overlay = nil
     }
 }

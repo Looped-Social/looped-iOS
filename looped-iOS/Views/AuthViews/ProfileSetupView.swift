@@ -80,18 +80,14 @@ struct ProfileSetupView: View {
                         .cornerRadius(18)
                         .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
 
-                        Button(action: handleContinue) {
-                            Text("Continue")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedWhite)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(isFormValid ? Color.loopedPrimary : Color.loopedTextSecondary.opacity(0.3))
-                                .cornerRadius(14)
-                        }
-                        .disabled(!isFormValid || isSubmitting)
+                        PrimaryButton(
+                            title: "Continue",
+                            isEnabled: isFormValid,
+                            isLoading: isSubmitting,
+                            action: handleContinue
+                        )
 
-                        if isCheckingUsername || isSubmitting {
+                        if isCheckingUsername {
                             ProgressView()
                                 .tint(.loopedPrimary)
                         }

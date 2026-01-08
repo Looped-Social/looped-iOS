@@ -4,6 +4,7 @@ struct ProfileAvatarView: View {
     let imageURL: String?
     let size: CGFloat
     var iconScale: CGFloat = 0.45
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     private var iconSize: CGFloat {
         size * iconScale
@@ -29,7 +30,7 @@ struct ProfileAvatarView: View {
 
     private var placeholder: some View {
         Circle()
-            .fill(Color.loopedPrimary)
+            .fill(Color.loopedAccent(isAnonymousMode: isAnonymousMode))
             .overlay(
                 Image(systemName: "person.fill")
                     .font(.loopedCustom(.semibold, size: iconSize))

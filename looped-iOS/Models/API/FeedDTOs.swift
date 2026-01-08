@@ -48,6 +48,8 @@ struct PostDTO: Codable {
     let communityKind: String?
     let content: String
     let mediaAssetId: Int?
+    let mediaUrl: String?
+    let cdnUrl: String?
     let likesCount: Int?
     let userLiked: Bool?
     let commentsCount: Int?

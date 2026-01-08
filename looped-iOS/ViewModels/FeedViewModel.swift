@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 @MainActor
 class FeedViewModel: ObservableObject {
@@ -17,6 +18,7 @@ class FeedViewModel: ObservableObject {
 
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
+    private let mediaService: MediaServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var nextCursor: String?
     private var communitiesNextCursor: String?
@@ -28,10 +30,12 @@ class FeedViewModel: ObservableObject {
     
     init(
         feedService: FeedServiceProtocol = FeedService(),
-        communityService: CommunityServiceProtocol = CommunityService()
+        communityService: CommunityServiceProtocol = CommunityService(),
+        mediaService: MediaServiceProtocol = MediaService()
     ) {
         self.feedService = feedService
         self.communityService = communityService
+        self.mediaService = mediaService
     }
 
     func loadInitial() async {
@@ -263,17 +267,55 @@ class FeedViewModel: ObservableObject {
     }
     
     @discardableResult
-    func createPost(content: String, isAnonymous: Bool = false, communityId: Int) async -> Bool {
+    func createPost(content: String, isAnonymous: Bool = false, communityId: Int, media: [LocalMediaItem] = []) async -> Bool {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
+            let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedContent.isEmpty && media.isEmpty {
+                errorMessage = "Add text or attach a photo."
+                return false
+            }
+
+            var uploadedAttachment: MediaAttachment?
+            var mediaAssetId: Int?
+
+            if let first = media.first {
+                guard first.type == .image, let image = first.image else {
+                    errorMessage = "Only images are supported right now."
+                    return false
+                }
+                guard let payload = makeUploadPayload(from: image) else {
+                    errorMessage = "We couldn't read that image. Try another one."
+                    return false
+                }
+                let asset = try await mediaService.uploadImage(
+                    data: payload.data,
+                    mimeType: payload.mimeType,
+                    width: payload.width,
+                    height: payload.height
+                )
+                mediaAssetId = asset.id
+                if let url = asset.cdnUrl, !url.isEmpty {
+                    uploadedAttachment = MediaAttachment(type: .image, url: url, width: payload.width, height: payload.height)
+                }
+            }
+
             let newPost = try await feedService.createPost(
-                content: content,
+                content: trimmedContent,
                 isAnonymous: isAnonymous,
-                communityId: communityId
+                communityId: communityId,
+                mediaAssetId: mediaAssetId
             )
-            posts.insert(newPost, at: 0)
+            let resolvedPost: Post
+            if let uploadedAttachment, (newPost.attachments?.isEmpty ?? true) {
+                resolvedPost = newPost.updating(attachments: .some([uploadedAttachment]))
+            } else {
+                resolvedPost = newPost
+            }
+
+            posts.insert(resolvedPost, at: 0)
             lastPostedCommunityId = communityId
             UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
             return true
@@ -282,6 +324,58 @@ class FeedViewModel: ObservableObject {
             return false
         }
     }
+}
+
+private extension FeedViewModel {
+    func makeUploadPayload(from image: UIImage) -> ImageUploadPayload? {
+        let resized = resizedImageIfNeeded(image, maxDimension: 2048)
+        let width = Int(resized.size.width * resized.scale)
+        let height = Int(resized.size.height * resized.scale)
+
+        if imageHasAlpha(resized), let pngData = resized.pngData() {
+            return ImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
+        }
+
+        if let jpegData = resized.jpegData(compressionQuality: 0.85) {
+            return ImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
+        }
+
+        return nil
+    }
+
+    func resizedImageIfNeeded(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let pixelWidth = image.size.width * image.scale
+        let pixelHeight = image.size.height * image.scale
+        let maxPixel = max(pixelWidth, pixelHeight)
+        guard maxPixel > maxDimension, maxPixel > 0 else { return image }
+
+        let scaleFactor = maxDimension / maxPixel
+        let newSize = CGSize(width: image.size.width * scaleFactor, height: image.size.height * scaleFactor)
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+
+    func imageHasAlpha(_ image: UIImage) -> Bool {
+        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
+        switch alphaInfo {
+        case .first, .last, .premultipliedFirst, .premultipliedLast:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+private struct ImageUploadPayload {
+    let data: Data
+    let mimeType: String
+    let width: Int
+    let height: Int
 }
 
 private extension FeedViewModel {

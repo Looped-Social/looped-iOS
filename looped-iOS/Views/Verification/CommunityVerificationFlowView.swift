@@ -2,11 +2,13 @@ import SwiftUI
 
 struct CommunityVerificationFlowView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     let community: CommunityProfileData
     let onComplete: () -> Void
 
     @State private var step: VerificationStep = .intro
     @State private var selectedOptionId: String?
+    private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
 
     init(community: CommunityProfileData, onComplete: @escaping () -> Void) {
         self.community = community
@@ -41,7 +43,7 @@ struct CommunityVerificationFlowView: View {
                 totalSteps: 1,
                 onBack: { dismiss() },
                 onContinue: { step = .methods },
-                onHowItWorks: {}
+                onHowItWorks: { openURL(verificationInfoURL) }
             )
         case .methods:
             WaysToVerifyView(
@@ -58,7 +60,7 @@ struct CommunityVerificationFlowView: View {
                     }
                 },
                 onSkip: nil,
-                onLearnMore: {}
+                onLearnMore: { openURL(verificationInfoURL) }
             )
         case .email:
             EmailVerificationView(

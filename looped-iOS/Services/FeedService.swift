@@ -25,11 +25,25 @@ class FeedService: FeedServiceProtocol {
         let response: TrendingFeedResponseDTO = try await apiClient.get(endpoint)
         return response.items.map(TrendingPost.init(dto:))
     }
+
+    func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let allowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "+/=&?#"))
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: allowed) ?? trimmed
+        var endpoint = "/v1/posts/search?query=\(encoded)&limit=\(limit > 0 ? limit : defaultLimit)"
+        if let cursor, !cursor.isEmpty {
+            let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: allowed) ?? cursor
+            endpoint += "&cursor=\(encodedCursor)"
+        }
+        let response: FeedResponseDTO = try await apiClient.get(endpoint)
+        let posts = response.items.map { Post(dto: $0) }
+        return FeedPage(posts: posts, nextCursor: response.nextCursor)
+    }
     
-    func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post {
+    func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?) async throws -> Post {
         var request = CreatePostRequestDTO(
             content: content,
-            mediaAssetId: nil,
+            mediaAssetId: mediaAssetId,
             communityId: communityId,
             isAnon: nil,
             anonProfileId: nil,
@@ -45,7 +59,7 @@ class FeedService: FeedServiceProtocol {
             let anonContext = try await anonService.postContext(content: content, communityId: communityId)
             request = CreatePostRequestDTO(
                 content: content,
-                mediaAssetId: nil,
+                mediaAssetId: mediaAssetId,
                 communityId: communityId,
                 isAnon: true,
                 anonProfileId: anonContext.profileId,
@@ -91,7 +105,7 @@ class FeedService: FeedServiceProtocol {
                 commentsCount: 0,
                 shareCount: 0,
                 userReaction: nil,
-                mediaAssetId: nil,
+                mediaAssetId: mediaAssetId,
                 attachments: nil,
                 isSaved: false,
                 authorDisplayCommunity: nil,

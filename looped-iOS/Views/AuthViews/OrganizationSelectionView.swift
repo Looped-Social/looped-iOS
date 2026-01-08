@@ -96,18 +96,18 @@ struct OrganizationSelectionView: View {
                             .padding(.top, 24)
                         }
 
-                        ForEach(viewModel.organizations) { organization in
-                            OrganizationListRow(
-                                organization: organization,
-                                isSelected: organization.id == selectedOrganizationId
-                            ) {
-                                onSelect(organization)
-                                onNavigate(.verificationIntro(isStudent: organization.kind == .school))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 20)
+	                        ForEach(viewModel.organizations) { organization in
+	                            OrganizationListRow(
+	                                organization: organization,
+	                                isSelected: organization.id == selectedOrganizationId
+	                            ) {
+	                                onSelect(organization)
+	                                onNavigate(organization.kind == .school ? .degreeSelection : .departmentSelection)
+	                            }
+	                        }
+	                    }
+	                    .padding(.horizontal, 24)
+	                    .padding(.top, 20)
                 }
 
                 Spacer()

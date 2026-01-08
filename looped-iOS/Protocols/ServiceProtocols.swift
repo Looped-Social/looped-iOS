@@ -36,7 +36,8 @@ protocol AuthServiceProtocol {
 protocol FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
-    func createPost(content: String, isAnonymous: Bool, communityId: Int) async throws -> Post
+    func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage
+    func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?) async throws -> Post
     func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
     func unlikePost(postId: Int, communityId: Int?) async throws -> PostReactionResponse
@@ -150,6 +151,14 @@ protocol CommunityVerificationServiceProtocol {
     func fetchCommunityVerifications() async throws -> [CommunityVerification]
     func startVerification(communityId: Int, method: CommunityVerificationMethod, email: String?) async throws -> CommunityVerificationStartResponse
     func finishVerification(communityId: Int, request: CommunityVerificationFinishRequest) async throws -> CommunityVerificationFinishResponse
+}
+
+protocol PhotoIdVerificationServiceProtocol {
+    func start() async throws -> PhotoIdVerificationStartResponse
+    func presign(uploadSessionId: String, kind: PhotoIdDocumentKind, contentType: String, sizeBytes: Int) async throws -> PhotoIdVerificationPresignResponse
+    func uploadDocument(uploadSessionId: String, kind: PhotoIdDocumentKind, data: Data, contentType: String) async throws -> String
+    func submit(uploadSessionId: String, selfieKey: String, idFrontKey: String, idBackKey: String?) async throws -> PhotoIdVerificationSubmitResponse
+    func status() async throws -> PhotoIdVerificationStatusResponse
 }
 
 protocol DiscoveryServiceProtocol {

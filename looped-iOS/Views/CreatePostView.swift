@@ -4,6 +4,7 @@ struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var draftStore = PostDraftStore()
     @State private var postText: String = ""
+    @FocusState private var isPostTextFocused: Bool
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
     @State private var selectedCommunityId: Int?
     @State private var isSubmitting: Bool = false
@@ -22,11 +23,18 @@ struct CreatePostView: View {
     @ObservedObject var feedViewModel: FeedViewModel
     private let draft: PostDraft?
     private let onPostCreated: (() -> Void)?
+    private let onPostStatus: ((ToastMessage) -> Void)?
 
-    init(feedViewModel: FeedViewModel, draft: PostDraft? = nil, onPostCreated: (() -> Void)? = nil) {
+    init(
+        feedViewModel: FeedViewModel,
+        draft: PostDraft? = nil,
+        onPostCreated: (() -> Void)? = nil,
+        onPostStatus: ((ToastMessage) -> Void)? = nil
+    ) {
         self.feedViewModel = feedViewModel
         self.draft = draft
         self.onPostCreated = onPostCreated
+        self.onPostStatus = onPostStatus
         _postText = State(initialValue: draft?.content ?? "")
         _selectedCommunityId = State(initialValue: draft?.communityId)
         _activeDraftId = State(initialValue: draft?.id)
@@ -171,6 +179,7 @@ struct CreatePostView: View {
                         TextField("Share your thoughts...", text: $postText, axis: .vertical)
                             .font(.loopedBody)
                             .foregroundColor(.loopedTextPrimary)
+                            .focused($isPostTextFocused)
                             .lineLimit(6...10)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
@@ -181,12 +190,13 @@ struct CreatePostView: View {
                     // Media attachment buttons
                     HStack(spacing: 12) {
                         Button(action: {
+                            isPostTextFocused = false
                             showMediaPicker = true
                         }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "photo")
                                     .font(.loopedCustom(size: 16))
-                                Text("Photo/Video")
+                                Text("Photo")
                                     .font(.loopedSubBodyMedium)
                             }
                             .foregroundColor(.loopedPrimary)
@@ -197,6 +207,7 @@ struct CreatePostView: View {
                         }
 
                         Button(action: {
+                            isPostTextFocused = false
                             showCamera = true
                         }) {
                             HStack(spacing: 6) {
@@ -314,7 +325,7 @@ struct CreatePostView: View {
             Text(draftPromptMessage)
         }
         .sheet(isPresented: $showMediaPicker) {
-            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 4)
+            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 1, allowsVideo: false)
         }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(selectedImage: .init(
@@ -354,27 +365,70 @@ struct CreatePostView: View {
     
     @MainActor
     private func submitPost() async {
+        guard !isSubmitting else { return }
         guard let communityId = selectedCommunity?.id else { return }
         let trimmedContent = postText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedContent.isEmpty else { return }
-        
-        isSubmitting = true
-        defer { isSubmitting = false }
-        
-        let didCreate = await feedViewModel.createPost(
-            content: trimmedContent,
-            isAnonymous: isAnonymous,
-            communityId: communityId
-        )
+        guard !trimmedContent.isEmpty || !selectedMedia.isEmpty else { return }
+        isPostTextFocused = false
 
-        if didCreate {
-            if let activeDraftId {
-                draftStore.delete(id: activeDraftId)
+        isSubmitting = true
+
+        let contentToSend = trimmedContent
+        let mediaToSend = selectedMedia
+        let isAnonymousToSend = isAnonymous
+        let activeDraftIdToCleanup = activeDraftId
+        let communityName = selectedCommunity?.name
+
+        onPostCreated?()
+        dismiss()
+
+        Task {
+            let didCreate = await feedViewModel.createPost(
+                content: contentToSend,
+                isAnonymous: isAnonymousToSend,
+                communityId: communityId,
+                media: mediaToSend
+            )
+
+            await MainActor.run {
+                isSubmitting = false
+                if didCreate {
+                    if let activeDraftIdToCleanup {
+                        PostDraftStore().delete(id: activeDraftIdToCleanup)
+                    }
+                    onPostStatus?(ToastMessage(text: "Post created", kind: .success))
+                } else {
+                    var savedDraftId: UUID?
+                    let drafts = PostDraftStore()
+                    if let activeDraftIdToCleanup {
+                        savedDraftId = activeDraftIdToCleanup
+                        if !contentToSend.isEmpty {
+                            _ = drafts.upsertDraft(
+                                id: activeDraftIdToCleanup,
+                                content: contentToSend,
+                                communityId: communityId,
+                                communityName: communityName
+                            )
+                        }
+                    } else if !contentToSend.isEmpty {
+                        let draft = drafts.upsertDraft(
+                            id: nil,
+                            content: contentToSend,
+                            communityId: communityId,
+                            communityName: communityName
+                        )
+                        savedDraftId = draft.id
+                    }
+
+                    let message: String
+                    if savedDraftId != nil {
+                        message = "Couldn't post. Saved to Drafts (media not saved)."
+                    } else {
+                        message = feedViewModel.errorMessage ?? "Couldn't post. Try again."
+                    }
+                    onPostStatus?(ToastMessage(text: message, kind: .error))
+                }
             }
-            onPostCreated?()
-            dismiss()
-        } else {
-            presentToast(message: "Post not created", kind: .error)
         }
     }
 

@@ -112,6 +112,13 @@ extension Post {
         let authorIdValue: Int? = dto.authorId ?? dto.anonProfileId
         let resolvedAuthorId = authorIdValue.map(UUID.fromBackendId) ?? UUID()
         let resolvedReaction: ReactionType? = (dto.userLiked ?? false) ? .like : nil
+        let resolvedMediaUrl = (dto.cdnUrl ?? dto.mediaUrl)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedAttachments: [MediaAttachment]? = {
+            guard let resolvedMediaUrl, !resolvedMediaUrl.isEmpty else { return nil }
+            let lowercased = resolvedMediaUrl.lowercased()
+            let type: MediaType = lowercased.contains(".mp4") ? .video : .image
+            return [MediaAttachment(type: type, url: resolvedMediaUrl)]
+        }()
         self.init(
             id: UUID(),
             backendId: dto.id,
@@ -134,7 +141,7 @@ extension Post {
             shareCount: dto.shareCount ?? 0,
             userReaction: resolvedReaction,
             mediaAssetId: dto.mediaAssetId,
-            attachments: nil,
+            attachments: resolvedAttachments,
             isSaved: dto.isSaved ?? false,
             authorDisplayCommunity: dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:)),
             authorDisplaySpecialization: dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:)),
@@ -149,6 +156,7 @@ extension Post {
         commentsCount: Int? = nil,
         shareCount: Int? = nil,
         userReaction: ReactionType?? = nil,
+        attachments: [MediaAttachment]?? = nil,
         isSaved: Bool? = nil,
         communityName: String? = nil,
         communityKind: CommunityKind? = nil,
@@ -178,7 +186,7 @@ extension Post {
             shareCount: shareCount ?? self.shareCount,
             userReaction: userReaction ?? self.userReaction,
             mediaAssetId: mediaAssetId,
-            attachments: attachments,
+            attachments: attachments ?? self.attachments,
             isSaved: isSaved ?? self.isSaved,
             authorDisplayCommunity: authorDisplayCommunity ?? self.authorDisplayCommunity,
             authorDisplaySpecialization: authorDisplaySpecialization ?? self.authorDisplaySpecialization,

@@ -19,6 +19,7 @@ struct PrimaryButton: View {
     }
     
     var body: some View {
+        let isStyledAsEnabled = isEnabled || isLoading
         Button(action: action) {
             HStack {
                 if isLoading {
@@ -29,13 +30,15 @@ struct PrimaryButton: View {
                 
                 Text(title)
                     .font(.loopedCustom(.semibold, size: 16))
-                    .foregroundColor(.loopedWhite)
+                    .foregroundColor(isStyledAsEnabled ? .loopedWhite : .loopedGray)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isEnabled ? Color.loopedPrimary : Color.loopedGray)
+                    .fill(isStyledAsEnabled ? Color.loopedPrimary : Color.loopedGray.opacity(0.3))
             )
         }
         .disabled(!isEnabled || isLoading)

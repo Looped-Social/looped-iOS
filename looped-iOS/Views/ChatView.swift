@@ -6,6 +6,7 @@ struct ChatView: View {
     let channel: Channel?
     let onBackTapped: () -> Void
 
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel = ChatViewModel()
     @State private var messageText = ""
     @State private var selectedMedia: [LocalMediaItem] = []
@@ -112,7 +113,7 @@ struct ChatView: View {
                         ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
                             let showTail = shouldShowTail(for: message, at: index, in: viewModel.messages)
 
-                            if message.senderId == MockUsers.currentUser.id {
+                            if isMessageFromCurrentUser(message) {
                                 SentMessageBubble(message: message, showTail: showTail)
                             } else {
                                 ReceivedMessageBubble(
@@ -161,6 +162,11 @@ struct ChatView: View {
             configureIds()
             await loadMessages()
         }
+    }
+
+    private func isMessageFromCurrentUser(_ message: Message) -> Bool {
+        guard let currentUserId = authViewModel.currentUser?.id else { return false }
+        return message.senderId == currentUserId
     }
 
     private func sendMessage() {
@@ -249,4 +255,5 @@ private struct MessageRequestStatusBanner: View {
         channel: nil,
         onBackTapped: {}
     )
+    .environmentObject(AuthViewModel())
 }

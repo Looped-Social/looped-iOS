@@ -6,6 +6,10 @@ extension Color {
     static let loopedPrimary = Color("PrimaryColor")
     static let loopedSecondary = Color("SecondaryColor")
     static let loopedContrast = Color("ContrastColor")
+
+    static func loopedAccent(isAnonymousMode: Bool) -> Color {
+        isAnonymousMode ? .loopedSecondary : .loopedPrimary
+    }
     
     // MARK: - Background Colors
     static let loopedBackground = Color("BackgroundColor")

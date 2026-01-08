@@ -87,18 +87,37 @@ class MessagesViewModel: ObservableObject {
         isLoadingRequests = false
     }
 
-    func approveMessageRequest(_ request: MessageRequest) async {
-        guard !processingRequestIds.contains(request.backendId) else { return }
+    @discardableResult
+    func approveMessageRequest(_ request: MessageRequest) async -> Conversation? {
+        guard !processingRequestIds.contains(request.backendId) else { return nil }
         processingRequestIds.insert(request.backendId)
         defer { processingRequestIds.remove(request.backendId) }
 
         do {
             try await messageService.approveMessageRequest(requestId: request.backendId)
             messageRequests.removeAll { $0.backendId == request.backendId }
+
+            if request.isGroup {
+                await loadChannels()
+                return nil
+            }
+
+            if let senderBackendId = request.senderBackendId {
+                do {
+                    let conversation = try await messageService.startConversation(with: senderBackendId)
+                    upsertConversationToTop(conversation)
+                    return conversation
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+            }
+
             await loadConversations()
         } catch {
             errorMessage = error.localizedDescription
         }
+
+        return nil
     }
 
     func rejectMessageRequest(_ request: MessageRequest) async {
@@ -120,6 +139,11 @@ class MessagesViewModel: ObservableObject {
 
     func refreshInbox() async {
         await loadInbox()
+    }
+
+    private func upsertConversationToTop(_ conversation: Conversation) {
+        conversations.removeAll { $0.backendId == conversation.backendId }
+        conversations.insert(conversation, at: 0)
     }
 
     private func hydrateSenderProfiles(for requests: [MessageRequest]) async {
