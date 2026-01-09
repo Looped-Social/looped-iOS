@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 @MainActor
 final class SearchPostsFeedViewModel: ObservableObject {
@@ -11,10 +12,17 @@ final class SearchPostsFeedViewModel: ObservableObject {
     private let feedService: FeedServiceProtocol
     private let pageSize = 20
     private var nextCursor: String?
+    private var cancellables = Set<AnyCancellable>()
 
     init(query: String, feedService: FeedServiceProtocol = FeedService()) {
         self.query = query
         self.feedService = feedService
+        NotificationCenter.default.publisher(for: .contentPreferencesChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.loadPosts(reset: true) }
+            }
+            .store(in: &cancellables)
     }
 
     func loadInitial() async {
@@ -82,4 +90,3 @@ final class SearchPostsFeedViewModel: ObservableObject {
         }
     }
 }
-

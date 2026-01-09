@@ -212,45 +212,60 @@ private struct TwoFactorEnrollmentView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = TwoFactorEnrollmentViewModel()
     let onComplete: () -> Void
+    @State private var showCountryPicker = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark")
-                        .font(.loopedCustom(.semibold, size: 18))
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
-                Spacer()
-
-                Text("Add Phone")
-                    .font(.loopedSubheadMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                Image(systemName: "xmark")
-                    .font(.loopedCustom(.semibold, size: 18))
-                    .opacity(0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 if viewModel.step == .phoneEntry {
                     Text("Enter your phone number")
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
 
-                    TextField("+1 555 123 4567", text: $viewModel.phoneNumber)
+                    HStack(spacing: 10) {
+                        Button(action: { showCountryPicker = true }) {
+                            HStack(spacing: 6) {
+                                Text(viewModel.selectedCountry.flagEmoji)
+                                    .font(.loopedBody)
+                                Text("+\(viewModel.selectedCountry.callingCode)")
+                                    .font(.loopedBodyMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                                Image(systemName: "chevron.down")
+                                    .font(.loopedCustom(.medium, size: 14))
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(Color.loopedMutedBackground.opacity(0.6))
+                            .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+
+                        TextField(
+                            PhoneNumberFormatter.placeholderNational(countryCallingCode: viewModel.selectedCountry.callingCode),
+                            text: Binding(
+                                get: {
+                                    PhoneNumberFormatter.formattedNational(
+                                        digits: viewModel.phoneDigits,
+                                        countryCallingCode: viewModel.selectedCountry.callingCode
+                                    )
+                                },
+                                set: {
+                                    viewModel.phoneDigits = PhoneNumberFormatter.sanitizedDigits(
+                                        from: $0,
+                                        countryCallingCode: viewModel.selectedCountry.callingCode
+                                    )
+                                }
+                            )
+                        )
                         .font(.loopedBody)
-                        .padding(.horizontal, 14)
+                        .keyboardType(.numberPad)
+                        .textContentType(.telephoneNumber)
                         .padding(.vertical, 12)
+                        .padding(.horizontal, 14)
                         .background(Color.loopedMutedBackground.opacity(0.6))
                         .cornerRadius(12)
-                        .keyboardType(.phonePad)
+                    }
 
                     Button(action: {
                         Task { await viewModel.sendCode() }
@@ -263,7 +278,7 @@ private struct TwoFactorEnrollmentView: View {
                             .background(Color.loopedPrimary)
                             .clipShape(Capsule())
                     }
-                    .disabled(viewModel.isLoading)
+                    .disabled(viewModel.isLoading || !viewModel.isPhoneNumberComplete)
                 } else {
                     Text("Enter the code we sent")
                         .font(.loopedBodyMedium)
@@ -311,12 +326,82 @@ private struct TwoFactorEnrollmentView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 }
+
+                Spacer()
             }
             .padding(.horizontal, 20)
-
-            Spacer()
+            .padding(.top, 12)
+            .navigationTitle("Add Phone")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .background(Color.loopedBackground.ignoresSafeArea())
+        .sheet(isPresented: $showCountryPicker) {
+            CountryCallingCodePickerView(selected: $viewModel.selectedCountry)
+        }
+        .onChange(of: viewModel.selectedCountry) { _, newValue in
+            viewModel.phoneDigits = PhoneNumberFormatter.sanitizedDigits(
+                from: viewModel.phoneDigits,
+                countryCallingCode: newValue.callingCode
+            )
+        }
+    }
+}
+
+private struct CountryCallingCodePickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selected: CountryCallingCode
+    @State private var query = ""
+
+    private var filtered: [CountryCallingCode] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return CountryCallingCode.supported }
+
+        return CountryCallingCode.supported.filter { item in
+            item.name.localizedCaseInsensitiveContains(trimmed)
+            || item.isoCode.localizedCaseInsensitiveContains(trimmed)
+            || item.callingCode.localizedCaseInsensitiveContains(trimmed)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(filtered) { item in
+                Button(action: {
+                    selected = item
+                    dismiss()
+                }) {
+                    HStack {
+                        Text(item.displayLabel)
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        Spacer()
+
+                        if item == selected {
+                            Image(systemName: "checkmark")
+                                .font(.loopedCustom(.medium, size: 16))
+                                .foregroundColor(.loopedSecondary)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .navigationTitle("Country Code")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic))
+        }
     }
 }
 

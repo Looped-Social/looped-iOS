@@ -22,6 +22,7 @@ struct User: Codable, Identifiable {
     let postsCount: Int?
     let commentsCount: Int?
     let showFollowerCount: Bool?
+    let hideAnonymousPosts: Bool?
     let messagePermission: MessagePermission?
     let displayCommunity: DisplayCommunity?
     let displaySpecialization: DisplayCommunity?
@@ -48,6 +49,7 @@ struct User: Codable, Identifiable {
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
         showFollowerCount: Bool? = nil,
+        hideAnonymousPosts: Bool? = nil,
         messagePermission: MessagePermission? = nil,
         displayCommunity: DisplayCommunity? = nil,
         displaySpecialization: DisplayCommunity? = nil
@@ -73,6 +75,7 @@ struct User: Codable, Identifiable {
         self.postsCount = postsCount
         self.commentsCount = commentsCount
         self.showFollowerCount = showFollowerCount
+        self.hideAnonymousPosts = hideAnonymousPosts
         self.messagePermission = messagePermission
         self.displayCommunity = displayCommunity
         self.displaySpecialization = displaySpecialization
@@ -109,6 +112,7 @@ extension User {
         self.postsCount = stats?.postsCount ?? profile?.postsCount
         self.commentsCount = stats?.commentsCount ?? profile?.commentsCount
         self.showFollowerCount = profile?.showFollowerCount ?? dto.showFollowerCount
+        self.hideAnonymousPosts = dto.hideAnonymousPosts
         self.messagePermission = dto.messagePermission ?? profile?.messagePermission
         self.displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
         self.displaySpecialization = dto.displaySpecialization.map(DisplayCommunity.init(dto:))
@@ -134,6 +138,7 @@ extension User {
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
         showFollowerCount: Bool? = nil,
+        hideAnonymousPosts: Bool? = nil,
         messagePermission: MessagePermission? = nil,
         displayCommunity: DisplayCommunity? = nil,
         displaySpecialization: DisplayCommunity? = nil
@@ -160,6 +165,7 @@ extension User {
             postsCount: postsCount,
             commentsCount: commentsCount,
             showFollowerCount: showFollowerCount,
+            hideAnonymousPosts: hideAnonymousPosts,
             messagePermission: messagePermission,
             displayCommunity: displayCommunity,
             displaySpecialization: displaySpecialization
@@ -168,5 +174,37 @@ extension User {
 
     var company: String {
         companyName ?? "Looped"
+    }
+}
+
+extension User {
+    func updating(hideAnonymousPosts: Bool?) -> User {
+        User(
+            id: id,
+            backendId: backendId,
+            username: username,
+            displayName: displayName,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dateOfBirth,
+            handle: handle,
+            companyId: companyId,
+            companyName: companyName,
+            bio: bio,
+            profileImageURL: profileImageURL,
+            isVerified: isVerified,
+            isAnonymous: isAnonymous,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            followerCount: followerCount,
+            followingCount: followingCount,
+            postsCount: postsCount,
+            commentsCount: commentsCount,
+            showFollowerCount: showFollowerCount,
+            hideAnonymousPosts: hideAnonymousPosts,
+            messagePermission: messagePermission,
+            displayCommunity: displayCommunity,
+            displaySpecialization: displaySpecialization
+        )
     }
 }

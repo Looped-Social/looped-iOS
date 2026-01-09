@@ -12,274 +12,244 @@ struct EditProfileView: View {
     @State private var selectedImage: PhotosPickerItem?
     @State private var profileImage: Image?
     @State private var isSaving = false
-    @State private var showSuccessMessage = false
+    @State private var toastMessage: ToastMessage?
 
     var body: some View {
-        if viewModel.user == nil {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.loopedBackground.ignoresSafeArea())
-        } else {
-            VStack(spacing: 0) {
-                // Header
-                EditProfileHeader {
-                    dismiss()
-                }
-
-                // Scrollable content
-                ScrollView {
-                VStack(spacing: 24) {
-                    // Profile Image Section
-                    VStack(spacing: 12) {
-                        PhotosPicker(selection: $selectedImage, matching: .images) {
-                            ZStack(alignment: .bottomTrailing) {
-                                // Profile Image
-                                if let profileImage = profileImage {
-                                    profileImage
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                        .frame(width: 100, height: 100)
-                                        .clipShape(Circle())
-                                } else {
-                                    ProfileAvatarView(
-                                        imageURL: viewModel.user?.profileImageURL,
-                                        size: 100,
-                                        iconScale: 0.4
-                                    )
-                                }
-
-                                // Edit icon overlay
-                                Circle()
-                                    .fill(Color.loopedPrimary)
-                                    .frame(width: 32, height: 32)
-                                    .overlay(
-                                        Image(systemName: "camera.fill")
-                                            .font(.loopedCustom(size: 14))
-                                            .foregroundColor(.loopedWhite)
-                                    )
-                            }
-                        }
-                        .onChange(of: selectedImage) { oldValue, newValue in
-                            Task {
-                                if let data = try? await newValue?.loadTransferable(type: Data.self),
-                                   let uiImage = UIImage(data: data) {
-                                    profileImage = Image(uiImage: uiImage)
-                                }
-                            }
-                        }
-
-                        Text("Tap to change profile photo")
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedTextSecondary)
+        Group {
+            if viewModel.user == nil {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.loopedBackground.ignoresSafeArea())
+            } else {
+                VStack(spacing: 0) {
+                    // Header
+                    EditProfileHeader {
+                        dismiss()
                     }
-                    .padding(.top, 24)
 
-                    // Form Fields
-                    VStack(spacing: 20) {
-                        // Display Name
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Display Name")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
+                    // Scrollable content
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            // Profile Image Section
+                            VStack(spacing: 12) {
+                                PhotosPicker(selection: $selectedImage, matching: .images) {
+                                    ZStack(alignment: .bottomTrailing) {
+                                        // Profile Image
+                                        if let profileImage = profileImage {
+                                            profileImage
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(width: 100, height: 100)
+                                                .clipShape(Circle())
+                                        } else {
+                                            ProfileAvatarView(
+                                                imageURL: viewModel.user?.profileImageURL,
+                                                size: 100,
+                                                iconScale: 0.4
+                                            )
+                                        }
 
-                            TextField("Enter your display name", text: $displayName)
-                                .font(.loopedBody)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(Color.loopedWhite)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                )
-                                .cornerRadius(12)
-                        }
-
-                        // Bio
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Bio")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-
-                            ZStack(alignment: .topLeading) {
-                                if bio.isEmpty {
-                                    Text("Tell us about yourself...")
-                                        .font(.loopedBody)
-                                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 18)
+                                        // Edit icon overlay
+                                        Circle()
+                                            .fill(Color.loopedPrimary)
+                                            .frame(width: 32, height: 32)
+                                            .overlay(
+                                                Image(systemName: "camera.fill")
+                                                    .font(.loopedCustom(size: 14))
+                                                    .foregroundColor(.loopedWhite)
+                                            )
+                                    }
+                                }
+                                .onChange(of: selectedImage) { _, newValue in
+                                    Task {
+                                        if let data = try? await newValue?.loadTransferable(type: Data.self),
+                                           let uiImage = UIImage(data: data) {
+                                            profileImage = Image(uiImage: uiImage)
+                                        }
+                                    }
                                 }
 
-                                TextEditor(text: $bio)
-                                    .font(.loopedBody)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
-                                    .frame(minHeight: 120)
-                                    .scrollContentBackground(.hidden)
-                                    .background(Color.loopedWhite)
-                            }
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .cornerRadius(12)
-
-                            Text("\(bio.count)/150")
-                                .font(.loopedSmallText)
-                                .foregroundColor(.loopedTextSecondary)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                        }
-
-                        // Handle (editable)
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Handle")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-
-                            HStack(spacing: 0) {
-                                Text("@")
-                                    .font(.loopedBody)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .padding(.leading, 16)
-
-                                TextField("username", text: $handle)
-                                    .font(.loopedBody)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 14)
-                                    .autocapitalization(.none)
-                                    .autocorrectionDisabled()
-
-                                Spacer()
-                            }
-                            .background(Color.loopedWhite)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .cornerRadius(12)
-
-                            Text("Your unique identifier")
-                                .font(.loopedSmallText)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-
-                        // Show Follower Count Toggle
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Show Follower Count")
-                                    .font(.loopedBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-
-                                Text("Display your follower count on your profile")
-                                    .font(.loopedSmallText)
+                                Text("Tap to change profile photo")
+                                    .font(.loopedSubBodyMedium)
                                     .foregroundColor(.loopedTextSecondary)
                             }
+                            .padding(.top, 24)
 
-                            Spacer()
+                            // Form Fields
+                            VStack(spacing: 20) {
+                                // Display Name
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Display Name")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedTextPrimary)
 
-                            Toggle("", isOn: $showFollowerCount)
-                                .toggleStyle(SwitchToggleStyle(tint: Color.loopedPrimary))
-                        }
-                        .padding(.vertical, 12)
-
-                        // Company & Job Title (navigate to settings)
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Company")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-
-                            NavigationLink(destination: SettingsView().environmentObject(AuthViewModel())) {
-                                HStack {
-                                    Text(viewModel.user?.company ?? "")
+                                    TextField("Enter your display name", text: $displayName)
                                         .font(.loopedBody)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                        .background(Color.loopedWhite)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                                        )
+                                        .cornerRadius(12)
+                                }
+
+                                // Bio
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Bio")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedTextPrimary)
+
+                                    ZStack(alignment: .topLeading) {
+                                        if bio.isEmpty {
+                                            Text("Tell us about yourself...")
+                                                .font(.loopedBody)
+                                                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                                                .padding(.horizontal, 20)
+                                                .padding(.vertical, 18)
+                                        }
+
+                                        TextEditor(text: $bio)
+                                            .font(.loopedBody)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 10)
+                                            .frame(minHeight: 120)
+                                            .scrollContentBackground(.hidden)
+                                            .background(Color.loopedWhite)
+                                    }
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .cornerRadius(12)
+
+                                    Text("\(bio.count)/150")
+                                        .font(.loopedSmallText)
                                         .foregroundColor(.loopedTextSecondary)
+                                        .frame(maxWidth: .infinity, alignment: .trailing)
+                                }
+
+                                // Handle (editable)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Handle")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedTextPrimary)
+
+                                    HStack(spacing: 0) {
+                                        Text("@")
+                                            .font(.loopedBody)
+                                            .foregroundColor(.loopedTextSecondary)
+                                            .padding(.leading, 16)
+
+                                        TextField("username", text: $handle)
+                                            .font(.loopedBody)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 14)
+                                            .autocapitalization(.none)
+                                            .autocorrectionDisabled()
+
+                                        Spacer()
+                                    }
+                                    .background(Color.loopedWhite)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .cornerRadius(12)
+
+                                    Text("Your unique identifier")
+                                        .font(.loopedSmallText)
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+
+                                // Show Follower Count Toggle
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Show Follower Count")
+                                            .font(.loopedBodyMedium)
+                                            .foregroundColor(.loopedTextPrimary)
+
+                                        Text("Display your follower count on your profile")
+                                            .font(.loopedSmallText)
+                                            .foregroundColor(.loopedTextSecondary)
+                                    }
 
                                     Spacer()
 
-                                    Image(systemName: "chevron.right")
-                                        .font(.loopedCustom(size: 14))
+                                    Toggle("", isOn: $showFollowerCount)
+                                        .toggleStyle(SwitchToggleStyle(tint: Color.loopedPrimary))
+                                }
+                                .padding(.vertical, 12)
+
+                                // Company & Job Title (navigate to settings)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Company")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedTextPrimary)
+
+                                    NavigationLink(destination: SettingsView().environmentObject(AuthViewModel())) {
+                                        HStack {
+                                            Text(viewModel.user?.company ?? "")
+                                                .font(.loopedBody)
+                                                .foregroundColor(.loopedTextSecondary)
+
+                                            Spacer()
+
+                                            Image(systemName: "chevron.right")
+                                                .font(.loopedCustom(size: 14))
+                                                .foregroundColor(.loopedTextSecondary)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 14)
+                                        .background(Color.loopedTextSecondary.opacity(0.05))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                                        )
+                                        .cornerRadius(12)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+
+                                    Text("Go to Settings to verify a different company")
+                                        .font(.loopedSmallText)
                                         .foregroundColor(.loopedTextSecondary)
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(Color.loopedTextSecondary.opacity(0.05))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                                )
-                                .cornerRadius(12)
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .padding(.horizontal, 20)
 
-                            Text("Go to Settings to verify a different company")
-                                .font(.loopedSmallText)
-                                .foregroundColor(.loopedTextSecondary)
+                            // Save Button
+                            PrimaryButton(
+                                title: "Save Changes",
+                                isEnabled: !displayName.isEmpty && !handle.isEmpty && bio.count <= 150,
+                                isLoading: isSaving
+                            ) {
+                                Task {
+                                    await saveProfile()
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
                         }
+                        .padding(.bottom, 100)
                     }
-                    .padding(.horizontal, 20)
-
-                    // Success Message
-                    if showSuccessMessage {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.loopedSuccess)
-                            Text("Profile updated successfully")
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(Color.loopedSuccess.opacity(0.1))
-                        .cornerRadius(8)
-                        .padding(.horizontal, 20)
-                    }
-
-                    // Error Message
-                    if let error = viewModel.errorMessage {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.loopedError)
-                            Text(error)
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(Color.loopedError.opacity(0.1))
-                        .cornerRadius(8)
-                        .padding(.horizontal, 20)
-                    }
-
-                    // Save Button
-                    PrimaryButton(
-                        title: "Save Changes",
-                        isEnabled: !displayName.isEmpty && !handle.isEmpty && bio.count <= 150,
-                        isLoading: isSaving
-                    ) {
-                        Task {
-                            await saveProfile()
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    }
-                    .padding(.bottom, 100)
+                }
+                .background(Color.loopedBackground.ignoresSafeArea())
+                .navigationBarHidden(true)
+                .onAppear {
+                    // Initialize with current user data
+                    displayName = viewModel.user?.displayName ?? ""
+                    handle = viewModel.user?.handle ?? ""
+                    bio = viewModel.user?.bio ?? ""
+                    showFollowerCount = viewModel.user?.showFollowerCount ?? true
                 }
             }
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .onAppear {
-                // Initialize with current user data
-                displayName = viewModel.user?.displayName ?? ""
-                handle = viewModel.user?.handle ?? ""
-                bio = viewModel.user?.bio ?? ""
-                showFollowerCount = viewModel.user?.showFollowerCount ?? true
-            }
         }
+        .toast($toastMessage)
     }
 
     private func saveProfile() async {
         isSaving = true
-        showSuccessMessage = false
 
         await viewModel.updateProfile(
             displayName: displayName.isEmpty ? nil : displayName,
@@ -290,13 +260,19 @@ struct EditProfileView: View {
 
         isSaving = false
 
-        if viewModel.errorMessage == nil {
-            showSuccessMessage = true
-
-            // Dismiss after short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                dismiss()
+        if let errorMessage = viewModel.errorMessage, !errorMessage.isEmpty {
+            withAnimation(.easeOut(duration: 0.2)) {
+                toastMessage = ToastMessage(text: errorMessage, kind: .error)
             }
+            return
+        }
+
+        withAnimation(.easeOut(duration: 0.2)) {
+            toastMessage = ToastMessage(text: "Profile updated", kind: .success)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            dismiss()
         }
     }
 }

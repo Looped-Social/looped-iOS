@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 @MainActor
 final class HashtagFeedViewModel: ObservableObject {
@@ -11,10 +12,17 @@ final class HashtagFeedViewModel: ObservableObject {
     private let pageSize = 20
     private var nextCursor: String?
     private let hashtag: String
+    private var cancellables = Set<AnyCancellable>()
 
     init(hashtag: String, feedService: FeedServiceProtocol = FeedService()) {
         self.hashtag = hashtag
         self.feedService = feedService
+        NotificationCenter.default.publisher(for: .contentPreferencesChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.loadPosts(reset: true) }
+            }
+            .store(in: &cancellables)
     }
 
     func loadInitial() async {

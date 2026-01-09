@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 @MainActor
 final class CollectionPostsViewModel: ObservableObject {
@@ -18,10 +19,17 @@ final class CollectionPostsViewModel: ObservableObject {
     private let feedService: FeedServiceProtocol
     private var nextCursor: String?
     private let pageSize = 20
+    private var cancellables = Set<AnyCancellable>()
     
     init(collection: CollectionType, feedService: FeedServiceProtocol = FeedService()) {
         self.collection = collection
         self.feedService = feedService
+        NotificationCenter.default.publisher(for: .contentPreferencesChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.loadInitial() }
+            }
+            .store(in: &cancellables)
     }
     
     func loadInitial() async {

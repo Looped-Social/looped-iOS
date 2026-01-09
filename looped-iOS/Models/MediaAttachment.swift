@@ -44,7 +44,15 @@ enum MediaType: String, Codable, CaseIterable {
 extension MediaAttachment {
     init(dto: MediaAttachmentDTO) {
         self.id = UUID()
-        self.type = MediaType(rawValue: dto.type ?? "image") ?? .image
+        let trimmedType = dto.type?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedType: MediaType
+        if let trimmedType, !trimmedType.isEmpty, let type = MediaType(rawValue: trimmedType) {
+            resolvedType = type
+        } else {
+            let lowercased = dto.url.lowercased()
+            resolvedType = lowercased.contains(".mp4") ? .video : .image
+        }
+        self.type = resolvedType
         self.url = dto.url
         self.thumbnailUrl = dto.thumbnailUrl
         self.width = dto.width

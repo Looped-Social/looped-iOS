@@ -223,12 +223,26 @@ struct UserProfileHeader: View {
 struct UserProfileInfoSection: View {
     let userProfile: UserProfile
     @Binding var isAnonymousMode: Bool
+    @State private var showAvatarViewer = false
 
     var body: some View {
         VStack(spacing: 0) {
             headerSection
             statsSection
             ProfileActionButtons(userProfile: userProfile, isAnonymous: $isAnonymousMode)
+        }
+        .fullScreenCover(isPresented: $showAvatarViewer) {
+            Group {
+                if let avatarViewerUrl {
+                    FullScreenImageViewer(
+                        imageUrls: [avatarViewerUrl],
+                        initialIndex: 0,
+                        isPresented: $showAvatarViewer
+                    )
+                } else {
+                    Color.loopedClear
+                }
+            }
         }
     }
 
@@ -257,7 +271,19 @@ struct UserProfileInfoSection: View {
                                 .foregroundColor(.loopedWhite)
                         )
                 } else {
-                    ProfileAvatarView(imageURL: userProfile.profileImageURL, size: 64)
+                    Group {
+                        if let avatarViewerUrl {
+                            Button {
+                                showAvatarViewer = true
+                            } label: {
+                                ProfileAvatarView(imageURL: avatarViewerUrl, size: 64)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .accessibilityLabel("View profile photo")
+                        } else {
+                            ProfileAvatarView(imageURL: userProfile.profileImageURL, size: 64)
+                        }
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -350,6 +376,14 @@ struct UserProfileInfoSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    private var avatarViewerUrl: String? {
+        guard !userProfile.isAnonymous else { return nil }
+        let trimmed = (userProfile.profileImageURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return nil }
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return nil }
+        return trimmed
     }
 }
 
@@ -486,6 +520,7 @@ struct UserCommentsList: View {
     let userProfile: UserProfile
     @ObservedObject var viewModel: UserCommentsViewModel
     @EnvironmentObject var commentsManager: CommentsModalManager
+    @State private var showPostUnavailableAlert = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -521,7 +556,7 @@ struct UserCommentsList: View {
                 .padding(.top, 60)
             } else {
                 ForEach(viewModel.comments) { comment in
-                    let previewText = previewText(for: viewModel.postPreview(for: comment))
+                    let previewText = previewText(for: comment)
                     ProfileReplyRow(comment: comment, previewText: previewText) {
                         Task { await openReply(comment) }
                     }
@@ -539,23 +574,39 @@ struct UserCommentsList: View {
                         .padding(.vertical, 16)
                 }
             }
+                }
+                .padding(.bottom, 80)
+        .alert("Post unavailable", isPresented: $showPostUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This post may be hidden or no longer available.")
         }
-        .padding(.bottom, 80)
     }
 
-    private func previewText(for post: Post?) -> String? {
-        guard let post else { return nil }
-        let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        return preview.isEmpty ? "Post unavailable" : preview
+    private func previewText(for comment: Comment) -> String? {
+        if let post = viewModel.postPreview(for: comment) {
+            let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return preview.isEmpty ? "Post unavailable" : preview
+        }
+        if viewModel.isPostUnavailable(postId: comment.postBackendId) {
+            return "Post unavailable"
+        }
+        return nil
     }
 
     private func openReply(_ comment: Comment) async {
-        guard let post = await viewModel.fetchPostForReply(comment) else { return }
-        commentsManager.showComments(
-            for: post,
-            focusCommentId: comment.backendId,
-            focusParentId: comment.replyToBackendId
-        )
+        if let post = await viewModel.fetchPostForReply(comment) {
+            commentsManager.showComments(
+                for: post,
+                focusCommentId: comment.backendId,
+                focusParentId: comment.replyToBackendId
+            )
+            return
+        }
+        guard viewModel.isPostUnavailable(postId: comment.postBackendId) else { return }
+        await MainActor.run {
+            showPostUnavailableAlert = true
+        }
     }
 }
 

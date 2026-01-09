@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import PhotosUI
 
 struct UserSettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -8,6 +9,7 @@ struct UserSettingsView: View {
 
     private let userService: UserServiceProtocol = UserService()
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+    private let mediaService: MediaServiceProtocol = MediaService()
     private let anonService = AnonService.shared
 
     @State private var username: String = ""
@@ -38,6 +40,9 @@ struct UserSettingsView: View {
     @State private var isLoadingAnonDisplayCommunities = false
     @State private var anonDisplayCommunityError: String?
     @State private var toastMessage: ToastMessage?
+    @State private var selectedProfilePhoto: PhotosPickerItem?
+    @State private var profilePhotoPreview: UIImage?
+    @State private var profilePhotoPayload: ImageUploadPayload?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -72,15 +77,37 @@ struct UserSettingsView: View {
                 VStack(spacing: 24) {
                     // Profile Picture Section
                     VStack(spacing: 12) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.loopedCustom(size: 80))
-                            .foregroundColor(.loopedTextSecondary)
+                        PhotosPicker(selection: $selectedProfilePhoto, matching: .images) {
+                            ZStack(alignment: .bottomTrailing) {
+                                Group {
+                                    if let profilePhotoPreview {
+                                        Image(uiImage: profilePhotoPreview)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 96, height: 96)
+                                            .clipShape(Circle())
+                                    } else {
+                                        ProfileAvatarView(imageURL: authViewModel.currentUser?.profileImageURL, size: 96, iconScale: 0.4)
+                                    }
+                                }
 
-                        Button("Change Profile Picture") {
-                            // TODO: Implement photo picker
+                                Circle()
+                                    .fill(Color.loopedPrimary)
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Image(systemName: "camera.fill")
+                                            .font(.loopedCustom(size: 14))
+                                            .foregroundColor(.loopedWhite)
+                                    )
+                            }
                         }
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedSecondary)
+                        .onChange(of: selectedProfilePhoto) { _, newValue in
+                            Task { await handleProfilePhotoSelection(newValue) }
+                        }
+
+                        Text("Tap to change profile photo")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedSecondary)
                     }
                     .padding(.top, 20)
 
@@ -564,6 +591,17 @@ private extension UserSettingsView {
         Task {
             defer { isSaving = false }
             do {
+                var profileMediaAssetId: Int?
+                if let payload = profilePhotoPayload {
+                    let asset = try await mediaService.uploadImage(
+                        data: payload.data,
+                        mimeType: payload.mimeType,
+                        width: payload.width,
+                        height: payload.height
+                    )
+                    profileMediaAssetId = asset.id
+                }
+
                 let trimmedUsername = normalizedUsername
                 let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
                 let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -580,7 +618,8 @@ private extension UserSettingsView {
                     bio: bio.isEmpty ? nil : bio,
                     isAnonymous: false,
                     showFollowerCount: nil,
-                    messagePermission: authViewModel.currentUser?.messagePermission
+                    messagePermission: authViewModel.currentUser?.messagePermission,
+                    profileMediaAssetId: profileMediaAssetId
                 )
                 if displayCommunityId != initialDisplayCommunityId {
                     _ = try await userService.updateDisplayCommunity(communityId: displayCommunityId)
@@ -601,6 +640,9 @@ private extension UserSettingsView {
                     initialAnonDisplayCommunityId = anonDisplayCommunityId
                 }
                 await authViewModel.loadCurrentUser()
+                profilePhotoPayload = nil
+                selectedProfilePhoto = nil
+                profilePhotoPreview = nil
                 presentToast(message: "Changes saved", kind: .success)
             } catch {
                 saveError = mapSaveError(error)
@@ -718,6 +760,14 @@ private extension UserSettingsView {
             switch apiError {
             case "user_not_provisioned":
                 return "Your account isn't fully onboarded yet."
+            case "media_asset_not_found":
+                return "That photo couldn't be found. Try uploading again."
+            case "media_asset_forbidden":
+                return "That photo isn't linked to your account. Try uploading again."
+            case "invalid_profile_image":
+                return "That file isn't a supported image type."
+            case "cdn_not_configured":
+                return "Profile photos are temporarily unavailable. Try again later."
             case "invalid_username":
                 usernameState = .invalid
                 return "Use 3-30 lowercase letters, numbers, or underscores."
@@ -747,6 +797,54 @@ private extension UserSettingsView {
             toastMessage = ToastMessage(text: message, kind: kind)
         }
     }
+
+    @MainActor
+    private func handleProfilePhotoSelection(_ newValue: PhotosPickerItem?) async {
+        guard let newValue else { return }
+        do {
+            guard let data = try await newValue.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else {
+                presentToast(message: "Couldn't read that photo. Try another one.", kind: .error)
+                return
+            }
+            profilePhotoPreview = image
+            profilePhotoPayload = makeUploadPayload(from: image)
+        } catch {
+            presentToast(message: "Couldn't load that photo. Try another one.", kind: .error)
+        }
+    }
+
+    private func makeUploadPayload(from image: UIImage) -> ImageUploadPayload? {
+        let width = Int(image.size.width * image.scale)
+        let height = Int(image.size.height * image.scale)
+
+        if imageHasAlpha(image), let pngData = image.pngData() {
+            return ImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
+        }
+
+        if let jpegData = image.jpegData(compressionQuality: 0.85) {
+            return ImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
+        }
+
+        return nil
+    }
+
+    private func imageHasAlpha(_ image: UIImage) -> Bool {
+        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
+        switch alphaInfo {
+        case .first, .last, .premultipliedFirst, .premultipliedLast:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+private struct ImageUploadPayload {
+    let data: Data
+    let mimeType: String
+    let width: Int
+    let height: Int
 }
 
 #Preview {

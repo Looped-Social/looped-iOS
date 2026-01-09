@@ -45,13 +45,13 @@ class CommunityService: CommunityServiceProtocol {
     }
 
     func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult> {
-        var endpoint = "/v1/communities/search?query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)&limit=\(limit > 0 ? limit : defaultLimit)"
+        let encodedQuery = URLQueryEncoding.encode(query)
+        var endpoint = "/v1/communities/search?query=\(encodedQuery)&limit=\(limit > 0 ? limit : defaultLimit)"
         if let kindValue = kind?.queryValue {
             endpoint += "&kind=\(kindValue)"
         }
         if let cursor, !cursor.isEmpty {
-            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
-            endpoint += "&cursor=\(encoded)"
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
         }
         let response: CommunitySearchResponseDTO = try await apiClient.get(endpoint)
         let items = response.items.map(CommunitySearchResult.init(dto:))

@@ -8,6 +8,9 @@
 import SwiftUI
 import FirebaseCore
 import UserNotifications
+#if canImport(FirebaseAuth)
+import FirebaseAuth
+#endif
 #if canImport(GoogleSignIn)
 import GoogleSignIn
 #endif
@@ -31,27 +34,42 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   private func configureNotifications() {
       let center = UNUserNotificationCenter.current()
       center.delegate = self
-      center.getNotificationSettings { settings in
-          let authorized: Bool
-          switch settings.authorizationStatus {
-          case .authorized, .provisional, .ephemeral:
-              authorized = true
-          default:
-              authorized = false
-          }
-          guard authorized else { return }
-          DispatchQueue.main.async {
-              UIApplication.shared.registerForRemoteNotifications()
-          }
+      DispatchQueue.main.async {
+          UIApplication.shared.registerForRemoteNotifications()
       }
   }
 
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
       let token = deviceToken.map { String(format: "%02x", $0) }.joined()
       NotificationDeviceRegistrar.shared.storeDeviceToken(token)
+
+      #if canImport(FirebaseAuth)
+      let tokenType: AuthAPNSTokenType = {
+          #if DEBUG
+          return .sandbox
+          #else
+          return .prod
+          #endif
+      }()
+      Auth.auth().setAPNSToken(deviceToken, type: tokenType)
+      #endif
   }
 
   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+  }
+
+  func application(
+      _ application: UIApplication,
+      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+      #if canImport(FirebaseAuth)
+      if Auth.auth().canHandleNotification(userInfo) {
+          completionHandler(.noData)
+          return
+      }
+      #endif
+      completionHandler(.noData)
   }
 
   func userNotificationCenter(

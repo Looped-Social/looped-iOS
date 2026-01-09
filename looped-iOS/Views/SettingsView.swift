@@ -26,11 +26,13 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     private let userService: UserServiceProtocol = UserService()
+    private let contentPreferencesService: ContentPreferencesServiceProtocol = ContentPreferencesService()
     private let anonService = AnonService.shared
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
 
     // Toggle states
     @State private var showFollowerCount = true
+    @State private var hideAnonymousPosts = false
     @AppStorage("anonymousMode") private var anonymousMode = false
     @State private var showCommunityRequest = false
     @State private var isEnrollingAnon = false
@@ -60,6 +62,10 @@ struct SettingsView: View {
     @State private var followerUpdateError = ""
     @State private var isUpdatingFollowerCount = false
     @State private var skipFollowerToggleUpdate = false
+    @State private var contentPreferencesUpdateError = ""
+    @State private var showContentPreferencesUpdateAlert = false
+    @State private var isUpdatingContentPreferences = false
+    @State private var skipContentPreferencesToggleUpdate = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -156,6 +162,11 @@ struct SettingsView: View {
                     // Safety Section
                     SettingsSection(title: "Safety") {
                         SettingsToggleRow(
+                            icon: .system("eye.slash"),
+                            title: "Hide Anonymous Posts",
+                            isOn: $hideAnonymousPosts
+                        )
+                        SettingsToggleRow(
                             icon: .asset("follower-count-icon"),
                             title: "Show Follower Count",
                             isOn: $showFollowerCount
@@ -233,6 +244,14 @@ struct SettingsView: View {
             } else {
                 skipFollowerToggleUpdate = false
             }
+
+            let resolvedHideAnonymousPosts = user.hideAnonymousPosts ?? false
+            if hideAnonymousPosts != resolvedHideAnonymousPosts {
+                skipContentPreferencesToggleUpdate = true
+                hideAnonymousPosts = resolvedHideAnonymousPosts
+            } else {
+                skipContentPreferencesToggleUpdate = false
+            }
         }
         .onChange(of: showFollowerCount) { oldValue, newValue in
             if skipFollowerToggleUpdate {
@@ -240,6 +259,13 @@ struct SettingsView: View {
                 return
             }
             Task { await updateFollowerCount(oldValue: oldValue, newValue: newValue) }
+        }
+        .onChange(of: hideAnonymousPosts) { oldValue, newValue in
+            if skipContentPreferencesToggleUpdate {
+                skipContentPreferencesToggleUpdate = false
+                return
+            }
+            Task { await updateHideAnonymousPosts(oldValue: oldValue, newValue: newValue) }
         }
         .alert("Log out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
@@ -258,6 +284,11 @@ struct SettingsView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(followerUpdateError)
+        }
+        .alert("Update Failed", isPresented: $showContentPreferencesUpdateAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(contentPreferencesUpdateError)
         }
         .alert("Connection Failed", isPresented: $showLinkErrorAlert) {
             Button("OK", role: .cancel) { }
@@ -397,6 +428,34 @@ private extension SettingsView {
             showFollowerUpdateAlert = true
             skipFollowerToggleUpdate = true
             showFollowerCount = oldValue
+        }
+    }
+
+    func updateHideAnonymousPosts(oldValue: Bool, newValue: Bool) async {
+        guard !isUpdatingContentPreferences else { return }
+        isUpdatingContentPreferences = true
+        defer { isUpdatingContentPreferences = false }
+        do {
+            let response = try await contentPreferencesService.updateHideAnonymousPosts(newValue)
+            let resolvedValue = response.content.hideAnonymousPosts
+            await MainActor.run {
+                hideAnonymousPosts = resolvedValue
+                if let user = authViewModel.currentUser {
+                    authViewModel.currentUser = user.updating(hideAnonymousPosts: resolvedValue)
+                }
+            }
+            NotificationCenter.default.post(
+                name: .contentPreferencesChanged,
+                object: nil,
+                userInfo: ["hideAnonymousPosts": resolvedValue]
+            )
+        } catch {
+            await MainActor.run {
+                contentPreferencesUpdateError = error.localizedDescription
+                showContentPreferencesUpdateAlert = true
+                skipContentPreferencesToggleUpdate = true
+                hideAnonymousPosts = oldValue
+            }
         }
     }
 }

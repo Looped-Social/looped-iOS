@@ -36,6 +36,12 @@ class FeedViewModel: ObservableObject {
         self.feedService = feedService
         self.communityService = communityService
         self.mediaService = mediaService
+        NotificationCenter.default.publisher(for: .contentPreferencesChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.refreshPosts() }
+            }
+            .store(in: &cancellables)
     }
 
     func loadInitial() async {

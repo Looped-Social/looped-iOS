@@ -39,14 +39,16 @@ class UserService: UserServiceProtocol {
         bio: String?,
         isAnonymous: Bool,
         showFollowerCount: Bool?,
-        messagePermission: MessagePermission?
+        messagePermission: MessagePermission?,
+        profileMediaAssetId: Int?
     ) async throws -> User {
         let request = UpdateProfileRequest(
             displayName: displayName,
             bio: bio,
             isAnonymous: isAnonymous,
             showFollowerCount: showFollowerCount,
-            messagePermission: messagePermission
+            messagePermission: messagePermission,
+            profileMediaAssetId: profileMediaAssetId
         )
         let dto: UserDTO = try await apiClient.put("/v1/users/me", body: request)
         return User(dto: dto, profile: dto.profile)
@@ -139,10 +141,10 @@ class UserService: UserServiceProtocol {
     }
 
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage {
-        var endpoint = "/v1/users/search?query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)&limit=\(limit)"
-        if let cursor = cursor, !cursor.isEmpty {
-            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
-            endpoint += "&cursor=\(encoded)"
+        let encodedQuery = URLQueryEncoding.encode(query)
+        var endpoint = "/v1/users/search?query=\(encodedQuery)&limit=\(limit)"
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
         }
         let response: UserSearchResponseDTO = try await apiClient.get(endpoint)
         let users = response.items.map { dto in
@@ -241,6 +243,7 @@ private struct UpdateProfileRequest: Codable {
     let isAnonymous: Bool
     let showFollowerCount: Bool?
     let messagePermission: MessagePermission?
+    let profileMediaAssetId: Int?
 }
 
 private struct DisplayCommunityUpdateRequest: Codable {

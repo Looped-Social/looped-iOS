@@ -18,10 +18,10 @@ class DiscoveryService: DiscoveryServiceProtocol {
     }
 
     private func search<T: Codable>(endpoint: String, query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<T> {
-        var path = "\(endpoint)?query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)&limit=\(limit > 0 ? limit : defaultLimit)"
+        let encodedQuery = URLQueryEncoding.encode(query)
+        var path = "\(endpoint)?query=\(encodedQuery)&limit=\(limit > 0 ? limit : defaultLimit)"
         if let cursor, !cursor.isEmpty {
-            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
-            path += "&cursor=\(encoded)"
+            path += "&cursor=\(URLQueryEncoding.encode(cursor))"
         }
 
         if T.self == LoopDTO.self {

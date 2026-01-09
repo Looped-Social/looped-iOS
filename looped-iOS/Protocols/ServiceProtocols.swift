@@ -73,6 +73,7 @@ protocol MessageServiceProtocol {
     func startConversation(with participantBackendId: Int) async throws -> Conversation
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage
     func sendConversationMessage(conversationId: Int, content: String) async throws -> Message
+    func searchMessages(query: String, limit: Int, cursor: String?) async throws -> MessageSearchPage
     func getChannels(cursor: String?) async throws -> ChannelPage
     func createChannel(name: String, memberUserIds: [Int]) async throws -> Channel
     func getChannelMembers(channelBackendId: Int, cursor: String?) async throws -> ChannelMembersPage
@@ -86,6 +87,27 @@ protocol MessageServiceProtocol {
     func rejectMessageRequest(requestId: Int) async throws
 }
 
+struct MessageSearchPage {
+    let items: [MessageSearchHit]
+    let nextCursor: String?
+}
+
+struct MessageSearchHit: Identifiable {
+    let id: String
+    let type: MessageSearchHitType
+    let conversation: Conversation?
+    let channel: Channel?
+    let matchedMessage: Message?
+
+    let previewText: String
+    let previewTimestamp: Date?
+}
+
+enum MessageSearchHitType: String {
+    case conversation
+    case channel
+}
+
 protocol UserServiceProtocol {
     func getIdentity() async throws -> IdentityResponseDTO
     func getCurrentUser() async throws -> User
@@ -95,7 +117,8 @@ protocol UserServiceProtocol {
         bio: String?,
         isAnonymous: Bool,
         showFollowerCount: Bool?,
-        messagePermission: MessagePermission?
+        messagePermission: MessagePermission?,
+        profileMediaAssetId: Int?
     ) async throws -> User
     func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
     func updateDisplayCommunity(communityId: Int?) async throws -> User
@@ -107,6 +130,25 @@ protocol UserServiceProtocol {
     func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO
     func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
+}
+
+extension UserServiceProtocol {
+    func updateProfile(
+        displayName: String?,
+        bio: String?,
+        isAnonymous: Bool,
+        showFollowerCount: Bool?,
+        messagePermission: MessagePermission?
+    ) async throws -> User {
+        try await updateProfile(
+            displayName: displayName,
+            bio: bio,
+            isAnonymous: isAnonymous,
+            showFollowerCount: showFollowerCount,
+            messagePermission: messagePermission,
+            profileMediaAssetId: nil
+        )
+    }
 }
 
 protocol BlockServiceProtocol {
@@ -171,6 +213,11 @@ protocol NotificationServiceProtocol {
     func markRead(notificationId: Int) async throws
     func fetchPreferences() async throws -> NotificationPreferencesDTO
     func updatePreferences(_ update: NotificationPreferencesUpdateRequest) async throws -> NotificationPreferencesDTO
+}
+
+protocol ContentPreferencesServiceProtocol {
+    func getPreferences() async throws -> ContentPreferencesResponseDTO
+    func updateHideAnonymousPosts(_ hideAnonymousPosts: Bool) async throws -> ContentPreferencesResponseDTO
 }
 
 protocol ModerationServiceProtocol {

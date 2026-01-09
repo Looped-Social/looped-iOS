@@ -9,7 +9,7 @@
 - **Profile (self):** `ProfileViewModel` pulls profile info from `/v1/me` and posts via `/v1/users/{id}/posts`. UI shows placeholders (“Add your bio…”) while loading but no longer uses mock data.
 - **Other user profiles:** `UserProfileView` now fetches `/v1/users/{id}` and `/v1/users/{id}/posts` through `UserProfileViewModel` + `CollectionPostsViewModel`. `MockUserProfiles` was removed.
 - **People search:** `SearchResultsViewModel` calls `/v1/users/search` for people results; New Message search uses the same endpoint to start DMs.
-- **Loop/hashtag search:** Search results now call `/v1/loops/search` and `/v1/hashtags/search` with cursor paging.
+- **Loop/hashtag search:** Search results now call `/v1/loops/search` and `/v1/hashtags/search` with cursor paging (treat `next_cursor` as opaque; just pass it back as `cursor`).
 - **Onboarding org + verification:** Company/school picker uses `/v1/communities/search` (`kind=company|school`) and email verification uses `/v1/communities/{id}/domains` + `/v1/communities/{id}/verification/start|finish`.
 - **Messaging (polling):** Conversations/channels/messages are wired to `/v1/conversations` and `/v1/channels` endpoints. Mock conversations/messages removed; ChatView/ConversationRow use backend IDs.
 - **Notifications:** wired to `/v1/notifications` + `/v1/notifications/{id}/read` (polling). Mock notifications removed.

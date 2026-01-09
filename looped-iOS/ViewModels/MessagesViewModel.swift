@@ -9,6 +9,9 @@ class MessagesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingRequests = false
     @Published var isLoadingChannels = false
+    @Published var isSearching = false
+    @Published var searchResults: [MessageSearchHit] = []
+    @Published var searchErrorMessage: String?
     @Published var processingRequestIds: Set<Int> = []
     @Published var errorMessage: String?
     @Published var channelErrorMessage: String?
@@ -17,6 +20,7 @@ class MessagesViewModel: ObservableObject {
     private let userService: UserServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var senderCache: [Int: RequestSenderProfile] = [:]
+    private var searchTask: Task<Void, Never>?
 
     init(
         messageService: MessageServiceProtocol = MessageService(),
@@ -139,6 +143,50 @@ class MessagesViewModel: ObservableObject {
 
     func refreshInbox() async {
         await loadInbox()
+    }
+
+    func clearSearch() {
+        searchTask?.cancel()
+        isSearching = false
+        searchResults = []
+        searchErrorMessage = nil
+    }
+
+    func searchMessages(query: String) {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            clearSearch()
+            return
+        }
+
+        guard !AnonService.shared.isAnonymousEnabled else {
+            clearSearch()
+            searchErrorMessage = "Message search isn’t available in anonymous mode."
+            return
+        }
+
+        isSearching = true
+        searchErrorMessage = nil
+
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            do {
+                let page = try await messageService.searchMessages(query: trimmed, limit: 20, cursor: nil)
+                await MainActor.run {
+                    self.searchResults = page.items
+                    self.isSearching = false
+                    self.searchErrorMessage = nil
+                }
+            } catch {
+                await MainActor.run {
+                    self.searchResults = []
+                    self.isSearching = false
+                    self.searchErrorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 
     private func upsertConversationToTop(_ conversation: Conversation) {

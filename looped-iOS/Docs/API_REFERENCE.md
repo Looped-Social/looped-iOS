@@ -49,6 +49,7 @@ GET /v1/me
     "id": 123,
     "handle": "erin",
     "company_id": 5,
+    "hide_anonymous_posts": false,
     "verification": {
       "method": "email|video|thirdparty",
       "verified": true,
@@ -75,6 +76,58 @@ PUT /v1/users/me (alias: /users/me)
 - Request body: `{ "displayName": "optional", "bio": "optional", "isAnonymous": <bool> }`
 - Response: same shape as `/v1/me.user` with stats fields (`follower_count`, `following_count`, `posts_count`, `comments_count`) and `profile_image_url` when available
 
+### Content Preferences
+
+Concept
+- `hide_anonymous_posts` is a viewer-side content filter: when enabled, the API will not return posts whose author is anonymous.
+- It does not affect what the author can post; it only changes what the viewer sees.
+- It does not hide user profiles in people search/directory; only post lists are filtered.
+
+What counts as an “anonymous post”
+- Fully-anonymous post: created with `is_anon=true` (no `author_id`).
+- Anonymous-user post: a normal post where the author’s user profile has `is_anonymous=true`.
+- With the toggle ON, both kinds are filtered out everywhere posts are returned.
+- Exception: your own posts are still returned (so you can still see your own content even if your profile is anonymous).
+
+Client usage (recommended flow)
+- App launch / session refresh: call `GET /v1/me` and read `user.hide_anonymous_posts` to set the toggle state (no extra request needed).
+- Settings screen toggle:
+  1. `PUT /v1/content/preferences` with `{ "hideAnonymousPosts": <bool> }`
+  2. Update local state from `content.hide_anonymous_posts`
+  3. Refresh visible post lists (feed, search results, hashtag feed, saved/liked lists) because items may disappear immediately.
+- If you don’t want to rely on `/v1/me` for this setting: use `GET /v1/content/preferences`.
+
+GET /v1/content/preferences
+- Auth: `Authorization: Bearer <firebase_jwt>`
+- Headers: `Accept: application/json`
+- 200 OK:
+```
+{ "content": { "hide_anonymous_posts": false } }
+```
+- Errors:
+  - 401 `{ "error": "unauthorized" }`
+  - 409 `{ "error": "user_not_provisioned" }`
+
+PUT /v1/content/preferences
+- Auth: `Authorization: Bearer <firebase_jwt>`
+- Headers: `Content-Type: application/json`, `Accept: application/json`
+- Body (required):
+```
+{ "hideAnonymousPosts": true }
+```
+- 200 OK:
+```
+{ "content": { "hide_anonymous_posts": true } }
+```
+- Errors:
+  - 400 `{ "error": "invalid_body" }`
+  - 401 `{ "error": "unauthorized" }`
+  - 409 `{ "error": "user_not_provisioned" }`
+
+Behavior notes for UI/UX
+- Filtering happens server-side before paging; don’t client-filter paged results.
+- If a user navigates to an anonymous post while the setting is ON, `GET /v1/posts/{id}` may return 404 (treat as “post unavailable”).
+
 GET /v1/users/{id}/posts?limit=&cursor=
 - Paginated posts authored by `{id}` (ASC by created_at/id)
 - Response: `{ "items": [post...], "next_cursor": "..." }`
@@ -90,6 +143,7 @@ GET /v1/users/{id}/comments?limit=&cursor=
 GET /v1/users/search?query=&limit=&cursor=
 - Auth required, same-company scope; `query` required
 - Response: `{ "items": [{ "id": 12, "handle": "erin", "username": "erin", "display_name": "Erin", "bio": "...", "company_id": 5, "profile_image_url": "..." }], "next_cursor": "..." }`
+- Cursor notes: `next_cursor` is opaque; treat it as an opaque string and pass it back as `cursor` (don’t parse or persist it long-term).
 
 GET /v1/users?limit=&cursor=
 - Auth required, same-company scope; default directory/suggestions with the same item shape as search
@@ -217,6 +271,12 @@ POST /v1/comments/{id}/like
 
 ### Discovery
 
+GET /v1/communities/search?query=&kind=&limit=&cursor=
+- Auth required; same-company scope; `query` required
+- `kind` filters community type (e.g., workplaces use `kind=company`)
+- Response: `{ "items": [{ "id": 1, "name": "...", "description": "...", "kind": "company", "specialization_type": null, "member_count": 123, "image_url": "..." }], "next_cursor": "..." }`
+- Cursor notes: `next_cursor` is opaque; treat it as an opaque string and pass it back as `cursor` (don’t parse or persist it long-term).
+
 GET /v1/loops/search?query=&limit=&cursor=
 - Auth required; same-company scope; 422 if `query` missing, 409 if caller not provisioned
 - Response
@@ -240,6 +300,7 @@ GET /v1/hashtags/search?query=&limit=&cursor=
   "next_cursor": "..."
 }
 ```
+- Cursor notes: `next_cursor` is opaque; treat it as an opaque string and pass it back as `cursor` (don’t parse or persist it long-term).
 
 ### Media
 

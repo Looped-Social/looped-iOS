@@ -12,16 +12,23 @@ final class TwoFactorEnrollmentViewModel: ObservableObject {
     }
 
     @Published var step: Step = .phoneEntry
-    @Published var phoneNumber = ""
+    @Published var selectedCountry: CountryCallingCode = .defaultSelection
+    @Published var phoneDigits = ""
     @Published var verificationCode = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var verificationID: String?
 
+    var isPhoneNumberComplete: Bool {
+        if selectedCountry.callingCode == "1" {
+            return phoneDigits.count == 10
+        }
+        return (6...15).contains(phoneDigits.count)
+    }
+
     func sendCode() async {
-        let trimmed = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.hasPrefix("+") else {
-            errorMessage = "Use a phone number with country code (ex: +1 555 123 4567)."
+        guard let e164 = PhoneNumberFormatter.e164(digits: phoneDigits, countryCallingCode: selectedCountry.callingCode) else {
+            errorMessage = "Enter a valid phone number."
             return
         }
         guard let user = Auth.auth().currentUser else { return }
@@ -33,14 +40,19 @@ final class TwoFactorEnrollmentViewModel: ObservableObject {
         do {
             let session = try await user.multiFactor.session()
             let id = try await PhoneAuthProvider.provider().verifyPhoneNumber(
-                trimmed,
+                e164,
                 uiDelegate: nil,
                 multiFactorSession: session
             )
             verificationID = id
             step = .codeEntry
         } catch {
-            errorMessage = error.localizedDescription
+            let description = error.localizedDescription
+            if description.localizedCaseInsensitiveContains("canHandleNotification") {
+                errorMessage = "We couldn’t send a verification code right now. Please try again."
+            } else {
+                errorMessage = description
+            }
         }
     }
 
@@ -85,12 +97,14 @@ final class TwoFactorEnrollmentViewModel: ObservableObject {
     }
 
     @Published var step: Step = .phoneEntry
-    @Published var phoneNumber = ""
+    @Published var selectedCountry: CountryCallingCode = .defaultSelection
+    @Published var phoneDigits = ""
     @Published var verificationCode = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var verificationID: String?
 
+    var isPhoneNumberComplete: Bool { false }
     func sendCode() async {}
     func enroll() async -> Bool { false }
     func resendCode() async {}

@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 @MainActor
 final class CommunityProfileViewModel: ObservableObject {
@@ -20,6 +21,7 @@ final class CommunityProfileViewModel: ObservableObject {
     private var nextCursor: String?
     private let pageSize = 20
     private var hasLoadedDetails = false
+    private var cancellables = Set<AnyCancellable>()
 
     init(
         community: CommunityProfileData,
@@ -31,6 +33,16 @@ final class CommunityProfileViewModel: ObservableObject {
         self.feedService = feedService
         self.communityService = communityService
         self.verificationService = verificationService
+        NotificationCenter.default.publisher(for: .contentPreferencesChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.refreshPostsForContentPreferencesChange() }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshPostsForContentPreferencesChange() async {
+        await loadPosts(reset: true)
     }
 
     func loadIfNeeded() async {

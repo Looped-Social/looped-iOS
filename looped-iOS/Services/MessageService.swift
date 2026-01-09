@@ -101,6 +101,120 @@ class MessageService: MessageServiceProtocol {
             createdAt: dto.createdAt
         )
     }
+
+    func searchMessages(query: String, limit: Int = 20, cursor: String?) async throws -> MessageSearchPage {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        var endpoint = "/v1/messages/search?query=\(trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed)"
+        let resolvedLimit = min(max(limit, 1), 50)
+        endpoint += "&limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+
+        let response: MessageSearchResponseDTO = try await apiClient.get(endpoint)
+        let items = response.items.compactMap { dto -> MessageSearchHit? in
+            let type = MessageSearchHitType(rawValue: dto.type)
+            switch type {
+            case .conversation:
+                guard let conversationId = dto.conversationId,
+                      let profile = dto.otherUserProfile
+                else { return nil }
+                let lastMessage = dto.lastMessage ?? ""
+                let lastMessageTimestamp = dto.lastMessageTimestamp ?? Date()
+                let conversation = Conversation(
+                    id: UUID.fromBackendId(conversationId),
+                    backendId: conversationId,
+                    userId: UUID.fromBackendId(profile.id),
+                    backendUserId: profile.id,
+                    userName: profile.displayName ?? profile.handle,
+                    userProfileImageUrl: profile.profileImageUrl,
+                    lastMessage: lastMessage,
+                    lastMessageTimestamp: lastMessageTimestamp,
+                    unreadCount: 0,
+                    hasTypingIndicator: false,
+                    hasSpecialStatus: false,
+                    isOnline: false,
+                    isGroup: false,
+                    memberIds: nil
+                )
+                let matchedMessage: Message? = dto.matchedMessage.map { matched in
+                    Message(
+                        id: UUID.fromBackendId(matched.id),
+                        backendId: matched.id,
+                        content: matched.content,
+                        senderId: UUID.fromBackendId(matched.senderId),
+                        senderDisplayName: nil,
+                        receiverId: nil,
+                        conversationBackendId: conversationId,
+                        channelBackendId: nil,
+                        messageType: .direct,
+                        isRead: false,
+                        attachments: matched.attachments?.map(MediaAttachment.init(dto:)),
+                        createdAt: matched.createdAt
+                    )
+                }
+                let previewText = matchedMessage?.content ?? lastMessage
+                let previewTimestamp = matchedMessage?.createdAt ?? dto.lastMessageTimestamp
+                return MessageSearchHit(
+                    id: "conversation-\(conversationId)",
+                    type: .conversation,
+                    conversation: conversation,
+                    channel: nil,
+                    matchedMessage: matchedMessage,
+                    previewText: previewText,
+                    previewTimestamp: previewTimestamp
+                )
+            case .channel:
+                guard let channelId = dto.channelId,
+                      let name = dto.name
+                else { return nil }
+                let lastMessage = dto.lastMessage ?? ""
+                let lastMessageTimestamp = dto.lastMessageTimestamp ?? Date()
+                let channel = Channel(
+                    id: UUID.fromBackendId(channelId),
+                    backendId: channelId,
+                    name: name,
+                    company: "",
+                    memberCount: 0,
+                    isPublic: dto.isPublic ?? true,
+                    createdAt: Date(),
+                    ownerUserId: nil,
+                    viewerCanManageMembers: false
+                )
+                let matchedMessage: Message? = dto.matchedMessage.map { matched in
+                    Message(
+                        id: UUID.fromBackendId(matched.id),
+                        backendId: matched.id,
+                        content: matched.content,
+                        senderId: UUID.fromBackendId(matched.senderId),
+                        senderDisplayName: nil,
+                        receiverId: nil,
+                        conversationBackendId: nil,
+                        channelBackendId: channelId,
+                        messageType: .channel,
+                        isRead: false,
+                        attachments: matched.attachments?.map(MediaAttachment.init(dto:)),
+                        createdAt: matched.createdAt
+                    )
+                }
+                let previewText = matchedMessage?.content ?? lastMessage
+                let previewTimestamp = matchedMessage?.createdAt ?? dto.lastMessageTimestamp
+                return MessageSearchHit(
+                    id: "channel-\(channelId)",
+                    type: .channel,
+                    conversation: nil,
+                    channel: channel,
+                    matchedMessage: matchedMessage,
+                    previewText: previewText,
+                    previewTimestamp: previewTimestamp
+                )
+            case .none:
+                return nil
+            }
+        }
+        return MessageSearchPage(items: items, nextCursor: response.nextCursor)
+    }
     
     func getChannels(cursor: String?) async throws -> ChannelPage {
         var endpoint = "/v1/channels?limit=20"

@@ -20,6 +20,7 @@ final class UserCommentsViewModel: ObservableObject {
     private var target: Target?
     private let pageSize = 20
     private var loadingPostIds = Set<Int>()
+    private var unavailablePostIds = Set<Int>()
 
     init(
         userService: UserServiceProtocol = UserService(),
@@ -45,6 +46,7 @@ final class UserCommentsViewModel: ObservableObject {
         comments = []
         postLookup = [:]
         loadingPostIds = []
+        unavailablePostIds = []
         await load(reset: true)
     }
 
@@ -103,6 +105,7 @@ final class UserCommentsViewModel: ObservableObject {
         errorMessage = nil
         postLookup = [:]
         loadingPostIds = []
+        unavailablePostIds = []
     }
 
     func loadPostPreview(for comment: Comment) async {
@@ -114,7 +117,9 @@ final class UserCommentsViewModel: ObservableObject {
             let post = try await feedService.fetchPost(postId: postId)
             postLookup[postId] = post
         } catch {
-            // Ignore preview failures for now.
+            if isNotFound(error) {
+                unavailablePostIds.insert(postId)
+            }
         }
     }
 
@@ -123,11 +128,30 @@ final class UserCommentsViewModel: ObservableObject {
         return postLookup[postId]
     }
 
+    func isPostUnavailable(postId: Int?) -> Bool {
+        guard let postId else { return false }
+        return unavailablePostIds.contains(postId)
+    }
+
     func fetchPostForReply(_ comment: Comment) async -> Post? {
         guard let postId = comment.postBackendId else { return nil }
         if let existing = postLookup[postId] { return existing }
         await loadPostPreview(for: comment)
         return postLookup[postId]
+    }
+
+    private func isNotFound(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let code):
+                return code == 404
+            case .apiError(let code, _, _):
+                return code == 404
+            default:
+                return false
+            }
+        }
+        return false
     }
 
     private func fetchAnonReplies(anonProfileId: Int, cursor: String?) async throws -> UserCommentsPage {
@@ -159,6 +183,7 @@ final class UserRepliesViewModel: ObservableObject {
     private var userId: Int?
     private let pageSize = 20
     private var loadingPostIds = Set<Int>()
+    private var unavailablePostIds = Set<Int>()
 
     init(
         userService: UserServiceProtocol = UserService(),
@@ -180,6 +205,7 @@ final class UserRepliesViewModel: ObservableObject {
         errorMessage = nil
         postLookup = [:]
         loadingPostIds = []
+        unavailablePostIds = []
     }
 
     func loadInitial() async {
@@ -188,6 +214,7 @@ final class UserRepliesViewModel: ObservableObject {
         replies = []
         postLookup = [:]
         loadingPostIds = []
+        unavailablePostIds = []
         await load(reset: true)
     }
 
@@ -243,7 +270,9 @@ final class UserRepliesViewModel: ObservableObject {
             let post = try await feedService.fetchPost(postId: postId)
             postLookup[postId] = post
         } catch {
-            // Ignore preview failures for now.
+            if isNotFound(error) {
+                unavailablePostIds.insert(postId)
+            }
         }
     }
 
@@ -252,11 +281,30 @@ final class UserRepliesViewModel: ObservableObject {
         return postLookup[postId]
     }
 
+    func isPostUnavailable(postId: Int?) -> Bool {
+        guard let postId else { return false }
+        return unavailablePostIds.contains(postId)
+    }
+
     func fetchPostForReply(_ reply: Comment) async -> Post? {
         guard let postId = reply.postBackendId else { return nil }
         if let existing = postLookup[postId] { return existing }
         await loadPostPreview(for: reply)
         return postLookup[postId]
+    }
+
+    private func isNotFound(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let code):
+                return code == 404
+            case .apiError(let code, _, _):
+                return code == 404
+            default:
+                return false
+            }
+        }
+        return false
     }
 
     private func fetchAnonReplies(cursor: String?) async throws -> UserRepliesPage {

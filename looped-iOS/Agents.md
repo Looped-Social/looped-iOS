@@ -8,6 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an early-stage MVP focusing on core functionality with a privacy-first approach (minimal data collection, pseudonymous by default) and mobile-first design philosophy.
 
+## Repo Hygiene (Important)
+
+- Ignore Xcode user/workspace state files (e.g. anything under `*.xcodeproj/**/xcuserdata/**` and `**/*.xcuserstate`) unless explicitly asked.
+- Don’t try to “fix” or revert those files as part of feature work; they’re local-machine artifacts.
+
 ## Technical Stack
 
 - **iOS Target**: 15+ minimum deployment target (currently configured for 18.5+)

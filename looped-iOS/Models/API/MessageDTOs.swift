@@ -112,4 +112,62 @@ struct MediaAttachmentDTO: Codable {
     let height: Int?
     let durationSeconds: Double?
     let sizeBytes: Int64?
+
+    init(
+        url: String,
+        thumbnailUrl: String? = nil,
+        type: String? = nil,
+        width: Int? = nil,
+        height: Int? = nil,
+        durationSeconds: Double? = nil,
+        sizeBytes: Int64? = nil
+    ) {
+        self.url = url
+        self.thumbnailUrl = thumbnailUrl
+        self.type = type
+        self.width = width
+        self.height = height
+        self.durationSeconds = durationSeconds
+        self.sizeBytes = sizeBytes
+    }
+
+    init(from decoder: Decoder) throws {
+        if let singleValue = try? decoder.singleValueContainer(),
+           let url = try? singleValue.decode(String.self) {
+            self.init(url: url)
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            url: try container.decode(String.self, forKey: .url),
+            thumbnailUrl: try container.decodeIfPresent(String.self, forKey: .thumbnailUrl),
+            type: try container.decodeIfPresent(String.self, forKey: .type),
+            width: try container.decodeIfPresent(Int.self, forKey: .width),
+            height: try container.decodeIfPresent(Int.self, forKey: .height),
+            durationSeconds: try container.decodeIfPresent(Double.self, forKey: .durationSeconds),
+            sizeBytes: try container.decodeIfPresent(Int64.self, forKey: .sizeBytes)
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(url, forKey: .url)
+        try container.encodeIfPresent(thumbnailUrl, forKey: .thumbnailUrl)
+        try container.encodeIfPresent(type, forKey: .type)
+        try container.encodeIfPresent(width, forKey: .width)
+        try container.encodeIfPresent(height, forKey: .height)
+        try container.encodeIfPresent(durationSeconds, forKey: .durationSeconds)
+        try container.encodeIfPresent(sizeBytes, forKey: .sizeBytes)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case url
+        case thumbnailUrl
+        case type
+        case width
+        case height
+        case durationSeconds
+        case sizeBytes
+    }
 }

@@ -26,6 +26,7 @@ struct UserDTO: Codable {
     let displaySpecialization: DisplayCommunityDTO?
     let profileImageUrl: String?
     let showFollowerCount: Bool?
+    let hideAnonymousPosts: Bool?
     let messagePermission: MessagePermission?
     let createdAt: Date?
     let updatedAt: Date?

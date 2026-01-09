@@ -7,6 +7,7 @@ struct MessagesView: View {
     @State private var selectedTab: MessageTab = .messages
     @State private var searchText = ""
     @State private var showNewMessage = false
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     // Filter conversations based on tab and search text
     private var filteredConversations: [Conversation] {
@@ -22,7 +23,7 @@ struct MessagesView: View {
         }
 
         // Then filter by search text
-        if searchText.isEmpty {
+        if trimmedSearchText.count < 2 {
             return tabFilteredConversations
         } else {
             return tabFilteredConversations.filter { conversation in
@@ -43,11 +44,30 @@ struct MessagesView: View {
     }
 
     private var filteredChannels: [Channel] {
-        if searchText.isEmpty {
+        if trimmedSearchText.count < 2 {
             return viewModel.channels
         }
         return viewModel.channels.filter { channel in
             channel.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var trimmedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isUsingBackendSearch: Bool {
+        selectedTab != .requests && trimmedSearchText.count >= 2
+    }
+
+    private var filteredSearchResults: [MessageSearchHit] {
+        switch selectedTab {
+        case .messages:
+            return viewModel.searchResults.filter { $0.type == .conversation }
+        case .groups:
+            return viewModel.searchResults.filter { $0.type == .channel }
+        case .requests:
+            return []
         }
     }
 
@@ -59,6 +79,18 @@ struct MessagesView: View {
             // Search Bar
             MessagesSearchBar(searchText: $searchText)
                 .padding(.bottom, 8)
+                .onChange(of: searchText) { _, newValue in
+                    let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard selectedTab != .requests else {
+                        viewModel.clearSearch()
+                        return
+                    }
+                    if trimmed.count < 2 {
+                        viewModel.clearSearch()
+                        return
+                    }
+                    viewModel.searchMessages(query: trimmed)
+                }
 
             // Tabs
             MessagesTabs(selectedTab: $selectedTab)
@@ -66,7 +98,60 @@ struct MessagesView: View {
             // Content (both Messages and Groups use same list structure)
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    if selectedTab == .requests {
+                    if isUsingBackendSearch {
+                        if isAnonymousMode {
+                            EmptyMessagesView(
+                                title: "Search unavailable",
+                                subtitle: "Message search isn’t available in anonymous mode.",
+                                buttonTitle: "Clear search",
+                                onButtonTap: { searchText = "" }
+                            )
+                            .padding(.top, 24)
+                        } else if let error = viewModel.searchErrorMessage, !error.isEmpty {
+                            EmptyMessagesView(
+                                title: "Search failed",
+                                subtitle: error,
+                                buttonTitle: "Clear search",
+                                onButtonTap: { searchText = "" }
+                            )
+                            .padding(.top, 24)
+                        } else if viewModel.isSearching {
+                            ProgressView("Searching...")
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 24)
+                        } else if filteredSearchResults.isEmpty {
+                            EmptyMessagesView(
+                                title: "No matches",
+                                subtitle: "We looked everywhere for “\(trimmedSearchText)”.",
+                                buttonTitle: "Clear search",
+                                onButtonTap: { searchText = "" }
+                            )
+                            .padding(.top, 24)
+                        } else {
+                            ForEach(filteredSearchResults) { hit in
+                                Button(action: {
+                                    switch hit.type {
+                                    case .conversation:
+                                        if let conversation = hit.conversation {
+                                            onChatSelected(conversation, nil)
+                                        }
+                                    case .channel:
+                                        if let channel = hit.channel {
+                                            onChatSelected(nil, channel)
+                                        }
+                                    }
+                                }) {
+                                    MessageSearchResultRow(hit: hit)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
+                                Rectangle()
+                                    .frame(height: 1)
+                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                    .padding(.leading, 78)
+                            }
+                        }
+                    } else if selectedTab == .requests {
                         if viewModel.isLoadingRequests && viewModel.messageRequests.isEmpty {
                             ProgressView("Loading requests...")
                                 .frame(maxWidth: .infinity)
@@ -217,6 +302,11 @@ struct MessagesView: View {
             }
             if newValue == .groups, viewModel.channels.isEmpty {
                 Task { await viewModel.loadChannels() }
+            }
+            if newValue == .requests {
+                viewModel.clearSearch()
+            } else if trimmedSearchText.count >= 2 {
+                viewModel.searchMessages(query: trimmedSearchText)
             }
         }
         .sheet(isPresented: $showNewMessage) {
