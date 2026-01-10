@@ -40,7 +40,14 @@ class FeedService: FeedServiceProtocol {
         return FeedPage(posts: posts, nextCursor: response.nextCursor)
     }
     
-    func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?) async throws -> Post {
+    func createPost(
+        content: String,
+        isAnonymous: Bool,
+        communityId: Int,
+        mediaAssetId: Int?,
+        poll: PollDraft?
+    ) async throws -> Post {
+        let pollRequest = poll.flatMap(makePollRequest(from:))
         var request = CreatePostRequestDTO(
             content: content,
             mediaAssetId: mediaAssetId,
@@ -51,7 +58,8 @@ class FeedService: FeedServiceProtocol {
             anonCertKid: nil,
             anonSig: nil,
             anonCompanyId: nil,
-            anonTimestamp: nil
+            anonTimestamp: nil,
+            poll: pollRequest
         )
         var headers = ["Idempotency-Key": UUID().uuidString]
 
@@ -67,52 +75,27 @@ class FeedService: FeedServiceProtocol {
                 anonCertKid: anonContext.certKid,
                 anonSig: anonContext.signature,
                 anonCompanyId: nil,
-                anonTimestamp: anonContext.timestamp
+                anonTimestamp: anonContext.timestamp,
+                poll: pollRequest
             )
             headers = ["X-Actor": "anon"]
         }
 
-        let response: CreatePostResponseDTO = try await apiClient.postWithHeaders(
+        let data = try await apiClient.postDataWithHeaders(
             "/v1/posts",
             body: request,
             headers: headers,
             requiresAuth: !isAnonymous
         )
-        do {
-            let dto: PostDTO = try await apiClient.get(
-                "/v1/posts/\(response.id)",
-                requiresAuth: !isAnonymous
-            )
+        if let dto = tryDecodePost(from: data) {
             return Post(dto: dto, isAnonymousOverride: isAnonymous)
-        } catch {
-            return Post(
-                id: UUID(),
-                backendId: response.id,
-                authorBackendId: nil,
-                content: content,
-                authorId: UUID(),
-                authorDisplayName: nil,
-                authorHandle: nil,
-                authorFirstName: nil,
-                authorLastName: nil,
-                authorProfileImageURL: nil,
-                company: "",
-                communityId: communityId,
-                communityName: nil,
-                communityKind: nil,
-                isAnonymous: isAnonymous,
-                reactionCount: 0,
-                commentsCount: 0,
-                shareCount: 0,
-                userReaction: nil,
-                mediaAssetId: mediaAssetId,
-                attachments: nil,
-                isSaved: false,
-                authorDisplayCommunity: nil,
-                createdAt: Date(),
-                updatedAt: Date()
-            )
         }
+        let response = try decode(CreatePostResponseDTO.self, from: data)
+        let dto: PostDTO = try await apiClient.get(
+            "/v1/posts/\(response.id)",
+            requiresAuth: !isAnonymous
+        )
+        return Post(dto: dto, isAnonymousOverride: isAnonymous)
     }
 
     func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post {
@@ -381,6 +364,59 @@ class FeedService: FeedServiceProtocol {
         ]
         return endpoint + "&" + params.joined(separator: "&")
     }
+}
+
+private extension FeedService {
+    func makePollRequest(from draft: PollDraft) -> CreatePostPollRequestDTO? {
+        guard draft.isValid else { return nil }
+        let question = draft.question.trimmingCharacters(in: .whitespacesAndNewlines)
+        let options = draft.normalizedOptions
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        let closesAt = draft.closesAt.map { formatter.string(from: $0) }
+        return CreatePostPollRequestDTO(
+            question: question,
+            options: options,
+            maxSelections: 1,
+            closesAt: closesAt
+        )
+    }
+
+    func tryDecodePost(from data: Data) -> PostDTO? {
+        try? decode(PostDTO.self, from: data)
+    }
+
+    func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            if let date = FeedService.iso8601FormatterWithFractional.date(from: value)
+                ?? FeedService.iso8601Formatter.date(from: value) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid ISO-8601 date: \(value)"
+            )
+        }
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(T.self, from: data)
+    }
+}
+
+private extension FeedService {
+    static let iso8601FormatterWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    static let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 }
 
 private struct EmptyBody: Codable {}

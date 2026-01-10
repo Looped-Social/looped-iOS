@@ -59,6 +59,7 @@ struct PostDTO: Codable {
     let isAnonymous: Bool?
     let authorDisplayCommunity: DisplayCommunityDTO?
     let authorDisplaySpecialization: DisplayCommunityDTO?
+    let poll: PollDTO?
 }
 
 struct CreatePostResponseDTO: Codable {
@@ -76,6 +77,7 @@ struct CreatePostRequestDTO: Codable {
     let anonSig: String?
     let anonCompanyId: Int?
     let anonTimestamp: Int?
+    let poll: CreatePostPollRequestDTO?
 }
 
 struct UpdatePostRequestDTO: Codable {

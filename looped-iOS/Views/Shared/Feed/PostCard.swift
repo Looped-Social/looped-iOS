@@ -266,6 +266,14 @@ struct PostCard: View {
                     .multilineTextAlignment(.leading)
                 }
 
+                if let poll = post.poll {
+                    PollCard(poll: poll) { updatedPoll in
+                        onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
+                    }
+                    .padding(.top, 4)
+                    .highPriorityGesture(TapGesture(count: 2).onEnded { })
+                }
+
                 // Media attachments
                 if let attachments = post.attachments, !attachments.isEmpty {
                     PostedMediaGrid(

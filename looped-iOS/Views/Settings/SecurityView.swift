@@ -10,7 +10,6 @@ struct SecurityView: View {
     @State private var biometricLoginEnabled = true
     @State private var loginNotifications = true
     @State private var showResetPasswordSheet = false
-    @State private var twoFactorStatusText = "Off"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,15 +43,6 @@ struct SecurityView: View {
                 VStack(spacing: 0) {
                     // Authentication Section
                     SecuritySection(title: "Authentication") {
-                        NavigationLink(destination: TwoFactorSettingsView()) {
-                            SecurityNavigationRow(
-                                icon: "lock.shield",
-                                title: "Two-Factor Authentication",
-                                subtitle: twoFactorStatusText
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
                         SecurityActionRow(
                             icon: "key",
                             title: "Reset Password",
@@ -81,14 +71,6 @@ struct SecurityView: View {
                         ) {
                             // TODO: Change recovery email
                         }
-
-                        SecurityActionRow(
-                            icon: "phone",
-                            title: "Recovery Phone",
-                            subtitle: "Add a recovery phone number"
-                        ) {
-                            // TODO: Add recovery phone
-                        }
                     }
 
                 }
@@ -105,9 +87,6 @@ struct SecurityView: View {
                     try await authViewModel.sendPasswordReset(email: email)
                 }
             )
-        }
-        .onAppear {
-            refreshTwoFactorStatus()
         }
     }
 }
@@ -259,19 +238,6 @@ private extension SecurityView {
         return Auth.auth().currentUser?.email ?? ""
         #else
         return ""
-        #endif
-    }
-
-    func refreshTwoFactorStatus() {
-        #if canImport(FirebaseAuth)
-        guard let user = Auth.auth().currentUser else {
-            twoFactorStatusText = "Off"
-            return
-        }
-        let count = user.multiFactor.enrolledFactors.count
-        twoFactorStatusText = count > 0 ? "Enabled" : "Off"
-        #else
-        twoFactorStatusText = "Unavailable"
         #endif
     }
 }

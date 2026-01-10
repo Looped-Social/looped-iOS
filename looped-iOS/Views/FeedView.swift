@@ -9,7 +9,7 @@ struct FeedView: View {
     @State private var isAtTop = true
     @State private var pollingTask: Task<Void, Never>?
 
-    private let headerHeight: CGFloat = 140
+    private var headerHeight: CGFloat { viewModel.isCommunitySearchActive ? 380 : 140 }
     private let pollInterval: TimeInterval = 90
     private let toastCooldown: TimeInterval = 7 * 60
     private let minNewPostsCount = 7
@@ -116,7 +116,9 @@ struct FeedView: View {
             VStack(spacing: 0) {
                 FeedHeader(onProfileTap: onProfileTap)
                 FeedTabs(
-                    communities: viewModel.followedCommunities,
+                    isSearching: $viewModel.isCommunitySearchActive,
+                    searchQuery: $viewModel.communitySearchQuery,
+                    communities: viewModel.feedFilterCommunities,
                     selectedCommunityId: viewModel.selectedCommunity?.id,
                     onSelectCommunity: { community in
                         Task { await viewModel.selectCommunity(community) }
@@ -129,6 +131,18 @@ struct FeedView: View {
                     },
                     onSelectMode: { mode in
                         Task { await viewModel.selectFeedMode(mode) }
+                    },
+                    searchResults: viewModel.communitySearchResults,
+                    isSearchLoading: viewModel.isCommunitySearchLoading,
+                    searchErrorMessage: viewModel.communitySearchError,
+                    onSearchQueryChange: { query in
+                        viewModel.updateCommunitySearchQuery(query)
+                    },
+                    onSelectSearchResult: { result in
+                        Task { await viewModel.selectCommunityFromSearchResult(result) }
+                    },
+                    onDismissSearch: {
+                        viewModel.dismissCommunitySearch()
                     }
                 )
             }
@@ -159,6 +173,17 @@ struct FeedView: View {
 
 
     private func handleScroll(_ offset: CGFloat) {
+        if viewModel.isCommunitySearchActive {
+            if !headerVisible || !isTabBarVisible {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    headerVisible = true
+                    isTabBarVisible = true
+                }
+            }
+            lastScrollOffset = offset
+            return
+        }
+
         let delta = offset - lastScrollOffset
         var updatedVisibility: Bool?
 

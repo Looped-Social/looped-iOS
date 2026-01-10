@@ -91,6 +91,28 @@ class APIClient {
         
         return try await performRequest(request)
     }
+
+    func postData<T: Encodable>(
+        _ endpoint: String,
+        body: T,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> Data {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
+
+        request.httpBody = try JSONEncoder().encode(body)
+        return try await performRequestData(request)
+    }
     
     /// POST with extra headers (e.g., Idempotency-Key)
     func postWithHeaders<T: Encodable, U: Decodable>(
@@ -112,6 +134,26 @@ class APIClient {
         request.httpBody = try JSONEncoder().encode(body)
         
         return try await performRequest(request)
+    }
+
+    func postDataWithHeaders<T: Encodable>(
+        _ endpoint: String,
+        body: T,
+        headers: [String: String],
+        requiresAuth: Bool = true
+    ) async throws -> Data {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        headers.forEach { key, value in request.setValue(value, forHTTPHeaderField: key) }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
+
+        request.httpBody = try JSONEncoder().encode(body)
+        return try await performRequestData(request)
     }
     
     func put<T: Encodable, U: Decodable>(

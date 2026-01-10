@@ -7,21 +7,24 @@ class SearchViewModel: ObservableObject {
     @Published var selectedTrendingIndex = 0
     @Published var trendingPosts: [TrendingPost] = []
     @Published var recommendedCommunities: [CommunitySearchResult] = []
-    @Published var professions: [CommunitySearchResult] = []
-    @Published var professionsError: String?
+    @Published var majors: [CommunitySearchResult] = []
+    @Published var departments: [CommunitySearchResult] = []
+    @Published var specializationsError: String?
 
     private let communityService: CommunityServiceProtocol
     private let feedService: FeedServiceProtocol
+    private let discoveryService: DiscoveryServiceProtocol
 
     init(
         communityService: CommunityServiceProtocol = CommunityService(),
-        feedService: FeedServiceProtocol = FeedService()
+        feedService: FeedServiceProtocol = FeedService(),
+        discoveryService: DiscoveryServiceProtocol = DiscoveryService()
     ) {
         self.communityService = communityService
         self.feedService = feedService
-        loadStaticContent()
+        self.discoveryService = discoveryService
         Task {
-            await loadProfessions()
+            await loadSpecializations()
         }
         Task {
             await loadRecommendedCommunities()
@@ -31,17 +34,16 @@ class SearchViewModel: ObservableObject {
         }
     }
 
-    private func loadStaticContent() {
-        professions = MockSearchContent.professions
-    }
-
-    func loadProfessions() async {
+    func loadSpecializations() async {
         do {
-            let items = try await communityService.fetchTopProfessionCommunities(limit: 12)
-            professions = items
-            professionsError = nil
+            let results = try await discoveryService.fetchRecommendedSpecializations(limit: 12)
+            majors = results.majors
+            departments = results.departments
+            specializationsError = nil
         } catch {
-            professionsError = error.localizedDescription
+            majors = []
+            departments = []
+            specializationsError = error.localizedDescription
         }
     }
 

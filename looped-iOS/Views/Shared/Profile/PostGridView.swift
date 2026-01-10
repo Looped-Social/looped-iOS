@@ -137,12 +137,31 @@ struct MiniaturePostCard: View {
             }
 
             // Post content
-            Text(post.content)
-                .font(.loopedCustom(size: 8))
-                .foregroundColor(.loopedTextPrimary)
-                .lineLimit(8)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if let poll = post.poll {
+                HStack(spacing: 4) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.loopedCustom(.semibold, size: 8))
+                        .foregroundColor(.loopedPrimary)
+                    Text("Poll")
+                        .font(.loopedCustom(.semibold, size: 8))
+                        .foregroundColor(.loopedPrimary)
+                    Spacer()
+                }
+
+                Text(poll.question)
+                    .font(.loopedCustom(size: 8))
+                    .foregroundColor(.loopedTextPrimary)
+                    .lineLimit(6)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(post.content)
+                    .font(.loopedCustom(size: 8))
+                    .foregroundColor(.loopedTextPrimary)
+                    .lineLimit(8)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
             Spacer()
 

@@ -115,25 +115,61 @@ struct SearchView: View {
                             }
                         }
 
-                        // Professions Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("Professions")
-                                    .font(.loopedSubheadMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 16)
+                        // Majors & Departments Section
+                        VStack(alignment: .leading, spacing: 24) {
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Text("Majors")
+                                        .font(.loopedSubheadMedium)
+                                        .foregroundColor(.loopedTextPrimary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
 
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-                                ForEach(viewModel.professions) { profession in
-                                    ProfessionIcon(
-                                        name: profession.name,
-                                        memberCount: profession.memberCount
-                                    )
+                                if viewModel.majors.isEmpty {
+                                    Text(viewModel.specializationsError ?? "No majors yet.")
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .padding(.horizontal, 16)
+                                } else {
+                                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
+                                        ForEach(viewModel.majors) { major in
+                                            SpecializationIcon(
+                                                name: major.name,
+                                                memberCount: major.memberCount
+                                            )
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
                                 }
                             }
-                            .padding(.horizontal, 16)
+
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Text("Departments")
+                                        .font(.loopedSubheadMedium)
+                                        .foregroundColor(.loopedTextPrimary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+
+                                if viewModel.departments.isEmpty {
+                                    Text(viewModel.specializationsError ?? "No departments yet.")
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .padding(.horizontal, 16)
+                                } else {
+                                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
+                                        ForEach(viewModel.departments) { department in
+                                            SpecializationIcon(
+                                                name: department.name,
+                                                memberCount: department.memberCount
+                                            )
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                            }
                         }
 
                         Spacer(minLength: 100)

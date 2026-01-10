@@ -29,13 +29,15 @@ final class PostDraftStore: ObservableObject {
         id: UUID? = nil,
         content: String,
         communityId: Int?,
-        communityName: String?
+        communityName: String?,
+        poll: PollDraft? = nil
     ) -> PostDraft {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         if let id, let index = drafts.firstIndex(where: { $0.id == id }) {
             drafts[index].content = trimmed
             drafts[index].communityId = communityId
             drafts[index].communityName = communityName
+            drafts[index].poll = poll
             drafts[index].updatedAt = Date()
             persist()
             return drafts[index]
@@ -45,6 +47,7 @@ final class PostDraftStore: ObservableObject {
             content: trimmed,
             communityId: communityId,
             communityName: communityName,
+            poll: poll,
             createdAt: Date(),
             updatedAt: Date()
         )

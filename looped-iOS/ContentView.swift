@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(FirebaseAuth)
+import FirebaseAuth
+#endif
 
 
 enum MenuDestination: Identifiable {
@@ -192,6 +195,11 @@ struct MainTabView: View {
             .preferredColorScheme(preferredColorScheme)
         }
         .onOpenURL { url in
+            #if canImport(FirebaseAuth)
+            if Auth.auth().canHandle(url) {
+                return
+            }
+            #endif
             handleDeepLink(url)
         }
     }

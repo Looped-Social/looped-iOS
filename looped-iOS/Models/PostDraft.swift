@@ -5,6 +5,7 @@ struct PostDraft: Identifiable, Codable, Equatable {
     var content: String
     var communityId: Int?
     var communityName: String?
+    var poll: PollDraft?
     let createdAt: Date
     var updatedAt: Date
 
@@ -13,6 +14,7 @@ struct PostDraft: Identifiable, Codable, Equatable {
         content: String,
         communityId: Int? = nil,
         communityName: String? = nil,
+        poll: PollDraft? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -20,6 +22,7 @@ struct PostDraft: Identifiable, Codable, Equatable {
         self.content = content
         self.communityId = communityId
         self.communityName = communityName
+        self.poll = poll
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

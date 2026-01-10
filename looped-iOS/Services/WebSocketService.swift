@@ -5,6 +5,7 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private let tokenStorage: TokenStorage
+    private let webSocketURL: URL
     
     @Published private var _connectionState: WebSocketConnectionState = .disconnected
     private let _messageReceived = PassthroughSubject<Message, Never>()
@@ -17,8 +18,10 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
         _messageReceived.eraseToAnyPublisher()
     }
     
-    init(tokenStorage: TokenStorage = TokenStorage()) {
+    init(tokenStorage: TokenStorage = TokenStorage(), baseURL: String? = nil) {
         self.tokenStorage = tokenStorage
+        let resolvedBaseURL = baseURL ?? Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
+        self.webSocketURL = WebSocketService.makeWebSocketURL(from: resolvedBaseURL ?? "https://api.mylooped.app")
         super.init()
         setupURLSession()
     }
@@ -28,15 +31,13 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
         
         _connectionState = .connecting
         
-        let url = URL(string: "wss://api.looped.app/ws")!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: webSocketURL)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         webSocketTask = urlSession?.webSocketTask(with: request)
         webSocketTask?.resume()
         
         startListening()
-        _connectionState = .connected
     }
     
     func disconnect() {
@@ -126,6 +127,27 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
               let string = String(data: data, encoding: .utf8) else { return }
         
         webSocketTask?.send(.string(string)) { _ in }
+    }
+
+    private static func makeWebSocketURL(from httpBaseURL: String) -> URL {
+        guard var components = URLComponents(string: httpBaseURL) else {
+            return URL(string: "wss://api.mylooped.app/ws")!
+        }
+
+        switch components.scheme?.lowercased() {
+        case "http":
+            components.scheme = "ws"
+        case "https":
+            components.scheme = "wss"
+        default:
+            components.scheme = "wss"
+        }
+
+        components.path = "/ws"
+        components.query = nil
+        components.fragment = nil
+
+        return components.url ?? URL(string: "wss://api.mylooped.app/ws")!
     }
 }
 

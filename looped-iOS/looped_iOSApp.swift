@@ -59,6 +59,26 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   }
 
   func application(
+      _ app: UIApplication,
+      open url: URL,
+      options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+      #if canImport(FirebaseAuth)
+      if Auth.auth().canHandle(url) {
+          return true
+      }
+      #endif
+
+      #if canImport(GoogleSignIn)
+      if GIDSignIn.sharedInstance.handle(url) {
+          return true
+      }
+      #endif
+
+      return false
+  }
+
+  func application(
       _ application: UIApplication,
       didReceiveRemoteNotification userInfo: [AnyHashable: Any],
       fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void

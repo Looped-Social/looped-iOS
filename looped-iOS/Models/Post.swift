@@ -6,6 +6,7 @@ struct Post: Codable, Identifiable {
     let authorBackendId: Int?
     let anonProfileId: Int?
     let content: String
+    let poll: Poll?
     let authorId: UUID
     let authorDisplayName: String?
     let authorHandle: String?
@@ -35,6 +36,7 @@ struct Post: Codable, Identifiable {
         authorBackendId: Int? = nil,
         anonProfileId: Int? = nil,
         content: String,
+        poll: Poll? = nil,
         authorId: UUID,
         authorDisplayName: String? = nil,
         authorHandle: String? = nil,
@@ -63,6 +65,7 @@ struct Post: Codable, Identifiable {
         self.authorBackendId = authorBackendId
         self.anonProfileId = anonProfileId
         self.content = content
+        self.poll = poll
         self.authorId = authorId
         self.authorDisplayName = authorDisplayName
         self.authorHandle = authorHandle
@@ -125,6 +128,7 @@ extension Post {
             authorBackendId: dto.authorId,
             anonProfileId: dto.anonProfileId,
             content: dto.content,
+            poll: dto.poll.map(Poll.init(dto:)),
             authorId: resolvedAuthorId,
             authorDisplayName: resolvedDisplayName,
             authorHandle: resolvedHandle,
@@ -162,6 +166,7 @@ extension Post {
         communityKind: CommunityKind? = nil,
         authorDisplayCommunity: DisplayCommunity? = nil,
         authorDisplaySpecialization: DisplayCommunity? = nil,
+        poll: Poll?? = nil,
         updatedAt: Date? = nil
     ) -> Post {
         Post(
@@ -170,6 +175,7 @@ extension Post {
             authorBackendId: authorBackendId,
             anonProfileId: anonProfileId,
             content: content,
+            poll: poll ?? self.poll,
             authorId: authorId,
             authorDisplayName: authorDisplayName,
             authorHandle: authorHandle,

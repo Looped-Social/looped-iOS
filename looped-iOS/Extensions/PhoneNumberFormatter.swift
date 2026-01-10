@@ -37,13 +37,13 @@ struct PhoneNumberFormatter {
 
     static func placeholderNational(countryCallingCode: String) -> String {
         if countryCallingCode == "1" {
-            return "704 - 962 - 9064"
+            return "555-123-4567"
         }
         return "20 123 456 789"
     }
 
     private static func formattedNANP(_ digits: String) -> String {
-        groupDigits(digits, pattern: [3, 3, 4], separator: " - ")
+        groupDigits(digits, pattern: [3, 3, 4], separator: "-")
     }
 
     private static func groupDigits(_ digits: String, pattern: [Int], separator: String) -> String {

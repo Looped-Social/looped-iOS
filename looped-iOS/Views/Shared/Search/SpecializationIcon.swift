@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ProfessionIcon: View {
+struct SpecializationIcon: View {
     let name: String
     let memberCount: Int
 
@@ -40,10 +40,10 @@ struct ProfessionIcon: View {
 
 #Preview {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-        ProfessionIcon(name: "Design", memberCount: 1800)
-        ProfessionIcon(name: "Engineering", memberCount: 2500)
-        ProfessionIcon(name: "Marketing", memberCount: 1200)
-        ProfessionIcon(name: "HR", memberCount: 760)
+        SpecializationIcon(name: "Computer Science", memberCount: 1800)
+        SpecializationIcon(name: "Business", memberCount: 2500)
+        SpecializationIcon(name: "Marketing", memberCount: 1200)
+        SpecializationIcon(name: "Design", memberCount: 760)
     }
     .padding()
     .background(Color.loopedBackground)

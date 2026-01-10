@@ -17,6 +17,15 @@ class DiscoveryService: DiscoveryServiceProtocol {
         try await search(endpoint: "/v1/hashtags/search", query: query, limit: limit, cursor: cursor)
     }
 
+    func fetchRecommendedSpecializations(limit: Int) async throws -> RecommendedSpecializations {
+        let resolvedLimit = min(max(limit, 1), 50)
+        let endpoint = "/v1/specializations/recommended?type=all&limit=\(resolvedLimit)"
+        let response: SpecializationsRecommendedResponseDTO = try await apiClient.get(endpoint)
+        let majors = (response.majors ?? []).map(CommunitySearchResult.init(dto:))
+        let departments = (response.departments ?? []).map(CommunitySearchResult.init(dto:))
+        return RecommendedSpecializations(majors: majors, departments: departments)
+    }
+
     private func search<T: Codable>(endpoint: String, query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<T> {
         let encodedQuery = URLQueryEncoding.encode(query)
         var path = "\(endpoint)?query=\(encodedQuery)&limit=\(limit > 0 ? limit : defaultLimit)"

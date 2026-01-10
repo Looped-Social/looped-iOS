@@ -12,6 +12,7 @@ struct CreatePostView: View {
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var showMediaPicker: Bool = false
     @State private var showCamera: Bool = false
+    @State private var pollDraft: PollDraft?
     @State private var anonMembershipExpired = false
     @State private var anonMembershipMissing = false
     @State private var showVerificationInfoAlert = false
@@ -38,6 +39,7 @@ struct CreatePostView: View {
         _postText = State(initialValue: draft?.content ?? "")
         _selectedCommunityId = State(initialValue: draft?.communityId)
         _activeDraftId = State(initialValue: draft?.id)
+        _pollDraft = State(initialValue: draft?.poll)
     }
     
     private var characterLimit: Int { 280 }
@@ -45,8 +47,9 @@ struct CreatePostView: View {
     private var isPostValid: Bool {
         let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasMedia = !selectedMedia.isEmpty
+        let hasValidPoll = pollDraft?.isValid ?? false
         let isTextValid = postText.count <= characterLimit
-        return (hasText || hasMedia) && isTextValid
+        return (hasText || hasMedia || hasValidPoll) && isTextValid
     }
     private var verifiedCommunities: [CommunitySummary] {
         let followed = feedViewModel.followedCommunities.filter { $0.canPost }
@@ -205,6 +208,7 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+                        .disabled(pollDraft != nil)
 
                         Button(action: {
                             isPostTextFocused = false
@@ -222,8 +226,30 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+                        .disabled(pollDraft != nil)
+
+                        Button(action: togglePoll) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chart.bar.xaxis")
+                                    .font(.loopedCustom(size: 16))
+                                Text(pollDraft == nil ? "Poll" : "Remove Poll")
+                                    .font(.loopedSubBodyMedium)
+                            }
+                            .foregroundColor(.loopedPrimary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
 
                         Spacer()
+                    }
+
+                    if let pollDraftBinding = bindingForPollDraft() {
+                        PollComposerCard(
+                            pollDraft: pollDraftBinding,
+                            onRemove: { pollDraft = nil }
+                        )
                     }
 
                     // Media preview grid
@@ -368,13 +394,15 @@ struct CreatePostView: View {
         guard !isSubmitting else { return }
         guard let communityId = selectedCommunity?.id else { return }
         let trimmedContent = postText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedContent.isEmpty || !selectedMedia.isEmpty else { return }
+        let pollToSend = pollDraft?.isValid == true ? pollDraft : nil
+        guard !trimmedContent.isEmpty || !selectedMedia.isEmpty || pollToSend != nil else { return }
         isPostTextFocused = false
 
         isSubmitting = true
 
         let contentToSend = trimmedContent
         let mediaToSend = selectedMedia
+        let pollDraftToSend = pollToSend
         let isAnonymousToSend = isAnonymous
         let activeDraftIdToCleanup = activeDraftId
         let communityName = selectedCommunity?.name
@@ -387,7 +415,8 @@ struct CreatePostView: View {
                 content: contentToSend,
                 isAnonymous: isAnonymousToSend,
                 communityId: communityId,
-                media: mediaToSend
+                media: mediaToSend,
+                poll: pollDraftToSend
             )
 
             await MainActor.run {
@@ -402,20 +431,22 @@ struct CreatePostView: View {
                     let drafts = PostDraftStore()
                     if let activeDraftIdToCleanup {
                         savedDraftId = activeDraftIdToCleanup
-                        if !contentToSend.isEmpty {
+                        if !contentToSend.isEmpty || pollDraftToSend != nil {
                             _ = drafts.upsertDraft(
                                 id: activeDraftIdToCleanup,
                                 content: contentToSend,
                                 communityId: communityId,
-                                communityName: communityName
+                                communityName: communityName,
+                                poll: pollDraftToSend
                             )
                         }
-                    } else if !contentToSend.isEmpty {
+                    } else if !contentToSend.isEmpty || pollDraftToSend != nil {
                         let draft = drafts.upsertDraft(
                             id: nil,
                             content: contentToSend,
                             communityId: communityId,
-                            communityName: communityName
+                            communityName: communityName,
+                            poll: pollDraftToSend
                         )
                         savedDraftId = draft.id
                     }
@@ -483,12 +514,18 @@ struct CreatePostView: View {
     }
 
     private var hasDraftableContent: Bool {
-        !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        guard let pollDraft else { return false }
+        if !pollDraft.question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        return pollDraft.options.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     private var draftPromptMessage: String {
         if selectedMedia.isEmpty {
             return "Save this post so you can finish it later."
+        }
+        if pollDraft != nil {
+            return "Only your text and poll will be saved. Media attachments are not saved in drafts yet."
         }
         return "Only your text will be saved. Media attachments are not saved in drafts yet."
     }
@@ -507,7 +544,8 @@ struct CreatePostView: View {
             id: activeDraftId,
             content: postText,
             communityId: selectedCommunity?.id,
-            communityName: selectedCommunity?.name
+            communityName: selectedCommunity?.name,
+            poll: pollDraft
         )
         activeDraftId = draft.id
         dismiss()
@@ -524,6 +562,27 @@ struct CreatePostView: View {
         withAnimation(.easeOut(duration: 0.2)) {
             toastMessage = ToastMessage(text: message, kind: kind)
         }
+    }
+
+    private func togglePoll() {
+        isPostTextFocused = false
+        if pollDraft == nil {
+            pollDraft = PollDraft(maxSelections: 1)
+            if !selectedMedia.isEmpty {
+                selectedMedia = []
+                presentToast(message: "Removed media attachments. Poll posts are text-only for now.", kind: .info)
+            }
+        } else {
+            pollDraft = nil
+        }
+    }
+
+    private func bindingForPollDraft() -> Binding<PollDraft>? {
+        guard pollDraft != nil else { return nil }
+        return Binding(
+            get: { pollDraft ?? PollDraft() },
+            set: { pollDraft = $0 }
+        )
     }
 }
 
