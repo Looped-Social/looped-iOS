@@ -4,14 +4,19 @@ struct PostCard: View {
     let post: Post
     let showsCommunityLabel: Bool
     let showsAppealPostRemoval: Bool
+    let showsRepostBanner: Bool
     let onBookmarkToggle: ((Bool) -> Void)?
     let onUpdate: ((Post) -> Void)?
     let onDelete: ((Post) -> Void)?
+    let onBlockUser: ((Int) -> Void)?
+    let onBlockPrincipal: ((Int) -> Void)?
     private let feedService: FeedServiceProtocol
     @State private var isLiked = false
+    @State private var isReposted = false
     @State private var isBookmarked = false
     @State private var isBookmarkLoading = false
     @State private var isLikeLoading = false
+    @State private var isRepostLoading = false
     @State private var showHeartBurst = false
     @State private var heartScale: CGFloat = 0.6
     @State private var heartOpacity: Double = 0
@@ -29,34 +34,68 @@ struct PostCard: View {
     @ScaledMetric private var actionLabelSpacing: CGFloat = 4
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var showActionMenu = false
+    @State private var showBlockConfirm = false
     @State private var activeModerationSheet: ModerationSheet?
     @State private var moderationAlertMessage: String?
+    @State private var blockAlertMessage: String?
+    @State private var blockErrorMessage: String?
+    @State private var isBlocking = false
     @State private var isDeleting = false
     @State private var deleteErrorMessage: String?
     @State private var showEditSheet = false
     @State private var editText = ""
     @State private var isEditing = false
     @State private var editErrorMessage: String?
+    @State private var repostErrorMessage: String?
 
     private let moderationService: ModerationServiceProtocol = ModerationService()
+    private let blockService: BlockServiceProtocol = BlockService()
 
     init(
         post: Post,
         feedService: FeedServiceProtocol = FeedService(),
         showsCommunityLabel: Bool = false,
         showsAppealPostRemoval: Bool = false,
+        showsRepostBanner: Bool = false,
         onBookmarkToggle: ((Bool) -> Void)? = nil,
         onUpdate: ((Post) -> Void)? = nil,
-        onDelete: ((Post) -> Void)? = nil
+        onDelete: ((Post) -> Void)? = nil,
+        onBlockUser: ((Int) -> Void)? = nil,
+        onBlockPrincipal: ((Int) -> Void)? = nil
     ) {
         self.post = post
         self.feedService = feedService
         self.showsCommunityLabel = showsCommunityLabel
         self.showsAppealPostRemoval = showsAppealPostRemoval
+        self.showsRepostBanner = showsRepostBanner
         self.onBookmarkToggle = onBookmarkToggle
         self.onUpdate = onUpdate
         self.onDelete = onDelete
+        self.onBlockUser = onBlockUser
+        self.onBlockPrincipal = onBlockPrincipal
+    }
+
+    private var repostBannerText: String? {
+        guard showsRepostBanner else { return nil }
+        let count = post.repostedByFollowedUsersCount ?? post.repostedByFollowedUsers?.count ?? 0
+        guard count > 0 else { return nil }
+        let names = (post.repostedByFollowedUsers ?? []).map(\.username)
+
+        if count == 1, let first = names.first {
+            return "\(first) reposted this"
+        }
+        if count == 2, names.count >= 2 {
+            return "\(names[0]) and \(names[1]) reposted this"
+        }
+        if count > 2, names.count >= 2 {
+            return "\(names[0]), \(names[1]), and more reposted this"
+        }
+        if count > 1, let first = names.first {
+            return "\(first) and others reposted this"
+        }
+        return "Reposted by people you follow"
     }
 
     private var imageUrls: [String] {
@@ -92,6 +131,17 @@ struct PostCard: View {
             return base + 1
         }
         if !isLiked, post.userReaction == .like {
+            return max(base - 1, 0)
+        }
+        return base
+    }
+
+    private var displayedRepostCount: Int {
+        let base = post.repostCount
+        if isReposted, !post.viewerHasReposted {
+            return base + 1
+        }
+        if !isReposted, post.viewerHasReposted {
             return max(base - 1, 0)
         }
         return base
@@ -187,188 +237,462 @@ struct PostCard: View {
         }
     }
 
-    @ViewBuilder
-    private func authorProfileDestination(profileId: Int) -> some View {
-        if post.isAnonymous {
-            UserProfileView(anonProfileId: profileId)
-        } else {
-            UserProfileView(userId: profileId)
-        }
+	    @ViewBuilder
+	    private func authorProfileDestination(profileId: Int) -> some View {
+	        if post.isAnonymous {
+	            UserProfileView(anonProfileId: profileId)
+	        } else {
+	            UserProfileView(userId: profileId)
+	        }
+	    }
+
+	    @ViewBuilder
+	    private var repostBanner: some View {
+	        if let repostBannerText {
+	            HStack(spacing: 8) {
+	                Image(systemName: "arrow.2.squarepath")
+	                    .font(.loopedCustom(.medium, size: 14))
+	                    .foregroundColor(.loopedTextSecondary)
+
+	                Text(repostBannerText)
+	                    .font(.loopedSmallText)
+	                    .foregroundColor(.loopedTextSecondary)
+	                    .lineLimit(1)
+	                    .truncationMode(.tail)
+
+	                Spacer(minLength: 0)
+	            }
+	            .padding(.bottom, 2)
+	        }
+	    }
+
+	    private var likeButton: some View {
+	        Button(action: { handleLikeToggle() }) {
+	            HStack(spacing: actionLabelSpacing) {
+	                Image(systemName: isLiked ? "heart.fill" : "heart")
+	                    .resizable()
+	                    .renderingMode(.template)
+	                    .scaledToFit()
+	                    .frame(width: actionIconSize, height: actionIconSize)
+	                    .foregroundColor(isLiked ? .loopedError : .loopedTextSecondary)
+	                Text("\(displayedReactionCount)")
+	                    .font(.loopedSubheadlineScaled)
+	                    .foregroundColor(.loopedTextSecondary)
+	            }
+	        }
+	    }
+
+	    private var shareButton: some View {
+	        Button(action: { showShareSheet = true }) {
+	            HStack(spacing: actionLabelSpacing) {
+	                Image("send-icon")
+	                    .resizable()
+	                    .renderingMode(.template)
+	                    .scaledToFit()
+	                    .frame(width: actionIconSize, height: actionIconSize)
+	                    .foregroundColor(.loopedTextSecondary)
+	                Text("\(currentShareCount)")
+	                    .font(.loopedSubheadlineScaled)
+	                    .foregroundColor(.loopedTextSecondary)
+	            }
+	        }
+	    }
+
+	    private var repostButton: some View {
+	        Button(action: { toggleRepost() }) {
+	            HStack(spacing: actionLabelSpacing) {
+	                Image(systemName: "arrow.2.squarepath")
+	                    .resizable()
+	                    .renderingMode(.template)
+	                    .scaledToFit()
+	                    .frame(width: actionIconSize, height: actionIconSize)
+	                    .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
+	                    .opacity(isRepostLoading ? 0.6 : 1)
+	                Text("\(displayedRepostCount)")
+	                    .font(.loopedSubheadlineScaled)
+	                    .foregroundColor(.loopedTextSecondary)
+	            }
+	        }
+	        .disabled(isRepostLoading || post.backendId == nil)
+	    }
+
+	    private var commentButton: some View {
+	        Button(action: { commentsManager.showComments(for: post) }) {
+	            HStack(spacing: actionLabelSpacing) {
+	                Image("comment-icon")
+	                    .resizable()
+	                    .renderingMode(.template)
+	                    .scaledToFit()
+	                    .frame(width: actionIconSize, height: actionIconSize)
+	                    .foregroundColor(.loopedTextSecondary)
+	                Text("\(post.commentsCount)")
+	                    .font(.loopedSubheadlineScaled)
+	                    .foregroundColor(.loopedTextSecondary)
+	            }
+	        }
+	    }
+
+	    private var bookmarkButton: some View {
+	        Button(action: { toggleBookmark() }) {
+	            Image(isBookmarked ? "saved-icon" : "save-icon")
+	                .resizable()
+	                .renderingMode(.template)
+	                .scaledToFit()
+	                .frame(width: actionIconSize, height: actionIconSize)
+	                .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
+	                .opacity(isBookmarkLoading ? 0.6 : 1)
+	        }
+	        .disabled(isBookmarkLoading || post.backendId == nil)
+	    }
+
+		    private var engagementBar: some View {
+		        HStack(spacing: 16) {
+		            likeButton
+		            commentButton
+		            repostButton
+		            shareButton
+		            Spacer()
+		            bookmarkButton
+		        }
+		    }
+
+		    @ViewBuilder
+		    private var headerSection: some View {
+		        HStack(alignment: .top, spacing: 12) {
+		            if !post.isAnonymous {
+		                authorAvatar
+		            }
+
+		            VStack(alignment: .leading, spacing: 2) {
+		                HStack(spacing: 6) {
+		                    authorName
+
+		                    if let authorDisplayLine {
+		                        Text("•")
+		                            .font(.loopedSubheadlineScaled)
+		                            .foregroundColor(.loopedTextSecondary)
+		                        Text(authorDisplayLine)
+		                            .font(.loopedSubheadlineScaled)
+		                            .foregroundColor(.loopedTextSecondary)
+		                            .lineLimit(1)
+		                            .truncationMode(.tail)
+		                    }
+
+		                    Spacer()
+
+		                    Button(action: { showActionMenu = true }) {
+		                        Image(systemName: "ellipsis")
+		                            .foregroundColor(.loopedTextSecondary)
+		                    }
+		                }
+
+		                if let communityContextText {
+		                    if let communityProfileData {
+		                        NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
+		                            Text(communityContextText)
+		                                .font(.loopedSubheadlineScaled)
+		                                .foregroundColor(.loopedTextSecondary)
+		                                .lineLimit(1)
+		                                .truncationMode(.tail)
+		                        }
+		                        .buttonStyle(PlainButtonStyle())
+		                    } else {
+		                        Text(communityContextText)
+		                            .font(.loopedSubheadlineScaled)
+		                            .foregroundColor(.loopedTextSecondary)
+		                            .lineLimit(1)
+		                            .truncationMode(.tail)
+		                    }
+		                }
+		            }
+		        }
+		    }
+
+		    @ViewBuilder
+		    private var postTextSection: some View {
+		        if !post.content.isEmpty {
+		            HashtagText(
+		                text: post.content,
+		                font: .loopedBodyScaled,
+		                textColor: .loopedTextPrimary,
+		                hashtagColor: .loopedPrimary
+		            ) { hashtag in
+		                selectedHashtag = hashtag
+		                showHashtagFeed = true
+		            }
+		            .multilineTextAlignment(.leading)
+		        }
+		    }
+
+		    @ViewBuilder
+		    private var pollSection: some View {
+		        if let poll = post.poll {
+		            PollCard(poll: poll) { updatedPoll in
+		                onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
+		            }
+		            .padding(.top, 4)
+		            .highPriorityGesture(TapGesture(count: 2).onEnded { })
+		        }
+		    }
+
+		    @ViewBuilder
+		    private var attachmentsSection: some View {
+		        if let attachments = post.attachments, !attachments.isEmpty {
+		            PostedMediaGrid(
+		                attachments: attachments,
+		                maxHeight: 350,
+		                onImageTap: handlePostedImageTap,
+		                onVideoTap: handlePostedVideoTap
+		            )
+		            .padding(.top, 8)
+		        }
+		    }
+
+		    private func handlePostedImageTap(_ url: String) {
+		        guard !url.isEmpty, URL(string: url) != nil else { return }
+		        if let index = imageUrls.firstIndex(of: url) {
+		            selectedImageIndex = index
+		        }
+		        selectedImageUrl = url
+		        showImageViewer = true
+		    }
+
+		    private func handlePostedVideoTap(_ url: String) {
+		        guard !url.isEmpty, URL(string: url) != nil else { return }
+		        selectedVideoUrl = url
+		        showVideoPlayer = true
+		    }
+
+		    private var timestampSection: some View {
+		        HStack {
+		            Text(formattedTimeAgo)
+		                .font(.loopedSubheadlineScaled)
+		                .foregroundColor(.loopedTextSecondary)
+		            Spacer()
+		        }
+		    }
+
+		    private var shareSheetContent: some View {
+		        ShareSheet(items: [shareText]) { completed in
+		            if completed {
+		                trackShare()
+		            }
+		        }
+		    }
+
+		    @ViewBuilder
+		    private var imageViewerContent: some View {
+		        if !imageUrls.isEmpty {
+		            FullScreenImageViewer(
+		                imageUrls: imageUrls,
+		                initialIndex: selectedImageIndex,
+		                isPresented: $showImageViewer
+		            )
+		        } else {
+		            Color.loopedBlack.ignoresSafeArea()
+		                .overlay(
+		                    VStack(spacing: 16) {
+		                        Image(systemName: "exclamationmark.triangle")
+		                            .font(.loopedCustom(size: 60))
+		                            .foregroundColor(.loopedWhite.opacity(0.5))
+		                        Text("No images available")
+		                            .foregroundColor(.loopedWhite.opacity(0.7))
+		                        Button("Close") {
+		                            showImageViewer = false
+		                        }
+		                        .foregroundColor(.loopedWhite)
+		                        .padding()
+		                        .background(Color.loopedWhite.opacity(0.2))
+		                        .cornerRadius(8)
+		                    }
+		                )
+		        }
+		    }
+
+		    @ViewBuilder
+		    private var videoPlayerContent: some View {
+		        if let videoUrl = selectedVideoUrl, !videoUrl.isEmpty, URL(string: videoUrl) != nil {
+		            VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
+		        } else {
+		            Color.loopedBlack.ignoresSafeArea()
+		                .overlay(
+		                    VStack(spacing: 16) {
+		                        Image(systemName: "exclamationmark.triangle")
+		                            .font(.loopedCustom(size: 60))
+		                            .foregroundColor(.loopedWhite.opacity(0.5))
+		                        Text("Invalid video URL")
+		                            .foregroundColor(.loopedWhite.opacity(0.7))
+		                        Button("Close") {
+		                            showVideoPlayer = false
+		                        }
+		                        .foregroundColor(.loopedWhite)
+		                        .padding()
+		                        .background(Color.loopedWhite.opacity(0.2))
+		                        .cornerRadius(8)
+		                    }
+		                )
+		        }
+		    }
+
+		    @ViewBuilder
+		    private var postOptionsDialogActions: some View {
+		        if canEditPost {
+		            Button("Edit Post") {
+		                editText = post.content
+		                showEditSheet = true
+		            }
+		        }
+		        if canDeletePost {
+		            Button("Delete Post", role: .destructive) {
+		                Task { await deletePost() }
+		            }
+		        }
+		        if canReportPost {
+		            Button("Report Post", role: .destructive) {
+		                activeModerationSheet = .reportPost
+		            }
+		        }
+		        if canReportUser {
+		            Button("Report User", role: .destructive) {
+		                activeModerationSheet = .reportUser
+		            }
+		        }
+		        if canBlockUser {
+		            Button("Block User", role: .destructive) {
+		                showBlockConfirm = true
+		            }
+		        }
+		        if canAppealPostRemoval {
+		            Button("Appeal Post Removal") {
+		                activeModerationSheet = .appealPostRemoval
+		            }
+		        }
+		        Button("Cancel", role: .cancel) { }
+		    }
+
+		    @ViewBuilder
+		    private func moderationSheetContent(_ sheet: ModerationSheet) -> some View {
+		        switch sheet {
+		        case .reportPost:
+		            ReportReasonSheet(
+		                title: "Report Post",
+		                onSubmit: { reason in
+		                    guard let backendId = post.backendId else {
+		                        throw ModerationError.missingTarget
+		                    }
+		                    _ = try await moderationService.createReport(
+		                        targetType: "post",
+		                        targetId: backendId,
+		                        reason: reason
+		                    )
+		                },
+		                onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
+		            )
+		        case .reportUser:
+		            ReportReasonSheet(
+		                title: "Report User",
+		                onSubmit: { reason in
+		                    guard let backendId = post.authorBackendId else {
+		                        throw ModerationError.missingTarget
+		                    }
+		                    _ = try await moderationService.createReport(
+		                        targetType: "user",
+		                        targetId: backendId,
+		                        reason: reason
+		                    )
+		                },
+		                onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
+		            )
+		        case .appealPostRemoval:
+		            ModerationReasonSheet(
+		                title: "Appeal Post Removal",
+		                subtitle: "Tell us why this post should be restored.",
+		                placeholder: "Share context or details...",
+		                submitTitle: "Submit Appeal",
+		                onSubmit: { reason in
+		                    guard let backendId = post.backendId else {
+		                        throw ModerationError.missingTarget
+		                    }
+		                    _ = try await moderationService.createAppeal(
+		                        targetType: "post_removal",
+		                        targetId: backendId,
+		                        reason: reason
+		                    )
+		                },
+		                onSuccess: { moderationAlertMessage = "Appeal submitted. We'll review it soon." }
+		            )
+		        }
+		    }
+
+		    private var editSheetContent: some View {
+		        EditPostSheet(
+		            text: $editText,
+		            isSaving: isEditing,
+		            onCancel: { showEditSheet = false },
+		            onSave: { Task { await updatePost() } }
+		        )
+		    }
+
+    private var moderationAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { moderationAlertMessage != nil },
+            set: { if !$0 { moderationAlertMessage = nil } }
+        )
     }
-    
+
+    private var blockAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { blockAlertMessage != nil },
+            set: { if !$0 { blockAlertMessage = nil } }
+        )
+    }
+
+    private var blockErrorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { blockErrorMessage != nil },
+            set: { if !$0 { blockErrorMessage = nil } }
+        )
+    }
+
+    private var deleteErrorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { deleteErrorMessage != nil },
+            set: { if !$0 { deleteErrorMessage = nil } }
+        )
+    }
+
+    private var editErrorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { editErrorMessage != nil },
+            set: { if !$0 { editErrorMessage = nil } }
+        )
+    }
+
+    private var repostErrorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { repostErrorMessage != nil },
+            set: { if !$0 { repostErrorMessage = nil } }
+        )
+    }
+
     var body: some View {
+        postCardAlerts
+    }
+
+    private var postCardContent: some View {
         ZStack {
             VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 12) {
-                // Header with user info
-                HStack(alignment: .top, spacing: 12) {
-                    if !post.isAnonymous {
-                        authorAvatar
+                repostBanner
+                headerSection
+                postTextSection
+                pollSection
+                attachmentsSection
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        handleDoubleTapLike()
                     }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            // Name and primary community
-                            authorName
-
-                            if let authorDisplayLine {
-                                Text("•")
-                                    .font(.loopedSubheadlineScaled)
-                                    .foregroundColor(.loopedTextSecondary)
-                                Text(authorDisplayLine)
-                                    .font(.loopedSubheadlineScaled)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                            }
-
-                            Spacer()
-
-                            // More button
-                            Button(action: { showActionMenu = true }) {
-                                Image(systemName: "ellipsis")
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-                        }
-
-                        if let communityContextText {
-                            if let communityProfileData {
-                                NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
-                                    Text(communityContextText)
-                                        .font(.loopedSubheadlineScaled)
-                                        .foregroundColor(.loopedTextSecondary)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            } else {
-                                Text(communityContextText)
-                                    .font(.loopedSubheadlineScaled)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                            }
-                        }
-                    }
-                }
-
-                // Post content with tappable hashtags
-                if !post.content.isEmpty {
-                    HashtagText(
-                        text: post.content,
-                        font: .loopedBodyScaled,
-                        textColor: .loopedTextPrimary,
-                        hashtagColor: .loopedPrimary
-                    ) { hashtag in
-                        selectedHashtag = hashtag
-                        showHashtagFeed = true
-                    }
-                    .multilineTextAlignment(.leading)
-                }
-
-                if let poll = post.poll {
-                    PollCard(poll: poll) { updatedPoll in
-                        onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
-                    }
-                    .padding(.top, 4)
-                    .highPriorityGesture(TapGesture(count: 2).onEnded { })
-                }
-
-                // Media attachments
-                if let attachments = post.attachments, !attachments.isEmpty {
-                    PostedMediaGrid(
-                        attachments: attachments,
-                        maxHeight: 350,
-                        onImageTap: { url in
-                            guard !url.isEmpty, URL(string: url) != nil else { return }
-                            // Find the index of the tapped image among all images
-                            if let index = imageUrls.firstIndex(of: url) {
-                                selectedImageIndex = index
-                            }
-                            selectedImageUrl = url
-                            showImageViewer = true
-                        },
-                        onVideoTap: { url in
-                            guard !url.isEmpty, URL(string: url) != nil else { return }
-                            selectedVideoUrl = url
-                            showVideoPlayer = true
-                        }
-                    )
-                    .padding(.top, 8)
-                }
-            }
-                .contentShape(Rectangle())
-                .onTapGesture(count: 2) {
-                    handleDoubleTapLike()
-                }
-
-                // Engagement buttons
-                HStack(spacing: 16) {
-                    // Like button
-                    Button(action: { handleLikeToggle() }) {
-                        HStack(spacing: actionLabelSpacing) {
-                            Image(systemName: isLiked ? "heart.fill" : "heart")
-                                .resizable()
-                                .renderingMode(.template)
-                                .frame(width: actionIconSize, height: actionIconSize)
-                                .foregroundColor(isLiked ? .loopedError : .loopedTextSecondary)
-                            Text("\(displayedReactionCount)")
-                                .font(.loopedSubheadlineScaled)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                    }
-
-                    // Comment button
-                    Button(action: {
-                        commentsManager.showComments(for: post)
-                    }) {
-                        HStack(spacing: actionLabelSpacing) {
-                            Image("comment-icon")
-                                .resizable()
-                                .renderingMode(.template)
-                                .frame(width: actionIconSize, height: actionIconSize)
-                                .foregroundColor(.loopedTextSecondary)
-                            Text("\(post.commentsCount)")
-                                .font(.loopedSubheadlineScaled)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                    }
-
-                    // Share button
-                    Button(action: { showShareSheet = true }) {
-                        HStack(spacing: actionLabelSpacing) {
-                            Image("send-icon")
-                                .resizable()
-                                .renderingMode(.template)
-                                .frame(width: actionIconSize, height: actionIconSize)
-                                .foregroundColor(.loopedTextSecondary)
-                            Text("\(currentShareCount)")
-                                .font(.loopedSubheadlineScaled)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
-                    }
-
-                    Spacer()
-
-                    // Bookmark button
-                    Button(action: { toggleBookmark() }) {
-                        Image(isBookmarked ? "saved-icon" : "save-icon")
-                            .resizable()
-                            .renderingMode(.template)
-                            .frame(width: actionIconSize, height: actionIconSize)
-                            .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
-                            .opacity(isBookmarkLoading ? 0.6 : 1)
-                    }
-                    .disabled(isBookmarkLoading || post.backendId == nil)
-                }
-
-                // Timestamp at bottom
-                HStack {
-                    Text(formattedTimeAgo)
-                        .font(.loopedSubheadlineScaled)
-                        .foregroundColor(.loopedTextSecondary)
-                    Spacer()
-                }
+                engagementBar
+                timestampSection
             }
 
             if showHeartBurst {
@@ -380,215 +704,134 @@ struct PostCard: View {
                     .allowsHitTesting(false)
             }
         }
-        .padding(16)
-        .background(Color.loopedBackground)
-        .cornerRadius(0)
-        .onAppear {
-            syncBookmarkState()
-            syncLikeState()
-        }
-        .onChange(of: post.userReaction) { _, _ in
-            syncLikeState()
-        }
-        .onChange(of: post.isSaved) { _, _ in
-            syncBookmarkState()
-        }
-        .sheet(isPresented: $showShareSheet) {
-            ShareSheet(items: [shareText]) { completed in
-                if completed {
-                    trackShare()
-                }
+    }
+
+    private var postCardStyled: some View {
+        postCardContent
+            .padding(16)
+            .background(Color.loopedBackground)
+            .cornerRadius(0)
+    }
+
+    private var postCardLifecycle: some View {
+        postCardStyled
+            .onAppear {
+                syncBookmarkState()
+                syncLikeState()
+                syncRepostState()
             }
-        }
-        .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
-            selectedImageUrl = nil
-        }) {
-            if !imageUrls.isEmpty {
-                FullScreenImageViewer(
-                    imageUrls: imageUrls,
-                    initialIndex: selectedImageIndex,
-                    isPresented: $showImageViewer
-                )
-            } else {
-                Color.loopedBlack.ignoresSafeArea()
-                    .overlay(
-                        VStack(spacing: 16) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.loopedCustom(size: 60))
-                                .foregroundColor(.loopedWhite.opacity(0.5))
-                            Text("No images available")
-                                .foregroundColor(.loopedWhite.opacity(0.7))
-                            Button("Close") {
-                                showImageViewer = false
-                            }
-                            .foregroundColor(.loopedWhite)
-                            .padding()
-                            .background(Color.loopedWhite.opacity(0.2))
-                            .cornerRadius(8)
-                        }
-                    )
+            .onChange(of: post.userReaction) { _, _ in
+                syncLikeState()
             }
-        }
-        .fullScreenCover(isPresented: $showVideoPlayer, onDismiss: {
-            selectedVideoUrl = nil
-        }) {
-            if let videoUrl = selectedVideoUrl, !videoUrl.isEmpty, URL(string: videoUrl) != nil {
-                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
-            } else {
-                Color.loopedBlack.ignoresSafeArea()
-                    .overlay(
-                        VStack(spacing: 16) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.loopedCustom(size: 60))
-                                .foregroundColor(.loopedWhite.opacity(0.5))
-                            Text("Invalid video URL")
-                                .foregroundColor(.loopedWhite.opacity(0.7))
-                            Button("Close") {
-                                showVideoPlayer = false
-                            }
-                            .foregroundColor(.loopedWhite)
-                            .padding()
-                            .background(Color.loopedWhite.opacity(0.2))
-                            .cornerRadius(8)
-                        }
-                    )
+            .onChange(of: post.viewerHasReposted) { _, _ in
+                syncRepostState()
             }
-        }
-        .background(
-            NavigationLink(
-                destination: Group {
-                    if let hashtag = selectedHashtag {
-                        HashtagFeedView(hashtag: hashtag)
-                            .environmentObject(commentsManager)
-                    }
-                },
-                isActive: $showHashtagFeed,
-                label: { EmptyView() }
-            )
-            .hidden()
+            .onChange(of: post.isSaved) { _, _ in
+                syncBookmarkState()
+            }
+    }
+
+    private var postCardPresentation: some View {
+        postCardLifecycle
+            .sheet(isPresented: $showShareSheet) {
+                shareSheetContent
+            }
+            .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
+                selectedImageUrl = nil
+            }) {
+                imageViewerContent
+            }
+            .fullScreenCover(isPresented: $showVideoPlayer, onDismiss: {
+                selectedVideoUrl = nil
+            }) {
+                videoPlayerContent
+            }
+    }
+
+    private var hashtagNavigationLink: some View {
+        NavigationLink(
+            destination: HashtagFeedView(hashtag: selectedHashtag ?? "")
+                .environmentObject(commentsManager),
+            isActive: $showHashtagFeed,
+            label: { EmptyView() }
         )
-        .confirmationDialog("Post options", isPresented: $showActionMenu, titleVisibility: .visible) {
-            if canEditPost {
-                Button("Edit Post") {
-                    editText = post.content
-                    showEditSheet = true
+        .hidden()
+    }
+
+    private var postCardNavigation: some View {
+        postCardPresentation
+            .background(hashtagNavigationLink)
+    }
+
+    private var blockConfirmDialogMessage: some View {
+        Text("You won't see posts or messages from \(blockTargetLabel) anymore.")
+    }
+
+    private var postCardDialogs: some View {
+        postCardNavigation
+            .confirmationDialog(
+                "Post options",
+                isPresented: $showActionMenu,
+                titleVisibility: .visible
+            ) {
+                postOptionsDialogActions
+            }
+            .confirmationDialog(
+                "Block user?",
+                isPresented: $showBlockConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Block User", role: .destructive) {
+                    Task { await blockUser() }
                 }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                blockConfirmDialogMessage
             }
-            if canDeletePost {
-                Button("Delete Post", role: .destructive) {
-                    Task { await deletePost() }
-                }
+    }
+
+    private var postCardSheets: some View {
+        postCardDialogs
+            .sheet(item: $activeModerationSheet) { sheet in
+                moderationSheetContent(sheet)
             }
-            if canReportPost {
-                Button("Report Post", role: .destructive) {
-                    activeModerationSheet = .reportPost
-                }
+            .sheet(isPresented: $showEditSheet) {
+                editSheetContent
             }
-            if canReportUser {
-                Button("Report User", role: .destructive) {
-                    activeModerationSheet = .reportUser
-                }
+    }
+
+    private var postCardAlerts: some View {
+        postCardSheets
+            .alert("Thanks", isPresented: moderationAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(moderationAlertMessage ?? "")
             }
-            if canAppealPostRemoval {
-                Button("Appeal Post Removal") {
-                    activeModerationSheet = .appealPostRemoval
-                }
+            .alert("User blocked", isPresented: blockAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(blockAlertMessage ?? "")
             }
-            Button("Cancel", role: .cancel) { }
-        }
-        .sheet(item: $activeModerationSheet) { sheet in
-            switch sheet {
-            case .reportPost:
-                ReportReasonSheet(
-                    title: "Report Post",
-                    onSubmit: { reason in
-                        guard let backendId = post.backendId else {
-                            throw ModerationError.missingTarget
-                        }
-                        _ = try await moderationService.createReport(
-                            targetType: "post",
-                            targetId: backendId,
-                            reason: reason
-                        )
-                    },
-                    onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
-                )
-            case .reportUser:
-                ReportReasonSheet(
-                    title: "Report User",
-                    onSubmit: { reason in
-                        guard let backendId = post.authorBackendId else {
-                            throw ModerationError.missingTarget
-                        }
-                        _ = try await moderationService.createReport(
-                            targetType: "user",
-                            targetId: backendId,
-                            reason: reason
-                        )
-                    },
-                    onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
-                )
-            case .appealPostRemoval:
-                ModerationReasonSheet(
-                    title: "Appeal Post Removal",
-                    subtitle: "Tell us why this post should be restored.",
-                    placeholder: "Share context or details...",
-                    submitTitle: "Submit Appeal",
-                    onSubmit: { reason in
-                        guard let backendId = post.backendId else {
-                            throw ModerationError.missingTarget
-                        }
-                        _ = try await moderationService.createAppeal(
-                            targetType: "post_removal",
-                            targetId: backendId,
-                            reason: reason
-                        )
-                    },
-                    onSuccess: { moderationAlertMessage = "Appeal submitted. We'll review it soon." }
-                )
+            .alert("Couldn't block user", isPresented: blockErrorAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(blockErrorMessage ?? "")
             }
-        }
-        .sheet(isPresented: $showEditSheet) {
-            EditPostSheet(
-                text: $editText,
-                isSaving: isEditing,
-                onCancel: { showEditSheet = false },
-                onSave: { Task { await updatePost() } }
-            )
-        }
-        .alert(
-            "Thanks",
-            isPresented: Binding(
-                get: { moderationAlertMessage != nil },
-                set: { if !$0 { moderationAlertMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(moderationAlertMessage ?? "")
-        }
-        .alert(
-            "Couldn't delete post",
-            isPresented: Binding(
-                get: { deleteErrorMessage != nil },
-                set: { if !$0 { deleteErrorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(deleteErrorMessage ?? "")
-        }
-        .alert(
-            "Couldn't update post",
-            isPresented: Binding(
-                get: { editErrorMessage != nil },
-                set: { if !$0 { editErrorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(editErrorMessage ?? "")
-        }
+            .alert("Couldn't delete post", isPresented: deleteErrorAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(deleteErrorMessage ?? "")
+            }
+            .alert("Couldn't update post", isPresented: editErrorAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(editErrorMessage ?? "")
+            }
+            .alert("Couldn't repost", isPresented: repostErrorAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(repostErrorMessage ?? "")
+            }
     }
 
     private var shareText: String {
@@ -684,6 +927,48 @@ struct PostCard: View {
         }
     }
 
+    private var blockTargetLabel: String {
+        if post.isAnonymous {
+            return "this user"
+        }
+        let trimmedHandle = (post.authorHandle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedHandle.isEmpty {
+            return "@\(trimmedHandle)"
+        }
+        let name = post.resolvedAuthorName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "this user" : name
+    }
+
+    private func blockUser() async {
+        guard !isBlocking else { return }
+        isBlocking = true
+        defer { isBlocking = false }
+
+        do {
+            if let authorId = post.authorBackendId {
+                _ = try await blockService.blockUser(
+                    userId: authorId,
+                    asAnonymousActor: isAnonymousMode,
+                    communityId: post.communityId
+                )
+                onBlockUser?(authorId)
+            } else if let principalId = post.authorPrincipalId {
+                _ = try await blockService.blockPrincipal(
+                    principalId: principalId,
+                    asAnonymousActor: isAnonymousMode,
+                    communityId: post.communityId
+                )
+                onBlockPrincipal?(principalId)
+            } else {
+                throw ModerationError.missingTarget
+            }
+            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
+            blockAlertMessage = "You won't see posts or messages from \(blockTargetLabel) anymore."
+        } catch {
+            blockErrorMessage = error.localizedDescription
+        }
+    }
+
     private func initials(from name: String?) -> String {
         guard let name = name, let first = name.split(separator: " ").first?.first else {
             return "U"
@@ -756,6 +1041,58 @@ struct PostCard: View {
         isBookmarked = post.isSaved
     }
 
+    private func syncRepostState() {
+        guard !isRepostLoading else { return }
+        isReposted = post.viewerHasReposted
+    }
+
+    private func toggleRepost() {
+        guard let postId = post.backendId, !isRepostLoading else { return }
+        let previousValue = isReposted
+        isReposted.toggle()
+        isRepostLoading = true
+
+        Task {
+            defer { isRepostLoading = false }
+            do {
+                let response: PostRepostResponse
+                if previousValue {
+                    response = try await feedService.unrepostPost(postId: postId)
+                } else {
+                    response = try await feedService.repostPost(postId: postId)
+                }
+
+                let updated = post.updating(
+                    repostCount: response.repostCount,
+                    viewerHasReposted: response.viewerHasReposted,
+                    updatedAt: Date()
+                )
+                onUpdate?(updated)
+                isReposted = response.viewerHasReposted
+            } catch {
+                isReposted = previousValue
+                repostErrorMessage = repostErrorMessage(for: error)
+            }
+        }
+    }
+
+    private func repostErrorMessage(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .apiError(_, let error, let message):
+                if error == "self_repost_not_allowed" {
+                    return "You cannot repost your own post."
+                }
+                return message ?? "This action isn't available right now."
+            case .unauthorized:
+                return "Please sign in again and try reposting."
+            default:
+                return "This action isn't available right now."
+            }
+        }
+        return error.localizedDescription
+    }
+
     private func triggerHeartBurst() {
         showHeartBurst = true
         heartScale = 0.6
@@ -817,6 +1154,16 @@ private extension PostCard {
 
     var canEditPost: Bool {
         canDeletePost
+    }
+
+    var canBlockUser: Bool {
+        if let authorId = post.authorBackendId {
+            if let currentUser = authViewModel.currentUser, currentUser.backendId == authorId {
+                return false
+            }
+            return true
+        }
+        return post.authorPrincipalId != nil
     }
 
     var canAppealPostRemoval: Bool {

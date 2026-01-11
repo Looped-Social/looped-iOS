@@ -53,7 +53,7 @@ final class BlockedUsersViewModel: ObservableObject {
         unblockingUserIds.insert(user.backendId)
         defer { unblockingUserIds.remove(user.backendId) }
         do {
-            _ = try await blockService.unblockUser(userId: user.backendId)
+            _ = try await blockService.unblockPrincipal(principalId: user.principalId, asAnonymousActor: false, communityId: nil)
             blockedUsers.removeAll { $0.backendId == user.backendId }
         } catch {
             actionErrorMessage = error.localizedDescription

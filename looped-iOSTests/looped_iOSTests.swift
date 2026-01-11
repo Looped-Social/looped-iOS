@@ -9,6 +9,43 @@ import Foundation
 import Testing
 @testable import looped_iOS
 
+private final class RequestCaptureURLProtocol: URLProtocol {
+    static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.requestHandler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+private final class RequestBox {
+    var request: URLRequest?
+}
+
+private struct StaticTokenProvider: AuthTokenProvider {
+    let token: String
+
+    func currentIDToken() async throws -> String? {
+        token
+    }
+}
+
 struct looped_iOSTests {
 
     @Test func messageSenderIdMatchesCurrentUserIdWhenSameBackendId() async throws {
@@ -45,6 +82,135 @@ struct looped_iOSTests {
         )
 
         #expect(sentMessage.senderId == currentUser.id)
+    }
+
+    @Test func postMapsAuthorPrincipalId() async throws {
+        let now = Date()
+        let dto = PostDTO(
+            id: 1,
+            authorId: nil,
+            authorHandle: nil,
+            authorDisplayName: nil,
+            authorFirstName: nil,
+            authorLastName: nil,
+            authorProfileImageUrl: nil,
+            authorIsAnonymous: true,
+            authorPrincipalId: 456,
+            anonProfileId: 123,
+            companyId: nil,
+            communityId: 99,
+            communityName: nil,
+            communityKind: nil,
+            content: "Hello",
+            mediaAssetId: nil,
+            mediaUrl: nil,
+            cdnUrl: nil,
+            likesCount: nil,
+            userLiked: nil,
+            commentsCount: nil,
+            shareCount: nil,
+            repostCount: nil,
+            viewerHasReposted: nil,
+            repostedByFollowedUsers: nil,
+            repostedByFollowedUsersCount: nil,
+            createdAt: now,
+            isSaved: nil,
+            isAnonymous: true,
+            authorDisplayCommunity: nil,
+            authorDisplaySpecialization: nil,
+            poll: nil
+        )
+
+        let post = Post(dto: dto)
+        #expect(post.authorPrincipalId == 456)
+        #expect(post.anonProfileId == 123)
+        #expect(post.isAnonymous == true)
+    }
+
+    @Test func blockedUserMapsPrincipalId() async throws {
+        let dto = BlockedUserDTO(
+            principalId: 77,
+            id: 42,
+            handle: "someone",
+            displayName: "Someone",
+            profileImageUrl: nil,
+            companyId: 1,
+            isAnonymous: false
+        )
+
+        let user = BlockedUser(dto: dto)
+        #expect(user.backendId == 42)
+        #expect(user.principalId == 77)
+    }
+
+    @Test func blockPrincipalUsesAuthorizationInJwtMode() async throws {
+        let requestBox = RequestBox()
+        RequestCaptureURLProtocol.requestHandler = { request in
+            requestBox.request = request
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let data = Data(#"{"principal_id":456,"blocked":true}"#.utf8)
+            return (response, data)
+        }
+        defer { RequestCaptureURLProtocol.requestHandler = nil }
+
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [RequestCaptureURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let apiClient = APIClient(
+            baseURL: "https://example.com",
+            session: session,
+            tokenStorage: TokenStorage(),
+            tokenProvider: StaticTokenProvider(token: "jwt-token")
+        )
+        let service = BlockService(apiClient: apiClient, anonService: AnonService(apiClient: apiClient))
+
+        _ = try await service.blockPrincipal(principalId: 456, asAnonymousActor: false, communityId: nil)
+
+        let request = try #require(requestBox.request)
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/v1/principals/456/block")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer jwt-token")
+        #expect(request.value(forHTTPHeaderField: "X-Actor") == nil)
+    }
+
+    @Test func unblockPrincipalUsesAuthorizationInJwtMode() async throws {
+        let requestBox = RequestBox()
+        RequestCaptureURLProtocol.requestHandler = { request in
+            requestBox.request = request
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let data = Data(#"{"principal_id":456,"blocked":false}"#.utf8)
+            return (response, data)
+        }
+        defer { RequestCaptureURLProtocol.requestHandler = nil }
+
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [RequestCaptureURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let apiClient = APIClient(
+            baseURL: "https://example.com",
+            session: session,
+            tokenStorage: TokenStorage(),
+            tokenProvider: StaticTokenProvider(token: "jwt-token")
+        )
+        let service = BlockService(apiClient: apiClient, anonService: AnonService(apiClient: apiClient))
+
+        _ = try await service.unblockPrincipal(principalId: 456, asAnonymousActor: false, communityId: nil)
+
+        let request = try #require(requestBox.request)
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/v1/principals/456/block")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer jwt-token")
+        #expect(request.httpBody == nil)
     }
 
 }

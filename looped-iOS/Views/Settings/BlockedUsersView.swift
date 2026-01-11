@@ -133,7 +133,7 @@ private struct BlockedUserRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            NavigationLink(destination: UserProfileView(userId: user.backendId)) {
+            NavigationLink(destination: destinationView) {
                 HStack(spacing: 12) {
                     ProfileAvatarView(imageURL: user.profileImageURL, size: 44)
 
@@ -175,6 +175,15 @@ private struct BlockedUserRow: View {
             .disabled(isUnblocking)
         }
         .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private var destinationView: some View {
+        if user.isAnonymous {
+            UserProfileView(anonProfileId: user.backendId)
+        } else {
+            UserProfileView(userId: user.backendId)
+        }
     }
 }
 

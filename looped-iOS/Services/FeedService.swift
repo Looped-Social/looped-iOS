@@ -188,6 +188,30 @@ class FeedService: FeedServiceProtocol {
         let response: PostShareResponseDTO = try await apiClient.post("/v1/posts/\(postId)/share", body: EmptyBody())
         return PostShareResponse(postId: response.postId, shareCount: response.shareCount)
     }
+
+    func repostPost(postId: Int) async throws -> PostRepostResponse {
+        let response: PostRepostResponseDTO = try await apiClient.put(
+            "/v1/posts/\(postId)/repost",
+            body: EmptyBody()
+        )
+        return PostRepostResponse(
+            postId: response.postId,
+            repostCount: response.repostCount,
+            viewerHasReposted: response.viewerHasReposted
+        )
+    }
+
+    func unrepostPost(postId: Int) async throws -> PostRepostResponse {
+        let response: PostRepostResponseDTO = try await apiClient.delete(
+            "/v1/posts/\(postId)/repost",
+            expecting: PostRepostResponseDTO.self
+        )
+        return PostRepostResponse(
+            postId: response.postId,
+            repostCount: response.repostCount,
+            viewerHasReposted: response.viewerHasReposted
+        )
+    }
     
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
         try await fetchPosts(from: "/v1/users/\(userId)/posts", limit: limit, cursor: cursor, communityId: nil)
@@ -218,6 +242,25 @@ class FeedService: FeedServiceProtocol {
             return try await fetchAnonCollection(action: .postsSaved, limit: limit, cursor: cursor)
         }
         return try await fetchPosts(from: "/v1/posts/saved", limit: limit, cursor: cursor, communityId: nil)
+    }
+
+    func fetchRepostedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
+        try await fetchPosts(from: "/v1/posts/reposted", limit: limit, cursor: cursor, communityId: nil)
+    }
+
+    func fetchUserReposts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try await fetchPosts(from: "/v1/users/\(userId)/reposts", limit: limit, cursor: cursor, communityId: nil)
+    }
+
+    func fetchUserContent(userId: Int, limit: Int, cursor: String?) async throws -> UserContentPage {
+        var endpoint = "/v1/users/\(userId)/content?limit=\(limit > 0 ? limit : defaultLimit)"
+        if let cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let response: UserContentResponseDTO = try await apiClient.get(endpoint)
+        let items = response.items.compactMap(UserContentItem.init(dto:))
+        return UserContentPage(items: items, nextCursor: response.nextCursor)
     }
 
     func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage {

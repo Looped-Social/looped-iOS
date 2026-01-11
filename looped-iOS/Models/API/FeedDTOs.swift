@@ -41,6 +41,7 @@ struct PostDTO: Codable {
     let authorLastName: String?
     let authorProfileImageUrl: String?
     let authorIsAnonymous: Bool?
+    let authorPrincipalId: Int?
     let anonProfileId: Int?
     let companyId: Int?
     let communityId: Int?
@@ -54,12 +55,21 @@ struct PostDTO: Codable {
     let userLiked: Bool?
     let commentsCount: Int?
     let shareCount: Int?
+    let repostCount: Int?
+    let viewerHasReposted: Bool?
+    let repostedByFollowedUsers: [RepostedByUserDTO]?
+    let repostedByFollowedUsersCount: Int?
     let createdAt: Date
     let isSaved: Bool?
     let isAnonymous: Bool?
     let authorDisplayCommunity: DisplayCommunityDTO?
     let authorDisplaySpecialization: DisplayCommunityDTO?
     let poll: PollDTO?
+}
+
+struct RepostedByUserDTO: Codable {
+    let userId: Int
+    let username: String
 }
 
 struct CreatePostResponseDTO: Codable {
@@ -102,6 +112,12 @@ struct PostSaveResponseDTO: Codable {
 struct PostShareResponseDTO: Codable {
     let postId: Int
     let shareCount: Int
+}
+
+struct PostRepostResponseDTO: Codable {
+    let postId: Int
+    let repostCount: Int
+    let viewerHasReposted: Bool
 }
 
 struct PostDeleteResponseDTO: Codable {

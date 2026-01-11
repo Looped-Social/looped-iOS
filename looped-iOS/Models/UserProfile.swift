@@ -26,53 +26,57 @@ struct UserProfile: Codable, Identifiable {
 
     var formattedHandle: String {
         let trimmed = handle.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "@\(trimmed.isEmpty ? "looped" : trimmed)"
+        if trimmed.isEmpty { return "@looped" }
+        return "@\(trimmed)"
     }
 
     var formattedYearsInLoop: String {
-        "\(yearsInLoop) year\(yearsInLoop == 1 ? "" : "s") in the Loop"
+        let suffix = yearsInLoop == 1 ? "" : "s"
+        return String(yearsInLoop) + " year" + suffix + " in the Loop"
     }
 
     var formattedJobTitle: String {
         if let specializationLine = displaySpecializationLine {
             return specializationLine
         }
-        return "\(resolvedJobTitle) @ \(resolvedCompany)"
+        return resolvedJobTitle + " @ " + resolvedCompany
     }
 
     var displaySpecializationLine: String? {
-        let specializationName = normalizedOptional(displaySpecialization?.name)
-        let communityName = normalizedOptional(displayCommunity?.name)
-        if let communityName {
-            return "\(specializationName ?? "Member") @ \(communityName)"
+        let rawSpecialization = displaySpecialization?.name ?? ""
+        let specialization = rawSpecialization.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawCommunity = displayCommunity?.name ?? ""
+        let community = rawCommunity.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !community.isEmpty {
+            let resolvedSpecialization = specialization.isEmpty ? "Member" : specialization
+            return resolvedSpecialization + " @ " + community
         }
-        if let specializationName {
-            return specializationName
+        if !specialization.isEmpty {
+            return specialization
         }
         return nil
     }
 
     var resolvedDisplayName: String {
-        normalized(displayName, fallback: "Looped User")
+        let rawDisplayName = displayName ?? ""
+        let trimmedDisplayName = rawDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedDisplayName.isEmpty { return "Looped User" }
+        return trimmedDisplayName
     }
 
     var resolvedCompany: String {
-        normalized(company, fallback: "Looped")
+        let trimmedCompany = company.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedCompany.isEmpty { return "Looped" }
+        return trimmedCompany
     }
 
     var resolvedJobTitle: String {
-        normalized(jobTitle, fallback: "Team Member")
+        let trimmedJobTitle = jobTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedJobTitle.isEmpty { return "Team Member" }
+        return trimmedJobTitle
     }
 
-    private func normalized(_ value: String?, fallback: String) -> String {
-        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? fallback : trimmed
-    }
-
-    private func normalizedOptional(_ value: String?) -> String? {
-        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
 }
 
 extension UserProfile {
@@ -80,31 +84,42 @@ extension UserProfile {
         let now = Date()
         let createdAt = user.createdAt ?? now
         let calendar = Calendar.current
-        let yearsInLoop = max(0, calendar.component(.year, from: now) - calendar.component(.year, from: createdAt))
+        let currentYear = calendar.component(.year, from: now)
+        let createdYear = calendar.component(.year, from: createdAt)
+        let yearsInLoop = max(0, currentYear - createdYear)
+        let username = user.username ?? user.handle
+        let resolvedDisplayName = user.displayName ?? "Looped User"
+        let resolvedCompany = user.companyName ?? "Looped"
+        let followingCount = user.followingCount ?? 0
+        let followersCount = user.followerCount ?? 0
+        let postsCount = user.postsCount ?? 0
+        let commentsCount = user.commentsCount ?? 0
+        let showFollowerCount = user.showFollowerCount ?? true
+        let updatedAt = user.updatedAt ?? now
 
         return UserProfile(
             id: user.id,
             backendId: user.backendId,
-            username: user.username ?? user.handle,
-            displayName: user.displayName ?? "Looped User",
+            username: username,
+            displayName: resolvedDisplayName,
             handle: user.handle,
-            company: user.companyName ?? "Looped",
+            company: resolvedCompany,
             jobTitle: "Team Member",
             bio: user.bio,
             profileImageURL: user.profileImageURL,
             isVerified: user.isVerified,
             isAnonymous: user.isAnonymous,
             yearsInLoop: yearsInLoop,
-            followingCount: user.followingCount ?? 0,
-            followersCount: user.followerCount ?? 0,
-            postsCount: user.postsCount ?? 0,
-            commentsCount: user.commentsCount ?? 0,
-            showFollowerCount: user.showFollowerCount ?? true,
+            followingCount: followingCount,
+            followersCount: followersCount,
+            postsCount: postsCount,
+            commentsCount: commentsCount,
+            showFollowerCount: showFollowerCount,
             isCurrentUser: isCurrentUser,
             displayCommunity: user.displayCommunity,
             displaySpecialization: user.displaySpecialization,
             createdAt: createdAt,
-            updatedAt: user.updatedAt ?? now
+            updatedAt: updatedAt
         )
     }
 }

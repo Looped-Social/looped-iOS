@@ -3,6 +3,7 @@ import Foundation
 struct BlockedUser: Identifiable {
     let id: UUID
     let backendId: Int
+    let principalId: Int
     let handle: String
     let displayName: String?
     let profileImageURL: String?
@@ -12,6 +13,7 @@ struct BlockedUser: Identifiable {
     init(dto: BlockedUserDTO) {
         id = UUID.fromBackendId(dto.id)
         backendId = dto.id
+        principalId = dto.principalId
         handle = dto.handle
         displayName = dto.displayName
         profileImageURL = dto.profileImageUrl

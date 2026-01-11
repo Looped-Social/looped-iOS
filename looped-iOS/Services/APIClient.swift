@@ -341,7 +341,11 @@ class APIClient {
             }
             decoder.keyDecodingStrategy = .convertFromSnakeCase
 
-            return try decoder.decode(T.self, from: data)
+            do {
+                return try decoder.decode(T.self, from: data)
+            } catch let decodingError as DecodingError {
+                throw APIError.decodingError(decodingError)
+            }
         } catch let error as APIError {
             throw error
         } catch {
@@ -388,7 +392,14 @@ class APIClient {
     #if DEBUG
     private func shouldLogErrorResponse(request: URLRequest) -> Bool {
         guard let path = request.url?.path else { return false }
-        return path.hasPrefix("/v1/appeals") || path.hasPrefix("/v1/violations")
+        if path.hasPrefix("/v1/appeals") || path.hasPrefix("/v1/violations") { return true }
+
+        // Useful for debugging profile + repost-related failures (common "Internal service error" surface).
+        if path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/") { return true }
+        if path == "/v1/posts/reposted" { return true }
+        if path.contains("/reposts") { return true }
+
+        return false
     }
 
     private func logErrorResponse(request: URLRequest, data: Data, statusCode: Int) {

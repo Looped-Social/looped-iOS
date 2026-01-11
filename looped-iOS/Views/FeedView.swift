@@ -49,11 +49,18 @@ struct FeedView: View {
                                 PostCard(
                                     post: post,
                                     showsCommunityLabel: true,
+                                    showsRepostBanner: true,
                                     onUpdate: { updated in
                                         viewModel.updatePost(updated)
                                     },
                                     onDelete: { deleted in
                                         viewModel.removePost(backendId: deleted.backendId)
+                                    },
+                                    onBlockUser: { blockedUserId in
+                                        viewModel.removePosts(authorBackendId: blockedUserId)
+                                    },
+                                    onBlockPrincipal: { principalId in
+                                        viewModel.removePosts(authorPrincipalId: principalId)
                                     }
                                 )
                                     .onAppear {

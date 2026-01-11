@@ -31,6 +31,10 @@ enum AnonAction {
     case commentList(postId: Int)
     case commentReplies(commentId: Int)
     case commentUserReplies(userId: Int)
+    case blockUser(userId: Int)
+    case unblockUser(userId: Int)
+    case blockPrincipal(principalId: Int)
+    case unblockPrincipal(principalId: Int)
 }
 
 enum AnonProfileAction {
@@ -208,6 +212,14 @@ actor AnonService {
             canonical = "comment_replies|v1|\(commentId)"
         case .commentUserReplies(let userId):
             canonical = "comment_user_replies|v1|\(userId)"
+        case .blockUser(let userId):
+            canonical = "block_user|v1|\(userId)"
+        case .unblockUser(let userId):
+            canonical = "unblock_user|v1|\(userId)"
+        case .blockPrincipal(let principalId):
+            canonical = "block_principal|v1|\(principalId)"
+        case .unblockPrincipal(let principalId):
+            canonical = "unblock_principal|v1|\(principalId)"
         }
 
         let signature = try sign(message: canonical, privateKey: privateKey)

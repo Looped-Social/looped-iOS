@@ -348,6 +348,14 @@ class FeedViewModel: ObservableObject {
         posts.removeAll { $0.backendId == backendId }
     }
 
+    func removePosts(authorBackendId: Int) {
+        posts.removeAll { $0.authorBackendId == authorBackendId }
+    }
+
+    func removePosts(authorPrincipalId: Int) {
+        posts.removeAll { $0.authorPrincipalId == authorPrincipalId }
+    }
+
     func updatePost(_ updated: Post) {
         guard let backendId = updated.backendId else { return }
         if let index = posts.firstIndex(where: { $0.backendId == backendId }) {

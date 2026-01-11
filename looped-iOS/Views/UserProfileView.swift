@@ -1,6 +1,8 @@
 import SwiftUI
 
-enum UserProfileTab: String, CaseIterable {
+enum UserProfileTab: String, Hashable {
+    case content = "Content"
+    case reposts = "Reposts"
     case posts = "Posts"
     case replies = "Replies"
 }
@@ -8,14 +10,23 @@ enum UserProfileTab: String, CaseIterable {
 struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.floatingActionButtonState) private var fabState
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel: UserProfileViewModel
     @StateObject private var postsViewModel: CollectionPostsViewModel
+    @StateObject private var contentViewModel: UserContentViewModel
+    @StateObject private var repostsViewModel: CollectionPostsViewModel
     @StateObject private var commentsViewModel = UserCommentsViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
-    @State private var selectedTab: UserProfileTab = .posts
+    @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
     @State private var overlayHeaderHeight: CGFloat = 0
     @AppStorage("anonymousMode") private var isAnonymousMode = false
+    @State private var showActionMenu = false
+    @State private var showBlockConfirm = false
+    @State private var blockErrorMessage: String?
+    @State private var isBlocking = false
+
+    private let blockService: BlockServiceProtocol = BlockService()
 
     init(userId: Int, currentUserId: Int? = nil, preloadedProfile: UserProfile? = nil) {
         _viewModel = StateObject(
@@ -30,6 +41,13 @@ struct UserProfileView: View {
                 collection: .user(userId: userId)
             )
         )
+        _contentViewModel = StateObject(wrappedValue: UserContentViewModel(userId: userId))
+        _repostsViewModel = StateObject(
+            wrappedValue: CollectionPostsViewModel(
+                collection: .userReposts(userId: userId)
+            )
+        )
+        _selectedTab = State(initialValue: .content)
     }
 
     init(anonProfileId: Int, preloadedProfile: UserProfile? = nil) {
@@ -44,9 +62,57 @@ struct UserProfileView: View {
                 collection: .anon(profileId: anonProfileId)
             )
         )
+        _contentViewModel = StateObject(wrappedValue: UserContentViewModel(userId: nil))
+        _repostsViewModel = StateObject(
+            wrappedValue: CollectionPostsViewModel(
+                collection: .empty
+            )
+        )
+        _selectedTab = State(initialValue: .posts)
     }
 
     var body: some View {
+        profileLayout
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationBarHidden(true)
+            .environmentObject(commentsManager)
+            .modifier(
+                ProfileActionsModifier(
+                    canBlockUser: canBlockUser,
+                    showActionMenu: $showActionMenu,
+                    showBlockConfirm: $showBlockConfirm,
+                    blockErrorMessage: $blockErrorMessage,
+                    isBlocking: isBlocking,
+                    blockTargetLabel: blockTargetLabel,
+                    onConfirmBlock: { Task { await blockProfileUser() } }
+                )
+            )
+            .onAppear { fabState.isHidden = true }
+            .onDisappear { fabState.isHidden = false }
+            .overlay(commentsOverlay)
+            .onChange(of: selectedTab) { newValue in
+                if newValue == .replies, viewModel.isAnonymousProfile {
+                    Task { await loadCommentsIfNeeded() }
+                }
+                if newValue == .content, !viewModel.isAnonymousProfile, contentViewModel.items.isEmpty {
+                    Task { await contentViewModel.loadInitial() }
+                }
+                if newValue == .reposts, !viewModel.isAnonymousProfile, repostsViewModel.posts.isEmpty {
+                    Task { await repostsViewModel.loadInitial() }
+                }
+            }
+            .onPreferenceChange(UserProfileHeaderHeightKey.self) { newValue in
+                if newValue > 0, abs(newValue - overlayHeaderHeight) > 1 {
+                    overlayHeaderHeight = newValue
+                }
+            }
+    }
+
+    private var tabs: [UserProfileTab] {
+        viewModel.isAnonymousProfile ? [.posts, .replies] : [.content, .reposts]
+    }
+
+    private var profileLayout: some View {
         ZStack(alignment: .top) {
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -61,43 +127,26 @@ struct UserProfileView: View {
             .task { await loadIfNeeded() }
             .refreshable { await reload() }
 
-            UserProfileHeader {
-                dismiss()
-            }
+            UserProfileHeader(
+                onBack: { dismiss() },
+                onMore: canShowActionMenu ? { showActionMenu = true } : nil
+            )
             .background(
                 GeometryReader { proxy in
                     Color.loopedClear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
                 }
             )
         }
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .environmentObject(commentsManager)
-        .onAppear {
-            fabState.isHidden = true
-        }
-        .onDisappear {
-            fabState.isHidden = false
-        }
-        .overlay(
-            Group {
-                if commentsManager.isPresented, let post = commentsManager.currentPost {
-                    CommentsView(post: post) {
-                        commentsManager.dismissComments()
-                    }
-                    .environmentObject(commentsManager)
-                    .transition(.move(edge: .trailing))
+    }
+
+    private var commentsOverlay: some View {
+        Group {
+            if commentsManager.isPresented, let post = commentsManager.currentPost {
+                CommentsView(post: post) {
+                    commentsManager.dismissComments()
                 }
-            }
-        )
-        .onChange(of: selectedTab) { newValue in
-            if newValue == .replies {
-                Task { await loadCommentsIfNeeded() }
-            }
-        }
-        .onPreferenceChange(UserProfileHeaderHeightKey.self) { newValue in
-            if newValue > 0, abs(newValue - overlayHeaderHeight) > 1 {
-                overlayHeaderHeight = newValue
+                .environmentObject(commentsManager)
+                .transition(.move(edge: .trailing))
             }
         }
     }
@@ -111,11 +160,13 @@ struct UserProfileView: View {
         } else if let profile = viewModel.profile {
             VStack(spacing: 0) {
                 UserProfileInfoSection(userProfile: profile, isAnonymousMode: $isAnonymousMode)
-                UserProfileTabsView(selectedTab: $selectedTab)
+                UserProfileTabsView(selectedTab: $selectedTab, tabs: tabs)
                 UserProfileContentView(
                     userProfile: profile,
                     selectedTab: selectedTab,
+                    contentViewModel: contentViewModel,
                     postsViewModel: postsViewModel,
+                    repostsViewModel: repostsViewModel,
                     commentsViewModel: commentsViewModel
                 )
             }
@@ -168,13 +219,22 @@ struct UserProfileView: View {
         if let backendId = viewModel.profile?.backendId {
             if viewModel.isAnonymousProfile {
                 commentsViewModel.setAnonProfile(id: backendId)
+                contentViewModel.setUser(id: nil)
             } else {
                 commentsViewModel.setUser(id: backendId)
+                contentViewModel.setUser(id: backendId)
             }
         }
-        await postsViewModel.loadInitial()
-        if selectedTab == .replies {
-            await loadCommentsIfNeeded()
+        if viewModel.isAnonymousProfile {
+            await postsViewModel.loadInitial()
+            if selectedTab == .replies {
+                await loadCommentsIfNeeded()
+            }
+        } else {
+            await contentViewModel.loadInitial()
+            if selectedTab == .reposts {
+                await repostsViewModel.loadInitial()
+            }
         }
     }
 
@@ -184,11 +244,92 @@ struct UserProfileView: View {
         else { return }
         await commentsViewModel.loadInitial()
     }
+
+    private var canShowActionMenu: Bool {
+        canBlockUser
+    }
+
+    private var canBlockUser: Bool {
+        guard !viewModel.isAnonymousProfile else { return false }
+        guard let profileId = viewModel.profile?.backendId else { return false }
+        if let currentUserId = authViewModel.currentUser?.backendId, currentUserId == profileId {
+            return false
+        }
+        return true
+    }
+
+    private var blockTargetLabel: String {
+        guard let profile = viewModel.profile else { return "this user" }
+        if profile.isAnonymous {
+            return "this user"
+        }
+        return profile.formattedHandle
+    }
+
+    @MainActor
+    private func blockProfileUser() async {
+        guard canBlockUser else { return }
+        guard let profileId = viewModel.profile?.backendId else { return }
+        guard !isBlocking else { return }
+        isBlocking = true
+        defer { isBlocking = false }
+
+        do {
+            _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
+            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
+            dismiss()
+        } catch {
+            blockErrorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct ProfileActionsModifier: ViewModifier {
+    let canBlockUser: Bool
+    @Binding var showActionMenu: Bool
+    @Binding var showBlockConfirm: Bool
+    @Binding var blockErrorMessage: String?
+    let isBlocking: Bool
+    let blockTargetLabel: String
+    let onConfirmBlock: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog("Profile options", isPresented: $showActionMenu, titleVisibility: .visible) {
+                if canBlockUser {
+                    Button("Block User", role: .destructive) {
+                        showBlockConfirm = true
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+            .confirmationDialog("Block user?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
+                Button("Block User", role: .destructive) {
+                    onConfirmBlock()
+                }
+                .disabled(isBlocking)
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("You won't see posts or messages from \(blockTargetLabel) anymore.")
+            }
+            .alert(
+                "Couldn't block user",
+                isPresented: Binding(
+                    get: { blockErrorMessage != nil },
+                    set: { if !$0 { blockErrorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(blockErrorMessage ?? "")
+            }
+    }
 }
 
 // MARK: - Header
 struct UserProfileHeader: View {
     let onBack: () -> Void
+    let onMore: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -213,6 +354,22 @@ struct UserProfileHeader: View {
             }
 
             Spacer()
+
+            if let onMore {
+                Button(action: onMore) {
+                    Image(systemName: "ellipsis")
+                        .font(.loopedCustom(.medium, size: 18))
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 44, height: 44)
+                        .background(Color.loopedBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.loopedTextSecondary, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .accessibilityLabel("More options")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 24)
@@ -390,11 +547,12 @@ struct UserProfileInfoSection: View {
 // MARK: - Tabs
 struct UserProfileTabsView: View {
     @Binding var selectedTab: UserProfileTab
+    let tabs: [UserProfileTab]
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                ForEach(UserProfileTab.allCases, id: \.self) { tab in
+                ForEach(tabs, id: \.self) { tab in
                     Button(action: {
                         selectedTab = tab
                     }) {
@@ -410,7 +568,7 @@ struct UserProfileTabsView: View {
             .padding(.horizontal, 16)
 
             HStack(spacing: 0) {
-                ForEach(UserProfileTab.allCases, id: \.self) { tab in
+                ForEach(tabs, id: \.self) { tab in
                     Rectangle()
                         .frame(height: selectedTab == tab ? 2 : 1)
                         .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary.opacity(0.3))
@@ -425,7 +583,9 @@ struct UserProfileTabsView: View {
 struct UserProfileContentView: View {
     let userProfile: UserProfile
     let selectedTab: UserProfileTab
+    @ObservedObject var contentViewModel: UserContentViewModel
     @ObservedObject var postsViewModel: CollectionPostsViewModel
+    @ObservedObject var repostsViewModel: CollectionPostsViewModel
     @ObservedObject var commentsViewModel: UserCommentsViewModel
     @ScaledMetric private var contentTopSpacing: CGFloat = 20
 
@@ -433,6 +593,10 @@ struct UserProfileContentView: View {
         LazyVStack(spacing: 0) {
             Color.loopedClear.frame(height: contentTopSpacing)
             switch selectedTab {
+            case .content:
+                UserContentList(userProfile: userProfile, viewModel: contentViewModel)
+            case .reposts:
+                UserPostsList(viewModel: repostsViewModel)
             case .posts:
                 UserPostsList(viewModel: postsViewModel)
             case .replies:
@@ -442,6 +606,122 @@ struct UserProfileContentView: View {
     }
 }
 
+
+// MARK: - Content List
+struct UserContentList: View {
+    let userProfile: UserProfile
+    @ObservedObject var viewModel: UserContentViewModel
+    @EnvironmentObject var commentsManager: CommentsModalManager
+    @State private var showPostUnavailableAlert = false
+
+    var body: some View {
+        Group {
+            if viewModel.isLoading && viewModel.items.isEmpty {
+                ProgressView()
+                    .scaleEffect(1.1)
+                    .padding(.top, 32)
+            } else if !viewModel.items.isEmpty {
+                LazyVStack(spacing: 0) {
+                    ForEach(viewModel.items) { item in
+                        Group {
+                            switch item.payload {
+                            case .post(let post):
+                                PostCard(
+                                    post: post,
+                                    showsCommunityLabel: true,
+                                    onUpdate: { updated in
+                                        viewModel.updatePost(updated)
+                                    },
+                                    onDelete: { deleted in
+                                        viewModel.removePost(backendId: deleted.backendId)
+                                    }
+                                )
+                            case .reply(let reply):
+                                UserContentReplyRow(
+                                    reply: reply,
+                                    previewText: previewText(for: reply),
+                                    onTap: { Task { await openReply(reply) } }
+                                )
+                                .task {
+                                    await viewModel.loadPostPreview(for: reply)
+                                }
+                            }
+
+                            Rectangle()
+                                .frame(height: 1)
+                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                        }
+                        .task { await viewModel.loadMoreIfNeeded(current: item) }
+                    }
+
+                    if viewModel.isLoadingMore {
+                        ProgressView()
+                            .padding(.vertical, 16)
+                    }
+                }
+            } else if let error = viewModel.errorMessage {
+                VStack(spacing: 8) {
+                    Text(error)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
+                    }
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedPrimary)
+                }
+                .padding(.top, 32)
+                .padding(.horizontal, 24)
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "text.bubble")
+                        .font(.loopedCustom(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+                    Text("No content yet")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.top, 60)
+            }
+        }
+        .padding(.bottom, 100)
+        .alert("Post unavailable", isPresented: $showPostUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This post is no longer available.")
+        }
+    }
+
+    private func previewText(for reply: UserContentReply) -> String? {
+        if let post = viewModel.postPreview(for: reply) {
+            let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return preview.isEmpty ? "Post unavailable" : preview
+        }
+        if viewModel.isPostUnavailable(postId: reply.postId) {
+            return "Post unavailable"
+        }
+        return nil
+    }
+
+    private func openReply(_ reply: UserContentReply) async {
+        if let post = viewModel.postPreview(for: reply) {
+            commentsManager.showComments(for: post)
+            return
+        }
+        await viewModel.loadPostPreview(for: reply)
+        if let post = viewModel.postPreview(for: reply) {
+            commentsManager.showComments(for: post)
+            return
+        }
+        guard viewModel.isPostUnavailable(postId: reply.postId) else { return }
+        await MainActor.run {
+            showPostUnavailableAlert = true
+        }
+    }
+}
 
 // MARK: - Posts List
 struct UserPostsList: View {

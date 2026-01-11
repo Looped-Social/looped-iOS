@@ -6,8 +6,11 @@ final class CollectionPostsViewModel: ObservableObject {
     enum CollectionType {
         case liked
         case saved
+        case reposted
         case user(userId: Int)
+        case userReposts(userId: Int)
         case anon(profileId: Int)
+        case empty
     }
     
     @Published var posts: [Post] = []
@@ -81,10 +84,16 @@ final class CollectionPostsViewModel: ObservableObject {
             return try await feedService.fetchLikedPosts(limit: pageSize, cursor: cursor)
         case .saved:
             return try await feedService.fetchSavedPosts(limit: pageSize, cursor: cursor)
+        case .reposted:
+            return try await feedService.fetchRepostedPosts(limit: pageSize, cursor: cursor)
         case .user(let userId):
             return try await feedService.fetchUserPosts(userId: userId, limit: pageSize, cursor: cursor)
+        case .userReposts(let userId):
+            return try await feedService.fetchUserReposts(userId: userId, limit: pageSize, cursor: cursor)
         case .anon(let profileId):
             return try await feedService.fetchAnonPosts(anonProfileId: profileId, limit: pageSize, cursor: cursor)
+        case .empty:
+            return FeedPage(posts: [], nextCursor: nil)
         }
     }
     

@@ -4,6 +4,7 @@ struct Post: Codable, Identifiable {
     let id: UUID
     let backendId: Int?
     let authorBackendId: Int?
+    let authorPrincipalId: Int?
     let anonProfileId: Int?
     let content: String
     let poll: Poll?
@@ -21,6 +22,10 @@ struct Post: Codable, Identifiable {
     let reactionCount: Int
     let commentsCount: Int
     let shareCount: Int
+    let repostCount: Int
+    let viewerHasReposted: Bool
+    let repostedByFollowedUsers: [RepostBannerUser]?
+    let repostedByFollowedUsersCount: Int?
     let userReaction: ReactionType?
     let mediaAssetId: Int?
     let attachments: [MediaAttachment]?
@@ -34,6 +39,7 @@ struct Post: Codable, Identifiable {
         id: UUID,
         backendId: Int? = nil,
         authorBackendId: Int? = nil,
+        authorPrincipalId: Int? = nil,
         anonProfileId: Int? = nil,
         content: String,
         poll: Poll? = nil,
@@ -51,6 +57,10 @@ struct Post: Codable, Identifiable {
         reactionCount: Int,
         commentsCount: Int = 0,
         shareCount: Int = 0,
+        repostCount: Int = 0,
+        viewerHasReposted: Bool = false,
+        repostedByFollowedUsers: [RepostBannerUser]? = nil,
+        repostedByFollowedUsersCount: Int? = nil,
         userReaction: ReactionType? = nil,
         mediaAssetId: Int? = nil,
         attachments: [MediaAttachment]? = nil,
@@ -63,6 +73,7 @@ struct Post: Codable, Identifiable {
         self.id = id
         self.backendId = backendId
         self.authorBackendId = authorBackendId
+        self.authorPrincipalId = authorPrincipalId
         self.anonProfileId = anonProfileId
         self.content = content
         self.poll = poll
@@ -80,6 +91,10 @@ struct Post: Codable, Identifiable {
         self.reactionCount = reactionCount
         self.commentsCount = commentsCount
         self.shareCount = shareCount
+        self.repostCount = repostCount
+        self.viewerHasReposted = viewerHasReposted
+        self.repostedByFollowedUsers = repostedByFollowedUsers
+        self.repostedByFollowedUsersCount = repostedByFollowedUsersCount
         self.userReaction = userReaction
         self.mediaAssetId = mediaAssetId
         self.attachments = attachments
@@ -122,10 +137,13 @@ extension Post {
             let type: MediaType = lowercased.contains(".mp4") ? .video : .image
             return [MediaAttachment(type: type, url: resolvedMediaUrl)]
         }()
+        let bannerUsers = dto.repostedByFollowedUsers?.map(RepostBannerUser.init(dto:))
+        let bannerCount = dto.repostedByFollowedUsersCount ?? bannerUsers?.count
         self.init(
             id: UUID(),
             backendId: dto.id,
             authorBackendId: dto.authorId,
+            authorPrincipalId: dto.authorPrincipalId,
             anonProfileId: dto.anonProfileId,
             content: dto.content,
             poll: dto.poll.map(Poll.init(dto:)),
@@ -143,6 +161,10 @@ extension Post {
             reactionCount: dto.likesCount ?? 0,
             commentsCount: dto.commentsCount ?? 0,
             shareCount: dto.shareCount ?? 0,
+            repostCount: dto.repostCount ?? 0,
+            viewerHasReposted: dto.viewerHasReposted ?? false,
+            repostedByFollowedUsers: bannerUsers,
+            repostedByFollowedUsersCount: bannerCount,
             userReaction: resolvedReaction,
             mediaAssetId: dto.mediaAssetId,
             attachments: resolvedAttachments,
@@ -159,6 +181,10 @@ extension Post {
         reactionCount: Int? = nil,
         commentsCount: Int? = nil,
         shareCount: Int? = nil,
+        repostCount: Int? = nil,
+        viewerHasReposted: Bool? = nil,
+        repostedByFollowedUsers: [RepostBannerUser]?? = nil,
+        repostedByFollowedUsersCount: Int?? = nil,
         userReaction: ReactionType?? = nil,
         attachments: [MediaAttachment]?? = nil,
         isSaved: Bool? = nil,
@@ -173,6 +199,7 @@ extension Post {
             id: id,
             backendId: backendId ?? self.backendId,
             authorBackendId: authorBackendId,
+            authorPrincipalId: authorPrincipalId,
             anonProfileId: anonProfileId,
             content: content,
             poll: poll ?? self.poll,
@@ -190,6 +217,10 @@ extension Post {
             reactionCount: reactionCount ?? self.reactionCount,
             commentsCount: commentsCount ?? self.commentsCount,
             shareCount: shareCount ?? self.shareCount,
+            repostCount: repostCount ?? self.repostCount,
+            viewerHasReposted: viewerHasReposted ?? self.viewerHasReposted,
+            repostedByFollowedUsers: repostedByFollowedUsers ?? self.repostedByFollowedUsers,
+            repostedByFollowedUsersCount: repostedByFollowedUsersCount ?? self.repostedByFollowedUsersCount,
             userReaction: userReaction ?? self.userReaction,
             mediaAssetId: mediaAssetId,
             attachments: attachments ?? self.attachments,
@@ -253,5 +284,22 @@ extension Post {
     private func normalizedOptional(_ value: String?) -> String? {
         let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+struct RepostBannerUser: Codable, Identifiable, Hashable {
+    let userId: Int
+    let username: String
+
+    var id: Int { userId }
+
+    init(userId: Int, username: String) {
+        self.userId = userId
+        self.username = username
+    }
+
+    init(dto: RepostedByUserDTO) {
+        self.userId = dto.userId
+        self.username = dto.username
     }
 }

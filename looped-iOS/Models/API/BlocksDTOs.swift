@@ -19,3 +19,8 @@ struct BlockActionResponseDTO: Codable {
     let userId: Int
     let blocked: Bool
 }
+
+struct PrincipalBlockActionResponseDTO: Codable {
+    let principalId: Int
+    let blocked: Bool
+}

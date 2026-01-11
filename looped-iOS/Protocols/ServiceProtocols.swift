@@ -42,11 +42,16 @@ protocol FeedServiceProtocol {
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
     func unlikePost(postId: Int, communityId: Int?) async throws -> PostReactionResponse
     func sharePost(postId: Int) async throws -> PostShareResponse
+    func repostPost(postId: Int) async throws -> PostRepostResponse
+    func unrepostPost(postId: Int) async throws -> PostRepostResponse
     func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchPost(postId: Int) async throws -> Post
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchRepostedPosts(limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchUserReposts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchUserContent(userId: Int, limit: Int, cursor: String?) async throws -> UserContentPage
     func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func savePost(postId: Int, communityId: Int?) async throws -> Bool
     func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool
@@ -61,6 +66,12 @@ struct PostReactionResponse {
 struct PostShareResponse {
     let postId: Int
     let shareCount: Int
+}
+
+struct PostRepostResponse {
+    let postId: Int
+    let repostCount: Int
+    let viewerHasReposted: Bool
 }
 
 struct PostDeleteResponse {
@@ -159,10 +170,19 @@ protocol BlockServiceProtocol {
     func fetchBlockedUsers(limit: Int, cursor: String?) async throws -> BlockedUsersPage
     func blockUser(userId: Int) async throws -> BlockActionResult
     func unblockUser(userId: Int) async throws -> BlockActionResult
+    func blockUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> BlockActionResult
+    func unblockUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> BlockActionResult
+    func blockPrincipal(principalId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> PrincipalBlockActionResult
+    func unblockPrincipal(principalId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> PrincipalBlockActionResult
 }
 
 struct BlockActionResult {
     let userId: Int
+    let blocked: Bool
+}
+
+struct PrincipalBlockActionResult {
+    let principalId: Int
     let blocked: Bool
 }
 
