@@ -386,7 +386,15 @@ class APIClient {
 
     private func shouldLogProfileResponse(request: URLRequest) -> Bool {
         guard request.httpMethod == "GET", let path = request.url?.path else { return false }
-        return path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/")
+        if path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/") { return true }
+        // Helps debug profile repost tabs (e.g., 200 with empty items after refresh).
+        if path == "/v1/posts/reposted" { return true }
+        if path.contains("/reposts") { return true }
+        // Helps debug missing chats in inbox.
+        if path.hasPrefix("/v1/conversations") { return true }
+        if path.hasPrefix("/v1/message-requests") { return true }
+        if path.hasPrefix("/v1/channels") { return true }
+        return false
     }
 
     #if DEBUG
@@ -398,6 +406,10 @@ class APIClient {
         if path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/") { return true }
         if path == "/v1/posts/reposted" { return true }
         if path.contains("/reposts") { return true }
+        // Useful for debugging messages inbox/listing failures.
+        if path.hasPrefix("/v1/conversations") { return true }
+        if path.hasPrefix("/v1/message-requests") { return true }
+        if path.hasPrefix("/v1/channels") { return true }
 
         return false
     }

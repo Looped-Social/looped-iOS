@@ -156,6 +156,16 @@ struct MessagesView: View {
                             ProgressView("Loading requests...")
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 24)
+                        } else if let error = viewModel.errorMessage,
+                                  !error.isEmpty,
+                                  viewModel.messageRequests.isEmpty
+                        {
+                            EmptyMessagesView(
+                                title: "Couldn't load requests",
+                                subtitle: error,
+                                buttonTitle: "Retry",
+                                onButtonTap: { Task { await viewModel.loadMessageRequests() } }
+                            )
                         } else if filteredRequests.isEmpty {
                             if searchText.isEmpty {
                                 EmptyMessagesView(
@@ -206,6 +216,16 @@ struct MessagesView: View {
                             ProgressView("Loading groups...")
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 24)
+                        } else if let error = viewModel.channelErrorMessage,
+                                  !error.isEmpty,
+                                  viewModel.channels.isEmpty
+                        {
+                            EmptyMessagesView(
+                                title: "Couldn't load groups",
+                                subtitle: error,
+                                buttonTitle: "Retry",
+                                onButtonTap: { Task { await viewModel.loadChannels() } }
+                            )
                         } else if filteredChannels.isEmpty {
                             if searchText.isEmpty {
                                 EmptyMessagesView(
@@ -245,6 +265,16 @@ struct MessagesView: View {
                                 .foregroundColor(.loopedTextSecondary.opacity(0.1))
                                 .padding(.leading, 78)
                         }
+                    } else if let error = viewModel.errorMessage,
+                              !error.isEmpty,
+                              viewModel.conversations.isEmpty
+                    {
+                        EmptyMessagesView(
+                            title: "Couldn't load messages",
+                            subtitle: error,
+                            buttonTitle: "Retry",
+                            onButtonTap: { Task { await viewModel.loadInbox() } }
+                        )
                     } else if filteredConversations.isEmpty {
                         if searchText.isEmpty {
                             EmptyMessagesView(

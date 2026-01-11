@@ -2,23 +2,14 @@ import SwiftUI
 
 struct MessagesHeader: View {
     let title: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         HStack {
-            // Left side: Looped logo/text
-            HStack(spacing: 6) {
-                HStack(spacing: 2) {
-                    // Logo
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 32)
-
-                    Text("ooped")
-                        .font(.loopedHeading)
-                        .foregroundColor(.loopedContrast)
-                }
-            }
+            Image("logo-banner")
+                .resizable()
+                .scaledToFit()
+                .frame(height: bannerHeight)
 
             Spacer()
 
@@ -28,7 +19,10 @@ struct MessagesHeader: View {
                 .foregroundColor(.loopedTextPrimary)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+    }
+
+    private var bannerHeight: CGFloat {
+        horizontalSizeClass == .regular ? 80 : 60
     }
 }
 

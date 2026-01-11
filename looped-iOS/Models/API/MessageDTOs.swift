@@ -7,10 +7,27 @@ struct ConversationListResponseDTO: Codable {
 
 struct ConversationDTO: Codable {
     let id: Int
-    let otherUserProfile: ConversationUserProfileDTO
+    let otherUserProfile: ConversationUserProfileDTO?
     let lastMessage: String?
     let lastMessageTimestamp: Date?
     let unreadCount: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case otherUserProfile
+        case lastMessage
+        case lastMessageTimestamp
+        case unreadCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(Int.self, forKey: .id)
+        self.otherUserProfile = try container.decodeIfPresent(ConversationUserProfileDTO.self, forKey: .otherUserProfile)
+        self.lastMessage = try container.decodeIfPresent(String.self, forKey: .lastMessage)
+        self.lastMessageTimestamp = try container.decodeIfPresent(Date.self, forKey: .lastMessageTimestamp)
+        self.unreadCount = try container.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
+    }
 }
 
 struct ConversationUserProfileDTO: Codable {

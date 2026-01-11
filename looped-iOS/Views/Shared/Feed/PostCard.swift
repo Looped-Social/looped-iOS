@@ -32,6 +32,7 @@ struct PostCard: View {
     @State private var showHashtagFeed = false
     @ScaledMetric private var actionIconSize: CGFloat = 22
     @ScaledMetric private var actionLabelSpacing: CGFloat = 4
+    @ScaledMetric private var engagementBarSpacing: CGFloat = 10
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @AppStorage("anonymousMode") private var isAnonymousMode = false
@@ -346,7 +347,7 @@ struct PostCard: View {
 	    }
 
 		    private var engagementBar: some View {
-		        HStack(spacing: 16) {
+		        HStack(spacing: engagementBarSpacing) {
 		            likeButton
 		            commentButton
 		            repostButton

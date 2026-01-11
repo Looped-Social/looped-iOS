@@ -7,6 +7,7 @@ struct ChatView: View {
     let onBackTapped: () -> Void
 
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var viewModel = ChatViewModel()
     @State private var messageText = ""
     @State private var selectedMedia: [LocalMediaItem] = []
@@ -57,19 +58,11 @@ struct ChatView: View {
                         .foregroundColor(.loopedSecondary)
                 }
 
-                HStack(spacing: 2) {
-                    // Logo
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 32)
-
-                    Text("ooped")
-                        .font(.loopedHeading)
-                        .foregroundColor(.loopedContrast)
-                }
-                .fixedSize(horizontal: true, vertical: false)
-                .layoutPriority(1)
+                Image("logo-banner")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: bannerHeight)
+                    .layoutPriority(1)
 
                 Spacer(minLength: 8)
 
@@ -103,7 +96,6 @@ struct ChatView: View {
                 .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
             .background(Color.loopedBackground)
 
             // Messages List
@@ -162,6 +154,10 @@ struct ChatView: View {
             configureIds()
             await loadMessages()
         }
+    }
+
+    private var bannerHeight: CGFloat {
+        horizontalSizeClass == .regular ? 80 : 60
     }
 
     private func isMessageFromCurrentUser(_ message: Message) -> Bool {

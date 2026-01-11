@@ -9,20 +9,26 @@ class MessageService: MessageServiceProtocol {
     }
     
     func listConversations(cursor: String?) async throws -> ConversationPage {
-        var endpoint = "/v1/conversations?limit=20"
+        var endpoint = "/v1/conversations?limit=50"
         if let cursor = cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"
         }
         let response: ConversationListResponseDTO = try await apiClient.get(endpoint)
-        let conversations = response.items.map { dto in
-            Conversation(
+        let conversations = response.items.compactMap { dto -> Conversation? in
+            guard let profile = dto.otherUserProfile else {
+                #if DEBUG
+                print("Skipping conversation \(dto.id) due to missing otherUserProfile")
+                #endif
+                return nil
+            }
+            return Conversation(
                 id: UUID.fromBackendId(dto.id),
                 backendId: dto.id,
-                userId: UUID.fromBackendId(dto.otherUserProfile.id),
-                backendUserId: dto.otherUserProfile.id,
-                userName: dto.otherUserProfile.displayName ?? dto.otherUserProfile.handle,
-                userProfileImageUrl: dto.otherUserProfile.profileImageUrl,
+                userId: UUID.fromBackendId(profile.id),
+                backendUserId: profile.id,
+                userName: profile.displayName ?? profile.handle,
+                userProfileImageUrl: profile.profileImageUrl,
                 lastMessage: dto.lastMessage ?? "",
                 lastMessageTimestamp: dto.lastMessageTimestamp ?? Date(),
                 unreadCount: dto.unreadCount,
@@ -33,19 +39,25 @@ class MessageService: MessageServiceProtocol {
                 memberIds: nil
             )
         }
+        #if DEBUG
+        print("Conversations fetched: \(conversations.count) ids=\(conversations.map { $0.backendId })")
+        #endif
         return ConversationPage(conversations: conversations, nextCursor: response.nextCursor)
     }
     
     func startConversation(with participantBackendId: Int) async throws -> Conversation {
         struct StartConversationRequest: Codable { let participantUserId: Int }
         let dto: ConversationDTO = try await apiClient.post("/v1/conversations", body: StartConversationRequest(participantUserId: participantBackendId))
+        guard let profile = dto.otherUserProfile else {
+            throw APIError.invalidResponse
+        }
         return Conversation(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
-            userId: UUID.fromBackendId(dto.otherUserProfile.id),
-            backendUserId: dto.otherUserProfile.id,
-            userName: dto.otherUserProfile.displayName ?? dto.otherUserProfile.handle,
-            userProfileImageUrl: dto.otherUserProfile.profileImageUrl,
+            userId: UUID.fromBackendId(profile.id),
+            backendUserId: profile.id,
+            userName: profile.displayName ?? profile.handle,
+            userProfileImageUrl: profile.profileImageUrl,
             lastMessage: dto.lastMessage ?? "",
             lastMessageTimestamp: dto.lastMessageTimestamp ?? Date(),
             unreadCount: dto.unreadCount,
@@ -217,7 +229,7 @@ class MessageService: MessageServiceProtocol {
     }
     
     func getChannels(cursor: String?) async throws -> ChannelPage {
-        var endpoint = "/v1/channels?limit=20"
+        var endpoint = "/v1/channels?limit=50"
         if let cursor = cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"
@@ -236,6 +248,9 @@ class MessageService: MessageServiceProtocol {
                 viewerCanManageMembers: dto.viewerCanManageMembers ?? false
             )
         }
+        #if DEBUG
+        print("Channels fetched: \(channels.count) ids=\(channels.map { $0.backendId })")
+        #endif
         return ChannelPage(channels: channels, nextCursor: response.nextCursor)
     }
 
@@ -351,7 +366,7 @@ class MessageService: MessageServiceProtocol {
     }
 
     func fetchMessageRequests(cursor: String?) async throws -> MessageRequestPage {
-        var endpoint = "/v1/message-requests?limit=20"
+        var endpoint = "/v1/message-requests?limit=50"
         if let cursor = cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"
@@ -377,6 +392,10 @@ class MessageService: MessageServiceProtocol {
                 isGroup: dto.isGroup ?? false
             )
         }
+        #if DEBUG
+        let summarized = requests.map { "\($0.backendId):\($0.status.rawValue)" }
+        print("Message requests fetched: \(requests.count) [\(summarized.joined(separator: ", "))]")
+        #endif
         return MessageRequestPage(requests: requests, nextCursor: response.nextCursor)
     }
 

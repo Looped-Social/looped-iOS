@@ -37,9 +37,25 @@ final class CollectionPostsViewModel: ObservableObject {
     
     func loadInitial() async {
         guard !isLoading else { return }
+        let existingPosts = posts
         nextCursor = nil
-        posts = []
-        await loadMore(reset: true)
+
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let page = try await fetchPage(cursor: nil)
+            posts = applyOverrides(to: page.posts)
+            nextCursor = page.nextCursor
+        } catch {
+            if isCancellation(error) {
+                posts = existingPosts
+                return
+            }
+            posts = existingPosts
+            errorMessage = error.localizedDescription
+        }
     }
     
     func loadMoreIfNeeded(currentPost: Post) async {
