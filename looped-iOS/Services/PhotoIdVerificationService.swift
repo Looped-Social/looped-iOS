@@ -3,15 +3,18 @@ import Foundation
 final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
     private let apiClient: APIClient
     private let urlSession: URLSession
+    private let communityId: Int?
 
-    init(apiClient: APIClient = APIClient(), urlSession: URLSession = .shared) {
+    init(communityId: Int? = nil, apiClient: APIClient = APIClient(), urlSession: URLSession = .shared) {
+        self.communityId = communityId
         self.apiClient = apiClient
         self.urlSession = urlSession
     }
 
     func start() async throws -> PhotoIdVerificationStartResponse {
+        let endpoint = photoIdEndpoint(path: "start")
         let dto: PhotoIdVerificationStartResponseDTO = try await apiClient.post(
-            "/v1/verification/photo-id/start",
+            endpoint,
             body: EmptyResponse(),
             requiresAuth: true
         )
@@ -35,6 +38,7 @@ final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
         contentType: String,
         sizeBytes: Int
     ) async throws -> PhotoIdVerificationPresignResponse {
+        let endpoint = photoIdEndpoint(path: "presign")
         let request = PhotoIdVerificationPresignRequestDTO(
             uploadSessionId: uploadSessionId,
             kind: kind.rawValue,
@@ -42,7 +46,7 @@ final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
             sizeBytes: sizeBytes
         )
         let dto: PhotoIdVerificationPresignResponseDTO = try await apiClient.post(
-            "/v1/verification/photo-id/presign",
+            endpoint,
             body: request,
             requiresAuth: true
         )
@@ -98,6 +102,7 @@ final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
         idFrontKey: String,
         idBackKey: String?
     ) async throws -> PhotoIdVerificationSubmitResponse {
+        let endpoint = photoIdEndpoint(path: "submit")
         let request = PhotoIdVerificationSubmitRequestDTO(
             uploadSessionId: uploadSessionId,
             documents: PhotoIdVerificationDocumentsDTO(
@@ -108,7 +113,7 @@ final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
         )
 
         let dto: PhotoIdVerificationSubmitResponseDTO = try await apiClient.post(
-            "/v1/verification/photo-id/submit",
+            endpoint,
             body: request,
             requiresAuth: true
         )
@@ -120,13 +125,21 @@ final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
     }
 
     func status() async throws -> PhotoIdVerificationStatusResponse {
+        let endpoint = photoIdEndpoint(path: "status")
         let dto: PhotoIdVerificationStatusResponseDTO = try await apiClient.get(
-            "/v1/verification/photo-id/status",
+            endpoint,
             requiresAuth: true
         )
         return PhotoIdVerificationStatusResponse(
             method: dto.method,
             status: PhotoIdVerificationStatus(rawValue: dto.status) ?? .unknown
         )
+    }
+
+    private func photoIdEndpoint(path: String) -> String {
+        if let communityId {
+            return "/v1/communities/\(communityId)/verification/photo-id/\(path)"
+        }
+        return "/v1/verification/photo-id/\(path)"
     }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 struct PhotoIdVerificationView: View {
+    let communityId: Int?
     let currentStep: Int
     let totalSteps: Int
     let onBack: () -> Void
@@ -18,18 +19,24 @@ struct PhotoIdVerificationView: View {
     @StateObject private var viewModel: PhotoIdVerificationViewModel
 
     init(
+        communityId: Int? = nil,
         currentStep: Int,
         totalSteps: Int,
         onBack: @escaping () -> Void,
         onSkip: (() -> Void)? = nil,
         onComplete: @escaping () -> Void
     ) {
+        self.communityId = communityId
         self.currentStep = currentStep
         self.totalSteps = totalSteps
         self.onBack = onBack
         self.onSkip = onSkip
         self.onComplete = onComplete
-        _viewModel = StateObject(wrappedValue: PhotoIdVerificationViewModel())
+        _viewModel = StateObject(
+            wrappedValue: PhotoIdVerificationViewModel(
+                service: PhotoIdVerificationService(communityId: communityId)
+            )
+        )
     }
 
     var body: some View {
@@ -322,6 +329,7 @@ private struct IdDocumentCardView: View {
 
 #Preview {
     PhotoIdVerificationView(
+        communityId: 1,
         currentStep: 3,
         totalSteps: 5,
         onBack: {},

@@ -73,6 +73,7 @@ struct CommunityVerificationFlowView: View {
             )
         case .photoId:
             PhotoIdVerificationView(
+                communityId: community.id,
                 currentStep: 3,
                 totalSteps: 4,
                 onBack: { step = .methods },

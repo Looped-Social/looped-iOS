@@ -212,6 +212,7 @@ struct AuthView: View {
                 )
             case .photoIdVerification(let isStudent):
                 PhotoIdVerificationView(
+                    communityId: selectedCommunityId,
                     currentStep: verificationStep(for: .photoIdVerification(isStudent: isStudent)),
                     totalSteps: verificationTotalSteps,
                     onBack: {
