@@ -71,7 +71,7 @@ final class PhotoIdVerificationViewModel: ObservableObject {
         defer { isSubmitting = false }
 
         do {
-            if session.required.contains(.idBack), idBack == nil {
+            guard let idBack else {
                 throw APIError.apiError(code: 400, error: "id_back_required", message: "Please upload the back of your ID.")
             }
 
@@ -80,7 +80,7 @@ final class PhotoIdVerificationViewModel: ObservableObject {
 
             let selfieData = try encode(image: selfie, contentType: contentType, maxBytes: maxBytes)
             let idFrontData = try encode(image: idFront, contentType: contentType, maxBytes: maxBytes)
-            let idBackData = try idBack.map { try encode(image: $0, contentType: contentType, maxBytes: maxBytes) }
+            let idBackData = try encode(image: idBack, contentType: contentType, maxBytes: maxBytes)
 
             async let selfieKey = service.uploadDocument(
                 uploadSessionId: session.uploadSessionId,
@@ -95,17 +95,12 @@ final class PhotoIdVerificationViewModel: ObservableObject {
                 contentType: contentType
             )
 
-            let idBackKey: String?
-            if let idBackData {
-                idBackKey = try await service.uploadDocument(
-                    uploadSessionId: session.uploadSessionId,
-                    kind: .idBack,
-                    data: idBackData,
-                    contentType: contentType
-                )
-            } else {
-                idBackKey = nil
-            }
+            let idBackKey = try await service.uploadDocument(
+                uploadSessionId: session.uploadSessionId,
+                kind: .idBack,
+                data: idBackData,
+                contentType: contentType
+            )
 
             let response = try await service.submit(
                 uploadSessionId: session.uploadSessionId,
@@ -114,7 +109,14 @@ final class PhotoIdVerificationViewModel: ObservableObject {
                 idBackKey: idBackKey
             )
 
-            return response.status == "pending_review"
+            guard response.status == "pending_review" else {
+                throw APIError.apiError(
+                    code: 400,
+                    error: "verification_submit_failed",
+                    message: "Upload finished but verification wasn’t submitted. Please try again."
+                )
+            }
+            return true
         } catch {
             handleError(error)
             return false

@@ -42,6 +42,7 @@ struct CameraCaptureView: View {
                 .padding(.horizontal, 28)
             } else if controller.isAuthorized {
                 CameraPreview(session: controller.session, position: position)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .ignoresSafeArea()
 
                 overlay
@@ -107,9 +108,7 @@ private extension CameraCaptureView {
 
     var overlay: some View {
         GeometryReader { geometry in
-            VStack {
-                Spacer()
-
+            ZStack {
                 if overlayStyle == .idCard {
                     let width = geometry.size.width * 0.78
                     let height = width / 1.58
@@ -119,16 +118,19 @@ private extension CameraCaptureView {
                         .shadow(color: Color.loopedBlack.opacity(0.25), radius: 6, x: 0, y: 4)
                 }
 
-                Spacer()
-
-                Text(instruction)
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedWhite)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 28)
+                VStack {
+                    Spacer()
+                    Text(instruction)
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedWhite)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 28)
+                }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
     }
 
     var captureControls: some View {

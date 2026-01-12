@@ -86,11 +86,6 @@ struct PhotoIdVerificationView: View {
                 onConfirm: { image in
                     selfieImage = image
                     showSelfieCamera = false
-                    stage = .workId
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        guard !showSelfieCamera else { return }
-                        showIdFrontCamera = true
-                    }
                 }
             )
         }
@@ -221,7 +216,7 @@ private extension PhotoIdVerificationView {
                 .buttonStyle(PlainButtonStyle())
 
                 Button(action: { showIdBackCamera = true }) {
-                    IdDocumentCardView(title: "ID Back (Optional)", image: idBackImage)
+                    IdDocumentCardView(title: "ID Back", image: idBackImage)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
@@ -239,7 +234,7 @@ private extension PhotoIdVerificationView {
                 }
 
                 Button(action: { showIdBackCamera = true }) {
-                    Text(idBackImage == nil ? "Add ID Back" : "Retake ID Back")
+                    Text(idBackImage == nil ? "Take ID Back" : "Retake ID Back")
                         .font(.loopedSubBodyMedium)
                         .foregroundColor(.loopedSecondary)
                 }
@@ -248,7 +243,7 @@ private extension PhotoIdVerificationView {
 
             PrimaryButton(
                 title: "Continue",
-                isEnabled: idFrontImage != nil && selfieImage != nil && !viewModel.isPreparing,
+                isEnabled: idFrontImage != nil && idBackImage != nil && selfieImage != nil && !viewModel.isPreparing,
                 isLoading: viewModel.isSubmitting,
                 action: handleSubmit
             )
@@ -286,7 +281,7 @@ private struct IdDocumentCardView: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color.loopedWhite)
+            .fill(Color.loopedMutedBackground)
             .frame(width: 280, height: 170)
             .shadow(color: Color.loopedBlack.opacity(0.12), radius: 10, x: 0, y: 6)
             .overlay(
@@ -303,7 +298,7 @@ private struct IdDocumentCardView: View {
                     Spacer()
 
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.loopedMutedBackground)
+                        .fill(Color.loopedBackground)
                         .frame(width: 88, height: 110)
                         .overlay(
                             Group {
@@ -312,7 +307,7 @@ private struct IdDocumentCardView: View {
                                         .resizable()
                                         .scaledToFill()
                                 } else {
-                                    Image(systemName: "person.fill")
+                                    Image(systemName: "rectangle.on.rectangle")
                                         .font(.loopedCustom(.regular, size: 36))
                                         .foregroundColor(.loopedTextSecondary)
                                 }
