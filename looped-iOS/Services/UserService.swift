@@ -187,6 +187,11 @@ class UserService: UserServiceProtocol {
         return User(dto: dto, profile: dto.profile)
     }
 
+    func updateOnboardingStep(_ step: RemoteOnboardingStep) async throws -> OnboardingStateDTO {
+        let request = UserOnboardingStepUpdateRequestDTO(step: step)
+        return try await apiClient.put("/v1/users/me/onboarding", body: request)
+    }
+
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage {
         var endpoint = "/v1/users/\(userId)/comments?limit=\(limit)"
         if let cursor = cursor, !cursor.isEmpty {

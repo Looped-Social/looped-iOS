@@ -127,13 +127,21 @@ struct ProfileSetupView: View {
         Task {
             defer { isSubmitting = false }
             do {
-                try await authViewModel.onboardUser(
-                    username: trimmedUsername,
-                    firstName: trimmedFirstName,
-                    lastName: trimmedLastName,
-                    dateOfBirth: dateOfBirth
-                )
-                onboardingStore.clearProfileDraft()
+                if authViewModel.currentUser != nil {
+                    try await authViewModel.updateIdentity(
+                        username: trimmedUsername,
+                        firstName: trimmedFirstName,
+                        lastName: trimmedLastName,
+                        dateOfBirth: dateOfBirth
+                    )
+                } else {
+                    try await authViewModel.onboardUser(
+                        username: trimmedUsername,
+                        firstName: trimmedFirstName,
+                        lastName: trimmedLastName,
+                        dateOfBirth: dateOfBirth
+                    )
+                }
                 onContinue()
             } catch {
                 submitError = error.localizedDescription
@@ -223,11 +231,25 @@ struct ProfileSetupView: View {
     private func loadDraftIfNeeded() {
         guard !didLoadDraft else { return }
         didLoadDraft = true
-        guard let draft = onboardingStore.loadProfileDraft() else { return }
-        if username.isEmpty { username = draft.username }
-        if firstName.isEmpty { firstName = draft.firstName }
-        if lastName.isEmpty { lastName = draft.lastName }
-        if let dob = draft.dateOfBirth {
+        if let draft = onboardingStore.loadProfileDraft() {
+            if username.isEmpty { username = draft.username }
+            if firstName.isEmpty { firstName = draft.firstName }
+            if lastName.isEmpty { lastName = draft.lastName }
+            if let dob = draft.dateOfBirth {
+                dateOfBirth = dob
+            }
+        }
+
+        if username.isEmpty {
+            username = authViewModel.currentUser?.username ?? authViewModel.currentUser?.handle ?? ""
+        }
+        if firstName.isEmpty {
+            firstName = authViewModel.currentUser?.firstName ?? ""
+        }
+        if lastName.isEmpty {
+            lastName = authViewModel.currentUser?.lastName ?? ""
+        }
+        if let dob = authViewModel.currentUser?.dateOfBirth?.yyyyMMddDate() {
             dateOfBirth = dob
         }
         handleUsernameChange(username)

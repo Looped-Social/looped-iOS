@@ -27,9 +27,16 @@ struct OnboardingProfileDraft: Codable {
     let dateOfBirth: Date?
 }
 
+struct OnboardingOrganizationDraft: Codable {
+    let backendId: Int?
+    let name: String
+    let kind: OrganizationKind
+}
+
 final class OnboardingProgressStore {
     private let progressKey = "looped.onboarding.progress"
     private let profileDraftKey = "looped.onboarding.profileDraft"
+    private let organizationDraftKey = "looped.onboarding.organizationDraft"
     private let defaults: UserDefaults
     private let keychain: KeychainStore
 
@@ -73,8 +80,25 @@ final class OnboardingProgressStore {
         keychain.delete(key: profileDraftKey)
     }
 
+    func saveOrganizationDraft(_ draft: OnboardingOrganizationDraft) {
+        let encoder = JSONEncoder()
+        guard let data = try? encoder.encode(draft) else { return }
+        defaults.set(data, forKey: organizationDraftKey)
+    }
+
+    func loadOrganizationDraft() -> OnboardingOrganizationDraft? {
+        guard let data = defaults.data(forKey: organizationDraftKey) else { return nil }
+        let decoder = JSONDecoder()
+        return try? decoder.decode(OnboardingOrganizationDraft.self, from: data)
+    }
+
+    func clearOrganizationDraft() {
+        defaults.removeObject(forKey: organizationDraftKey)
+    }
+
     func clearAll() {
         clearProgress()
         clearProfileDraft()
+        clearOrganizationDraft()
     }
 }

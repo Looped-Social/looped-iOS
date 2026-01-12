@@ -25,7 +25,7 @@ struct Organization: Identifiable {
     }
 }
 
-enum OrganizationKind: String {
+enum OrganizationKind: String, Codable {
     case company
     case school
 }

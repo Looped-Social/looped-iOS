@@ -9,6 +9,7 @@ struct OrganizationDetailSelectionView: View {
     let onBack: () -> Void
 
     @StateObject private var viewModel: OnboardingSpecializationSelectionViewModel
+    @State private var isInfoPresented = false
 
     init(
         title: String,
@@ -35,11 +36,23 @@ struct OrganizationDetailSelectionView: View {
                     .padding(.horizontal, 16)
 
                 Spacer()
-                    .frame(height: geometry.size.height * 0.08)
+                    .frame(height: 24)
 
                 Text(title)
                     .font(.loopedHeadingMedium)
                     .foregroundColor(.loopedContrast)
+
+                Button(action: { isInfoPresented = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .font(.loopedCustom(.medium, size: 13))
+                        Text("Why am I choosing this?")
+                            .font(.loopedSmallText)
+                    }
+                    .foregroundColor(.loopedTextSecondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
@@ -117,6 +130,11 @@ struct OrganizationDetailSelectionView: View {
         .onChange(of: searchText) { _, newValue in
             viewModel.query = newValue
         }
+        .alert("About your choice", isPresented: $isInfoPresented) {
+            Button("Got it", role: .cancel) { }
+        } message: {
+            Text(infoText)
+        }
     }
 }
 
@@ -130,6 +148,17 @@ private extension OrganizationDetailSelectionView {
                     .frame(width: 40, height: 40)
             }
             Spacer()
+        }
+    }
+
+    var infoText: String {
+        switch kind {
+        case .department:
+            return "Pick the department you want featured on your profile. You can update this later."
+        case .major:
+            return "Pick the major you want featured on your profile. You can update this later."
+        default:
+            return "Pick what you want featured on your profile. You can update this later."
         }
     }
 }

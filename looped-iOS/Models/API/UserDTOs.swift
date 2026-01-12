@@ -7,6 +7,8 @@ struct IdentityResponseDTO: Codable {
     let email: String?
     let provisioned: Bool
     let user: UserDTO?
+    let onboardingComplete: Bool?
+    let onboardingStep: RemoteOnboardingStep?
 }
 
 struct UserDTO: Codable {

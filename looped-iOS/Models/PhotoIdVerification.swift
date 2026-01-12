@@ -40,15 +40,22 @@ struct PhotoIdVerificationSubmitResponse: Equatable {
     let status: String
 }
 
-enum PhotoIdVerificationStatus: String, Equatable {
+enum PhotoIdVerificationStatus: String, Equatable, Codable {
     case none
     case pendingReview = "pending_review"
     case approved
     case rejected
     case unknown
 
-    init(rawValue: String) {
-        self = Self(rawValue: rawValue) ?? .unknown
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        self = PhotoIdVerificationStatus(rawValue: value) ?? .unknown
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -56,4 +63,3 @@ struct PhotoIdVerificationStatusResponse: Equatable {
     let method: String
     let status: PhotoIdVerificationStatus
 }
-

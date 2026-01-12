@@ -9,12 +9,38 @@ struct CameraCaptureView: View {
     let onCancel: () -> Void
     let onConfirm: (UIImage) -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var controller = CameraCaptureController()
+    
+    private var isRunningInPreviews: Bool {
+        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
+    
+    private var isCameraAvailable: Bool {
+        #if targetEnvironment(simulator)
+        return false
+        #else
+        UIImagePickerController.isSourceTypeAvailable(.camera)
+        #endif
+    }
 
     var body: some View {
         ZStack {
-            if controller.isAuthorized {
+            if isRunningInPreviews || !isCameraAvailable {
+                Color.loopedBlack.ignoresSafeArea()
+                overlay
+                header
+                VStack(spacing: 10) {
+                    Text(isRunningInPreviews ? "Camera isn't available in previews." : "Camera isn't available on Simulator.")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedWhite)
+                        .multilineTextAlignment(.center)
+                    Text("Run on a physical device to capture photos.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedWhite.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 28)
+            } else if controller.isAuthorized {
                 CameraPreview(session: controller.session, position: position)
                     .ignoresSafeArea()
 
@@ -35,7 +61,15 @@ struct CameraCaptureView: View {
                 Color.loopedBlack.ignoresSafeArea()
             }
         }
+        .alert("Camera Error", isPresented: $controller.showErrorAlert) {
+            Button("OK", role: .cancel) {
+                handleCancel()
+            }
+        } message: {
+            Text(controller.errorMessage ?? "Camera isn't available right now.")
+        }
         .onAppear {
+            guard !isRunningInPreviews, isCameraAvailable else { return }
             controller.configure(position: position)
             controller.start()
         }
@@ -147,13 +181,11 @@ private extension CameraCaptureView {
 
     func handleCancel() {
         onCancel()
-        dismiss()
     }
 
     func handleConfirm() {
         guard let image = controller.capturedImage else { return }
         onConfirm(image)
-        dismiss()
     }
 }
 
@@ -166,6 +198,8 @@ final class CameraCaptureController: NSObject, ObservableObject, AVCapturePhotoC
     @Published var isAuthorized = false
     @Published var authorizationStatus: AVAuthorizationStatus = .notDetermined
     @Published var capturedImage: UIImage?
+    @Published var errorMessage: String?
+    @Published var showErrorAlert = false
 
     let session = AVCaptureSession()
     private let output = AVCapturePhotoOutput()
@@ -213,12 +247,27 @@ final class CameraCaptureController: NSObject, ObservableObject, AVCapturePhotoC
         }
     }
 
-    func capture() {
-        sessionQueue.async {
-            let settings = AVCapturePhotoSettings()
-            self.output.capturePhoto(with: settings, delegate: self)
-        }
-    }
+	    func capture() {
+	        sessionQueue.async {
+	            guard self.isConfigured, self.session.isRunning else {
+	                self.presentError("Camera isn't ready yet.")
+	                return
+	            }
+	            guard !self.session.inputs.isEmpty, self.session.outputs.contains(self.output) else {
+	                self.presentError("Camera couldn't be configured.")
+	                return
+	            }
+	            let hasEnabledVideoConnection = self.output.connections.contains { connection in
+	                connection.isEnabled && connection.inputPorts.contains { $0.mediaType == .video }
+	            }
+	            guard hasEnabledVideoConnection else {
+	                self.presentError("Camera isn't available on this device.")
+	                return
+	            }
+	            let settings = AVCapturePhotoSettings()
+	            self.output.capturePhoto(with: settings, delegate: self)
+	        }
+	    }
 
     func retake() {
         capturedImage = nil
@@ -236,10 +285,17 @@ final class CameraCaptureController: NSObject, ObservableObject, AVCapturePhotoC
             self.session.sessionPreset = .photo
             self.session.inputs.forEach { self.session.removeInput($0) }
 
-            if let input = self.makeInput() {
-                if self.session.canAddInput(input) {
-                    self.session.addInput(input)
-                }
+            guard let input = self.makeInput() else {
+                self.session.commitConfiguration()
+                self.presentError("Camera isn't available on this device.")
+                return
+            }
+            if self.session.canAddInput(input) {
+                self.session.addInput(input)
+            } else {
+                self.session.commitConfiguration()
+                self.presentError("Camera couldn't be configured.")
+                return
             }
 
             if self.session.canAddOutput(self.output) {
@@ -255,9 +311,12 @@ final class CameraCaptureController: NSObject, ObservableObject, AVCapturePhotoC
     private func updateInput() {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
-        if let input = makeInput(), session.canAddInput(input) {
-            session.addInput(input)
+        guard let input = makeInput(), session.canAddInput(input) else {
+            session.commitConfiguration()
+            presentError("Camera isn't available on this device.")
+            return
         }
+        session.addInput(input)
         session.commitConfiguration()
     }
 
@@ -281,6 +340,13 @@ final class CameraCaptureController: NSObject, ObservableObject, AVCapturePhotoC
             self.capturedImage = image
         }
         stop()
+    }
+
+    private func presentError(_ message: String) {
+        DispatchQueue.main.async {
+            self.errorMessage = message
+            self.showErrorAlert = true
+        }
     }
 }
 

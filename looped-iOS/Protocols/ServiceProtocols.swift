@@ -145,6 +145,7 @@ protocol UserServiceProtocol {
     func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO
     func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
+    func updateOnboardingStep(_ step: RemoteOnboardingStep) async throws -> OnboardingStateDTO
 }
 
 extension UserServiceProtocol {

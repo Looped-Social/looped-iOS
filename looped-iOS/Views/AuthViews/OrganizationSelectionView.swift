@@ -12,6 +12,7 @@ struct OrganizationSelectionView: View {
     let onNavigate: (AuthScreen) -> Void
 
     @StateObject private var viewModel: OnboardingOrganizationSearchViewModel
+    @State private var isInfoPresented = false
 
     init(
         title: String,
@@ -40,12 +41,24 @@ struct OrganizationSelectionView: View {
                     .padding(.horizontal, 16)
 
                 Spacer()
-                    .frame(height: geometry.size.height * 0.08)
+                    .frame(height: 24)
 
                 Text(title)
                     .font(.loopedHeadingMedium)
                     .foregroundColor(.loopedContrast)
                     .multilineTextAlignment(.center)
+
+                Button(action: { isInfoPresented = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .font(.loopedCustom(.medium, size: 13))
+                        Text("Why am I choosing this?")
+                            .font(.loopedSmallText)
+                    }
+                    .foregroundColor(.loopedTextSecondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
@@ -121,6 +134,11 @@ struct OrganizationSelectionView: View {
         }
         .onChange(of: searchText) { _, newValue in
             viewModel.query = newValue
+        }
+        .alert("About your choice", isPresented: $isInfoPresented) {
+            Button("Got it", role: .cancel) { }
+        } message: {
+            Text("If you work and go to school, no worries — you can verify additional communities later. Pick the one you want to feature on your profile for now. You can always change this later.")
         }
     }
 }

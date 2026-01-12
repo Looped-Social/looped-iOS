@@ -85,8 +85,10 @@ struct PhotoIdVerificationView: View {
                 onCancel: { showSelfieCamera = false },
                 onConfirm: { image in
                     selfieImage = image
+                    showSelfieCamera = false
                     stage = .workId
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        guard !showSelfieCamera else { return }
                         showIdFrontCamera = true
                     }
                 }
@@ -100,6 +102,7 @@ struct PhotoIdVerificationView: View {
                 onCancel: { showIdFrontCamera = false },
                 onConfirm: { image in
                     idFrontImage = image
+                    showIdFrontCamera = false
                 }
             )
         }
@@ -111,6 +114,7 @@ struct PhotoIdVerificationView: View {
                 onCancel: { showIdBackCamera = false },
                 onConfirm: { image in
                     idBackImage = image
+                    showIdBackCamera = false
                 }
             )
         }
@@ -150,9 +154,7 @@ private extension PhotoIdVerificationView {
                 }
             }
 
-            if totalSteps > 1 {
-                VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
-            }
+            VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
         }
     }
 

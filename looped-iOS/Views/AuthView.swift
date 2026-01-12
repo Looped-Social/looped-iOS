@@ -11,10 +11,6 @@ struct AuthView: View {
     @State private var schoolSearchText: String = ""
     @State private var departmentSearchText: String = ""
     @State private var degreeSearchText: String = ""
-    @State private var companyCommunitySearchText: String = ""
-    @State private var studentCommunitySearchText: String = ""
-    @State private var companySelectedCommunityIds: Set<UUID> = []
-    @State private var studentSelectedCommunityIds: Set<UUID> = []
     @State private var selectedDepartment: CommunitySearchResult?
     @State private var selectedDegree: CommunitySearchResult?
     @State private var companyVerificationOptionId: String?
@@ -22,6 +18,7 @@ struct AuthView: View {
     @State private var verificationContext: VerificationContext?
     private let onboardingStore = OnboardingProgressStore()
     @State private var verificationFlowMode: VerificationFlowMode = .full
+    @State private var lastReportedRemoteStep: RemoteOnboardingStep?
     private let communityService: CommunityServiceProtocol = CommunityService()
     private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
 
@@ -42,6 +39,13 @@ struct AuthView: View {
                         authViewModel.selectedOrganization = organization
                         selectedLoopName = organization.name
                         selectedCommunityId = organization.backendId
+                        onboardingStore.saveOrganizationDraft(
+                            OnboardingOrganizationDraft(
+                                backendId: organization.backendId,
+                                name: organization.name,
+                                kind: organization.kind
+                            )
+                        )
                         if let id = organization.backendId {
                             UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
                         } else {
@@ -66,6 +70,13 @@ struct AuthView: View {
                         authViewModel.selectedOrganization = organization
                         selectedLoopName = organization.name
                         selectedCommunityId = organization.backendId
+                        onboardingStore.saveOrganizationDraft(
+                            OnboardingOrganizationDraft(
+                                backendId: organization.backendId,
+                                name: organization.name,
+                                kind: organization.kind
+                            )
+                        )
                         if let id = organization.backendId {
                             UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
                         } else {
@@ -80,24 +91,6 @@ struct AuthView: View {
                         currentScreen = screen
                     }
                 )
-            case .communitySelection(let isStudent):
-                CommunitySelectionView(
-                    recommendedKind: nil,
-                    searchText: isStudent ? $studentCommunitySearchText : $companyCommunitySearchText,
-                    selectedIds: isStudent ? $studentSelectedCommunityIds : $companySelectedCommunityIds,
-                    onBack: {
-                        currentScreen = isStudent ? .degreeSelection : .departmentSelection
-                    }
-                ) { selected in
-                    verificationFlowMode = .full
-                    verificationContext = nil
-                    followCommunities(selected)
-                    if selected.isEmpty {
-                        authViewModel.onboardingComplete = true
-                    } else {
-                        currentScreen = .verificationIntro(isStudent: isStudent)
-                    }
-                }
             case .departmentSelection:
                 OrganizationDetailSelectionView(
                     title: "Department",
@@ -106,7 +99,7 @@ struct AuthView: View {
                     selectedItem: $selectedDepartment,
                     onSelect: { selection in
                         followCommunityIfPossible(selection.id)
-                        currentScreen = .communitySelection(isStudent: false)
+                        currentScreen = .verificationIntro(isStudent: false)
                     },
                     onBack: {
                         currentScreen = .selectCompany
@@ -120,7 +113,7 @@ struct AuthView: View {
 	                    selectedItem: $selectedDegree,
 	                    onSelect: { selection in
 	                        followCommunityIfPossible(selection.id)
-	                        currentScreen = .communitySelection(isStudent: true)
+	                        currentScreen = .verificationIntro(isStudent: true)
 	                    },
 	                    onBack: {
 	                        currentScreen = .selectSchool
@@ -132,7 +125,7 @@ struct AuthView: View {
 	                    currentStep: verificationStep(for: .verificationIntro(isStudent: isStudent)),
 	                    totalSteps: verificationTotalSteps,
                     onBack: {
-                        currentScreen = .communitySelection(isStudent: isStudent)
+                        currentScreen = isStudent ? .degreeSelection : .departmentSelection
                     },
 	                    onContinue: {
 	                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
@@ -205,7 +198,7 @@ struct AuthView: View {
                     totalSteps: verificationTotalSteps,
                     onBack: {
                         guard let context = verificationContext else {
-                            currentScreen = .verificationIntro(isStudent: false)
+                            currentScreen = .verificationIntro(isStudent: isStudentOnboardingFlow)
                             return
                         }
                         currentScreen = context.method == .photoId
@@ -256,22 +249,23 @@ struct AuthView: View {
                     totalSteps: verificationTotalSteps,
                     onBack: {
                         if verificationFlowMode == .skipped {
-                            let isStudent = authViewModel.selectedOrganization?.kind == .school
-                            currentScreen = .communitySelection(isStudent: isStudent)
+                            currentScreen = .verificationIntro(isStudent: isStudentOnboardingFlow)
                         } else {
                             currentScreen = .verificationConfirmation
                         }
                     },
                     onEnableNotifications: { wantsRecommendations in
-                        Task { @MainActor in
+                        Task {
                             await authViewModel.enableNotificationsDuringOnboarding(
                                 wantsRecommendations: wantsRecommendations
                             )
-                            authViewModel.onboardingComplete = true
+                            await authViewModel.reportOnboardingStep(.verificationNotifications)
                         }
                     },
                     onSkip: {
-                        authViewModel.onboardingComplete = true
+                        Task {
+                            await authViewModel.reportOnboardingStep(.verificationNotifications)
+                        }
                     }
                 )
             case .profileSetup:
@@ -307,6 +301,12 @@ struct AuthView: View {
         }
         .onChange(of: currentScreen) { _, newValue in
             persistProgress(for: newValue)
+            reportRemoteProgressIfNeeded(for: newValue)
+        }
+        .onChange(of: authViewModel.onboardingStep) { _, _ in
+            if authViewModel.isAuthenticated, !authViewModel.onboardingComplete {
+                restoreOnboardingScreen()
+            }
         }
         .onChange(of: authViewModel.onboardingComplete) { _, newValue in
             if newValue {
@@ -376,19 +376,7 @@ private extension AuthView {
         }
     }
 
-    func followCommunities(_ communities: [SearchResultLoop]) {
-        let ids = communities.compactMap(\.backendId)
-        guard !ids.isEmpty else { return }
-        Task {
-            await withTaskGroup(of: Void.self) { group in
-                for id in ids {
-                    group.addTask {
-                        try? await communityService.followCommunity(id: id)
-                    }
-                }
-            }
-        }
-    }
+    // Intentionally no "pick communities" step in onboarding; users only choose their org + dept/degree.
 }
 
 enum AuthScreen: Equatable {
@@ -398,7 +386,6 @@ enum AuthScreen: Equatable {
     case selectSchool
     case departmentSelection
     case degreeSelection
-    case communitySelection(isStudent: Bool)
     case verificationIntro(isStudent: Bool)
     case waysToVerifyCompany
     case waysToVerifyStudent
@@ -413,8 +400,15 @@ enum AuthScreen: Equatable {
 private extension AuthView {
     func restoreOnboardingScreen() {
         guard !authViewModel.onboardingComplete else { return }
+        restoreOrganizationDraftIfNeeded()
         if let step = onboardingStore.loadProgress(), let restored = AuthScreen.fromOnboardingStep(step) {
             currentScreen = restored
+        } else if let remote = authViewModel.onboardingStep {
+            if remote == .selectCompany, let kind = authViewModel.selectedOrganization?.kind {
+                currentScreen = (kind == .school) ? .degreeSelection : .departmentSelection
+            } else if let restored = AuthScreen.fromRemoteOnboardingStep(remote, isStudent: isStudentOnboardingFlow) {
+                currentScreen = restored
+            }
         } else if authViewModel.shouldEnterOnboardingFlow {
             currentScreen = .profileSetup
         }
@@ -426,6 +420,56 @@ private extension AuthView {
             return
         }
         onboardingStore.saveProgress(step)
+    }
+
+    var isStudentOnboardingFlow: Bool {
+        if let kind = authViewModel.selectedOrganization?.kind {
+            return kind == .school
+        }
+        if let stored = onboardingStore.loadOrganizationDraft() {
+            return stored.kind == .school
+        }
+        return false
+    }
+
+    func restoreOrganizationDraftIfNeeded() {
+        guard authViewModel.selectedOrganization == nil else { return }
+        guard let draft = onboardingStore.loadOrganizationDraft() else { return }
+        authViewModel.selectedOrganization = Organization(
+            backendId: draft.backendId,
+            name: draft.name,
+            category: "",
+            logoText: Organization.logoText(for: draft.name),
+            kind: draft.kind
+        )
+        if selectedLoopName == "Looped" {
+            selectedLoopName = draft.name
+        }
+        if selectedCommunityId == nil {
+            selectedCommunityId = draft.backendId
+        }
+    }
+
+    func reportRemoteProgressIfNeeded(for screen: AuthScreen) {
+        guard let remote = remoteStep(for: screen) else { return }
+        guard remote != lastReportedRemoteStep else { return }
+        lastReportedRemoteStep = remote
+        Task {
+            await authViewModel.reportOnboardingStep(remote)
+        }
+    }
+
+    func remoteStep(for screen: AuthScreen) -> RemoteOnboardingStep? {
+        switch screen {
+        case .profileSetup:
+            return .profileSetup
+        case .selectCompany, .selectSchool, .departmentSelection, .degreeSelection:
+            return .selectCompany
+        case .verificationIntro, .waysToVerifyCompany, .waysToVerifyStudent, .photoIdVerification, .emailVerification, .verificationConfirmation:
+            return .verification
+        default:
+            return nil
+        }
     }
 }
 
@@ -442,8 +486,6 @@ private extension AuthScreen {
             return .departmentSelection
         case .degreeSelection:
             return .degreeSelection
-        case .communitySelection(let isStudent):
-            return isStudent ? .communitySelectionStudent : .communitySelectionCompany
         case .verificationIntro(let isStudent):
             return isStudent ? .verificationIntroStudent : .verificationIntroCompany
         case .waysToVerifyCompany:
@@ -476,9 +518,9 @@ private extension AuthScreen {
         case .degreeSelection:
             return .degreeSelection
         case .communitySelectionStudent:
-            return .communitySelection(isStudent: true)
+            return .verificationIntro(isStudent: true)
         case .communitySelectionCompany:
-            return .communitySelection(isStudent: false)
+            return .verificationIntro(isStudent: false)
         case .verificationIntroStudent:
             return .verificationIntro(isStudent: true)
         case .verificationIntroCompany:
@@ -497,6 +539,19 @@ private extension AuthScreen {
             return .emailVerification(isStudent: false)
         case .verificationConfirmation:
             return .verificationConfirmation
+        case .verificationNotifications:
+            return .verificationNotifications
+        }
+    }
+
+    static func fromRemoteOnboardingStep(_ step: RemoteOnboardingStep, isStudent: Bool) -> AuthScreen? {
+        switch step {
+        case .profileSetup:
+            return .profileSetup
+        case .selectCompany:
+            return .selectCompany
+        case .verification:
+            return .verificationIntro(isStudent: isStudent)
         case .verificationNotifications:
             return .verificationNotifications
         }

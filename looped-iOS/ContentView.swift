@@ -39,14 +39,11 @@ struct ContentView: View {
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
-    private let onboardingStore = OnboardingProgressStore()
 
     var body: some View {
         Group {
             if authViewModel.isAuthenticated {
-                let shouldShowOnboarding = (authViewModel.shouldEnterOnboardingFlow || onboardingStore.hasProgress)
-                    && !authViewModel.onboardingComplete
-                if shouldShowOnboarding {
+                if !authViewModel.onboardingComplete {
                     AuthView(authViewModel: authViewModel)
                 } else {
                     MainTabView()

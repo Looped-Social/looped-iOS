@@ -15,6 +15,8 @@ class AuthViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var onboardingComplete = false
     @Published var shouldEnterOnboardingFlow = false
+    @Published var onboardingStep: RemoteOnboardingStep?
+    @Published private(set) var isProvisioned = false
     @Published var selectedOrganization: Organization?
     @Published private(set) var linkedProviders: Set<String> = []
     #if canImport(FirebaseAuth)
@@ -189,6 +191,8 @@ class AuthViewModel: ObservableObject {
         authService.signOut()
         currentUser = nil
         onboardingComplete = false
+        onboardingStep = nil
+        isProvisioned = false
         shouldEnterOnboardingFlow = true
         Task { await AnonService.shared.clearIdentity() }
         UserDefaults.standard.set(false, forKey: "anonymousMode")
@@ -201,15 +205,28 @@ class AuthViewModel: ObservableObject {
 
     func loadCurrentUser() async {
         do {
-            let user = try await userService.getCurrentUser()
-            currentUser = user
-            shouldEnterOnboardingFlow = false
-            onboardingComplete = true
+            let identity = try await userService.getIdentity()
+            isProvisioned = identity.provisioned
+            onboardingComplete = identity.onboardingComplete ?? false
+            onboardingStep = identity.onboardingStep
+            shouldEnterOnboardingFlow = !onboardingComplete
+
+            if let userDTO = identity.user {
+                currentUser = User(dto: userDTO, profile: userDTO.profile)
+                if onboardingComplete {
+                    currentUser = try await userService.getCurrentUser()
+                }
+            } else {
+                currentUser = nil
+            }
+
             errorMessage = nil
             updateLinkedProviders()
         } catch UserServiceError.userNotProvisioned {
             shouldEnterOnboardingFlow = true
             onboardingComplete = false
+            onboardingStep = .profileSetup
+            isProvisioned = false
             currentUser = nil
             errorMessage = nil
         } catch {
@@ -230,7 +247,39 @@ class AuthViewModel: ObservableObject {
             dateOfBirth: dob
         )
         currentUser = user
+        isProvisioned = true
         updateLinkedProviders()
+    }
+
+    func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: Date) async throws {
+        let dob = dateOfBirth.yyyyMMddString()
+        let user = try await userService.updateIdentity(
+            username: username,
+            firstName: firstName,
+            lastName: lastName,
+            dateOfBirth: dob
+        )
+        currentUser = user
+        isProvisioned = true
+        updateLinkedProviders()
+    }
+
+    func reportOnboardingStep(_ step: RemoteOnboardingStep) async {
+        guard isAuthenticated else { return }
+        do {
+            let state = try await userService.updateOnboardingStep(step)
+            onboardingComplete = state.onboardingComplete
+            onboardingStep = state.onboardingStep
+            shouldEnterOnboardingFlow = !state.onboardingComplete
+
+            if onboardingComplete {
+                await loadCurrentUser()
+            }
+        } catch let APIError.apiError(_, apiError, _) where apiError == "user_not_provisioned" {
+            // Ignore: user hasn't completed initial /v1/users/onboard yet.
+        } catch {
+            // Ignore: onboarding step reporting shouldn't block the UI.
+        }
     }
 
     func linkGoogle() async throws {

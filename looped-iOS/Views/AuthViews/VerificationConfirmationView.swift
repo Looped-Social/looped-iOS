@@ -102,9 +102,7 @@ private extension VerificationConfirmationView {
                 }
             }
 
-            if totalSteps > 1 {
-                VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
-            }
+            VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
         }
     }
 }

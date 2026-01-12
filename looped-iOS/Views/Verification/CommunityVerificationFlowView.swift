@@ -40,7 +40,7 @@ struct CommunityVerificationFlowView: View {
             VerificationIntroView(
                 loopName: community.name,
                 currentStep: 1,
-                totalSteps: 1,
+                totalSteps: 3,
                 onBack: { dismiss() },
                 onContinue: { step = .methods },
                 onHowItWorks: { openURL(verificationInfoURL) }
@@ -48,8 +48,8 @@ struct CommunityVerificationFlowView: View {
         case .methods:
             WaysToVerifyView(
                 options: verificationOptions,
-                currentStep: 1,
-                totalSteps: 1,
+                currentStep: 2,
+                totalSteps: 3,
                 selectedOptionId: $selectedOptionId,
                 onBack: { step = .intro },
                 onContinue: { option in
@@ -66,15 +66,15 @@ struct CommunityVerificationFlowView: View {
             EmailVerificationView(
                 communityId: community.id,
                 communityName: community.name,
-                currentStep: 1,
-                totalSteps: 1,
+                currentStep: 3,
+                totalSteps: 3,
                 onBack: { step = .methods },
                 onComplete: handleComplete
             )
         case .photoId:
             PhotoIdVerificationView(
-                currentStep: 1,
-                totalSteps: 1,
+                currentStep: 3,
+                totalSteps: 3,
                 onBack: { step = .methods },
                 onComplete: handleComplete
             )

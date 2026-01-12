@@ -124,7 +124,9 @@ final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
             "/v1/verification/photo-id/status",
             requiresAuth: true
         )
-        return PhotoIdVerificationStatusResponse(method: dto.method, status: PhotoIdVerificationStatus(rawValue: dto.status))
+        return PhotoIdVerificationStatusResponse(
+            method: dto.method,
+            status: PhotoIdVerificationStatus(rawValue: dto.status) ?? .unknown
+        )
     }
 }
-
