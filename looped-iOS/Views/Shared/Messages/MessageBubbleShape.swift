@@ -28,37 +28,53 @@ struct GroupedBubbleShape: Shape {
         let path = UIBezierPath()
         path.move(to: CGPoint(x: rect.minX + topLeft, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX - topRight, y: rect.minY))
-        path.addArc(
-            withCenter: CGPoint(x: rect.maxX - topRight, y: rect.minY + topRight),
-            radius: topRight,
-            startAngle: CGFloat(-Double.pi / 2),
-            endAngle: 0,
-            clockwise: true
-        )
+        if topRight > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: rect.maxX - topRight, y: rect.minY + topRight),
+                radius: topRight,
+                startAngle: CGFloat(-Double.pi / 2),
+                endAngle: 0,
+                clockwise: true
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        }
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - bottomRight))
-        path.addArc(
-            withCenter: CGPoint(x: rect.maxX - bottomRight, y: rect.maxY - bottomRight),
-            radius: bottomRight,
-            startAngle: 0,
-            endAngle: CGFloat(Double.pi / 2),
-            clockwise: true
-        )
+        if bottomRight > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: rect.maxX - bottomRight, y: rect.maxY - bottomRight),
+                radius: bottomRight,
+                startAngle: 0,
+                endAngle: CGFloat(Double.pi / 2),
+                clockwise: true
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        }
         path.addLine(to: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY))
-        path.addArc(
-            withCenter: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY - bottomLeft),
-            radius: bottomLeft,
-            startAngle: CGFloat(Double.pi / 2),
-            endAngle: CGFloat(Double.pi),
-            clockwise: true
-        )
+        if bottomLeft > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY - bottomLeft),
+                radius: bottomLeft,
+                startAngle: CGFloat(Double.pi / 2),
+                endAngle: CGFloat(Double.pi),
+                clockwise: true
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        }
         path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + topLeft))
-        path.addArc(
-            withCenter: CGPoint(x: rect.minX + topLeft, y: rect.minY + topLeft),
-            radius: topLeft,
-            startAngle: CGFloat(Double.pi),
-            endAngle: CGFloat(3 * Double.pi / 2),
-            clockwise: true
-        )
+        if topLeft > 0 {
+            path.addArc(
+                withCenter: CGPoint(x: rect.minX + topLeft, y: rect.minY + topLeft),
+                radius: topLeft,
+                startAngle: CGFloat(Double.pi),
+                endAngle: CGFloat(3 * Double.pi / 2),
+                clockwise: true
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        }
         path.close()
 
         return Path(path.cgPath)
@@ -72,12 +88,12 @@ struct ChatBubbleShape: Shape {
 
     private let outerRadius: CGFloat = 18
     private let innerRadius: CGFloat = 8
-    private let tailRadius: CGFloat = 6
+    private let tailCornerRadius: CGFloat = 0
 
     func path(in rect: CGRect) -> Path {
         if isFromCurrentUser {
             let topRight = isGroupStart ? outerRadius : innerRadius
-            let bottomRight = isGroupEnd ? tailRadius : innerRadius
+            let bottomRight = isGroupEnd ? tailCornerRadius : innerRadius
             let bottomLeft = isGroupEnd ? outerRadius : outerRadius
             let topLeft = outerRadius
             return GroupedBubbleShape(
@@ -88,7 +104,7 @@ struct ChatBubbleShape: Shape {
             ).path(in: rect)
         } else {
             let topLeft = isGroupStart ? outerRadius : innerRadius
-            let bottomLeft = isGroupEnd ? tailRadius : innerRadius
+            let bottomLeft = isGroupEnd ? tailCornerRadius : innerRadius
             let bottomRight = outerRadius
             let topRight = outerRadius
             return GroupedBubbleShape(

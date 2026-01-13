@@ -130,13 +130,14 @@ struct SentMessageBubble: View {
 
             // Show text if present
             if !message.content.isEmpty {
+                let bubbleShape = ChatBubbleShape(isFromCurrentUser: true, isGroupStart: isGroupStart, isGroupEnd: isGroupEnd)
                 ChatBubbleWidthLayout(maxWidth: MessageBubbleLayout.bubbleMaxWidth) {
                     bubbleTextWithNewlineTime(message: message, isFromCurrentUser: true)
                         .padding(.horizontal, MessageBubbleLayout.horizontalPadding)
                         .padding(.vertical, MessageBubbleLayout.verticalPadding)
                 }
                 .background(Color.loopedMessageColor)
-                .clipShape(ChatBubbleShape(isFromCurrentUser: true, isGroupStart: isGroupStart, isGroupEnd: isGroupEnd))
+                .clipShape(bubbleShape)
             }
         }
         .fullScreenCover(isPresented: $showImageViewer) {
@@ -265,13 +266,14 @@ struct ReceivedMessageBubble: View {
 
                 // Show text if present
                 if !message.content.isEmpty {
+                    let bubbleShape = ChatBubbleShape(isFromCurrentUser: false, isGroupStart: isGroupStart, isGroupEnd: isGroupEnd)
                     ChatBubbleWidthLayout(maxWidth: MessageBubbleLayout.bubbleMaxWidth) {
                         bubbleTextWithNewlineTime(message: message, isFromCurrentUser: false)
                             .padding(.horizontal, MessageBubbleLayout.horizontalPadding)
                             .padding(.vertical, MessageBubbleLayout.verticalPadding)
                     }
                     .background(Color.loopedMessageMutedColor)
-                    .clipShape(ChatBubbleShape(isFromCurrentUser: false, isGroupStart: isGroupStart, isGroupEnd: isGroupEnd))
+                    .clipShape(bubbleShape)
                 }
             }
         }
