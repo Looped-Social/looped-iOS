@@ -1,4 +1,105 @@
 import SwiftUI
+import UIKit
+
+struct GroupedBubbleShape: Shape {
+    let topLeft: CGFloat
+    let topRight: CGFloat
+    let bottomLeft: CGFloat
+    let bottomRight: CGFloat
+
+    init(
+        topLeft: CGFloat,
+        topRight: CGFloat,
+        bottomLeft: CGFloat,
+        bottomRight: CGFloat
+    ) {
+        self.topLeft = topLeft
+        self.topRight = topRight
+        self.bottomLeft = bottomLeft
+        self.bottomRight = bottomRight
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let topLeft = min(topLeft, min(rect.width, rect.height) / 2)
+        let topRight = min(topRight, min(rect.width, rect.height) / 2)
+        let bottomLeft = min(bottomLeft, min(rect.width, rect.height) / 2)
+        let bottomRight = min(bottomRight, min(rect.width, rect.height) / 2)
+
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: rect.minX + topLeft, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - topRight, y: rect.minY))
+        path.addArc(
+            withCenter: CGPoint(x: rect.maxX - topRight, y: rect.minY + topRight),
+            radius: topRight,
+            startAngle: CGFloat(-Double.pi / 2),
+            endAngle: 0,
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - bottomRight))
+        path.addArc(
+            withCenter: CGPoint(x: rect.maxX - bottomRight, y: rect.maxY - bottomRight),
+            radius: bottomRight,
+            startAngle: 0,
+            endAngle: CGFloat(Double.pi / 2),
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY))
+        path.addArc(
+            withCenter: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY - bottomLeft),
+            radius: bottomLeft,
+            startAngle: CGFloat(Double.pi / 2),
+            endAngle: CGFloat(Double.pi),
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + topLeft))
+        path.addArc(
+            withCenter: CGPoint(x: rect.minX + topLeft, y: rect.minY + topLeft),
+            radius: topLeft,
+            startAngle: CGFloat(Double.pi),
+            endAngle: CGFloat(3 * Double.pi / 2),
+            clockwise: true
+        )
+        path.close()
+
+        return Path(path.cgPath)
+    }
+}
+
+struct ChatBubbleShape: Shape {
+    let isFromCurrentUser: Bool
+    let isGroupStart: Bool
+    let isGroupEnd: Bool
+
+    private let outerRadius: CGFloat = 18
+    private let innerRadius: CGFloat = 8
+    private let tailRadius: CGFloat = 6
+
+    func path(in rect: CGRect) -> Path {
+        if isFromCurrentUser {
+            let topRight = isGroupStart ? outerRadius : innerRadius
+            let bottomRight = isGroupEnd ? tailRadius : innerRadius
+            let bottomLeft = isGroupEnd ? outerRadius : outerRadius
+            let topLeft = outerRadius
+            return GroupedBubbleShape(
+                topLeft: topLeft,
+                topRight: topRight,
+                bottomLeft: bottomLeft,
+                bottomRight: bottomRight
+            ).path(in: rect)
+        } else {
+            let topLeft = isGroupStart ? outerRadius : innerRadius
+            let bottomLeft = isGroupEnd ? tailRadius : innerRadius
+            let bottomRight = outerRadius
+            let topRight = outerRadius
+            return GroupedBubbleShape(
+                topLeft: topLeft,
+                topRight: topRight,
+                bottomLeft: bottomLeft,
+                bottomRight: bottomRight
+            ).path(in: rect)
+        }
+    }
+}
 
 struct TailCornerShape: Shape {
     let isFromCurrentUser: Bool
