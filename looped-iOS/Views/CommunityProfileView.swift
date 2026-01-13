@@ -12,6 +12,8 @@ struct CommunityProfileView: View {
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: CommunityProfileTab = .posts
     @State private var showVerificationFlow = false
+    @State private var showSpecializationJoinInfo = false
+    @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
     @State private var overlayHeaderHeight: CGFloat = 0
 
@@ -99,7 +101,7 @@ struct CommunityProfileView: View {
 
                     Spacer()
 
-                    followButton
+                    actionButtons
                 }
 
                 if let specializationLabel = viewModel.community.specializationLabel {
@@ -113,7 +115,9 @@ struct CommunityProfileView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                if viewModel.community.kind != .specialization {
+                if viewModel.community.kind == .specialization {
+                    specializationJoinPill
+                } else {
                     verificationPill
                 }
 
@@ -136,7 +140,7 @@ struct CommunityProfileView: View {
     }
 
     private var followButton: some View {
-        Button(action: {
+        return Button(action: {
             Task { await viewModel.toggleFollow() }
         }) {
             Text(viewModel.community.isFollowing ? "Following" : "Follow")
@@ -144,12 +148,19 @@ struct CommunityProfileView: View {
                 .foregroundColor(viewModel.community.isFollowing ? .loopedTextPrimary : .loopedWhite)
                 .padding(.horizontal, 28)
                 .padding(.vertical, 10)
-                .background(viewModel.community.isFollowing ? Color.loopedMutedBackground : Color.loopedPrimary)
+                .background(
+                    viewModel.community.isFollowing ? Color.loopedMutedBackground : Color.loopedPrimary
+                )
                 .clipShape(Capsule())
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(viewModel.isFollowActionInFlight)
-        .opacity(viewModel.isFollowActionInFlight ? 0.7 : 1)
+        .disabled(viewModel.isFollowActionInFlight || viewModel.isJoinActionInFlight)
+        .opacity((viewModel.isFollowActionInFlight || viewModel.isJoinActionInFlight) ? 0.7 : 1)
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        followButton
     }
 
     private var verificationPill: some View {
@@ -160,12 +171,12 @@ struct CommunityProfileView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verificationDisplay.title)
-                        .font(.loopedSubBodyRegular)
+                        .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
 
                     if let subtitle = verificationDisplay.subtitle {
                         Text(subtitle)
-                            .font(.loopedSmallText)
+                            .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedTextSecondary)
                     }
                 }
@@ -175,10 +186,67 @@ struct CommunityProfileView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.loopedMutedBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var specializationJoinPill: some View {
+        HStack(spacing: 10) {
+            Button(action: {
+                if viewModel.community.isJoined {
+                    showSpecializationLeaveConfirmation = true
+                } else {
+                    Task { await viewModel.toggleJoin() }
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: specializationJoinDisplay.icon)
+                        .foregroundColor(specializationJoinDisplay.color)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(specializationJoinDisplay.title)
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        if let subtitle = specializationJoinDisplay.subtitle {
+                            Text(subtitle)
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(viewModel.isJoinActionInFlight || viewModel.isFollowActionInFlight)
+
+            Button(action: { showSpecializationJoinInfo = true }) {
+                Image(systemName: "questionmark.circle")
+                    .font(.loopedCustom(.semibold, size: 14))
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .accessibilityLabel("About specialization joining")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity((viewModel.isJoinActionInFlight || viewModel.isFollowActionInFlight) ? 0.7 : 1)
+        .alert("About \(specializationJoinDisplay.label)", isPresented: $showSpecializationJoinInfo) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(specializationJoinDisplay.infoText)
+        }
+        .alert("Leave \(specializationJoinDisplay.label)?", isPresented: $showSpecializationLeaveConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Leave", role: .destructive) {
+                Task { await viewModel.toggleJoin() }
+            }
+        } message: {
+            Text(specializationLeaveConfirmationText())
+        }
     }
 
     private var tabBar: some View {
@@ -281,21 +349,31 @@ struct CommunityProfileView: View {
             )
         }
         if verification.isActive {
-            let subtitle = verification.expiresAt.map { "Expires \(Self.expiryFormatter.string(from: $0))" }
             return VerificationDisplay(
                 title: "Verified",
-                subtitle: subtitle,
+                subtitle: expiryText(for: verification, inactivePrefix: nil),
                 icon: "checkmark.seal.fill",
                 color: .loopedPrimary
             )
         }
-        let subtitle = verification.expiresAt.map { "Expired \(Self.expiryFormatter.string(from: $0))" }
         return VerificationDisplay(
             title: "Unverified",
-            subtitle: subtitle ?? "Tap to verify",
+            subtitle: expiryText(for: verification, inactivePrefix: "Expired") ?? "Tap to verify",
             icon: "exclamationmark.circle",
             color: .loopedSecondary
         )
+    }
+
+    private func expiryText(for verification: CommunityVerification, inactivePrefix: String?) -> String? {
+        guard verification.verified else { return nil }
+        guard let expiresAt = verification.expiresAt else {
+            return inactivePrefix == nil ? "Never expires" : nil
+        }
+        let dateText = Self.expiryFormatter.string(from: expiresAt)
+        if let inactivePrefix {
+            return "\(inactivePrefix) \(dateText)"
+        }
+        return "Expires \(dateText)"
     }
 
     private func formattedMemberCount(_ count: Int) -> String {
@@ -322,10 +400,121 @@ struct CommunityProfileView: View {
         let color: Color
     }
 
+    private struct SpecializationJoinDisplay {
+        let label: String
+        let title: String
+        let subtitle: String?
+        let icon: String
+        let color: Color
+        let infoText: String
+    }
+
+    private var specializationJoinDisplay: SpecializationJoinDisplay {
+        let label = viewModel.community.specializationLabel ?? "Specialization"
+        let joinLimit = viewModel.community.joinLimit
+        let subtitle = specializationJoinSubtitle(joinLimit: joinLimit)
+        let infoText = specializationJoinInfoText(joinLimit: joinLimit, label: label)
+
+        if viewModel.community.isJoined {
+            return SpecializationJoinDisplay(
+                label: label,
+                title: "Joined",
+                subtitle: subtitle,
+                icon: "person.crop.circle.badge.checkmark",
+                color: .loopedPrimary,
+                infoText: infoText
+            )
+        }
+        return SpecializationJoinDisplay(
+            label: label,
+            title: "Join \(label)",
+            subtitle: subtitle,
+            icon: "person.crop.circle.badge.plus",
+            color: .loopedSecondary,
+            infoText: infoText
+        )
+    }
+
+    private func specializationJoinSubtitle(joinLimit: SpecializationJoinLimit?) -> String? {
+        guard let joinLimit else {
+            return viewModel.community.isJoined ? "Tap to leave" : "Tap to join"
+        }
+
+        var parts: [String] = []
+        parts.append("Joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased())")
+
+        if joinLimit.cooldownActive, let cooldownEndsAt = joinLimit.cooldownEndsAt {
+            parts.append("Resets \(Self.expiryFormatter.string(from: cooldownEndsAt))")
+        } else if joinLimit.canJoin {
+            parts.append("\(joinLimit.remaining)/\(joinLimit.limit) joins left")
+        } else if joinLimit.blockedReason == .limit {
+            parts.append("Limit reached")
+        }
+
+        return parts.joined(separator: " • ")
+    }
+
+    private func specializationJoinInfoText(joinLimit: SpecializationJoinLimit?, label: String) -> String {
+        guard let joinLimit else {
+            return """
+            Joining a \(label.lowercased()) helps personalize your experience.
+            You may be limited in how often you can change.
+            """
+        }
+
+        if joinLimit.cooldownActive, let cooldownEndsAt = joinLimit.cooldownEndsAt {
+            let dateText = Self.expiryFormatter.string(from: cooldownEndsAt)
+            return """
+            You’ve joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()).
+            Changes reset on \(dateText).
+            """
+        }
+
+        if joinLimit.blockedReason == .limit {
+            return """
+            You’ve joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()).
+            You’ll need to leave one before joining another.
+            """
+        }
+
+        return """
+        You’ve joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()).
+        \(joinLimit.remaining)/\(joinLimit.limit) joins left.
+        """
+    }
+
+    private func specializationLeaveConfirmationText() -> String {
+        let label = viewModel.community.specializationLabel ?? "Specialization"
+        guard let joinLimit = viewModel.community.joinLimit else {
+            return "You can re-join later, but changes may be limited (for example, every 6 months)."
+        }
+
+        var parts: [String] = []
+        parts.append("You can re-join later, but changes may be limited.")
+        parts.append("Joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()).")
+
+        if joinLimit.cooldownActive, let cooldownEndsAt = joinLimit.cooldownEndsAt {
+            let dateText = Self.expiryFormatter.string(from: cooldownEndsAt)
+            parts.append("Resets \(dateText).")
+        } else {
+            parts.append("\(joinLimit.remaining)/\(joinLimit.limit) joins left.")
+        }
+
+        if joinLimit.cooldownMonths > 0 {
+            parts.append("Window: \(joinLimit.cooldownMonths) months.")
+        }
+
+        if label.lowercased() != joinLimit.pluralLabel.lowercased() {
+            parts.append("(\(label))")
+        }
+
+        return parts.joined(separator: " ")
+    }
+
     private static let expiryFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "M/d/yyyy"
         return formatter
     }()
 }
@@ -396,19 +585,17 @@ struct CommunityProfileBanner: View {
     }
 
     private var hasBannerImage: Bool {
-        if let imageUrl, let url = URL(string: imageUrl), url.scheme != nil {
-            return true
-        }
-        if let imageUrl, UIImage(named: imageUrl) != nil {
-            return true
-        }
-        return false
+        localBannerImage != nil || remoteBannerURL != nil
     }
 
     private var bannerImage: some View {
         Group {
-            if let imageUrl, let url = URL(string: imageUrl), url.scheme != nil {
-                AsyncImage(url: url) { phase in
+            if let localBannerImage {
+                Image(uiImage: localBannerImage)
+                    .resizable()
+                    .scaledToFill()
+            } else if let remoteBannerURL {
+                AsyncImage(url: remoteBannerURL) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -422,16 +609,22 @@ struct CommunityProfileBanner: View {
                         Color.loopedMutedBackground
                     }
                 }
-            } else if let imageUrl, let localImage = UIImage(named: imageUrl) {
-                Image(uiImage: localImage)
-                    .resizable()
-                    .scaledToFill()
             } else {
                 Color.loopedBackground
             }
         }
         .frame(maxWidth: .infinity)
         .clipped()
+    }
+
+    private var localBannerImage: UIImage? {
+        guard let value = imageUrl?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+        return UIImage(named: value)
+    }
+
+    private var remoteBannerURL: URL? {
+        guard localBannerImage == nil else { return nil }
+        return URL.loopedMediaURL(from: imageUrl)
     }
 }
 
@@ -445,7 +638,8 @@ struct CommunityProfileBanner: View {
             specializationType: .unknown,
             memberCount: 1_000_000,
             imageUrl: nil,
-            isFollowing: false
+            isFollowing: false,
+            isJoined: false
         )
     )
     .environmentObject(CommentsModalManager())

@@ -10,6 +10,10 @@ struct CommunityVerificationsView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
+                    if !viewModel.joinLimits.isEmpty {
+                        joinLimitsCard
+                    }
+
                     if viewModel.isLoading && viewModel.items.isEmpty {
                         ProgressView()
                             .padding(.top, 40)
@@ -32,6 +36,29 @@ struct CommunityVerificationsView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .task { await viewModel.load() }
+    }
+
+    private var joinLimitsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Specializations")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+
+            ForEach(viewModel.joinLimits, id: \.specializationType) { limit in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(limit.pluralLabel)
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    Text(joinLimitSubtitle(limit))
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.loopedMutedBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var header: some View {
@@ -147,6 +174,21 @@ struct CommunityVerificationsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(color.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func joinLimitSubtitle(_ limit: SpecializationJoinLimit) -> String {
+        var parts: [String] = []
+        parts.append("Joined \(limit.joinedCount)/\(limit.limit)")
+
+        if limit.cooldownActive, let cooldownEndsAt = limit.cooldownEndsAt {
+            parts.append("Resets \(Self.expiryFormatter.string(from: cooldownEndsAt))")
+        } else if limit.canJoin {
+            parts.append("\(limit.remaining)/\(limit.limit) joins left")
+        } else if limit.blockedReason == .limit {
+            parts.append("Limit reached")
+        }
+
+        return parts.joined(separator: " • ")
     }
 
     private static let expiryFormatter: DateFormatter = {

@@ -13,6 +13,7 @@ struct CommunityFollowDTO: Codable {
     let isPinned: Bool?
     let sortOrder: Int?
     let canPost: Bool?
+    let isJoined: Bool?
 }
 
 struct CommunitySearchResponseDTO: Codable {
@@ -23,11 +24,13 @@ struct CommunitySearchResponseDTO: Codable {
 struct CommunitySearchDTO: Codable {
     let id: Int
     let name: String
-    let description: String
+    let description: String?
     let kind: String?
     let specializationType: String?
     let memberCount: Int?
     let imageUrl: String?
+    let isFollowing: Bool?
+    let isJoined: Bool?
 }
 
 struct CommunityRecommendedResponseDTO: Codable {
@@ -37,11 +40,12 @@ struct CommunityRecommendedResponseDTO: Codable {
 struct CommunityRecommendedDTO: Codable {
     let id: Int
     let name: String
-    let description: String
+    let description: String?
     let kind: String?
     let specializationType: String?
     let memberCount: Int?
     let isFollowing: Bool?
+    let isJoined: Bool?
     let imageUrl: String?
 }
 
@@ -49,12 +53,14 @@ struct CommunityDetailsDTO: Codable {
     let id: Int
     let name: String
     let shortName: String?
-    let description: String
+    let description: String?
     let kind: String?
     let specializationType: String?
     let memberCount: Int?
     let imageUrl: String?
     let isFollowing: Bool?
+    let isJoined: Bool?
+    let joinLimit: SpecializationJoinLimitDTO?
 }
 
 struct CommunityDomainsResponseDTO: Codable {

@@ -3,13 +3,19 @@ import Foundation
 @MainActor
 final class CommunityVerificationsViewModel: ObservableObject {
     @Published var items: [CommunityVerification] = []
+    @Published var joinLimits: [SpecializationJoinLimit] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
     private let service: CommunityVerificationServiceProtocol
+    private let communityService: CommunityServiceProtocol
 
-    init(service: CommunityVerificationServiceProtocol = CommunityVerificationService()) {
+    init(
+        service: CommunityVerificationServiceProtocol = CommunityVerificationService(),
+        communityService: CommunityServiceProtocol = CommunityService()
+    ) {
         self.service = service
+        self.communityService = communityService
     }
 
     func load() async {
@@ -19,10 +25,14 @@ final class CommunityVerificationsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            items = try await service.fetchCommunityVerifications()
+            async let verifications = service.fetchCommunityVerifications()
+            async let limits = communityService.fetchSpecializationJoinLimits(type: nil)
+            items = try await verifications
+            joinLimits = (try? await limits) ?? []
         } catch {
             errorMessage = error.localizedDescription
             items = []
+            joinLimits = []
         }
     }
 }

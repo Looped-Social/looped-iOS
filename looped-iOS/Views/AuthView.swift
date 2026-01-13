@@ -19,6 +19,7 @@ struct AuthView: View {
     private let onboardingStore = OnboardingProgressStore()
     @State private var verificationFlowMode: VerificationFlowMode = .full
     @State private var lastReportedRemoteStep: RemoteOnboardingStep?
+    @State private var specializationJoinError: String?
     private let communityService: CommunityServiceProtocol = CommunityService()
     private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
 
@@ -98,8 +99,15 @@ struct AuthView: View {
                     searchText: $departmentSearchText,
                     selectedItem: $selectedDepartment,
                     onSelect: { selection in
-                        followCommunityIfPossible(selection.id)
-                        currentScreen = .verificationIntro(isStudent: false)
+                        Task {
+                            let success = await joinSpecializationIfPossible(
+                                selection.id,
+                                label: selection.specializationType.displayName ?? "Department"
+                            )
+                            if success {
+                                currentScreen = .verificationIntro(isStudent: false)
+                            }
+                        }
                     },
                     onBack: {
                         currentScreen = .selectCompany
@@ -112,8 +120,15 @@ struct AuthView: View {
 	                    searchText: $degreeSearchText,
 	                    selectedItem: $selectedDegree,
 	                    onSelect: { selection in
-	                        followCommunityIfPossible(selection.id)
-	                        currentScreen = .verificationIntro(isStudent: true)
+	                        Task {
+                                let success = await joinSpecializationIfPossible(
+                                    selection.id,
+                                    label: selection.specializationType.displayName ?? "Major"
+                                )
+                                if success {
+                                    currentScreen = .verificationIntro(isStudent: true)
+                                }
+                            }
 	                    },
 	                    onBack: {
 	                        currentScreen = .selectSchool
@@ -290,6 +305,17 @@ struct AuthView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .alert(
+            "Couldn't Join",
+            isPresented: Binding(
+                get: { specializationJoinError != nil },
+                set: { if !$0 { specializationJoinError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(specializationJoinError ?? "")
+        }
         #if canImport(FirebaseAuth)
         .sheet(item: $authViewModel.mfaSession) { session in
             TwoFactorChallengeView(authViewModel: authViewModel, session: session)
@@ -374,6 +400,33 @@ private extension AuthView {
         guard let communityId else { return }
         Task {
             try? await communityService.followCommunity(id: communityId)
+        }
+    }
+
+    @MainActor
+    func joinSpecializationIfPossible(_ specializationId: Int?, label: String) async -> Bool {
+        guard let specializationId else { return false }
+        do {
+            try await communityService.joinSpecialization(id: specializationId)
+            return true
+        } catch {
+            specializationJoinError = specializationJoinErrorMessage(from: error, label: label)
+            return false
+        }
+    }
+
+    func specializationJoinErrorMessage(from error: Error, label: String) -> String {
+        guard case let APIError.apiError(_, apiError, message) = error else {
+            return "Couldn't join \(label.lowercased()). \(error.localizedDescription)"
+        }
+
+        switch apiError {
+        case "specialization_join_limit":
+            return message ?? "You can only join up to 2 \(label.lowercased()) communities."
+        case "specialization_join_cooldown":
+            return message ?? "You must wait 6 months before changing \(label.lowercased()) communities."
+        default:
+            return message ?? apiError
         }
     }
 

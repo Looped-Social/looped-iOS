@@ -271,6 +271,8 @@ POST /v1/comments/{id}/like
 
 ### Discovery
 
+`member_count` (int) for communities/loops/specializations: number of active verified members (not follow/join count).
+
 GET /v1/communities/search?query=&kind=&limit=&cursor=
 - Auth required; same-company scope; `query` required
 - `kind` filters community type (e.g., workplaces use `kind=company`)

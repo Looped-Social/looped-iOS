@@ -23,8 +23,13 @@ extension DisplayCommunity {
     init(dto: DisplayCommunityDTO) {
         id = dto.id
         name = dto.name
-        kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
-        specializationType = CommunitySpecializationType(rawValue: dto.specializationType ?? "")
+        kind = CommunityKind.fromApi(dto.kind)
+        let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
+        if parsedType == .unknown {
+            specializationType = CommunitySpecializationType(rawValue: dto.kind ?? "")
+        } else {
+            specializationType = parsedType
+        }
     }
 
     init(verification: CommunityVerification) {

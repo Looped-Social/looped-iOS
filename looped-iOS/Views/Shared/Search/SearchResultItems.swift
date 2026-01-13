@@ -115,7 +115,7 @@ struct LoopSearchResultItem: View {
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
 
-                    Text(loop.description)
+                    Text(loopSubtitle)
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                         .lineLimit(1)
@@ -144,6 +144,12 @@ struct LoopSearchResultItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var loopSubtitle: String {
+        let trimmed = loop.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        return loop.specializationLabel ?? "Community"
     }
 
     private var loopImage: some View {

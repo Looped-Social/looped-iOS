@@ -134,10 +134,17 @@ struct SearchView: View {
                                 } else {
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
                                         ForEach(viewModel.majors) { major in
-                                            SpecializationIcon(
-                                                name: major.name,
-                                                memberCount: major.memberCount
-                                            )
+                                            NavigationLink(
+                                                destination: CommunityProfileView(
+                                                    community: CommunityProfileData(community: major)
+                                                )
+                                            ) {
+                                                SpecializationIcon(
+                                                    name: major.name,
+                                                    memberCount: major.memberCount
+                                                )
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
                                         }
                                     }
                                     .padding(.horizontal, 16)
@@ -161,10 +168,17 @@ struct SearchView: View {
                                 } else {
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
                                         ForEach(viewModel.departments) { department in
-                                            SpecializationIcon(
-                                                name: department.name,
-                                                memberCount: department.memberCount
-                                            )
+                                            NavigationLink(
+                                                destination: CommunityProfileView(
+                                                    community: CommunityProfileData(community: department)
+                                                )
+                                            ) {
+                                                SpecializationIcon(
+                                                    name: department.name,
+                                                    memberCount: department.memberCount
+                                                )
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
                                         }
                                     }
                                     .padding(.horizontal, 16)

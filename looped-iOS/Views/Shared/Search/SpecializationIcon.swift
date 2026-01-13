@@ -21,9 +21,11 @@ struct SpecializationIcon: View {
                     .foregroundColor(.loopedTextPrimary)
                     .lineLimit(1)
 
-                Text("\(memberCount)")
+                Text("\(memberCount) members")
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
         }
         .frame(width: 80)

@@ -9,6 +9,7 @@ struct LoopDTO: Codable {
     let id: Int
     let name: String
     let description: String
+    /// Number of active verified members (backend `member_count`).
     let memberCount: Int
 }
 

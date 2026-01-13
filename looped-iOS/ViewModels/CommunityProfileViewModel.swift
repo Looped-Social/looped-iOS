@@ -13,6 +13,7 @@ final class CommunityProfileViewModel: ObservableObject {
     @Published var isLoadingVerification = false
     @Published var verificationError: String?
     @Published var isFollowActionInFlight = false
+    @Published var isJoinActionInFlight = false
     @Published var isLoadingDetails = false
 
     private let feedService: FeedServiceProtocol
@@ -66,28 +67,70 @@ final class CommunityProfileViewModel: ObservableObject {
 
     func toggleFollow() async {
         guard !isFollowActionInFlight else { return }
+        guard !isJoinActionInFlight else { return }
         isFollowActionInFlight = true
         followErrorMessage = nil
+        let isSpecialization = community.kind == .specialization
         let wasFollowing = community.isFollowing
-        let delta = wasFollowing ? -1 : 1
         updateCommunity { community in
             community.isFollowing.toggle()
-            community.memberCount = max(community.memberCount + delta, 0)
         }
         do {
             if wasFollowing {
-                try await communityService.unfollowCommunity(id: community.id)
+                if isSpecialization {
+                    try await communityService.unfollowSpecialization(id: community.id)
+                } else {
+                    try await communityService.unfollowCommunity(id: community.id)
+                }
             } else {
-                try await communityService.followCommunity(id: community.id)
+                if isSpecialization {
+                    try await communityService.followSpecialization(id: community.id)
+                } else {
+                    try await communityService.followCommunity(id: community.id)
+                }
             }
         } catch {
             updateCommunity { community in
                 community.isFollowing = wasFollowing
-                community.memberCount = max(community.memberCount - delta, 0)
             }
             followErrorMessage = followErrorMessage(from: error, wasFollowing: wasFollowing)
         }
         isFollowActionInFlight = false
+    }
+
+    func toggleJoin() async {
+        guard community.kind == .specialization else { return }
+        guard !isJoinActionInFlight else { return }
+        guard !isFollowActionInFlight else { return }
+        isJoinActionInFlight = true
+        followErrorMessage = nil
+
+        let wasJoined = community.isJoined
+        let wasFollowing = community.isFollowing
+
+        updateCommunity { community in
+            community.isJoined.toggle()
+            if !wasJoined {
+                community.isFollowing = true
+            }
+        }
+
+        do {
+            if wasJoined {
+                try await communityService.unjoinSpecialization(id: community.id)
+            } else {
+                try await communityService.joinSpecialization(id: community.id)
+            }
+            await loadCommunityDetails(force: true)
+        } catch {
+            updateCommunity { community in
+                community.isJoined = wasJoined
+                community.isFollowing = wasFollowing
+            }
+            followErrorMessage = joinErrorMessage(from: error, wasJoined: wasJoined)
+        }
+
+        isJoinActionInFlight = false
     }
 
     func loadVerification() async {
@@ -117,7 +160,12 @@ final class CommunityProfileViewModel: ObservableObject {
         do {
             let details = try await communityService.fetchCommunityDetails(communityId: community.id)
             hasLoadedDetails = true
-            community = details
+            var merged = details
+            let trimmed = (merged.imageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                merged.imageUrl = community.imageUrl
+            }
+            community = merged
         } catch {
             // Keep placeholders if details fetch fails.
         }
@@ -177,33 +225,54 @@ final class CommunityProfileViewModel: ObservableObject {
     }
 
     private func followErrorMessage(from error: Error, wasFollowing: Bool) -> String {
+        if community.kind == .specialization {
+            return specializationFollowErrorMessage(from: error, wasFollowing: wasFollowing)
+        }
         if !wasFollowing {
-            return specializationFollowErrorMessage(from: error)
+            return "Couldn't follow community. \(error.localizedDescription)"
         }
         return "Couldn't unfollow community. \(error.localizedDescription)"
     }
 
-    private func specializationFollowErrorMessage(from error: Error) -> String {
+    private func specializationFollowErrorMessage(from error: Error, wasFollowing: Bool) -> String {
         guard case let APIError.apiError(_, apiError, message) = error else {
-            return "Couldn't follow community. \(error.localizedDescription)"
+            let verb = wasFollowing ? "unfollow" : "follow"
+            return "Couldn't \(verb) specialization. \(error.localizedDescription)"
+        }
+
+        let verb = wasFollowing ? "unfollow" : "follow"
+        return "Couldn't \(verb) specialization. \(message ?? apiError)"
+    }
+
+    private func joinErrorMessage(from error: Error, wasJoined: Bool) -> String {
+        guard case let APIError.apiError(_, apiError, message) = error else {
+            let verb = wasJoined ? "leave" : "join"
+            return "Couldn't \(verb) specialization. \(error.localizedDescription)"
         }
 
         let label = community.specializationLabel ?? "Specialization"
         switch apiError {
-        case "specialization_limit":
-            return specializationMessage(message, fallback: "You can only join 2 \(label.lowercased()) communities.", label: label)
-        case "specialization_cooldown":
-            return specializationMessage(message, fallback: "You can change your \(label.lowercased()) communities every 6 months.", label: label)
+        case "specialization_join_limit":
+            return specializationMessage(
+                message,
+                fallback: "You can only join up to 2 \(label.lowercased()) communities.",
+                label: label
+            )
+        case "specialization_join_cooldown":
+            return specializationMessage(
+                message,
+                fallback: "You must wait 6 months before changing \(label.lowercased()) communities.",
+                label: label
+            )
         default:
-            return "Couldn't follow community. \(message ?? apiError)"
+            let verb = wasJoined ? "leave" : "join"
+            return "Couldn't \(verb) specialization. \(message ?? apiError)"
         }
     }
 
     private func specializationMessage(_ message: String?, fallback: String, label: String) -> String {
         let trimmed = message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmed.isEmpty {
-            return "\(trimmed) (\(label))"
-        }
+        if !trimmed.isEmpty { return "\(trimmed) (\(label))" }
         return "\(fallback) (\(label))"
     }
 }

@@ -178,7 +178,8 @@ struct PostCard: View {
             specializationType: .unknown,
             memberCount: 0,
             imageUrl: nil,
-            isFollowing: false
+            isFollowing: false,
+            isJoined: false
         )
     }
 

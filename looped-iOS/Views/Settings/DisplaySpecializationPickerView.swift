@@ -7,8 +7,10 @@ struct DisplaySpecializationPickerView: View {
     @State private var results: [CommunitySearchResult] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var alertMessage: String?
     @State private var searchTask: Task<Void, Never>?
     @State private var filter: SpecializationFilter
+    @State private var communityToView: CommunityProfileData?
 
     private let communityService: CommunityServiceProtocol
 
@@ -62,6 +64,22 @@ struct DisplaySpecializationPickerView: View {
             }
             .onChange(of: filter) { _, _ in
                 scheduleSearch()
+            }
+            .sheet(item: $communityToView, onDismiss: {
+                scheduleSearch()
+            }) { community in
+                CommunityProfileView(community: community)
+            }
+            .alert(
+                "Join Required",
+                isPresented: Binding(
+                    get: { alertMessage != nil },
+                    set: { if !$0 { alertMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(alertMessage ?? "")
             }
             .background(Color.loopedBackground.ignoresSafeArea())
         }
@@ -166,6 +184,14 @@ struct DisplaySpecializationPickerView: View {
     }
 
     private func select(_ result: CommunitySearchResult) {
+        guard result.kind == .specialization else { return }
+        guard result.specializationType != .unknown else { return }
+        if result.isJoined != true {
+            let label = result.specializationType.displayName?.lowercased() ?? "specialization"
+            alertMessage = "Join this \(label) to display it on your profile."
+            communityToView = CommunityProfileData(community: result)
+            return
+        }
         selectedSpecialization = DisplayCommunity(
             id: result.id,
             name: result.name,
@@ -240,6 +266,16 @@ private struct SpecializationResultRow: View {
                 }
 
                 Spacer()
+
+                if result.isJoined == true {
+                    Text("Joined")
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedPrimary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.loopedMutedBackground)
+                        .clipShape(Capsule())
+                }
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")

@@ -207,10 +207,15 @@ protocol CommunityServiceProtocol {
     func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int) async throws -> [CommunitySearchResult]
     func fetchCommunityDetails(communityId: Int) async throws -> CommunityProfileData
     func fetchCommunityDomains(communityId: Int) async throws -> [String]
+    func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit]
     func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult>
     func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult]
     func followCommunity(id: Int) async throws
     func unfollowCommunity(id: Int) async throws
+    func followSpecialization(id: Int) async throws
+    func unfollowSpecialization(id: Int) async throws
+    func joinSpecialization(id: Int) async throws
+    func unjoinSpecialization(id: Int) async throws
     func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions
 }
 

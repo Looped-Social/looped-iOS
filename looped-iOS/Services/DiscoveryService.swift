@@ -21,8 +21,20 @@ class DiscoveryService: DiscoveryServiceProtocol {
         let resolvedLimit = min(max(limit, 1), 50)
         let endpoint = "/v1/specializations/recommended?type=all&limit=\(resolvedLimit)"
         let response: SpecializationsRecommendedResponseDTO = try await apiClient.get(endpoint)
-        let majors = (response.majors ?? []).map(CommunitySearchResult.init(dto:))
-        let departments = (response.departments ?? []).map(CommunitySearchResult.init(dto:))
+        let majors: [CommunitySearchResult]
+        let departments: [CommunitySearchResult]
+
+        if let responseMajors = response.majors, let responseDepartments = response.departments {
+            majors = responseMajors.map(CommunitySearchResult.init(dto:))
+            departments = responseDepartments.map(CommunitySearchResult.init(dto:))
+        } else if let items = response.items {
+            let results = items.map(CommunitySearchResult.init(dto:))
+            majors = results.filter { $0.specializationType == .major }
+            departments = results.filter { $0.specializationType == .department }
+        } else {
+            majors = (response.majors ?? []).map(CommunitySearchResult.init(dto:))
+            departments = (response.departments ?? []).map(CommunitySearchResult.init(dto:))
+        }
         return RecommendedSpecializations(majors: majors, departments: departments)
     }
 

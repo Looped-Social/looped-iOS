@@ -11,13 +11,22 @@ enum CommunityKind: String, Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        self = CommunityKind(rawValue: rawValue) ?? .unknown
+        self = CommunityKind.fromApi(rawValue)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         let rawValue = self == .unknown ? "unknown" : self.rawValue
         try container.encode(rawValue)
+    }
+
+    static func fromApi(_ rawValue: String?) -> CommunityKind {
+        let trimmed = (rawValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .unknown }
+        if trimmed == "major" || trimmed == "department" {
+            return .specialization
+        }
+        return CommunityKind(rawValue: trimmed) ?? .unknown
     }
 }
 
@@ -69,6 +78,7 @@ struct CommunitySummary: Identifiable, Equatable {
     let id: Int
     let name: String
     let kind: CommunityKind
+    /// Number of active verified members for this community (backend `member_count`).
     let memberCount: Int
     let isPinned: Bool
     let sortOrder: Int?
@@ -81,9 +91,11 @@ struct CommunitySearchResult: Identifiable, Equatable {
     let description: String
     let kind: CommunityKind
     let specializationType: CommunitySpecializationType
+    /// Number of active verified members for this community (backend `member_count`).
     let memberCount: Int
     let imageUrl: String?
     let isFollowing: Bool?
+    let isJoined: Bool?
 
     init(
         id: Int,
@@ -93,7 +105,8 @@ struct CommunitySearchResult: Identifiable, Equatable {
         specializationType: CommunitySpecializationType = .unknown,
         memberCount: Int,
         imageUrl: String? = nil,
-        isFollowing: Bool? = nil
+        isFollowing: Bool? = nil,
+        isJoined: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -103,6 +116,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
         self.memberCount = memberCount
         self.imageUrl = imageUrl
         self.isFollowing = isFollowing
+        self.isJoined = isJoined
     }
 }
 
@@ -115,7 +129,7 @@ extension CommunitySummary {
     init(dto: CommunityFollowDTO) {
         id = dto.id
         name = dto.name
-        kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
+        kind = CommunityKind.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
         isPinned = dto.isPinned ?? false
         sortOrder = dto.sortOrder
@@ -127,23 +141,31 @@ extension CommunitySearchResult {
     init(dto: CommunitySearchDTO) {
         id = dto.id
         name = dto.name
-        description = dto.description
-        kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
-        specializationType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
+        description = dto.description ?? ""
+        kind = CommunityKind.fromApi(dto.kind)
+        let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
+        specializationType = parsedType != .unknown
+            ? parsedType
+            : (CommunitySpecializationType(rawValue: dto.kind ?? "") ?? .unknown)
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
-        isFollowing = nil
+        isFollowing = dto.isFollowing
+        isJoined = dto.isJoined
     }
 
     init(dto: CommunityRecommendedDTO) {
         id = dto.id
         name = dto.name
-        description = dto.description
-        kind = CommunityKind(rawValue: dto.kind ?? "") ?? .unknown
-        specializationType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
+        description = dto.description ?? ""
+        kind = CommunityKind.fromApi(dto.kind)
+        let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
+        specializationType = parsedType != .unknown
+            ? parsedType
+            : (CommunitySpecializationType(rawValue: dto.kind ?? "") ?? .unknown)
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
         isFollowing = dto.isFollowing
+        isJoined = dto.isJoined
     }
 }
 

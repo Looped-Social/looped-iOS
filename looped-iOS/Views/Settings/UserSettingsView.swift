@@ -782,6 +782,8 @@ private extension UserSettingsView {
                 return "That specialization could not be found."
             case "invalid_specialization":
                 return "Select a major or department to display."
+            case "specialization_not_joined":
+                return "You must join that major or department to display it."
             default:
                 if let message, !message.isEmpty {
                     return message

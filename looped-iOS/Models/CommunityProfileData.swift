@@ -6,9 +6,13 @@ struct CommunityProfileData: Identifiable, Equatable {
     var description: String
     var kind: CommunityKind
     var specializationType: CommunitySpecializationType
+    /// Number of active verified members for this community (backend `member_count`).
+    /// Not affected by follow/unfollow or join/leave actions.
     var memberCount: Int
     var imageUrl: String?
     var isFollowing: Bool
+    var isJoined: Bool
+    var joinLimit: SpecializationJoinLimit?
 }
 
 extension CommunityProfileData {
@@ -21,17 +25,26 @@ extension CommunityProfileData {
         self.memberCount = community.memberCount
         self.imageUrl = community.imageUrl
         self.isFollowing = community.isFollowing ?? false
+        self.isJoined = community.isJoined ?? false
+        self.joinLimit = nil
     }
 
     init(details: CommunityDetailsDTO) {
         self.id = details.id
         self.name = details.name
-        self.description = details.description
-        self.kind = CommunityKind(rawValue: details.kind ?? "") ?? .unknown
-        self.specializationType = CommunitySpecializationType(rawValue: details.specializationType ?? "") ?? .unknown
+        self.description = details.description ?? ""
+        self.kind = CommunityKind.fromApi(details.kind)
+        let parsedType = CommunitySpecializationType(rawValue: details.specializationType ?? "") ?? .unknown
+        if parsedType == .unknown {
+            self.specializationType = CommunitySpecializationType(rawValue: details.kind ?? "") ?? .unknown
+        } else {
+            self.specializationType = parsedType
+        }
         self.memberCount = details.memberCount ?? 0
         self.imageUrl = details.imageUrl
         self.isFollowing = details.isFollowing ?? false
+        self.isJoined = details.isJoined ?? false
+        self.joinLimit = details.joinLimit.map(SpecializationJoinLimit.init(dto:))
     }
 
     init(summary: CommunitySummary, description: String = "", imageUrl: String? = nil) {
@@ -43,6 +56,8 @@ extension CommunityProfileData {
         self.memberCount = summary.memberCount
         self.imageUrl = imageUrl
         self.isFollowing = true
+        self.isJoined = false
+        self.joinLimit = nil
     }
 
     init?(loop: SearchResultLoop) {
@@ -55,6 +70,8 @@ extension CommunityProfileData {
         self.memberCount = loop.memberCount
         self.imageUrl = loop.imageUrl
         self.isFollowing = false
+        self.isJoined = false
+        self.joinLimit = nil
     }
 }
 

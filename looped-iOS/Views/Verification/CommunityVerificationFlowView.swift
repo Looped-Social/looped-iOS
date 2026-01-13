@@ -121,7 +121,8 @@ struct CommunityVerificationFlowView: View {
             specializationType: .unknown,
             memberCount: 1_000_000,
             imageUrl: nil,
-            isFollowing: false
+            isFollowing: false,
+            isJoined: false
         ),
         onComplete: {}
     )

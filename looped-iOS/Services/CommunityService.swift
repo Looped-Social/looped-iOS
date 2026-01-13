@@ -44,6 +44,15 @@ class CommunityService: CommunityServiceProtocol {
         return response.items
     }
 
+    func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit] {
+        var endpoint = "/v1/me/specializations/join-limits"
+        if let type, type != .unknown {
+            endpoint += "?type=\(type.rawValue)"
+        }
+        let response: SpecializationJoinLimitListResponseDTO = try await apiClient.get(endpoint)
+        return response.items.map(SpecializationJoinLimit.init(dto:))
+    }
+
     func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult> {
         let encodedQuery = URLQueryEncoding.encode(query)
         var endpoint = "/v1/communities/search?query=\(encodedQuery)&limit=\(limit > 0 ? limit : defaultLimit)"
@@ -68,6 +77,22 @@ class CommunityService: CommunityServiceProtocol {
 
     func unfollowCommunity(id: Int) async throws {
         try await apiClient.delete("/v1/communities/\(id)/follow")
+    }
+
+    func followSpecialization(id: Int) async throws {
+        let _: EmptyResponse = try await apiClient.post("/v1/specializations/\(id)/follow", body: EmptyBody())
+    }
+
+    func unfollowSpecialization(id: Int) async throws {
+        try await apiClient.delete("/v1/specializations/\(id)/follow")
+    }
+
+    func joinSpecialization(id: Int) async throws {
+        let _: EmptyResponse = try await apiClient.post("/v1/specializations/\(id)/join", body: EmptyBody())
+    }
+
+    func unjoinSpecialization(id: Int) async throws {
+        try await apiClient.delete("/v1/specializations/\(id)/join")
     }
 
     func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions {
