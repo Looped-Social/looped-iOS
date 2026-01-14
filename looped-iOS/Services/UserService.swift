@@ -2,9 +2,11 @@ import Foundation
 
 class UserService: UserServiceProtocol {
     private let apiClient: APIClient
+    private let anonService: AnonService
     
-    init(apiClient: APIClient = APIClient()) {
+    init(apiClient: APIClient = APIClient(), anonService: AnonService = .shared) {
         self.apiClient = apiClient
+        self.anonService = anonService
     }
     
     func getIdentity() async throws -> IdentityResponseDTO {
@@ -32,6 +34,57 @@ class UserService: UserServiceProtocol {
     func getUser(by id: Int) async throws -> User {
         let dto: UserDTO = try await apiClient.get("/v1/users/\(id)")
         return User(dto: dto, profile: dto.profile)
+    }
+
+    func followUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult {
+        if asAnonymousActor {
+            let anonContext = try await anonService.actionContext(for: .followUser(userId: userId), communityId: communityId)
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: UserFollowActionResponseDTO = try await apiClient.post(
+                "/v1/users/\(userId)/follow",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+            return UserFollowActionResult(userId: response.userId, following: response.following)
+        }
+
+        let request = UserFollowRequestDTO(asAnon: false)
+        let response: UserFollowActionResponseDTO = try await apiClient.post("/v1/users/\(userId)/follow", body: request)
+        return UserFollowActionResult(userId: response.userId, following: response.following)
+    }
+
+    func unfollowUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult {
+        if asAnonymousActor {
+            let anonContext = try await anonService.actionContext(for: .unfollowUser(userId: userId), communityId: communityId)
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: UserFollowActionResponseDTO = try await apiClient.delete(
+                "/v1/users/\(userId)/follow",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+            return UserFollowActionResult(userId: response.userId, following: response.following)
+        }
+
+        let request = UserFollowRequestDTO(asAnon: false)
+        let response: UserFollowActionResponseDTO = try await apiClient.delete(
+            "/v1/users/\(userId)/follow",
+            body: request
+        )
+        return UserFollowActionResult(userId: response.userId, following: response.following)
     }
     
     func updateProfile(

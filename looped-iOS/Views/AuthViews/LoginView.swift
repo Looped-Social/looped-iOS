@@ -76,11 +76,6 @@ struct LoginView: View {
                     }
                     .disabled(email.isEmpty || password.isEmpty || viewModel.isLoading)
 
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .tint(.loopedPrimary)
-                    }
-
                     if let error = viewModel.errorMessage {
                         Text(error)
                             .font(.loopedSubBodyRegular)
@@ -94,6 +89,7 @@ struct LoginView: View {
                 Spacer()
             }
         }
+        .loadingOverlay(isPresented: viewModel.isLoading, title: "Signing you in…")
         .sheet(isPresented: $isForgotPasswordPresented) {
             ForgotPasswordView(
                 initialEmail: email,

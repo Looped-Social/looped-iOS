@@ -9,18 +9,82 @@ class MediaService: MediaServiceProtocol {
         self.session = session
     }
 
-    func uploadImage(data: Data, mimeType: String, width: Int, height: Int) async throws -> MediaAsset {
+    func uploadImage(data: Data, mimeType: String, width: Int, height: Int, actor: MediaUploadActor) async throws -> MediaAsset {
+        try await uploadPublicMedia(
+            data: data,
+            fileURL: nil,
+            mimeType: mimeType,
+            width: width,
+            height: height,
+            durationSeconds: nil,
+            actor: actor
+        )
+    }
+
+    func uploadVideo(
+        fileURL: URL,
+        mimeType: String,
+        width: Int,
+        height: Int,
+        durationSeconds: Int,
+        actor: MediaUploadActor
+    ) async throws -> MediaAsset {
+        try await uploadPublicMedia(
+            data: nil,
+            fileURL: fileURL,
+            mimeType: mimeType,
+            width: width,
+            height: height,
+            durationSeconds: durationSeconds,
+            actor: actor
+        )
+    }
+
+    func resolvePublicMedia(ids: [Int]) async throws -> [MediaAsset] {
+        let deduped = Array(Set(ids)).sorted()
+        guard !deduped.isEmpty else { return [] }
+        var resolved: [MediaAsset] = []
+        resolved.reserveCapacity(deduped.count)
+
+        var index = 0
+        while index < deduped.count {
+            let end = min(index + 50, deduped.count)
+            let chunk = Array(deduped[index..<end])
+            let request = MediaResolveRequestDTO(ids: chunk)
+            let dto: MediaResolveResponseDTO = try await apiClient.post(
+                "/v1/media/resolve",
+                body: request,
+                requiresAuth: false
+            )
+            resolved.append(contentsOf: dto.items.map(MediaAsset.init(dto:)))
+            index = end
+        }
+
+        return resolved
+    }
+
+    private func uploadPublicMedia(
+        data: Data?,
+        fileURL: URL?,
+        mimeType: String,
+        width: Int,
+        height: Int,
+        durationSeconds: Int?,
+        actor: MediaUploadActor
+    ) async throws -> MediaAsset {
         let presignRequest = MediaPresignRequestDTO(
             contentType: mimeType,
-            sizeBytes: data.count
+            sizeBytes: data?.count ?? fileSizeBytes(fileURL)
         )
         let presign: MediaPresignResponseDTO = try await apiClient.post(
             "/v1/media/presign",
-            body: presignRequest
+            body: presignRequest,
+            requiresAuth: false
         )
 
         try await uploadToPresignedUrl(
             data: data,
+            fileURL: fileURL,
             uploadUrl: presign.uploadUrl,
             headers: presign.headers ?? [:],
             mimeType: mimeType
@@ -31,18 +95,28 @@ class MediaService: MediaServiceProtocol {
             mimeType: mimeType,
             width: width,
             height: height,
-            durationSeconds: 0
+            durationSeconds: durationSeconds
         )
+        var callbackHeaders: [String: String] = [:]
+        if let signature = presign.callbackSignature, !signature.isEmpty {
+            callbackHeaders["X-Media-Signature"] = signature
+        }
+        if actor == .anon {
+            callbackHeaders["X-Actor"] = "anon"
+        }
         let callback: MediaCallbackResponseDTO = try await apiClient.post(
             "/v1/media/callback",
-            body: callbackRequest
+            body: callbackRequest,
+            requiresAuth: actor == .user,
+            headers: callbackHeaders
         )
 
         return MediaAsset(dto: callback)
     }
 
     private func uploadToPresignedUrl(
-        data: Data,
+        data: Data?,
+        fileURL: URL?,
         uploadUrl: String,
         headers: [String: String],
         mimeType: String
@@ -61,12 +135,25 @@ class MediaService: MediaServiceProtocol {
             request.setValue(mimeType, forHTTPHeaderField: "Content-Type")
         }
 
-        let (_, response) = try await session.upload(for: request, from: data)
+        let response: URLResponse
+        if let data {
+            (_, response) = try await session.upload(for: request, from: data)
+        } else if let fileURL {
+            (_, response) = try await session.upload(for: request, fromFile: fileURL)
+        } else {
+            throw APIError.invalidResponse
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         guard 200...299 ~= httpResponse.statusCode else {
             throw APIError.serverError(httpResponse.statusCode)
         }
+    }
+
+    private func fileSizeBytes(_ url: URL?) -> Int {
+        guard let url else { return 0 }
+        let values = try? url.resourceValues(forKeys: [.fileSizeKey])
+        return values?.fileSize ?? 0
     }
 }

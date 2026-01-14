@@ -8,6 +8,7 @@ struct CommentsView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var commentText: String = ""
+    @State private var selectedMedia: [LocalMediaItem] = []
     @State private var keyboardHeight: CGFloat = 0
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
@@ -17,6 +18,8 @@ struct CommentsView: View {
     @State private var showVideoPlayer = false
     @State private var anonProfileId: Int?
     @State private var pendingFocusCommentId: Int?
+    @State private var showMediaPicker = false
+    @State private var showCamera = false
 
     private var comments: [Comment] {
         commentsManager.currentComments
@@ -80,8 +83,10 @@ struct CommentsView: View {
             .onChange(of: commentsManager.editTarget?.backendId) { _, newValue in
                 if let newValue, let target = commentsManager.editTarget, target.backendId == newValue {
                     commentText = target.content
+                    selectedMedia = []
                 } else if commentsManager.editTarget == nil {
                     commentText = ""
+                    selectedMedia = []
                 }
             }
             .onChange(of: commentsManager.currentComments.count) { _, _ in
@@ -280,6 +285,17 @@ private extension CommentsView {
 
     var commentInput: some View {
         VStack(spacing: 8) {
+            if !selectedMedia.isEmpty {
+                MediaPreviewGrid(
+                    media: selectedMedia,
+                    maxHeight: 180,
+                    onRemove: { item in
+                        selectedMedia.removeAll { $0.id == item.id }
+                    }
+                )
+                .padding(.horizontal, 20)
+            }
+
             if let replyTarget = commentsManager.replyTarget {
                 HStack {
                     Text("Replying to \(displayName(for: replyTarget))")
@@ -348,6 +364,20 @@ private extension CommentsView {
                         .frame(width: 34, height: 34)
                 }
 
+                Button(action: { showMediaPicker = true }) {
+                    Image(systemName: "paperclip")
+                        .font(.loopedCustom(.medium, size: 18))
+                        .foregroundColor(.loopedPrimary)
+                }
+                .disabled(commentsManager.editTarget != nil)
+
+                Button(action: { showCamera = true }) {
+                    Image(systemName: "camera")
+                        .font(.loopedCustom(.medium, size: 18))
+                        .foregroundColor(.loopedPrimary)
+                }
+                .disabled(commentsManager.editTarget != nil)
+
                 TextField(inputPlaceholder, text: $commentText, axis: .vertical)
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
@@ -361,11 +391,13 @@ private extension CommentsView {
                     Task {
                         guard canComment else { return }
                         let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmed.isEmpty else { return }
                         if commentsManager.editTarget != nil {
+                            guard !trimmed.isEmpty else { return }
                             await commentsManager.editComment(content: trimmed)
                         } else {
-                            await commentsManager.postComment(content: trimmed)
+                            guard !trimmed.isEmpty || !selectedMedia.isEmpty else { return }
+                            await commentsManager.postComment(content: trimmed, media: selectedMedia)
+                            selectedMedia = []
                         }
                         commentText = ""
                     }
@@ -373,17 +405,36 @@ private extension CommentsView {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.loopedCustom(.semibold, size: 28))
                         .foregroundColor(
-                            commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting || !canComment
+                            (commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedMedia.isEmpty)
+                            || commentsManager.isPosting
+                            || !canComment
                             ? .loopedTextSecondary
                             : .loopedPrimary
                         )
                 }
-                .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || commentsManager.isPosting || !canComment)
+                .disabled(
+                    (commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedMedia.isEmpty)
+                    || commentsManager.isPosting
+                    || !canComment
+                )
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, max(12, keyboardHeight > 0 ? 8 : 12))
             .background(Color.loopedBackground)
+        }
+        .sheet(isPresented: $showMediaPicker) {
+            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 1, allowsVideo: true)
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView(selectedImage: .init(
+                get: { nil },
+                set: { image in
+                    if let image = image {
+                        selectedMedia = [LocalMediaItem(type: .image, image: image)]
+                    }
+                }
+            ))
         }
     }
 }

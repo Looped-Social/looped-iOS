@@ -4,45 +4,51 @@ class CommentsService: CommentsServiceProtocol {
     private let apiClient: APIClient
     private let defaultLimit: Int
     private let anonService: AnonService
+    private let mediaService: MediaServiceProtocol
     private let anonHeaders = ["X-Actor": "anon"]
     private let anonQueryAllowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "+/=&?"))
 
     init(
         apiClient: APIClient = APIClient(),
         defaultLimit: Int = 20,
-        anonService: AnonService = .shared
+        anonService: AnonService = .shared,
+        mediaService: MediaServiceProtocol = MediaService()
     ) {
         self.apiClient = apiClient
         self.defaultLimit = defaultLimit
         self.anonService = anonService
+        self.mediaService = mediaService
     }
 
     func fetchComments(postId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
-        try await fetchComments(
+        let page = try await fetchComments(
             from: "/v1/posts/\(postId)/comments",
             limit: limit,
             cursor: cursor,
             anonAction: .commentList(postId: postId),
             communityId: communityId
         )
+        return await resolveMediaIfNeeded(in: page)
     }
 
     func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
-        try await fetchComments(
+        let page = try await fetchComments(
             from: "/v1/comments/\(commentId)/replies",
             limit: limit,
             cursor: cursor,
             anonAction: .commentReplies(commentId: commentId),
             communityId: communityId
         )
+        return await resolveMediaIfNeeded(in: page)
     }
 
-    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?) async throws -> Comment {
+    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?, mediaAssetId: Int?) async throws -> Comment {
         let request = try await makeCommentRequest(
             content: content,
             parentId: parentId,
             postId: postId,
-            communityId: communityId
+            communityId: communityId,
+            mediaAssetId: mediaAssetId
         )
         let isAnon = request.asAnon ?? false
         let dto: CommentDTO = try await apiClient.post(
@@ -164,12 +170,19 @@ class CommentsService: CommentsServiceProtocol {
         return CommentPage(comments: comments, nextCursor: response.nextCursor)
     }
 
-    private func makeCommentRequest(content: String, parentId: Int?, postId: Int, communityId: Int?) async throws -> CreateCommentRequestDTO {
+    private func makeCommentRequest(
+        content: String,
+        parentId: Int?,
+        postId: Int,
+        communityId: Int?,
+        mediaAssetId: Int?
+    ) async throws -> CreateCommentRequestDTO {
         if anonService.isAnonymousEnabled {
             let anonContext = try await anonService.actionContext(for: .comment(postId: postId), communityId: communityId)
             return CreateCommentRequestDTO(
                 content: content,
                 parentId: parentId,
+                mediaAssetId: mediaAssetId,
                 asAnon: true,
                 anonProfileId: anonContext.profileId,
                 anonCert: anonContext.cert,
@@ -180,6 +193,7 @@ class CommentsService: CommentsServiceProtocol {
         return CreateCommentRequestDTO(
             content: content,
             parentId: parentId,
+            mediaAssetId: mediaAssetId,
             asAnon: nil,
             anonProfileId: nil,
             anonCert: nil,
@@ -243,5 +257,36 @@ class CommentsService: CommentsServiceProtocol {
             "anonSig=\(encodedSig)"
         ]
         return endpoint + "&" + params.joined(separator: "&")
+    }
+}
+
+private extension CommentsService {
+    func resolveMediaIfNeeded(in page: CommentPage) async -> CommentPage {
+        let ids: [Int] = page.comments.compactMap { comment in
+            guard comment.attachments?.isEmpty ?? true else { return nil }
+            return comment.mediaAssetId
+        }
+        let uniqueIds = Array(Set(ids))
+        guard !uniqueIds.isEmpty else { return page }
+
+        do {
+            let assets = try await mediaService.resolvePublicMedia(ids: uniqueIds)
+            let byId = Dictionary(uniqueKeysWithValues: assets.compactMap { asset -> (Int, MediaAttachment)? in
+                guard let url = asset.cdnUrl, !url.isEmpty else { return nil }
+                let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
+                return (asset.id, MediaAttachment(type: type, url: url))
+            })
+            if byId.isEmpty { return page }
+            let resolved = page.comments.map { comment in
+                guard comment.attachments?.isEmpty ?? true else { return comment }
+                guard let mediaAssetId = comment.mediaAssetId,
+                      let attachment = byId[mediaAssetId]
+                else { return comment }
+                return comment.updating(attachments: .some([attachment]))
+            }
+            return CommentPage(comments: resolved, nextCursor: page.nextCursor)
+        } catch {
+            return page
+        }
     }
 }

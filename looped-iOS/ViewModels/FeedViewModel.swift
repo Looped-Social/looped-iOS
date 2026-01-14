@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UIKit
+import AVFoundation
 
 @MainActor
 class FeedViewModel: ObservableObject {
@@ -384,7 +385,7 @@ class FeedViewModel: ObservableObject {
                 if poll != nil {
                     // Polls can be created without post text.
                 } else {
-                    errorMessage = "Add text or attach a photo."
+                    errorMessage = "Add text or attach media."
                     return false
                 }
             }
@@ -393,23 +394,56 @@ class FeedViewModel: ObservableObject {
             var mediaAssetId: Int?
 
             if let first = media.first {
-                guard first.type == .image, let image = first.image else {
-                    errorMessage = "Only images are supported right now."
+                let actor: MediaUploadActor = isAnonymous ? .anon : .user
+                switch first.type {
+                case .image:
+                    guard let image = first.image else {
+                        errorMessage = "We couldn't read that image. Try another one."
+                        return false
+                    }
+                    guard let payload = makeUploadPayload(from: image) else {
+                        errorMessage = "We couldn't read that image. Try another one."
+                        return false
+                    }
+                    let asset = try await mediaService.uploadImage(
+                        data: payload.data,
+                        mimeType: payload.mimeType,
+                        width: payload.width,
+                        height: payload.height,
+                        actor: actor
+                    )
+                    mediaAssetId = asset.id
+                    if let url = asset.cdnUrl, !url.isEmpty {
+                        uploadedAttachment = MediaAttachment(type: .image, url: url, width: payload.width, height: payload.height)
+                    }
+                case .video:
+                    guard let url = first.videoURL else {
+                        errorMessage = "We couldn't read that video. Try another one."
+                        return false
+                    }
+                    let mp4Url = try await VideoTranscoder.ensureMP4(at: url)
+                    let metadata = videoMetadata(url: mp4Url)
+                    let asset = try await mediaService.uploadVideo(
+                        fileURL: mp4Url,
+                        mimeType: "video/mp4",
+                        width: metadata.width,
+                        height: metadata.height,
+                        durationSeconds: metadata.durationSeconds,
+                        actor: actor
+                    )
+                    mediaAssetId = asset.id
+                    if let cdnUrl = asset.cdnUrl, !cdnUrl.isEmpty {
+                        uploadedAttachment = MediaAttachment(
+                            type: .video,
+                            url: cdnUrl,
+                            width: metadata.width,
+                            height: metadata.height,
+                            duration: TimeInterval(metadata.durationSeconds)
+                        )
+                    }
+                case .gif:
+                    errorMessage = "GIFs aren't supported yet."
                     return false
-                }
-                guard let payload = makeUploadPayload(from: image) else {
-                    errorMessage = "We couldn't read that image. Try another one."
-                    return false
-                }
-                let asset = try await mediaService.uploadImage(
-                    data: payload.data,
-                    mimeType: payload.mimeType,
-                    width: payload.width,
-                    height: payload.height
-                )
-                mediaAssetId = asset.id
-                if let url = asset.cdnUrl, !url.isEmpty {
-                    uploadedAttachment = MediaAttachment(type: .image, url: url, width: payload.width, height: payload.height)
                 }
             }
 
@@ -525,6 +559,18 @@ private extension FeedViewModel {
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
         }
+    }
+
+    func videoMetadata(url: URL) -> (width: Int, height: Int, durationSeconds: Int) {
+        let asset = AVAsset(url: url)
+        let duration = Int((asset.duration.seconds.isFinite ? asset.duration.seconds : 0).rounded())
+        guard let track = asset.tracks(withMediaType: .video).first else {
+            return (width: 0, height: 0, durationSeconds: max(duration, 0))
+        }
+        let transformed = track.naturalSize.applying(track.preferredTransform)
+        let width = Int(abs(transformed.width).rounded())
+        let height = Int(abs(transformed.height).rounded())
+        return (width: max(width, 0), height: max(height, 0), durationSeconds: max(duration, 0))
     }
 
     func imageHasAlpha(_ image: UIImage) -> Bool {

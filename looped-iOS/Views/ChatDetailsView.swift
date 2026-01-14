@@ -1,20 +1,29 @@
 import SwiftUI
+import Foundation
 
 struct ChatDetailsView: View {
     let conversation: Conversation?
     let channel: Channel?
+    let onChatShouldClose: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     @State private var groupName: String
-    @State private var customNickname: String
-    @State private var isEditingName = false
     @State private var isMuted = false
     @State private var showAddMembers = false
-    @State private var showImagePicker = false
     @State private var showLeaveGroupAlert = false
     @State private var showBlockUserAlert = false
-    @State private var selectedImage: UIImage? = nil
     @State private var currentMemberIds: [UUID]
+    @State private var members: [ChannelMember] = []
+    @State private var isLoadingMembers = false
+    @State private var toastMessage: ToastMessage?
+    @State private var memberPendingRemoval: ChannelMember?
+    @State private var isLeavingGroup = false
+    @State private var isBlockingUser = false
+
+    private let messageService: MessageServiceProtocol = MessageService()
+    private let blockService: BlockServiceProtocol = BlockService()
 
     private var isGroupChat: Bool {
         return channel != nil
@@ -36,12 +45,16 @@ struct ChatDetailsView: View {
     }
 
     private var memberCount: Int {
-        channel?.memberCount ?? currentMemberIds.count
+        if isGroupChat, !members.isEmpty {
+            return members.count
+        }
+        return channel?.memberCount ?? currentMemberIds.count
     }
 
-    init(conversation: Conversation?, channel: Channel?) {
+    init(conversation: Conversation?, channel: Channel?, onChatShouldClose: (() -> Void)? = nil) {
         self.conversation = conversation
         self.channel = channel
+        self.onChatShouldClose = onChatShouldClose
 
         // Initialize member IDs
         let ids = conversation?.memberIds ?? []
@@ -50,13 +63,10 @@ struct ChatDetailsView: View {
         // Initialize state with current values
         if let channel = channel {
             _groupName = State(initialValue: channel.name)
-            _customNickname = State(initialValue: "")
         } else if let conversation = conversation {
             _groupName = State(initialValue: "")
-            _customNickname = State(initialValue: conversation.userName)
         } else {
             _groupName = State(initialValue: "")
-            _customNickname = State(initialValue: "")
         }
     }
 
@@ -73,7 +83,7 @@ struct ChatDetailsView: View {
                                     .fill(Color.loopedSecondary)
                                     .frame(width: 120, height: 120)
                                     .overlay(
-                                        Text("VP")
+                                        Text(groupInitials)
                                             .font(.loopedCustom(.bold, size: 40))
                                             .foregroundColor(.loopedWhite)
                                     )
@@ -85,72 +95,43 @@ struct ChatDetailsView: View {
                                 )
                             }
 
-                            // Edit photo button
-                            Button(action: {
-                                showImagePicker = true
-                            }) {
-                                Circle()
-                                    .fill(Color.loopedPrimary)
-                                    .frame(width: 36, height: 36)
-                                    .overlay(
-                                        Image(systemName: "camera.fill")
-                                            .font(.loopedCustom(size: 16))
-                                            .foregroundColor(.loopedWhite)
-                                    )
+                            if isGroupChat {
+                                Button(action: {
+                                    toastMessage = ToastMessage(text: "Group photos aren't supported yet.", kind: .info)
+                                }) {
+                                    Circle()
+                                        .fill(Color.loopedPrimary)
+                                        .frame(width: 36, height: 36)
+                                        .overlay(
+                                            Image(systemName: "camera.fill")
+                                                .font(.loopedCustom(size: 16))
+                                                .foregroundColor(.loopedWhite)
+                                        )
+                                }
+                                .offset(x: -5, y: -5)
                             }
-                            .offset(x: -5, y: -5)
                         }
 
                         // Name section
                         if isGroupChat {
-                            // Group name (editable)
-                            HStack(spacing: 8) {
-                                if isEditingName {
-                                    TextField("Group name", text: $groupName)
-                                        .font(.loopedHeadingMedium)
-                                        .foregroundColor(.loopedTextPrimary)
-                                        .multilineTextAlignment(.center)
-                                        .textFieldStyle(.plain)
-                                } else {
-                                    Text(groupName)
-                                        .font(.loopedHeadingMedium)
-                                        .foregroundColor(.loopedTextPrimary)
-                                }
-
-                                Button(action: {
-                                    isEditingName.toggle()
-                                }) {
-                                    Image(systemName: isEditingName ? "checkmark.circle.fill" : "pencil")
-                                        .font(.loopedCustom(size: 20))
-                                        .foregroundColor(.loopedPrimary)
-                                }
-                            }
+                            Text(groupName)
+                                .font(.loopedHeadingMedium)
+                                .foregroundColor(.loopedTextPrimary)
 
                             Text("\(memberCount) members")
                                 .font(.loopedBody)
                                 .foregroundColor(.loopedTextSecondary)
                         } else {
-                            // 1-on-1: Custom nickname
-                            VStack(spacing: 4) {
-                                HStack(spacing: 8) {
-                                    TextField("Custom name", text: $customNickname)
-                                        .font(.loopedHeadingMedium)
-                                        .foregroundColor(.loopedTextPrimary)
-                                        .multilineTextAlignment(.center)
-                                        .textFieldStyle(.plain)
-
-                                    Image(systemName: "pencil")
-                                        .font(.loopedCustom(size: 16))
-                                        .foregroundColor(.loopedPrimary)
-                                }
-
-                                Text("(Custom name for you only)")
-                                    .font(.loopedSmallText)
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
+                            Text(conversation?.userName ?? "Unknown")
+                                .font(.loopedHeadingMedium)
+                                .foregroundColor(.loopedTextPrimary)
                         }
                     }
                     .padding(.top, 20)
+
+                    if isGroupChat {
+                        membersSection
+                    }
 
                     // Actions Section
                     VStack(spacing: 0) {
@@ -198,6 +179,7 @@ struct ChatDetailsView: View {
                                     showBlockUserAlert = true
                                 }
                             )
+                            .disabled(isBlockingUser)
                         }
                     }
                     .background(Color.loopedTextSecondary.opacity(0.05))
@@ -219,6 +201,7 @@ struct ChatDetailsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
+                        .disabled(isLeavingGroup)
                     }
 
                     Spacer(minLength: 40)
@@ -238,20 +221,17 @@ struct ChatDetailsView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .toast($toastMessage)
         .sheet(isPresented: $showAddMembers) {
             NewMessageView(
                 onChatSelected: { _, _ in },
                 channelToAddMembers: channel
             )
         }
-        .sheet(isPresented: $showImagePicker) {
-            CameraPickerView(selectedImage: $selectedImage)
-        }
         .alert("Leave Group", isPresented: $showLeaveGroupAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Leave", role: .destructive) {
-                // TODO: Implement leave group
-                dismiss()
+                Task { await leaveGroup() }
             }
         } message: {
             Text("Are you sure you want to leave this group?")
@@ -259,12 +239,205 @@ struct ChatDetailsView: View {
         .alert("Block User", isPresented: $showBlockUserAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Block", role: .destructive) {
-                // TODO: Implement block user
-                dismiss()
+                Task { await blockUser() }
             }
         } message: {
             Text("Are you sure you want to block this user? They won't be able to message you.")
         }
+        .alert("Remove Member", isPresented: Binding(get: { memberPendingRemoval != nil }, set: { if !$0 { memberPendingRemoval = nil } })) {
+            Button("Cancel", role: .cancel) { memberPendingRemoval = nil }
+            Button("Remove", role: .destructive) {
+                Task {
+                    if let member = memberPendingRemoval {
+                        await removeMember(member)
+                    }
+                    memberPendingRemoval = nil
+                }
+            }
+        } message: {
+            Text("Remove this member from the group?")
+        }
+        .task {
+            if let channel {
+                await loadMembers(channelBackendId: channel.backendId)
+            }
+        }
+    }
+
+    private var groupInitials: String {
+        let rawTitle = channel?.name ?? groupName
+        let components = rawTitle.split(separator: " ")
+        let initials = components.compactMap { component -> Character? in
+            component.first { char in
+                char.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) }
+            }
+        }
+        .prefix(2)
+        .map { String($0).uppercased() }
+        .joined()
+
+        return initials.isEmpty ? "GC" : initials
+    }
+
+    @ViewBuilder
+    private var membersSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Members")
+                    .font(.loopedSubheadMedium)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Spacer()
+
+                if isLoadingMembers {
+                    ProgressView()
+                        .tint(.loopedTextSecondary)
+                }
+            }
+            .padding(.horizontal, 16)
+
+            if members.isEmpty, !isLoadingMembers {
+                Text("Members are unavailable right now.")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .padding(.horizontal, 16)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(members) { member in
+                        ChannelMemberRow(
+                            member: member,
+                            viewerCanManageMembers: channel?.viewerCanManageMembers ?? false,
+                            isCurrentUser: member.backendUserId == authViewModel.currentUser?.backendId,
+                            onRemove: {
+                                memberPendingRemoval = member
+                            }
+                        )
+
+                        if member.id != members.last?.id {
+                            Divider().padding(.leading, 60)
+                        }
+                    }
+                }
+                .background(Color.loopedTextSecondary.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    private func loadMembers(channelBackendId: Int) async {
+        guard !isLoadingMembers else { return }
+        isLoadingMembers = true
+        defer { isLoadingMembers = false }
+
+        do {
+            let page = try await messageService.getChannelMembers(channelBackendId: channelBackendId, cursor: nil)
+            members = page.members
+        } catch {
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
+    }
+
+    private func removeMember(_ member: ChannelMember) async {
+        guard let channel else { return }
+        do {
+            try await messageService.removeChannelMember(channelBackendId: channel.backendId, userId: member.backendUserId)
+            members.removeAll { $0.backendUserId == member.backendUserId }
+            toastMessage = ToastMessage(text: "Removed member", kind: .success)
+        } catch {
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
+    }
+
+    private func leaveGroup() async {
+        guard let channel else { return }
+        guard let currentUserId = authViewModel.currentUser?.backendId else {
+            toastMessage = ToastMessage(text: "Sign in again to leave this group.", kind: .error)
+            return
+        }
+
+        isLeavingGroup = true
+        defer { isLeavingGroup = false }
+
+        do {
+            try await messageService.removeChannelMember(channelBackendId: channel.backendId, userId: currentUserId)
+            toastMessage = ToastMessage(text: "Left group", kind: .success)
+            dismiss()
+            onChatShouldClose?()
+        } catch {
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
+    }
+
+    private func blockUser() async {
+        guard let targetUserId = profileUserBackendId else { return }
+
+        isBlockingUser = true
+        defer { isBlockingUser = false }
+
+        do {
+            _ = try await blockService.blockUser(userId: targetUserId, asAnonymousActor: isAnonymousMode, communityId: nil)
+            toastMessage = ToastMessage(text: "Blocked user", kind: .success)
+            dismiss()
+            onChatShouldClose?()
+        } catch {
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
+    }
+}
+
+private struct ChannelMemberRow: View {
+    let member: ChannelMember
+    let viewerCanManageMembers: Bool
+    let isCurrentUser: Bool
+    let onRemove: () -> Void
+
+    var body: some View {
+        NavigationLink(destination: UserProfileView(userId: member.backendUserId)) {
+            HStack(spacing: 12) {
+                ProfileAvatarView(imageURL: member.profileImageUrl, size: 40)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(member.displayName ?? member.handle)
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        if member.isOwner {
+                            Text("Owner")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        } else if member.canManageMembers {
+                            Text("Admin")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        } else if isCurrentUser {
+                            Text("(You)")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
+
+                    Text("@\(member.handle)")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+
+                Spacer()
+
+                if viewerCanManageMembers, !isCurrentUser, !member.isOwner {
+                    Button(action: onRemove) {
+                        Text("Remove")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedError)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -346,6 +519,10 @@ struct GroupMemberDetailsView: View {
     @State private var showRemoveMemberAlert = false
     @State private var selectedImage: UIImage? = nil
     @State private var isMuted = false
+    @State private var toastMessage: ToastMessage?
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
+
+    private let blockService: BlockServiceProtocol = BlockService()
 
     init(profile: UserProfile, onRemove: ((UUID) -> Void)? = nil) {
         self.profile = profile
@@ -483,6 +660,7 @@ struct GroupMemberDetailsView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .toast($toastMessage)
         .sheet(isPresented: $showImagePicker) {
             // Full-screen image viewer
             if let imageUrl = profile.profileImageURL, let url = URL(string: imageUrl) {
@@ -500,8 +678,7 @@ struct GroupMemberDetailsView: View {
         .alert("Block User", isPresented: $showBlockUserAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Block", role: .destructive) {
-                // TODO: Implement block user
-                dismiss()
+                Task { await blockMemberUser() }
             }
         } message: {
             Text("Are you sure you want to block this user? They won't be able to message you.")
@@ -514,6 +691,21 @@ struct GroupMemberDetailsView: View {
             }
         } message: {
             Text("Are you sure you want to remove this member from the group?")
+        }
+    }
+
+    private func blockMemberUser() async {
+        guard let userId = profile.backendId else {
+            toastMessage = ToastMessage(text: "This profile can't be blocked yet.", kind: .error)
+            return
+        }
+
+        do {
+            _ = try await blockService.blockUser(userId: userId, asAnonymousActor: isAnonymousMode, communityId: nil)
+            toastMessage = ToastMessage(text: "Blocked user", kind: .success)
+            dismiss()
+        } catch {
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
         }
     }
 }

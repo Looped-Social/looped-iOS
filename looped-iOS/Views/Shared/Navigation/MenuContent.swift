@@ -410,15 +410,147 @@ private struct LikedPostsFeedList: View {
 }
 
 struct PrivacyView: View {
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    private let contentPreferencesService: ContentPreferencesServiceProtocol = ContentPreferencesService()
+
+    @State private var hideAnonymousPosts = false
+    @State private var isLoading = false
+    @State private var isUpdating = false
+    @State private var skipToggleUpdate = false
+    @State private var toastMessage: ToastMessage?
+
     var body: some View {
-        VStack {
-            Text("Privacy Settings")
-                .font(.loopedHeadingMedium)
-                .foregroundColor(.loopedTextPrimary)
+        ScrollView {
+            VStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Content")
+                        .font(.loopedSubheadMedium)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hide anonymous posts")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
+                            Text("Removes anonymous posts from your feed.")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+
+                        Spacer()
+
+                        if isUpdating {
+                            ProgressView()
+                                .tint(.loopedSecondary)
+                        } else {
+                            Toggle("", isOn: $hideAnonymousPosts)
+                                .labelsHidden()
+                                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .background(Color.loopedTextSecondary.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Safety")
+                        .font(.loopedSubheadMedium)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    NavigationLink(destination: BlockedUsersView()) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "hand.raised.fill")
+                                .font(.loopedCustom(.medium, size: 18))
+                                .foregroundColor(.loopedPrimary)
+                                .frame(width: 26, height: 26)
+
+                            Text("Blocked users")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.loopedCustom(.semibold, size: 14))
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .background(Color.loopedTextSecondary.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 20)
+            }
+            .padding(.top, 16)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Privacy")
         .navigationBarTitleDisplayMode(.inline)
+        .toast($toastMessage)
+        .task { await loadPreferences() }
+        .onChange(of: hideAnonymousPosts) { oldValue, newValue in
+            guard !skipToggleUpdate else { return }
+            Task { await updateHideAnonymousPosts(from: oldValue, to: newValue) }
+        }
+    }
+
+    private func loadPreferences() async {
+        if let user = authViewModel.currentUser {
+            hideAnonymousPosts = user.hideAnonymousPosts ?? false
+        }
+
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let response = try await contentPreferencesService.getPreferences()
+            let resolvedValue = response.content.hideAnonymousPosts
+            if hideAnonymousPosts != resolvedValue {
+                skipToggleUpdate = true
+                hideAnonymousPosts = resolvedValue
+                skipToggleUpdate = false
+            }
+            if var user = authViewModel.currentUser {
+                authViewModel.currentUser = user.updating(hideAnonymousPosts: resolvedValue)
+            }
+        } catch {
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
+    }
+
+    private func updateHideAnonymousPosts(from oldValue: Bool, to newValue: Bool) async {
+        guard oldValue != newValue, !isUpdating else { return }
+        isUpdating = true
+        defer { isUpdating = false }
+
+        do {
+            let response = try await contentPreferencesService.updateHideAnonymousPosts(newValue)
+            let resolvedValue = response.content.hideAnonymousPosts
+            if resolvedValue != hideAnonymousPosts {
+                skipToggleUpdate = true
+                hideAnonymousPosts = resolvedValue
+                skipToggleUpdate = false
+            }
+            if var user = authViewModel.currentUser {
+                authViewModel.currentUser = user.updating(hideAnonymousPosts: resolvedValue)
+            }
+            toastMessage = ToastMessage(text: "Updated", kind: .success)
+        } catch {
+            skipToggleUpdate = true
+            hideAnonymousPosts = oldValue
+            skipToggleUpdate = false
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
     }
 }
 
@@ -500,15 +632,59 @@ struct DraftsView: View {
 }
 
 struct AnalyticsView: View {
+    @EnvironmentObject private var authViewModel: AuthViewModel
+
     var body: some View {
-        VStack {
-            Text("Analytics")
-                .font(.loopedHeadingMedium)
-                .foregroundColor(.loopedTextPrimary)
+        ScrollView {
+            VStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Your activity")
+                        .font(.loopedSubheadMedium)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    AnalyticsStatRow(label: "Posts", value: authViewModel.currentUser?.postsCount)
+                    AnalyticsStatRow(label: "Comments", value: authViewModel.currentUser?.commentsCount)
+                    AnalyticsStatRow(label: "Followers", value: authViewModel.currentUser?.followerCount)
+                    AnalyticsStatRow(label: "Following", value: authViewModel.currentUser?.followingCount)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .background(Color.loopedTextSecondary.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("More analytics (like total hearts) need backend support.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 20)
+            }
+            .padding(.top, 16)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Analytics")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct AnalyticsStatRow: View {
+    let label: String
+    let value: Int?
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+            Spacer()
+            Text(value.map(String.init) ?? "—")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .padding(.vertical, 6)
     }
 }
 

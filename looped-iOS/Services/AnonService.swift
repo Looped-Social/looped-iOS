@@ -35,6 +35,8 @@ enum AnonAction {
     case unblockUser(userId: Int)
     case blockPrincipal(principalId: Int)
     case unblockPrincipal(principalId: Int)
+    case followUser(userId: Int)
+    case unfollowUser(userId: Int)
 }
 
 enum AnonProfileAction {
@@ -220,6 +222,10 @@ actor AnonService {
             canonical = "block_principal|v1|\(principalId)"
         case .unblockPrincipal(let principalId):
             canonical = "unblock_principal|v1|\(principalId)"
+        case .followUser(let userId):
+            canonical = "follow|v1|\(userId)"
+        case .unfollowUser(let userId):
+            canonical = "unfollow|v1|\(userId)"
         }
 
         let signature = try sign(message: canonical, privateKey: privateKey)

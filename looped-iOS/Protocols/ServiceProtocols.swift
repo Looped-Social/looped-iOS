@@ -87,7 +87,7 @@ protocol MessageServiceProtocol {
     func listConversations(cursor: String?) async throws -> ConversationPage
     func startConversation(with participantBackendId: Int) async throws -> Conversation
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage
-    func sendConversationMessage(conversationId: Int, content: String) async throws -> Message
+    func sendConversationMessage(conversationId: Int, content: String, attachments: [String]?) async throws -> Message
     func searchMessages(query: String, limit: Int, cursor: String?) async throws -> MessageSearchPage
     func getChannels(cursor: String?) async throws -> ChannelPage
     func createChannel(name: String, memberUserIds: [Int]) async throws -> Channel
@@ -96,10 +96,20 @@ protocol MessageServiceProtocol {
     func removeChannelMember(channelBackendId: Int, userId: Int) async throws
     func updateChannelMemberPermission(channelBackendId: Int, userId: Int, canManageMembers: Bool) async throws
     func getChannelMessages(channelBackendId: Int, cursor: String?) async throws -> MessagePage
-    func sendChannelMessage(channelBackendId: Int, content: String) async throws -> Message
+    func sendChannelMessage(channelBackendId: Int, content: String, attachments: [String]?) async throws -> Message
     func fetchMessageRequests(cursor: String?) async throws -> MessageRequestPage
     func approveMessageRequest(requestId: Int) async throws
     func rejectMessageRequest(requestId: Int) async throws
+}
+
+extension MessageServiceProtocol {
+    func sendConversationMessage(conversationId: Int, content: String) async throws -> Message {
+        try await sendConversationMessage(conversationId: conversationId, content: content, attachments: nil)
+    }
+
+    func sendChannelMessage(channelBackendId: Int, content: String) async throws -> Message {
+        try await sendChannelMessage(channelBackendId: channelBackendId, content: content, attachments: nil)
+    }
 }
 
 struct MessageSearchPage {
@@ -127,6 +137,8 @@ protocol UserServiceProtocol {
     func getIdentity() async throws -> IdentityResponseDTO
     func getCurrentUser() async throws -> User
     func getUser(by id: Int) async throws -> User
+    func followUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult
+    func unfollowUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult
     func updateProfile(
         displayName: String?,
         bio: String?,
@@ -148,6 +160,11 @@ protocol UserServiceProtocol {
     func updateOnboardingStep(_ step: RemoteOnboardingStep) async throws -> OnboardingStateDTO
 }
 
+struct UserFollowActionResult {
+    let userId: Int
+    let following: Bool
+}
+
 extension UserServiceProtocol {
     func updateProfile(
         displayName: String?,
@@ -164,6 +181,14 @@ extension UserServiceProtocol {
             messagePermission: messagePermission,
             profileMediaAssetId: nil
         )
+    }
+
+    func followUser(userId: Int, asAnonymousActor: Bool) async throws -> UserFollowActionResult {
+        try await followUser(userId: userId, asAnonymousActor: asAnonymousActor, communityId: nil)
+    }
+
+    func unfollowUser(userId: Int, asAnonymousActor: Bool) async throws -> UserFollowActionResult {
+        try await unfollowUser(userId: userId, asAnonymousActor: asAnonymousActor, communityId: nil)
     }
 }
 
@@ -195,11 +220,17 @@ enum DeleteAccountMode: String {
 protocol CommentsServiceProtocol {
     func fetchComments(postId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage
     func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage
-    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?) async throws -> Comment
+    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?, mediaAssetId: Int?) async throws -> Comment
     func editComment(commentId: Int, communityId: Int?, content: String, asAnon: Bool) async throws -> Comment
     func deleteComment(commentId: Int, communityId: Int?, asAnon: Bool) async throws -> CommentDeleteResponse
     func likeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse
     func unlikeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse
+}
+
+extension CommentsServiceProtocol {
+    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?) async throws -> Comment {
+        try await createComment(postId: postId, communityId: communityId, content: content, parentId: parentId, mediaAssetId: nil)
+    }
 }
 
 protocol CommunityServiceProtocol {
@@ -260,6 +291,39 @@ protocol ModerationServiceProtocol {
 
 protocol MediaServiceProtocol {
     func uploadImage(data: Data, mimeType: String, width: Int, height: Int) async throws -> MediaAsset
+    func uploadImage(data: Data, mimeType: String, width: Int, height: Int, actor: MediaUploadActor) async throws -> MediaAsset
+    func uploadVideo(
+        fileURL: URL,
+        mimeType: String,
+        width: Int,
+        height: Int,
+        durationSeconds: Int,
+        actor: MediaUploadActor
+    ) async throws -> MediaAsset
+    func resolvePublicMedia(ids: [Int]) async throws -> [MediaAsset]
+}
+
+enum MediaUploadActor: Equatable {
+    case user
+    case anon
+}
+
+extension MediaServiceProtocol {
+    func uploadImage(data: Data, mimeType: String, width: Int, height: Int) async throws -> MediaAsset {
+        try await uploadImage(data: data, mimeType: mimeType, width: width, height: height, actor: .user)
+    }
+}
+
+protocol MessageMediaServiceProtocol {
+    func uploadImage(data: Data, mimeType: String) async throws -> String
+    func uploadVideo(fileURL: URL, mimeType: String) async throws -> String
+    func resolve(keys: [String]) async throws -> [MessageMediaResolvedItem]
+}
+
+struct MessageMediaResolvedItem: Equatable {
+    let key: String
+    let downloadUrl: String
+    let mimeType: String?
 }
 
 protocol CommunityRequestServiceProtocol {

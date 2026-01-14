@@ -769,22 +769,22 @@ struct ProfileStatsView: View {
         return "Select a primary community"
     }
 
-    private var yearsInLoopText: String? {
-        if let profile = userProfile { return profile.formattedYearsInLoop }
-        return nil
-    }
+	    private var yearsInLoopText: String? {
+	        guard !isAnonymous else { return nil }
+	        return resolvedProfile?.formattedYearsInLoop
+	    }
 
-    private var followingCount: Int? {
-        if let profile = userProfile { return profile.followingCount }
-        if isAnonymous { return nil }
-        return authViewModel.currentUser?.followingCount
-    }
+	    private var followingCount: Int? {
+	        if let profile = userProfile { return profile.followingCount }
+	        if isAnonymous { return nil }
+	        return authViewModel.currentUser?.followingCount ?? 0
+	    }
 
-    private var followersCount: Int? {
-        if let profile = userProfile { return profile.followersCount }
-        if isAnonymous { return nil }
-        return authViewModel.currentUser?.followerCount
-    }
+	    private var followersCount: Int? {
+	        if let profile = userProfile { return profile.followersCount }
+	        if isAnonymous { return nil }
+	        return authViewModel.currentUser?.followerCount ?? 0
+	    }
 
     private var showFollowerStats: Bool {
         if isAnonymous { return true }
@@ -836,14 +836,39 @@ private struct CompanyIconView: View {
     }
 }
 
-struct ProfileActionButtons: View {
-    @EnvironmentObject private var authViewModel: AuthViewModel
-    let userProfile: UserProfile?
-    @Binding var isAnonymous: Bool
+	struct ProfileActionButtons: View {
+	    struct FollowConfig {
+	        let isFollowing: Bool
+	        let isInFlight: Bool
+	        let onToggle: () -> Void
+	    }
+
+	    struct MessageConfig {
+	        let isInFlight: Bool
+	        let onTap: () -> Void
+	    }
+
+	    @EnvironmentObject private var authViewModel: AuthViewModel
+	    let userProfile: UserProfile?
+	    @Binding var isAnonymous: Bool
+	    let followConfig: FollowConfig?
+	    let messageConfig: MessageConfig?
+
+	    init(
+	        userProfile: UserProfile?,
+	        isAnonymous: Binding<Bool>,
+	        followConfig: FollowConfig? = nil,
+	        messageConfig: MessageConfig? = nil
+	    ) {
+	        self.userProfile = userProfile
+	        self._isAnonymous = isAnonymous
+	        self.followConfig = followConfig
+	        self.messageConfig = messageConfig
+	    }
 
     var body: some View {
         HStack(spacing: 0) {
-            if userProfile?.isCurrentUser ?? true {
+            if isCurrentUser {
                 NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
                     ProfileActionButton(
                         title: "Edit Profile",
@@ -870,71 +895,118 @@ struct ProfileActionButtons: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .frame(maxWidth: .infinity, alignment: .center)
-            } else {
-                Button(action: {
-                    // TODO: Implement follow action
-                }) {
-                    ProfileActionButton(
-                        title: "Follow",
-                        style: .outline,
-                        textColor: .loopedTextSecondary,
-                        borderColor: .loopedTextSecondary
-                    )
-                }
-                .buttonStyle(PlainButtonStyle())
-                .frame(maxWidth: .infinity, alignment: .center)
+	            } else {
+	                Button(action: {
+	                    followConfig?.onToggle()
+	                }) {
+	                    ProfileActionButton(
+	                        title: followButtonTitle,
+	                        style: followButtonStyle,
+	                        textColor: followButtonTextColor,
+	                        borderColor: followButtonBorderColor,
+	                        showBorderWhenFilled: followButtonStyle == .filled,
+	                        filledBackgroundColor: followButtonFilledBackgroundColor
+	                    )
+	                }
+	                .buttonStyle(PlainButtonStyle())
+	                .disabled(isFollowDisabled)
+	                .opacity(isFollowDisabled ? 0.7 : 1)
+	                .frame(maxWidth: .infinity, alignment: .center)
 
-                if !isAnonymous {
-                    Button(action: {
-                        // TODO: Implement message action
-                    }) {
-                        ProfileActionButton(
-                            title: "Message",
-                            style: .outline,
-                            textColor: .loopedTextSecondary,
-                            borderColor: .loopedTextSecondary
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .frame(maxWidth: .infinity, alignment: .center)
-                }
-            }
-        }
+	                if !isAnonymous {
+	                    Button(action: {
+	                        messageConfig?.onTap()
+	                    }) {
+	                        ProfileActionButton(
+	                            title: "Message",
+	                            style: .outline,
+	                            textColor: .loopedTextSecondary,
+	                            borderColor: .loopedTextSecondary
+	                        )
+	                    }
+	                    .buttonStyle(PlainButtonStyle())
+	                    .disabled(isMessageDisabled)
+	                    .opacity(isMessageDisabled ? 0.7 : 1)
+	                    .frame(maxWidth: .infinity, alignment: .center)
+	                }
+	            }
+	        }
         .padding(.horizontal, 24)
         .padding(.top, 4)
         .padding(.bottom, 8)
     }
-}
+
+    private var isCurrentUser: Bool {
+        if userProfile?.isCurrentUser == true { return true }
+        guard let profileId = userProfile?.backendId else { return true }
+        if let currentUserId = authViewModel.currentUser?.backendId {
+            return profileId == currentUserId
+        }
+        return false
+    }
+
+	    private var isFollowDisabled: Bool {
+	        followConfig == nil || followConfig?.isInFlight == true
+	    }
+
+	    private var isMessageDisabled: Bool {
+	        messageConfig == nil || messageConfig?.isInFlight == true
+	    }
+
+    private var followButtonStyle: ProfileActionButtonStyle {
+        followConfig?.isFollowing == true ? .filled : .outline
+    }
+
+    private var followButtonTitle: String {
+        followConfig?.isFollowing == true ? "Following" : "Follow"
+    }
+
+	    private var followButtonTextColor: Color {
+	        followButtonStyle == .filled ? .loopedWhite : .loopedTextSecondary
+	    }
+
+	    private var followButtonFilledBackgroundColor: Color? {
+	        guard followButtonStyle == .filled else { return nil }
+	        return isAnonymous ? .loopedSecondary : .loopedPrimary
+	    }
+
+	    private var followButtonBorderColor: Color {
+	        followButtonStyle == .filled
+	            ? (followButtonFilledBackgroundColor ?? .loopedPrimary)
+	            : .loopedTextSecondary
+	    }
+	}
 
 private enum ProfileActionButtonStyle {
     case outline
     case filled
 }
 
-	private struct ProfileActionButton: View {
-		let title: String
-		let style: ProfileActionButtonStyle
-		var textColor: Color? = nil
-		var borderColor: Color? = nil
-		var showBorderWhenFilled: Bool = false
+		private struct ProfileActionButton: View {
+			let title: String
+			let style: ProfileActionButtonStyle
+			var textColor: Color? = nil
+			var borderColor: Color? = nil
+			var showBorderWhenFilled: Bool = false
+			var filledBackgroundColor: Color? = nil
 
-		var body: some View {
-			Text(title)
-				.font(.loopedSubBodyRegular)
-				.foregroundColor(textColor ?? (style == .filled ? .loopedWhite : .loopedTextPrimary))
+			var body: some View {
+				Text(title)
+					.font(.loopedSubBodyRegular)
+					.foregroundColor(textColor ?? (style == .filled ? .loopedWhite : .loopedTextPrimary))
 				.padding(.vertical, 8)
 				.padding(.horizontal, 16)
 				.frame(minWidth: 120)
 				.fixedSize(horizontal: true, vertical: false)
-				.background(
-					Group {
-						if style == .filled {
-							Color.loopedSecondary
-						} else {
-                        Color.loopedClear
-                    }
-                }
-            )
+					.background(
+						Group {
+							if style == .filled {
+								filledBackgroundColor ?? Color.loopedSecondary
+							} else {
+	                        Color.loopedClear
+	                    }
+	                }
+	            )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(

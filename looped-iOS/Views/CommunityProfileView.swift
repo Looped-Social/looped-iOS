@@ -440,18 +440,9 @@ struct CommunityProfileView: View {
             return viewModel.community.isJoined ? "Tap to leave" : "Tap to join"
         }
 
-        var parts: [String] = []
-        parts.append("Joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased())")
-
-        if joinLimit.cooldownActive, let cooldownEndsAt = joinLimit.cooldownEndsAt {
-            parts.append("Resets \(Self.expiryFormatter.string(from: cooldownEndsAt))")
-        } else if joinLimit.canJoin {
-            parts.append("\(joinLimit.remaining)/\(joinLimit.limit) joins left")
-        } else if joinLimit.blockedReason == .limit {
-            parts.append("Limit reached")
-        }
-
-        return parts.joined(separator: " • ")
+        let remaining = max(0, joinLimit.remaining)
+        let specializationLabel = Self.specializationLabel(for: joinLimit.specializationType, count: remaining)
+        return "You can join \(remaining) more \(specializationLabel) left"
     }
 
     private func specializationJoinInfoText(joinLimit: SpecializationJoinLimit?, label: String) -> String {
@@ -462,25 +453,18 @@ struct CommunityProfileView: View {
             """
         }
 
-        if joinLimit.cooldownActive, let cooldownEndsAt = joinLimit.cooldownEndsAt {
-            let dateText = Self.expiryFormatter.string(from: cooldownEndsAt)
-            return """
-            You’ve joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()).
-            Changes reset on \(dateText).
-            """
+        let remaining = max(0, joinLimit.remaining)
+        var lines: [String] = []
+        lines.append("You have \(remaining)/\(joinLimit.limit) joins left.")
+
+        if let cooldownEndsAt = joinLimit.cooldownEndsAt {
+            lines.append("It resets on \(Self.expiryFormatter.string(from: cooldownEndsAt)).")
+        } else if joinLimit.cooldownMonths > 0 {
+            lines.append("It resets every \(joinLimit.cooldownMonths) months.")
         }
 
-        if joinLimit.blockedReason == .limit {
-            return """
-            You’ve joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()).
-            You’ll need to leave one before joining another.
-            """
-        }
-
-        return """
-        You’ve joined \(joinLimit.joinedCount)/\(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()).
-        \(joinLimit.remaining)/\(joinLimit.limit) joins left.
-        """
+        lines.append("If you want to change your \(joinLimit.pluralLabel.lowercased()), you’ll need to wait until it resets.")
+        return lines.joined(separator: "\n")
     }
 
     private func specializationLeaveConfirmationText() -> String {
@@ -517,6 +501,19 @@ struct CommunityProfileView: View {
         formatter.dateFormat = "M/d/yyyy"
         return formatter
     }()
+
+    private static func specializationLabel(for type: CommunitySpecializationType, count: Int) -> String {
+        let singular: String
+        switch type {
+        case .major:
+            singular = "major"
+        case .department:
+            singular = "department"
+        case .unknown:
+            singular = "specialization"
+        }
+        return count == 1 ? singular : "\(singular)s"
+    }
 }
 
 private struct CommunityProfileHeaderHeightKey: PreferenceKey {

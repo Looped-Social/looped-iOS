@@ -8,35 +8,20 @@ struct OnboardingView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack {
+            ZStack {
+                VStack {
                 Spacer()
-                    .frame(height: geometry.size.height * 0.20)
+                    .frame(height: geometry.size.height * 0.15)
 
-                // Logo and tagline
+                // Logo
                 VStack(spacing: 16) {
-                    // Looped logo (larger for onboarding)
-                    HStack(spacing: 2) {
-                        Image("logo")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 68)
-
-                        Text("ooped")
-                            .font(.loopedSuperLargeHeading)
-                            .foregroundColor(.loopedTextPrimary)
-                    }
-
-                    // Tagline
-                    VStack(spacing: 4) {
-                        Text("Where Verified Voices")
-                            .font(.loopedHeadingMedium)
-                            .foregroundColor(.loopedTextPrimary)
-                        Text("speak freely")
-                            .font(.loopedHeadingMedium)
-                            .foregroundColor(.loopedTextPrimary)
-                    }
+                    Image("logo-banner-modo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 164)
+                        .accessibilityLabel("Looped Connect Diffrently")
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, 24)
 
                 // Buttons section
                 VStack(spacing: 12) {
@@ -98,16 +83,11 @@ struct OnboardingView: View {
                     )
                 }
                 .padding(.horizontal, 32)
-                .padding(.bottom, 12)
+
+                Spacer(minLength: 0)
 
                 // Already have account link
                 VStack(spacing: 8) {
-                    if authViewModel.isLoading {
-                        ProgressView()
-                            .scaleEffect(1.2)
-                            .tint(.loopedPrimary)
-                    }
-
                     if let error = authViewModel.errorMessage {
                         Text(error)
                             .font(.loopedSubBodyRegular)
@@ -128,7 +108,12 @@ struct OnboardingView: View {
                         .foregroundColor(.loopedSecondary)
                     }
                 }
-                .padding(.bottom,32)
+                .padding(.bottom, max(8, geometry.safeAreaInsets.bottom + 4))
+                }
+
+                if authViewModel.isLoading {
+                    LoopedLoadingOverlay(title: "Signing you in…")
+                }
             }
         }
     }

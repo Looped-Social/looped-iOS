@@ -168,12 +168,13 @@ struct ChatView: View {
                     sendMessage()
                 }
             )
-            .disabled(viewModel.messageRequestState != nil)
-            .opacity(viewModel.messageRequestState == nil ? 1 : 0.6)
+            .disabled(viewModel.messageRequestState != nil || viewModel.isSending)
+            .opacity((viewModel.messageRequestState == nil && !viewModel.isSending) ? 1 : 0.6)
         }
         .background(Color.loopedBackground.ignoresSafeArea(.all))
+        .toast($viewModel.toastMessage)
         .sheet(isPresented: $showChatDetails) {
-            ChatDetailsView(conversation: conversation, channel: channel)
+            ChatDetailsView(conversation: conversation, channel: channel, onChatShouldClose: onBackTapped)
         }
         .task {
             configureIds()
@@ -195,13 +196,18 @@ struct ChatView: View {
         let hasMedia = !selectedMedia.isEmpty
         guard hasText || hasMedia else { return }
 
+        let contentToSend = messageText
+        let mediaToSend = selectedMedia
+
         Task {
+            let didSend: Bool
             if let channel = channel {
-                await viewModel.sendMessage(messageText, to: channel)
+                didSend = await viewModel.sendMessage(contentToSend, media: mediaToSend, to: channel)
             } else {
-                await viewModel.sendDirectMessage(messageText)
+                didSend = await viewModel.sendDirectMessage(contentToSend, media: mediaToSend)
             }
 
+            guard didSend else { return }
             messageText = ""
             selectedMedia = []
         }

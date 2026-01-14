@@ -89,12 +89,15 @@ struct SettingsView: View {
                             }
                             .buttonStyle(PlainButtonStyle())
 
-                            NavigationLink(destination: NotificationSettingsView()) {
-                                SettingsNavigationRow(icon: .asset("bell-icon"), title: "Notifications")
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                        NavigationLink(destination: NotificationSettingsView()) {
+                            SettingsNavigationRow(icon: .asset("bell-icon"), title: "Notifications")
+                        }
+                        .buttonStyle(PlainButtonStyle())
 
-                        SettingsRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
+                        NavigationLink(destination: PrivacyView()) {
+                            SettingsNavigationRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
 
                     // Appearance Section

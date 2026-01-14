@@ -350,9 +350,9 @@ struct CreatePostView: View {
         } message: {
             Text(draftPromptMessage)
         }
-        .sheet(isPresented: $showMediaPicker) {
-            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 1, allowsVideo: false)
-        }
+            .sheet(isPresented: $showMediaPicker) {
+            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 1, allowsVideo: true)
+            }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(selectedImage: .init(
                 get: { nil },

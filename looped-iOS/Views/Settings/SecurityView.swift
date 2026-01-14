@@ -62,17 +62,6 @@ struct SecurityView: View {
                         )
                     }
 
-                    // Account Recovery Section
-                    SecuritySection(title: "Account Recovery") {
-                        SecurityActionRow(
-                            icon: "envelope",
-                            title: "Recovery Email",
-                            subtitle: "john.doe@example.com"
-                        ) {
-                            // TODO: Change recovery email
-                        }
-                    }
-
                 }
                 .padding(.bottom, 100)
             }

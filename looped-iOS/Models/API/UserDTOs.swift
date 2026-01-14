@@ -64,3 +64,12 @@ struct UserStatsDTO: Codable {
     let postsCount: Int?
     let commentsCount: Int?
 }
+
+struct UserFollowRequestDTO: Encodable {
+    let asAnon: Bool?
+}
+
+struct UserFollowActionResponseDTO: Decodable {
+    let userId: Int
+    let following: Bool
+}

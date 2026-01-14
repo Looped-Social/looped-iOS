@@ -14,4 +14,11 @@ extension MediaAsset {
         mimeType = dto.mimeType
         cdnUrl = dto.cdnUrl
     }
+
+    init(dto: MediaResolveItemDTO) {
+        id = dto.id
+        key = dto.key
+        mimeType = dto.mimeType
+        cdnUrl = dto.cdnUrl
+    }
 }

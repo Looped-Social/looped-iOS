@@ -14,6 +14,7 @@ struct CommentDTO: Codable {
     let authorIsAnonymous: Bool?
     let authorPrincipalId: Int?
     let content: String
+    let mediaAssetId: Int?
     let likesCount: Int
     let replyCount: Int?
     let userLiked: Bool?
@@ -36,6 +37,7 @@ struct CommentAuthorDTO: Codable {
 struct CreateCommentRequestDTO: Codable {
     let content: String
     let parentId: Int?
+    let mediaAssetId: Int?
     let asAnon: Bool?
     let anonProfileId: Int?
     let anonCert: String?

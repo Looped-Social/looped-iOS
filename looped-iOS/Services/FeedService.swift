@@ -4,12 +4,19 @@ class FeedService: FeedServiceProtocol {
     private let apiClient: APIClient
     private let defaultLimit: Int
     private let anonService: AnonService
+    private let mediaService: MediaServiceProtocol
     private let anonQueryAllowed = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "+/=&?"))
     
-    init(apiClient: APIClient = APIClient(), defaultLimit: Int = 20, anonService: AnonService = .shared) {
+    init(
+        apiClient: APIClient = APIClient(),
+        defaultLimit: Int = 20,
+        anonService: AnonService = .shared,
+        mediaService: MediaServiceProtocol = MediaService()
+    ) {
         self.apiClient = apiClient
         self.defaultLimit = defaultLimit
         self.anonService = anonService
+        self.mediaService = mediaService
     }
     
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage {
@@ -227,7 +234,7 @@ class FeedService: FeedServiceProtocol {
 
     func fetchPost(postId: Int) async throws -> Post {
         let dto: PostDTO = try await apiClient.get("/v1/posts/\(postId)")
-        return Post(dto: dto)
+        return await resolveMediaIfNeeded(for: Post(dto: dto))
     }
     
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
@@ -359,7 +366,8 @@ class FeedService: FeedServiceProtocol {
         }
         let response: FeedResponseDTO = try await apiClient.get(endpoint)
         let posts = response.items.map { Post(dto: $0) }
-        return FeedPage(posts: posts, nextCursor: response.nextCursor)
+        let resolved = await resolveMediaIfNeeded(for: posts)
+        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
     }
 
     private func fetchAnonCollection(
@@ -391,7 +399,8 @@ class FeedService: FeedServiceProtocol {
             headers: ["X-Actor": "anon"]
         )
         let posts = response.items.map { Post(dto: $0) }
-        return FeedPage(posts: posts, nextCursor: response.nextCursor)
+        let resolved = await resolveMediaIfNeeded(for: posts)
+        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
     }
 
     private func appendAnonQuery(to endpoint: String, context: AnonActionContext) -> String {
@@ -410,6 +419,38 @@ class FeedService: FeedServiceProtocol {
 }
 
 private extension FeedService {
+    func resolveMediaIfNeeded(for post: Post) async -> Post {
+        let resolved = await resolveMediaIfNeeded(for: [post])
+        return resolved.first ?? post
+    }
+
+    func resolveMediaIfNeeded(for posts: [Post]) async -> [Post] {
+        let missingIds: [Int] = posts.compactMap { post in
+            guard post.attachments?.isEmpty ?? true else { return nil }
+            return post.mediaAssetId
+        }
+        let uniqueIds = Array(Set(missingIds))
+        guard !uniqueIds.isEmpty else { return posts }
+
+        do {
+            let assets = try await mediaService.resolvePublicMedia(ids: uniqueIds)
+            let byId = Dictionary(uniqueKeysWithValues: assets.compactMap { asset -> (Int, MediaAttachment)? in
+                guard let url = asset.cdnUrl, !url.isEmpty else { return nil }
+                let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
+                return (asset.id, MediaAttachment(type: type, url: url))
+            })
+
+            if byId.isEmpty { return posts }
+            return posts.map { post in
+                guard post.attachments?.isEmpty ?? true else { return post }
+                guard let mediaAssetId = post.mediaAssetId, let attachment = byId[mediaAssetId] else { return post }
+                return post.updating(attachments: .some([attachment]))
+            }
+        } catch {
+            return posts
+        }
+    }
+
     func makePollRequest(from draft: PollDraft) -> CreatePostPollRequestDTO? {
         guard draft.isValid else { return nil }
         let question = draft.question.trimmingCharacters(in: .whitespacesAndNewlines)

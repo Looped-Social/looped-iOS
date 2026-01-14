@@ -6,6 +6,8 @@ struct Comment: Codable, Identifiable {
     let postId: UUID
     let postBackendId: Int?
     let content: String
+    let mediaAssetId: Int?
+    let attachments: [MediaAttachment]?
     let authorId: UUID
     let authorBackendId: Int?
     let authorDisplayName: String?
@@ -29,6 +31,8 @@ struct Comment: Codable, Identifiable {
         postId: UUID,
         postBackendId: Int? = nil,
         content: String,
+        mediaAssetId: Int? = nil,
+        attachments: [MediaAttachment]? = nil,
         authorId: UUID,
         authorBackendId: Int? = nil,
         authorDisplayName: String? = nil,
@@ -51,6 +55,8 @@ struct Comment: Codable, Identifiable {
         self.postId = postId
         self.postBackendId = postBackendId
         self.content = content
+        self.mediaAssetId = mediaAssetId
+        self.attachments = attachments
         self.authorId = authorId
         self.authorBackendId = authorBackendId
         self.authorDisplayName = isAnonymous ? nil : authorDisplayName
@@ -69,6 +75,57 @@ struct Comment: Codable, Identifiable {
         self.replyToBackendId = replyToBackendId
     }
 
+    // Backward-compatible initializer (pre-media support) to avoid stale-object linker issues.
+    init(
+        id: UUID = UUID(),
+        backendId: Int? = nil,
+        postId: UUID,
+        postBackendId: Int? = nil,
+        content: String,
+        authorId: UUID,
+        authorBackendId: Int? = nil,
+        authorDisplayName: String? = nil,
+        authorHandle: String? = nil,
+        authorProfileImageURL: String? = nil,
+        company: String,
+        isAnonymous: Bool = false,
+        isDeleted: Bool = false,
+        likeCount: Int = 0,
+        replyCount: Int = 0,
+        userLiked: Bool = false,
+        isLikedByCreator: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        replyToCommentId: UUID? = nil,
+        replyToBackendId: Int? = nil
+    ) {
+        self.init(
+            id: id,
+            backendId: backendId,
+            postId: postId,
+            postBackendId: postBackendId,
+            content: content,
+            mediaAssetId: nil,
+            attachments: nil,
+            authorId: authorId,
+            authorBackendId: authorBackendId,
+            authorDisplayName: authorDisplayName,
+            authorHandle: authorHandle,
+            authorProfileImageURL: authorProfileImageURL,
+            company: company,
+            isAnonymous: isAnonymous,
+            isDeleted: isDeleted,
+            likeCount: likeCount,
+            replyCount: replyCount,
+            userLiked: userLiked,
+            isLikedByCreator: isLikedByCreator,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            replyToCommentId: replyToCommentId,
+            replyToBackendId: replyToBackendId
+        )
+    }
+
     init(dto: CommentDTO) {
         let resolvedIsAnonymous = dto.authorIsAnonymous ?? dto.isAnonymous ?? false
         self.init(
@@ -77,6 +134,8 @@ struct Comment: Codable, Identifiable {
             postId: UUID.fromBackendId(dto.postId),
             postBackendId: dto.postId,
             content: dto.content,
+            mediaAssetId: dto.mediaAssetId,
+            attachments: nil,
             authorId: UUID.fromBackendId(dto.author.id),
             authorBackendId: dto.author.id,
             authorDisplayName: dto.author.displayName,
@@ -102,7 +161,8 @@ struct Comment: Codable, Identifiable {
         userLiked: Bool? = nil,
         isLikedByCreator: Bool? = nil,
         replyCount: Int? = nil,
-        isDeleted: Bool? = nil
+        isDeleted: Bool? = nil,
+        attachments: [MediaAttachment]?? = nil
     ) -> Comment {
         Comment(
             id: id,
@@ -110,6 +170,8 @@ struct Comment: Codable, Identifiable {
             postId: postId,
             postBackendId: postBackendId,
             content: content ?? self.content,
+            mediaAssetId: mediaAssetId,
+            attachments: attachments ?? self.attachments,
             authorId: authorId,
             authorBackendId: authorBackendId,
             authorDisplayName: authorDisplayName,

@@ -212,7 +212,9 @@ extension Notification {
     /// Returns if this notification type should show an action button
     var hasActionButton: Bool {
         switch type {
-        case .follow, .loopInvite, .groupInvite:
+        case .follow:
+            return actorIsAnonymous == false
+        case .loopInvite, .groupInvite:
             return true
         default:
             return false

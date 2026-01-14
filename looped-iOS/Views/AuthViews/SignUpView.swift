@@ -76,11 +76,6 @@ struct SignUpView: View {
                         }
                         .disabled(email.isEmpty || password.isEmpty || !isPasswordValid || viewModel.isLoading)
 
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .tint(.loopedPrimary)
-                        }
-
                         if didAttemptSubmit, !isPasswordValid {
                             Text("Password must meet all requirements.")
                                 .font(.loopedSubBodyRegular)
@@ -100,6 +95,7 @@ struct SignUpView: View {
                 }
             }
         }
+        .loadingOverlay(isPresented: viewModel.isLoading, title: "Creating your account…")
     }
 
     private func inputField(title: String, placeholder: String, text: Binding<String>, keyboard: UIKeyboardType) -> some View {

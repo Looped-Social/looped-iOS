@@ -7,7 +7,9 @@ class NotificationsViewModel: ObservableObject {
     @Published var notifications: [Notification] = []
     @Published var isLoading = false
     @Published var isLoadingMore = false
+    @Published var actionLoadingIds: Set<UUID> = []
     @Published var errorMessage: String?
+    @Published var toastMessage: ToastMessage?
 
     private let notificationService: NotificationServiceProtocol
     private let userService: UserServiceProtocol
@@ -79,33 +81,49 @@ class NotificationsViewModel: ObservableObject {
         // Fallback routing if deeplink missing.
         switch notification.type {
         case .like, .comment, .reply, .mention, .repost:
-            navigateToPost(notification.targetId)
+            let shouldOpenComment = (notification.type == .comment || notification.type == .reply)
+                && notification.targetCommentId != nil
+            navigateToPost(
+                notification.targetId,
+                commentId: shouldOpenComment ? notification.targetCommentId : nil
+            )
         case .follow:
-            if let actorId = notification.actorId {
-                navigateToUserProfile(actorId)
+            if notification.actorIsAnonymous, let actorAnonProfileId = notification.actorAnonProfileId {
+                navigateToUserProfile(actorAnonProfileId, isAnonymous: true)
+            } else if let actorId = notification.actorId {
+                navigateToUserProfile(actorId, isAnonymous: false)
             }
         case .postFromFollowed:
             navigateToPost(notification.targetId)
         case .announcement, .system:
             _ = openDeeplink(notification.actionDeeplink)
         case .loopInvite, .groupInvite:
-            navigateToGroup(notification.targetId)
+            if openDeeplink(notification.actionDeeplink) { return }
+            toastMessage = ToastMessage(text: "Invite destination isn't available yet.", kind: .info)
         }
     }
 
     // MARK: - Handle Action Button Tap
     func handleActionButtonTap(_ notification: Notification) {
-        switch notification.type {
-        case .follow:
-            if let actorId = notification.actorId {
-                followUser(actorId)
+        guard !actionLoadingIds.contains(notification.id) else { return }
+        actionLoadingIds.insert(notification.id)
+
+        Task {
+            defer { actionLoadingIds.remove(notification.id) }
+
+            switch notification.type {
+            case .follow:
+                if let actorId = notification.actorId {
+                    await followUser(actorId)
+                } else {
+                    toastMessage = ToastMessage(text: "Can't follow an anonymous profile yet.", kind: .error)
+                }
+            case .loopInvite, .groupInvite:
+                if openDeeplink(notification.actionDeeplink) { return }
+                toastMessage = ToastMessage(text: "Invite action isn't available yet.", kind: .info)
+            default:
+                break
             }
-        case .loopInvite:
-            joinLoop(notification.targetId)
-        case .groupInvite:
-            joinGroup(notification.targetId)
-        default:
-            break
         }
     }
 
@@ -123,39 +141,75 @@ class NotificationsViewModel: ObservableObject {
     }
 
     // MARK: - Mark All As Read
-    func markAllAsRead() {
+    func markAllAsRead() async {
+        let unreadNotifications = notifications.filter { !$0.isRead && $0.id.backendInt != nil }
         notifications = notifications.map { $0.markingRead() }
         cacheStore.save(notifications)
+
+        do {
+            for notification in unreadNotifications {
+                guard let backendId = notification.id.backendInt else { continue }
+                try await notificationService.markRead(notificationId: backendId)
+            }
+            toastMessage = ToastMessage(text: "Marked all as read", kind: .success)
+        } catch {
+            toastMessage = ToastMessage(text: "Couldn't mark all as read", kind: .error)
+        }
     }
 
-    // MARK: - Navigation Helpers (TODO: Implement actual navigation)
-    private func navigateToPost(_ postId: UUID?) {
-        // TODO: Implement navigation to post detail
+    // MARK: - Navigation Helpers
+    private func navigateToPost(_ postId: UUID?, commentId: UUID? = nil) {
+        guard let postId = postId?.backendInt else { return }
+        if let commentId = commentId?.backendInt {
+            _ = openInternalDeepLink(
+                host: "comment",
+                path: "/\(commentId)",
+                queryItems: [URLQueryItem(name: "post_id", value: String(postId))]
+            )
+            return
+        }
+        _ = openInternalDeepLink(host: "post", path: "/\(postId)", queryItems: [])
     }
 
-    private func navigateToUserProfile(_ userId: UUID) {
-        // TODO: Implement navigation to user profile
+    private func navigateToUserProfile(_ userId: UUID, isAnonymous: Bool) {
+        guard let backendId = userId.backendInt else { return }
+        var queryItems: [URLQueryItem] = []
+        if isAnonymous {
+            queryItems.append(URLQueryItem(name: "anon", value: "true"))
+        }
+        _ = openInternalDeepLink(host: "user", path: "/\(backendId)", queryItems: queryItems)
     }
 
     private func navigateToGroup(_ groupId: UUID?) {
-        // TODO: Implement navigation to group
+        toastMessage = ToastMessage(text: "Group invites aren't supported yet.", kind: .info)
     }
 
-    // MARK: - Action Helpers (TODO: Implement actual actions)
-    private func followUser(_ userId: UUID) {
-        // TODO: Implement follow user API call
-    }
-
-    private func joinLoop(_ loopId: UUID?) {
-        // TODO: Implement join loop API call
-    }
-
-    private func joinGroup(_ groupId: UUID?) {
-        // TODO: Implement join group API call
+    // MARK: - Action Helpers
+    private func followUser(_ userId: UUID) async {
+        guard let backendUserId = userId.backendInt else { return }
+        do {
+            let result = try await userService.followUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
+            toastMessage = ToastMessage(text: result.following ? "Following" : "Not following", kind: .success)
+        } catch {
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
     }
 
     private func openDeeplink(_ deeplink: String?) -> Bool {
         guard let deeplink, let url = URL(string: deeplink) else { return false }
+        UIApplication.shared.open(url)
+        return true
+    }
+
+    private func openInternalDeepLink(host: String, path: String, queryItems: [URLQueryItem]) -> Bool {
+        var components = URLComponents()
+        components.scheme = "looped"
+        components.host = host
+        components.path = path
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else { return false }
         UIApplication.shared.open(url)
         return true
     }

@@ -2,10 +2,15 @@ import Foundation
 
 class MessageService: MessageServiceProtocol {
     private let apiClient: APIClient
+    private let messageMediaService: MessageMediaServiceProtocol
     private struct EmptyBody: Codable {}
     
-    init(apiClient: APIClient = APIClient()) {
+    init(
+        apiClient: APIClient = APIClient(),
+        messageMediaService: MessageMediaServiceProtocol = MessageMediaService()
+    ) {
         self.apiClient = apiClient
+        self.messageMediaService = messageMediaService
     }
     
     func listConversations(cursor: String?) async throws -> ConversationPage {
@@ -76,41 +81,23 @@ class MessageService: MessageServiceProtocol {
             endpoint += "&cursor=\(encoded)"
         }
         let response: MessageListResponseDTO = try await apiClient.get(endpoint)
-        let messages = response.items.map { dto in
-            Message(
-                id: UUID.fromBackendId(dto.id),
-                backendId: dto.id,
-                content: dto.content,
-                senderId: UUID.fromBackendId(dto.senderId),
-                senderDisplayName: nil,
-                receiverId: nil,
-                conversationBackendId: conversationId,
-                channelBackendId: nil,
-                messageType: .direct,
-                isRead: false,
-                attachments: dto.attachments?.map(MediaAttachment.init(dto:)),
-                createdAt: dto.createdAt
-            )
-        }
+        let messages = try await resolveMessages(
+            response.items,
+            conversationBackendId: conversationId,
+            channelBackendId: nil,
+            messageType: .direct
+        )
         return MessagePage(messages: messages.sorted { $0.createdAt < $1.createdAt }, nextCursor: response.nextCursor)
     }
     
-    func sendConversationMessage(conversationId: Int, content: String) async throws -> Message {
-        let request = SendMessageRequestDTO(content: content, attachments: nil)
+    func sendConversationMessage(conversationId: Int, content: String, attachments: [String]?) async throws -> Message {
+        let request = SendMessageRequestDTO(content: content, attachments: attachments)
         let dto: MessageDTO = try await apiClient.post("/v1/conversations/\(conversationId)/messages", body: request)
-        return Message(
-            id: UUID.fromBackendId(dto.id),
-            backendId: dto.id,
-            content: dto.content,
-            senderId: UUID.fromBackendId(dto.senderId),
-            senderDisplayName: nil,
-            receiverId: nil,
+        return try await resolveMessage(
+            dto,
             conversationBackendId: conversationId,
             channelBackendId: nil,
-            messageType: .direct,
-            isRead: false,
-            attachments: dto.attachments?.map(MediaAttachment.init(dto:)),
-            createdAt: dto.createdAt
+            messageType: .direct
         )
     }
 
@@ -125,6 +112,8 @@ class MessageService: MessageServiceProtocol {
         }
 
         let response: MessageSearchResponseDTO = try await apiClient.get(endpoint)
+        let keysToResolve = response.items.flatMap { $0.matchedMessage?.attachments ?? [] }
+        let resolvedByKey = (try? await resolveAttachmentMap(for: keysToResolve)) ?? [:]
         let items = response.items.compactMap { dto -> MessageSearchHit? in
             let type = MessageSearchHitType(rawValue: dto.type)
             switch type {
@@ -162,7 +151,7 @@ class MessageService: MessageServiceProtocol {
                         channelBackendId: nil,
                         messageType: .direct,
                         isRead: false,
-                        attachments: matched.attachments?.map(MediaAttachment.init(dto:)),
+                        attachments: resolveAttachments(matched.attachments ?? [], with: resolvedByKey),
                         createdAt: matched.createdAt
                     )
                 }
@@ -206,7 +195,7 @@ class MessageService: MessageServiceProtocol {
                         channelBackendId: channelId,
                         messageType: .channel,
                         isRead: false,
-                        attachments: matched.attachments?.map(MediaAttachment.init(dto:)),
+                        attachments: resolveAttachments(matched.attachments ?? [], with: resolvedByKey),
                         createdAt: matched.createdAt
                     )
                 }
@@ -327,41 +316,23 @@ class MessageService: MessageServiceProtocol {
             endpoint += "&cursor=\(encoded)"
         }
         let response: MessageListResponseDTO = try await apiClient.get(endpoint)
-        let messages = response.items.map { dto in
-            Message(
-                id: UUID.fromBackendId(dto.id),
-                backendId: dto.id,
-                content: dto.content,
-                senderId: UUID.fromBackendId(dto.senderId),
-                senderDisplayName: nil,
-                receiverId: nil,
-                conversationBackendId: nil,
-                channelBackendId: channelBackendId,
-                messageType: .channel,
-                isRead: false,
-                attachments: dto.attachments?.map(MediaAttachment.init(dto:)),
-                createdAt: dto.createdAt
-            )
-        }
+        let messages = try await resolveMessages(
+            response.items,
+            conversationBackendId: nil,
+            channelBackendId: channelBackendId,
+            messageType: .channel
+        )
         return MessagePage(messages: messages.sorted { $0.createdAt < $1.createdAt }, nextCursor: response.nextCursor)
     }
     
-    func sendChannelMessage(channelBackendId: Int, content: String) async throws -> Message {
-        let request = SendMessageRequestDTO(content: content, attachments: nil)
+    func sendChannelMessage(channelBackendId: Int, content: String, attachments: [String]?) async throws -> Message {
+        let request = SendMessageRequestDTO(content: content, attachments: attachments)
         let dto: MessageDTO = try await apiClient.post("/v1/channels/\(channelBackendId)/messages", body: request)
-        return Message(
-            id: UUID.fromBackendId(dto.id),
-            backendId: dto.id,
-            content: dto.content,
-            senderId: UUID.fromBackendId(dto.senderId),
-            senderDisplayName: nil,
-            receiverId: nil,
+        return try await resolveMessage(
+            dto,
             conversationBackendId: nil,
             channelBackendId: channelBackendId,
-            messageType: .channel,
-            isRead: false,
-            attachments: dto.attachments?.map(MediaAttachment.init(dto:)),
-            createdAt: dto.createdAt
+            messageType: .channel
         )
     }
 
@@ -372,10 +343,36 @@ class MessageService: MessageServiceProtocol {
             endpoint += "&cursor=\(encoded)"
         }
         let response: MessageRequestListResponseDTO = try await apiClient.get(endpoint)
-        let requests = response.items.map { dto in
+        struct RequestPreviewParts {
+            let dto: MessageRequestDTO
+            let directAttachments: [MediaAttachment]
+            let attachmentKeys: [String]
+        }
+
+        let parts: [RequestPreviewParts] = response.items.map { dto in
             let preview = dto.preview
-            let attachments = preview?.attachments?.map(MediaAttachment.init(dto:)) ?? []
+            let raw = preview?.attachments ?? []
+
+            let directAttachments = raw.compactMap { attachment -> MediaAttachment? in
+                guard URL(string: attachment.url)?.scheme != nil else { return nil }
+                return MediaAttachment(dto: attachment)
+            }
+            let keys = raw.compactMap { attachment -> String? in
+                guard URL(string: attachment.url)?.scheme == nil else { return nil }
+                return attachment.url
+            }
+            return RequestPreviewParts(dto: dto, directAttachments: directAttachments, attachmentKeys: keys)
+        }
+
+        let keysToResolve = parts.flatMap(\.attachmentKeys)
+        let resolvedByKey = (try? await resolveAttachmentMap(for: keysToResolve)) ?? [:]
+
+        let requests = parts.map { part in
+            let dto = part.dto
+            let preview = dto.preview
             let senderName = dto.senderProfile?.displayName ?? dto.senderProfile?.handle
+            let resolvedFromKeys = resolveAttachments(part.attachmentKeys, with: resolvedByKey) ?? []
+            let previewAttachments = part.directAttachments + resolvedFromKeys
             return MessageRequest(
                 id: UUID.fromBackendId(dto.id),
                 backendId: dto.id,
@@ -384,7 +381,7 @@ class MessageService: MessageServiceProtocol {
                 senderHandle: dto.senderProfile?.handle,
                 senderProfileImageUrl: dto.senderProfile?.profileImageUrl,
                 previewText: preview?.content ?? "",
-                previewAttachments: attachments,
+                previewAttachments: previewAttachments,
                 previewCreatedAt: preview?.createdAt ?? Date(),
                 status: dto.status ?? .pending,
                 conversationBackendId: dto.conversationId,
@@ -411,5 +408,80 @@ class MessageService: MessageServiceProtocol {
             "/v1/message-requests/\(requestId)/reject",
             body: EmptyBody()
         )
+    }
+}
+
+private extension MessageService {
+    func resolveMessage(
+        _ dto: MessageDTO,
+        conversationBackendId: Int?,
+        channelBackendId: Int?,
+        messageType: MessageType
+    ) async throws -> Message {
+        let resolvedAttachments = try await resolveAttachments(for: dto.attachments ?? [])
+        return Message(
+            id: UUID.fromBackendId(dto.id),
+            backendId: dto.id,
+            content: dto.content,
+            senderId: UUID.fromBackendId(dto.senderId),
+            senderDisplayName: nil,
+            receiverId: nil,
+            conversationBackendId: conversationBackendId,
+            channelBackendId: channelBackendId,
+            messageType: messageType,
+            isRead: false,
+            attachments: resolvedAttachments,
+            createdAt: dto.createdAt
+        )
+    }
+
+    func resolveMessages(
+        _ dtos: [MessageDTO],
+        conversationBackendId: Int?,
+        channelBackendId: Int?,
+        messageType: MessageType
+    ) async throws -> [Message] {
+        let allKeys = dtos.flatMap { $0.attachments ?? [] }
+        let byKey = try await resolveAttachmentMap(for: allKeys)
+
+        return dtos.map { dto in
+            let resolvedAttachments = resolveAttachments(dto.attachments ?? [], with: byKey)
+            return Message(
+                id: UUID.fromBackendId(dto.id),
+                backendId: dto.id,
+                content: dto.content,
+                senderId: UUID.fromBackendId(dto.senderId),
+                senderDisplayName: nil,
+                receiverId: nil,
+                conversationBackendId: conversationBackendId,
+                channelBackendId: channelBackendId,
+                messageType: messageType,
+                isRead: false,
+                attachments: resolvedAttachments,
+                createdAt: dto.createdAt
+            )
+        }
+    }
+
+    func resolveAttachments(for keys: [String]) async throws -> [MediaAttachment]? {
+        let byKey = try await resolveAttachmentMap(for: keys)
+        return resolveAttachments(keys, with: byKey)
+    }
+
+    func resolveAttachmentMap(for keys: [String]) async throws -> [String: MessageMediaResolvedItem] {
+        let deduped = Array(Set(keys)).sorted()
+        guard !deduped.isEmpty else { return [:] }
+        let items = try await messageMediaService.resolve(keys: deduped)
+        return Dictionary(uniqueKeysWithValues: items.map { ($0.key, $0) })
+    }
+
+    func resolveAttachments(_ keys: [String], with byKey: [String: MessageMediaResolvedItem]) -> [MediaAttachment]? {
+        let attachments = keys.compactMap { key -> MediaAttachment? in
+            guard let item = byKey[key], !item.downloadUrl.isEmpty else { return nil }
+            let mime = item.mimeType?.lowercased()
+            let isVideo = mime?.hasPrefix("video/") == true || item.downloadUrl.lowercased().contains(".mp4")
+            return MediaAttachment(type: isVideo ? .video : .image, url: item.downloadUrl)
+        }
+        return attachments.isEmpty ? nil : attachments
     }
 }

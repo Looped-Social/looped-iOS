@@ -2,10 +2,12 @@ import SwiftUI
 
 struct NotificationRow: View {
     let notification: Notification
+    let isActionLoading: Bool
     let onActionTapped: (() -> Void)?
 
-    init(notification: Notification, onActionTapped: (() -> Void)? = nil) {
+    init(notification: Notification, isActionLoading: Bool = false, onActionTapped: (() -> Void)? = nil) {
         self.notification = notification
+        self.isActionLoading = isActionLoading
         self.onActionTapped = onActionTapped
     }
 
@@ -39,13 +41,15 @@ struct NotificationRow: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Spacer()
-            // Unread Indicator
-            if !notification.isRead {
-                Circle()
-                    .fill(Color.loopedSecondary)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, 4)
-            }
+
+                    // Unread Indicator
+                    if !notification.isRead {
+                        Circle()
+                            .fill(Color.loopedSecondary)
+                            .frame(width: 8, height: 8)
+                            .padding(.top, 4)
+                    }
+
                     // Timestamp
                     Text(notification.relativeTimeString)
                         .font(.loopedSmallText)
@@ -68,18 +72,25 @@ struct NotificationRow: View {
                 if notification.hasActionButton {
                     Button(action: {
                         onActionTapped?()
-                        
                     }) {
-                        Text(notification.actionButtonText)
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedPrimary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.loopedBackground)
+                        HStack(spacing: 10) {
+                            Text(notification.actionButtonText)
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedPrimary)
+
+                            if isActionLoading {
+                                ProgressView()
+                                    .tint(.loopedPrimary)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.loopedBackground)
                     }
                     .cornerRadius(10)
                     .border(Color.loopedTextSecondary.opacity(0.3))
                     .padding(.top, 4)
+                    .disabled(isActionLoading)
                 }
             }
 

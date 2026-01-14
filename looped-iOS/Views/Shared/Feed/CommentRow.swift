@@ -17,6 +17,11 @@ struct CommentRow: View {
     let onDelete: ((Comment) -> Void)?
     let onHashtagTap: ((String) -> Void)?
 
+    @State private var selectedImageIndex: Int = 0
+    @State private var selectedVideoUrl: String?
+    @State private var showImageViewer = false
+    @State private var showVideoPlayer = false
+
     init(
         comment: Comment,
         nestingLevel: Int = 0,
@@ -132,6 +137,10 @@ struct CommentRow: View {
         return "See more replies"
     }
 
+    private var imageUrls: [String] {
+        comment.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
@@ -155,6 +164,25 @@ struct CommentRow: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
+                        PostedMediaGrid(
+                            attachments: attachments,
+                            maxHeight: 240,
+                            onImageTap: { url in
+                                guard !url.isEmpty, URL(string: url) != nil else { return }
+                                if let index = imageUrls.firstIndex(of: url) {
+                                    selectedImageIndex = index
+                                }
+                                showImageViewer = true
+                            },
+                            onVideoTap: { url in
+                                guard !url.isEmpty, URL(string: url) != nil else { return }
+                                selectedVideoUrl = url
+                                showVideoPlayer = true
+                            }
+                        )
                     }
 
                     Text(displayName)
@@ -270,6 +298,20 @@ struct CommentRow: View {
             }
             .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
             .padding(.vertical, 6)
+        }
+        .fullScreenCover(isPresented: $showImageViewer) {
+            if !imageUrls.isEmpty {
+                FullScreenImageViewer(
+                    imageUrls: imageUrls,
+                    initialIndex: selectedImageIndex,
+                    isPresented: $showImageViewer
+                )
+            }
+        }
+        .fullScreenCover(isPresented: $showVideoPlayer) {
+            if let videoUrl = selectedVideoUrl {
+                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
+            }
         }
         .contextMenu {
             if let canManage, canManage(comment), !comment.isDeleted {

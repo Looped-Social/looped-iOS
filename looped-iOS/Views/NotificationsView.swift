@@ -6,7 +6,12 @@ struct NotificationsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            NotificationsHeader()
+            NotificationsHeader(
+                isMarkAllDisabled: viewModel.notifications.allSatisfy(\.isRead) || viewModel.isLoading,
+                onMarkAllRead: {
+                    Task { await viewModel.markAllAsRead() }
+                }
+            )
 
             // Notifications List
             if viewModel.notifications.isEmpty, let errorMessage = viewModel.errorMessage {
@@ -73,6 +78,7 @@ struct NotificationsView: View {
                             }) {
                                 NotificationRow(
                                     notification: notification,
+                                    isActionLoading: viewModel.actionLoadingIds.contains(notification.id),
                                     onActionTapped: {
                                         viewModel.handleActionButtonTap(notification)
                                     }
@@ -102,6 +108,7 @@ struct NotificationsView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .toast($viewModel.toastMessage)
         .task {
             await viewModel.loadNotifications()
         }
@@ -110,6 +117,9 @@ struct NotificationsView: View {
 
 // MARK: - Notifications Header
 struct NotificationsHeader: View {
+    let isMarkAllDisabled: Bool
+    let onMarkAllRead: () -> Void
+
     var body: some View {
         HStack {
             Text("Notifications")
@@ -120,12 +130,13 @@ struct NotificationsHeader: View {
 
             // Mark all as read button (optional)
             Button(action: {
-                // TODO: Mark all as read
+                onMarkAllRead()
             }) {
                 Image(systemName: "checkmark.circle")
                     .font(.loopedCustom(size: 20))
-                    .foregroundColor(.loopedTextSecondary)
+                    .foregroundColor(isMarkAllDisabled ? .loopedTextSecondary.opacity(0.4) : .loopedTextSecondary)
             }
+            .disabled(isMarkAllDisabled)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)

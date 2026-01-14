@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import SwiftUI
+import UIKit
 
 @MainActor
 class MessagesViewModel: ObservableObject {
@@ -238,10 +240,13 @@ class MessagesViewModel: ObservableObject {
 class ChatViewModel: ObservableObject {
     @Published var messages: [Message] = []
     @Published var isLoading = false
+    @Published var isSending = false
     @Published var errorMessage: String?
+    @Published var toastMessage: ToastMessage?
     @Published var messageRequestState: MessageRequestBlockState?
     
     private let messageService: MessageServiceProtocol
+    private let messageMediaService: MessageMediaServiceProtocol
     private let webSocketService: WebSocketServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var conversationBackendId: Int?
@@ -250,9 +255,11 @@ class ChatViewModel: ObservableObject {
     
     init(
         messageService: MessageServiceProtocol = MessageService(),
+        messageMediaService: MessageMediaServiceProtocol = MessageMediaService(),
         webSocketService: WebSocketServiceProtocol = WebSocketService()
     ) {
         self.messageService = messageService
+        self.messageMediaService = messageMediaService
         self.webSocketService = webSocketService
         setupWebSocketListeners()
     }
@@ -298,24 +305,50 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
 
-    func sendMessage(_ content: String, to channel: Channel) async {
+    func sendMessage(_ content: String, media: [LocalMediaItem], to channel: Channel) async -> Bool {
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        isSending = true
+        defer { isSending = false }
+
         do {
-            _ = try await messageService.sendChannelMessage(channelBackendId: channel.backendId, content: content)
+            let attachments = try await uploadAttachments(from: media)
+            let message = try await messageService.sendChannelMessage(
+                channelBackendId: channel.backendId,
+                content: trimmedContent,
+                attachments: attachments.isEmpty ? nil : attachments
+            )
+            messages.append(message)
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+            return false
         }
     }
 
-    func sendDirectMessage(_ content: String) async {
+    func sendDirectMessage(_ content: String, media: [LocalMediaItem]) async -> Bool {
         guard let conversationBackendId else {
             errorMessage = "Direct messages require a conversation ID."
-            return
+            toastMessage = ToastMessage(text: errorMessage ?? "Couldn't send message", kind: .error)
+            return false
         }
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        isSending = true
+        defer { isSending = false }
+
         do {
-            let message = try await messageService.sendConversationMessage(conversationId: conversationBackendId, content: content)
+            let attachments = try await uploadAttachments(from: media)
+            let message = try await messageService.sendConversationMessage(
+                conversationId: conversationBackendId,
+                content: trimmedContent,
+                attachments: attachments.isEmpty ? nil : attachments
+            )
             messages.append(message)
+            return true
         } catch {
             handleDirectMessageError(error)
+            toastMessage = ToastMessage(text: errorMessage ?? error.localizedDescription, kind: .error)
+            return false
         }
     }
 
@@ -334,14 +367,109 @@ class ChatViewModel: ObservableObject {
         }
         errorMessage = error.localizedDescription
     }
+
+    private func uploadAttachments(from media: [LocalMediaItem]) async throws -> [String] {
+        guard !media.isEmpty else { return [] }
+        var keys: [String] = []
+        keys.reserveCapacity(media.count)
+
+        for item in media {
+            switch item.type {
+            case .image:
+                guard let image = item.image else { throw ChatMediaUploadError.unreadableImage }
+                guard let payload = makeUploadPayload(from: image) else { throw ChatMediaUploadError.unreadableImage }
+                let key = try await messageMediaService.uploadImage(data: payload.data, mimeType: payload.mimeType)
+                keys.append(key)
+            case .video:
+                guard let url = item.videoURL else { throw ChatMediaUploadError.unreadableVideo }
+                let mp4Url = try await VideoTranscoder.ensureMP4(at: url)
+                let key = try await messageMediaService.uploadVideo(fileURL: mp4Url, mimeType: "video/mp4")
+                keys.append(key)
+            case .gif:
+                throw ChatMediaUploadError.unsupportedMedia
+            }
+        }
+
+        return keys
+    }
+
+    private func makeUploadPayload(from image: UIImage) -> ChatImageUploadPayload? {
+        let resized = resizedImageIfNeeded(image, maxDimension: 2048)
+        let width = Int(resized.size.width * resized.scale)
+        let height = Int(resized.size.height * resized.scale)
+
+        if imageHasAlpha(resized), let pngData = resized.pngData() {
+            return ChatImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
+        }
+
+        if let jpegData = resized.jpegData(compressionQuality: 0.85) {
+            return ChatImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
+        }
+
+        return nil
+    }
+
+    private func resizedImageIfNeeded(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let pixelWidth = image.size.width * image.scale
+        let pixelHeight = image.size.height * image.scale
+        let maxPixel = max(pixelWidth, pixelHeight)
+        guard maxPixel > maxDimension, maxPixel > 0 else { return image }
+
+        let scaleFactor = maxDimension / maxPixel
+        let newSize = CGSize(width: image.size.width * scaleFactor, height: image.size.height * scaleFactor)
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+
+    private func imageHasAlpha(_ image: UIImage) -> Bool {
+        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
+        switch alphaInfo {
+        case .first, .last, .premultipliedFirst, .premultipliedLast:
+            return true
+        default:
+            return false
+        }
+    }
     
     private func setupWebSocketListeners() {
         webSocketService.messageReceived
             .receive(on: DispatchQueue.main)
             .sink { [weak self] message in
-                self?.messages.append(message)
+                guard let self else { return }
+                if self.messages.contains(where: { $0.backendId == message.backendId }) == false {
+                    self.messages.append(message)
+                }
             }
             .store(in: &cancellables)
+    }
+}
+
+private struct ChatImageUploadPayload {
+    let data: Data
+    let mimeType: String
+    let width: Int
+    let height: Int
+}
+
+private enum ChatMediaUploadError: LocalizedError {
+    case unsupportedMedia
+    case unreadableImage
+    case unreadableVideo
+
+    var errorDescription: String? {
+        switch self {
+        case .unsupportedMedia:
+            return "That media type isn't supported in messages yet."
+        case .unreadableImage:
+            return "We couldn't read that image. Try another one."
+        case .unreadableVideo:
+            return "We couldn't read that video. Try another one."
+        }
     }
 }
 

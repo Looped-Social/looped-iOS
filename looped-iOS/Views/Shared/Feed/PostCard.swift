@@ -31,6 +31,7 @@ struct PostCard: View {
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
     @ScaledMetric private var actionIconSize: CGFloat = 22
+    @ScaledMetric private var repostIconSize: CGFloat = 24
     @ScaledMetric private var actionLabelSpacing: CGFloat = 4
     @ScaledMetric private var engagementBarSpacing: CGFloat = 10
     @EnvironmentObject var commentsManager: CommentsModalManager
@@ -45,14 +46,15 @@ struct PostCard: View {
     @State private var isBlocking = false
     @State private var isDeleting = false
     @State private var deleteErrorMessage: String?
-    @State private var showEditSheet = false
-    @State private var editText = ""
-    @State private var isEditing = false
-    @State private var editErrorMessage: String?
-    @State private var repostErrorMessage: String?
+	    @State private var showEditSheet = false
+	    @State private var editText = ""
+	    @State private var isEditing = false
+	    @State private var editErrorMessage: String?
+	    @State private var repostErrorMessage: String?
+	    @State private var actionError: PostActionError?
 
-    private let moderationService: ModerationServiceProtocol = ModerationService()
-    private let blockService: BlockServiceProtocol = BlockService()
+	    private let moderationService: ModerationServiceProtocol = ModerationService()
+	    private let blockService: BlockServiceProtocol = BlockService()
 
     init(
         post: Post,
@@ -287,7 +289,7 @@ struct PostCard: View {
 	    private var shareButton: some View {
 	        Button(action: { showShareSheet = true }) {
 	            HStack(spacing: actionLabelSpacing) {
-	                Image("send-icon")
+	                Image("send-icon-fab")
 	                    .resizable()
 	                    .renderingMode(.template)
 	                    .scaledToFit()
@@ -307,7 +309,7 @@ struct PostCard: View {
 	                    .resizable()
 	                    .renderingMode(.template)
 	                    .scaledToFit()
-	                    .frame(width: actionIconSize, height: actionIconSize)
+	                    .frame(width: repostIconSize, height: repostIconSize)
 	                    .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
 	                    .opacity(isRepostLoading ? 0.6 : 1)
 	                Text("\(displayedRepostCount)")
@@ -802,8 +804,8 @@ struct PostCard: View {
             }
     }
 
-    private var postCardAlerts: some View {
-        postCardSheets
+	    private var postCardAlerts: some View {
+	        postCardSheets
             .alert("Thanks", isPresented: moderationAlertIsPresented) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -829,37 +831,47 @@ struct PostCard: View {
             } message: {
                 Text(editErrorMessage ?? "")
             }
-            .alert("Couldn't repost", isPresented: repostErrorAlertIsPresented) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(repostErrorMessage ?? "")
-            }
-    }
+	            .alert("Couldn't repost", isPresented: repostErrorAlertIsPresented) {
+	                Button("OK", role: .cancel) { }
+	            } message: {
+	                Text(repostErrorMessage ?? "")
+	            }
+	            .alert(item: $actionError) { error in
+	                Alert(
+	                    title: Text(error.title),
+	                    message: Text(error.message),
+	                    dismissButton: .default(Text("OK"))
+	                )
+	            }
+	    }
 
     private var shareText: String {
         "\(post.resolvedAuthorName) posted on Looped:\n\n\(post.content)"
     }
 
-    private func trackShare() {
-        guard let postId = post.backendId, !isShareTracking else { return }
-        isShareTracking = true
-        Task {
-            defer { isShareTracking = false }
-            do {
-                let response = try await feedService.sharePost(postId: postId)
-                shareCountOverride = response.shareCount
-            } catch {
-                // TODO: surface error to user once we add toast system
-            }
-        }
-    }
+	    private func trackShare() {
+	        guard let postId = post.backendId, !isShareTracking else { return }
+	        isShareTracking = true
+	        Task {
+	            defer { isShareTracking = false }
+	            do {
+	                let response = try await feedService.sharePost(postId: postId)
+	                shareCountOverride = response.shareCount
+	            } catch {
+	                actionError = PostActionError(
+	                    title: "Couldn't share post",
+	                    message: actionErrorMessage(verb: "share", error: error)
+	                )
+	            }
+	        }
+	    }
 
-    private func toggleBookmark() {
-        guard let postId = post.backendId, !isBookmarkLoading else { return }
-        isBookmarkLoading = true
-        Task {
-            defer { isBookmarkLoading = false }
-            do {
+	    private func toggleBookmark() {
+	        guard let postId = post.backendId, !isBookmarkLoading else { return }
+	        isBookmarkLoading = true
+	        Task {
+	            defer { isBookmarkLoading = false }
+	            do {
                 if isBookmarked {
                     let removed = try await feedService.removeSavedPost(
                         postId: postId,
@@ -881,13 +893,17 @@ struct PostCard: View {
                         let updated = post.updating(isSaved: true, updatedAt: Date())
                         onUpdate?(updated)
                         onBookmarkToggle?(true)
-                    }
-                }
-            } catch {
-                // TODO: surface error to user once we add toast system
-            }
-        }
-    }
+	                    }
+	                }
+	            } catch {
+	                let title = isBookmarked ? "Couldn't remove saved post" : "Couldn't save post"
+	                actionError = PostActionError(
+	                    title: title,
+	                    message: actionErrorMessage(verb: "update saved posts", error: error)
+	                )
+	            }
+	        }
+	    }
 
     private func deletePost() async {
         guard let postId = post.backendId, !isDeleting else { return }
@@ -1078,22 +1094,36 @@ struct PostCard: View {
         }
     }
 
-    private func repostErrorMessage(for error: Error) -> String {
-        if let apiError = error as? APIError {
-            switch apiError {
-            case .apiError(_, let error, let message):
-                if error == "self_repost_not_allowed" {
-                    return "You cannot repost your own post."
-                }
-                return message ?? "This action isn't available right now."
-            case .unauthorized:
-                return "Please sign in again and try reposting."
-            default:
-                return "This action isn't available right now."
-            }
-        }
-        return error.localizedDescription
-    }
+	    private func repostErrorMessage(for error: Error) -> String {
+	        if let apiError = error as? APIError {
+	            switch apiError {
+	            case .apiError(_, let error, let message):
+	                if error == "self_repost_not_allowed" {
+	                    return "You cannot repost your own post."
+	                }
+	                return message ?? "This action isn't available right now."
+	            case .unauthorized:
+	                return "Please sign in again and try reposting."
+	            default:
+	                return "This action isn't available right now."
+	            }
+	        }
+	        return error.localizedDescription
+	    }
+
+	    private func actionErrorMessage(verb: String, error: Error) -> String {
+	        if let apiError = error as? APIError {
+	            switch apiError {
+	            case .unauthorized:
+	                return "Please sign in again and try to \(verb)."
+	            case .apiError(_, let error, let message):
+	                return message ?? error
+	            default:
+	                return apiError.localizedDescription
+	            }
+	        }
+	        return error.localizedDescription
+	    }
 
     private func triggerHeartBurst() {
         showHeartBurst = true
@@ -1116,6 +1146,12 @@ struct PostCard: View {
             heartOpacity = 0
         }
     }
+}
+
+private struct PostActionError: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
 
 private extension PostCard {

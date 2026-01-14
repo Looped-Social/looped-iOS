@@ -26,3 +26,18 @@ struct MediaCallbackResponseDTO: Decodable {
     let mimeType: String
     let cdnUrl: String?
 }
+
+struct MediaResolveRequestDTO: Encodable {
+    let ids: [Int]
+}
+
+struct MediaResolveResponseDTO: Decodable {
+    let items: [MediaResolveItemDTO]
+}
+
+struct MediaResolveItemDTO: Decodable {
+    let id: Int
+    let key: String
+    let mimeType: String
+    let cdnUrl: String?
+}

@@ -21,12 +21,17 @@ struct UserProfileView: View {
     @State private var hasLoaded = false
     @State private var overlayHeaderHeight: CGFloat = 0
     @AppStorage("anonymousMode") private var isAnonymousMode = false
-    @State private var showActionMenu = false
-    @State private var showBlockConfirm = false
-    @State private var blockErrorMessage: String?
-    @State private var isBlocking = false
+	    @State private var showActionMenu = false
+	    @State private var showBlockConfirm = false
+	    @State private var blockErrorMessage: String?
+	    @State private var isBlocking = false
+	    @State private var showChat = false
+	    @State private var isStartingConversation = false
+	    @State private var startedConversation: Conversation?
+	    @State private var messageErrorMessage: String?
 
-    private let blockService: BlockServiceProtocol = BlockService()
+	    private let blockService: BlockServiceProtocol = BlockService()
+	    private let messageService: MessageServiceProtocol = MessageService()
 
     init(userId: Int, currentUserId: Int? = nil, preloadedProfile: UserProfile? = nil) {
         _viewModel = StateObject(
@@ -71,11 +76,11 @@ struct UserProfileView: View {
         _selectedTab = State(initialValue: .posts)
     }
 
-    var body: some View {
-        profileLayout
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .environmentObject(commentsManager)
+	    var body: some View {
+	        profileLayout
+	            .background(Color.loopedBackground.ignoresSafeArea())
+	            .navigationBarHidden(true)
+	            .environmentObject(commentsManager)
             .modifier(
                 ProfileActionsModifier(
                     canBlockUser: canBlockUser,
@@ -87,9 +92,41 @@ struct UserProfileView: View {
                     onConfirmBlock: { Task { await blockProfileUser() } }
                 )
             )
-            .onAppear { fabState.isHidden = true }
-            .onDisappear { fabState.isHidden = false }
-            .overlay(commentsOverlay)
+	            .onAppear { fabState.isHidden = true }
+	            .onDisappear { fabState.isHidden = false }
+	            .overlay(commentsOverlay)
+	            .fullScreenCover(isPresented: $showChat) {
+	                ChatView(
+	                    conversation: startedConversation,
+	                    channel: nil,
+	                    onBackTapped: {
+	                        showChat = false
+	                        startedConversation = nil
+	                    }
+	                )
+	            }
+	            .alert(
+	                "Couldn't start chat",
+	                isPresented: Binding(
+	                    get: { messageErrorMessage != nil },
+	                    set: { if !$0 { messageErrorMessage = nil } }
+	                )
+	            ) {
+	                Button("OK", role: .cancel) { }
+	            } message: {
+	                Text(messageErrorMessage ?? "")
+	            }
+	            .alert(
+	                "Couldn't update follow",
+	                isPresented: Binding(
+	                    get: { viewModel.followErrorMessage != nil },
+                    set: { if !$0 { viewModel.followErrorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(viewModel.followErrorMessage ?? "")
+            }
             .onChange(of: selectedTab) { newValue in
                 if newValue == .replies, viewModel.isAnonymousProfile {
                     Task { await loadCommentsIfNeeded() }
@@ -111,6 +148,25 @@ struct UserProfileView: View {
     private var tabs: [UserProfileTab] {
         viewModel.isAnonymousProfile ? [.posts, .replies] : [.content, .reposts]
     }
+
+	    private var followConfig: ProfileActionButtons.FollowConfig? {
+	        guard viewModel.profile != nil else { return nil }
+	        guard !viewModel.isAnonymousProfile else { return nil }
+	        return ProfileActionButtons.FollowConfig(
+	            isFollowing: viewModel.isFollowing,
+	            isInFlight: viewModel.isFollowActionInFlight,
+	            onToggle: { Task { await viewModel.toggleFollow(asAnonymousActor: isAnonymousMode) } }
+	        )
+	    }
+
+	    private var messageConfig: ProfileActionButtons.MessageConfig? {
+	        guard viewModel.profile?.backendId != nil else { return nil }
+	        guard !viewModel.isAnonymousProfile else { return nil }
+	        return ProfileActionButtons.MessageConfig(
+	            isInFlight: isStartingConversation,
+	            onTap: { Task { await startConversationIfPossible() } }
+	        )
+	    }
 
     private var profileLayout: some View {
         ZStack(alignment: .top) {
@@ -155,15 +211,20 @@ struct UserProfileView: View {
     private var content: some View {
         if viewModel.isLoading && viewModel.profile == nil {
             loadingState
-        } else if let error = viewModel.errorMessage, viewModel.profile == nil {
-            errorState(error)
-        } else if let profile = viewModel.profile {
-            VStack(spacing: 0) {
-                UserProfileInfoSection(userProfile: profile, isAnonymousMode: $isAnonymousMode)
-                UserProfileTabsView(selectedTab: $selectedTab, tabs: tabs)
-                UserProfileContentView(
-                    userProfile: profile,
-                    selectedTab: selectedTab,
+	        } else if let error = viewModel.errorMessage, viewModel.profile == nil {
+	            errorState(error)
+	        } else if let profile = viewModel.profile {
+	            VStack(spacing: 0) {
+	                UserProfileInfoSection(
+	                    userProfile: profile,
+	                    isAnonymousMode: $isAnonymousMode,
+	                    followConfig: followConfig,
+	                    messageConfig: messageConfig
+	                )
+	                UserProfileTabsView(selectedTab: $selectedTab, tabs: tabs)
+	                UserProfileContentView(
+	                    userProfile: profile,
+	                    selectedTab: selectedTab,
                     contentViewModel: contentViewModel,
                     postsViewModel: postsViewModel,
                     repostsViewModel: repostsViewModel,
@@ -266,23 +327,44 @@ struct UserProfileView: View {
         return profile.formattedHandle
     }
 
-    @MainActor
-    private func blockProfileUser() async {
-        guard canBlockUser else { return }
-        guard let profileId = viewModel.profile?.backendId else { return }
-        guard !isBlocking else { return }
-        isBlocking = true
-        defer { isBlocking = false }
+	    @MainActor
+	    private func blockProfileUser() async {
+	        guard canBlockUser else { return }
+	        guard let profileId = viewModel.profile?.backendId else { return }
+	        guard !isBlocking else { return }
+	        isBlocking = true
+	        defer { isBlocking = false }
 
-        do {
-            _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
-            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
-            dismiss()
-        } catch {
-            blockErrorMessage = error.localizedDescription
-        }
-    }
-}
+	        do {
+	            _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
+	            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
+	            dismiss()
+	        } catch {
+	            blockErrorMessage = error.localizedDescription
+	        }
+	    }
+
+	    @MainActor
+	    private func startConversationIfPossible() async {
+	        guard !isStartingConversation else { return }
+	        guard !isAnonymousMode else { return }
+	        guard let targetUserId = viewModel.profile?.backendId else { return }
+	        if let currentUserId = authViewModel.currentUser?.backendId, currentUserId == targetUserId {
+	            return
+	        }
+
+	        isStartingConversation = true
+	        defer { isStartingConversation = false }
+
+	        do {
+	            let conversation = try await messageService.startConversation(with: targetUserId)
+	            startedConversation = conversation
+	            showChat = true
+	        } catch {
+	            messageErrorMessage = error.localizedDescription
+	        }
+	    }
+	}
 
 private struct ProfileActionsModifier: ViewModifier {
     let canBlockUser: Bool
@@ -380,13 +462,20 @@ struct UserProfileHeader: View {
 struct UserProfileInfoSection: View {
     let userProfile: UserProfile
     @Binding var isAnonymousMode: Bool
+    let followConfig: ProfileActionButtons.FollowConfig?
+    let messageConfig: ProfileActionButtons.MessageConfig?
     @State private var showAvatarViewer = false
 
     var body: some View {
         VStack(spacing: 0) {
             headerSection
             statsSection
-            ProfileActionButtons(userProfile: userProfile, isAnonymous: $isAnonymousMode)
+            ProfileActionButtons(
+                userProfile: userProfile,
+                isAnonymous: $isAnonymousMode,
+                followConfig: followConfig,
+                messageConfig: messageConfig
+            )
         }
         .fullScreenCover(isPresented: $showAvatarViewer) {
             Group {
