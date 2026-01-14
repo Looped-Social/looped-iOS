@@ -88,6 +88,19 @@ struct CreatePostView: View {
         selectedCommunity != nil && (!isAnonymous || !(anonMembershipMissing || anonMembershipExpired))
     }
 
+    private var allowsVideoSelection: Bool {
+        selectedMedia.contains(where: { $0.type == .video }) || selectedMedia.isEmpty
+    }
+
+    private var mediaPickerSelectionLimit: Int {
+        if selectedMedia.contains(where: { $0.type == .video }) { return 1 }
+        return max(1, 4 - selectedMedia.count)
+    }
+
+    private var mediaPickerAppendSelection: Bool {
+        !selectedMedia.contains(where: { $0.type == .video })
+    }
+
     private var defaultCommunityId: Int? {
         if let lastId = feedViewModel.lastPostedCommunityId,
            verifiedCommunities.contains(where: { $0.id == lastId }) {
@@ -208,7 +221,7 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .disabled(pollDraft != nil)
+                        .disabled(pollDraft != nil || (!selectedMedia.contains(where: { $0.type == .video }) && selectedMedia.count >= 4))
 
                         Button(action: {
                             isPostTextFocused = false
@@ -226,7 +239,7 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .disabled(pollDraft != nil)
+                        .disabled(pollDraft != nil || (!selectedMedia.contains(where: { $0.type == .video }) && selectedMedia.count >= 4))
 
                         Button(action: togglePoll) {
                             HStack(spacing: 6) {
@@ -254,13 +267,9 @@ struct CreatePostView: View {
 
                     // Media preview grid
                     if !selectedMedia.isEmpty {
-                        MediaPreviewGrid(
-                            media: selectedMedia,
-                            maxHeight: 280,
-                            onRemove: { item in
-                                selectedMedia.removeAll { $0.id == item.id }
-                            }
-                        )
+                        MediaPreviewStrip(media: selectedMedia) { item in
+                            selectedMedia.removeAll { $0.id == item.id }
+                        }
                     }
 
                     // Character count
@@ -350,9 +359,15 @@ struct CreatePostView: View {
         } message: {
             Text(draftPromptMessage)
         }
-            .sheet(isPresented: $showMediaPicker) {
-            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 1, allowsVideo: true)
-            }
+        .sheet(isPresented: $showMediaPicker) {
+            MediaPickerView(
+                selectedMedia: $selectedMedia,
+                maxSelectionCount: mediaPickerSelectionLimit,
+                allowsVideo: allowsVideoSelection,
+                appendSelection: mediaPickerAppendSelection,
+                onDismiss: { showMediaPicker = false }
+            )
+        }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(selectedImage: .init(
                 get: { nil },
@@ -375,6 +390,14 @@ struct CreatePostView: View {
         .onChange(of: feedViewModel.followedCommunities) { _ in
             syncSelectedCommunity()
             updateAnonMembershipStatus()
+        }
+        .onChange(of: selectedMedia) { _, newValue in
+            let videos = newValue.filter { $0.type == .video }
+            guard let firstVideo = videos.first else { return }
+            if newValue.count > 1 {
+                selectedMedia = [firstVideo]
+                presentToast(message: "Videos must be posted by themselves.", kind: .info)
+            }
         }
         .onChange(of: verificationViewModel.items) { _ in
             syncSelectedCommunity()
@@ -407,6 +430,7 @@ struct CreatePostView: View {
         let activeDraftIdToCleanup = activeDraftId
         let communityName = selectedCommunity?.name
 
+        onPostStatus?(ToastMessage(text: "Posting…", kind: .loading))
         onPostCreated?()
         dismiss()
 

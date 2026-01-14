@@ -140,7 +140,13 @@ struct ChatInputView: View {
             )
         }
         .sheet(isPresented: $showMediaPicker) {
-            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 4, allowsVideo: true)
+            MediaPickerView(
+                selectedMedia: $selectedMedia,
+                maxSelectionCount: 4,
+                allowsVideo: true,
+                appendSelection: true,
+                onDismiss: { showMediaPicker = false }
+            )
         }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(selectedImage: .init(

@@ -440,7 +440,7 @@ struct CommunityProfileView: View {
             return viewModel.community.isJoined ? "Tap to leave" : "Tap to join"
         }
 
-        let remaining = max(0, joinLimit.remaining)
+        let remaining = max(0, joinLimit.canJoin ? joinLimit.remaining : 0)
         let specializationLabel = Self.specializationLabel(for: joinLimit.specializationType, count: remaining)
         return "You can join \(remaining) more \(specializationLabel) left"
     }
@@ -453,7 +453,7 @@ struct CommunityProfileView: View {
             """
         }
 
-        let remaining = max(0, joinLimit.remaining)
+        let remaining = max(0, joinLimit.canJoin ? joinLimit.remaining : 0)
         var lines: [String] = []
         lines.append("You have \(remaining)/\(joinLimit.limit) joins left.")
 
@@ -463,7 +463,11 @@ struct CommunityProfileView: View {
             lines.append("It resets every \(joinLimit.cooldownMonths) months.")
         }
 
-        lines.append("If you want to change your \(joinLimit.pluralLabel.lowercased()), you’ll need to wait until it resets.")
+        if joinLimit.canJoin {
+            lines.append("After you use your joins, you’ll need to wait until it resets to change your \(joinLimit.pluralLabel.lowercased()).")
+        } else {
+            lines.append("To change your \(joinLimit.pluralLabel.lowercased()), you’ll need to wait until it resets.")
+        }
         return lines.joined(separator: "\n")
     }
 

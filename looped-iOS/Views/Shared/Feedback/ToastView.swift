@@ -2,12 +2,15 @@ import SwiftUI
 
 enum ToastKind: Equatable {
     case info
+    case loading
     case success
     case error
 
     var backgroundColor: Color {
         switch self {
         case .info:
+            return .loopedSecondary
+        case .loading:
             return .loopedSecondary
         case .success:
             return .loopedSuccess
@@ -36,14 +39,21 @@ struct LoopedToastView: View {
     let message: ToastMessage
 
     var body: some View {
-        Text(message.text)
-            .font(.loopedSubBodyRegular)
-            .foregroundColor(message.kind.foregroundColor)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(message.kind.backgroundColor)
-            .cornerRadius(14)
-            .shadow(color: Color.loopedBlack.opacity(0.12), radius: 6, x: 0, y: 3)
+        HStack(spacing: 10) {
+            if message.kind == .loading {
+                ProgressView()
+                    .tint(message.kind.foregroundColor)
+            }
+
+            Text(message.text)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(message.kind.foregroundColor)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(message.kind.backgroundColor)
+        .cornerRadius(14)
+        .shadow(color: Color.loopedBlack.opacity(0.12), radius: 6, x: 0, y: 3)
     }
 }
 
@@ -86,6 +96,10 @@ struct ToastPresenter: ViewModifier {
             presentedToast = newValue
             withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
                 isPresented = true
+            }
+
+            if newValue.kind == .loading {
+                return
             }
 
             let delay = UInt64(duration * 1_000_000_000)

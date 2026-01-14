@@ -424,7 +424,13 @@ private extension CommentsView {
             .background(Color.loopedBackground)
         }
         .sheet(isPresented: $showMediaPicker) {
-            MediaPickerView(selectedMedia: $selectedMedia, maxSelectionCount: 1, allowsVideo: true)
+            MediaPickerView(
+                selectedMedia: $selectedMedia,
+                maxSelectionCount: 1,
+                allowsVideo: true,
+                appendSelection: false,
+                onDismiss: { showMediaPicker = false }
+            )
         }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(selectedImage: .init(

@@ -5,15 +5,21 @@ struct MediaPickerView: UIViewControllerRepresentable {
     @Binding var selectedMedia: [LocalMediaItem]
     let maxSelectionCount: Int
     let allowsVideo: Bool
+    let appendSelection: Bool
+    let onDismiss: (() -> Void)?
 
     init(
         selectedMedia: Binding<[LocalMediaItem]>,
         maxSelectionCount: Int = 4,
-        allowsVideo: Bool = true
+        allowsVideo: Bool = true,
+        appendSelection: Bool = false,
+        onDismiss: (() -> Void)? = nil
     ) {
         self._selectedMedia = selectedMedia
         self.maxSelectionCount = maxSelectionCount
         self.allowsVideo = allowsVideo
+        self.appendSelection = appendSelection
+        self.onDismiss = onDismiss
     }
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -45,7 +51,7 @@ struct MediaPickerView: UIViewControllerRepresentable {
         }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            picker.dismiss(animated: true)
+            parent.onDismiss?()
 
             guard !results.isEmpty else { return }
 
@@ -95,7 +101,11 @@ struct MediaPickerView: UIViewControllerRepresentable {
             }
 
             group.notify(queue: .main) {
-                self.parent.selectedMedia = mediaItems
+                if self.parent.appendSelection {
+                    self.parent.selectedMedia.append(contentsOf: mediaItems)
+                } else {
+                    self.parent.selectedMedia = mediaItems
+                }
             }
         }
 
