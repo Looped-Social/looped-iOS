@@ -88,17 +88,21 @@ struct CreatePostView: View {
         selectedCommunity != nil && (!isAnonymous || !(anonMembershipMissing || anonMembershipExpired))
     }
 
-    private var allowsVideoSelection: Bool {
-        selectedMedia.contains(where: { $0.type == .video }) || selectedMedia.isEmpty
-    }
-
-    private var mediaPickerSelectionLimit: Int {
-        if selectedMedia.contains(where: { $0.type == .video }) { return 1 }
-        return max(1, 4 - selectedMedia.count)
+    private var mediaPickerAllowsVideo: Bool {
+        selectedMedia.isEmpty
     }
 
     private var mediaPickerAppendSelection: Bool {
-        !selectedMedia.contains(where: { $0.type == .video })
+        let hasVideo = selectedMedia.contains(where: { $0.type == .video })
+        guard !selectedMedia.isEmpty, !hasVideo else { return false }
+        return selectedMedia.count < 4
+    }
+
+    private var mediaPickerSelectionLimit: Int {
+        if mediaPickerAppendSelection {
+            return max(1, 4 - selectedMedia.count)
+        }
+        return 4
     }
 
     private var defaultCommunityId: Int? {
@@ -221,7 +225,7 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .disabled(pollDraft != nil || (!selectedMedia.contains(where: { $0.type == .video }) && selectedMedia.count >= 4))
+                        .disabled(pollDraft != nil)
 
                         Button(action: {
                             isPostTextFocused = false
@@ -239,7 +243,7 @@ struct CreatePostView: View {
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .disabled(pollDraft != nil || (!selectedMedia.contains(where: { $0.type == .video }) && selectedMedia.count >= 4))
+                        .disabled(pollDraft != nil)
 
                         Button(action: togglePoll) {
                             HStack(spacing: 6) {
@@ -363,7 +367,7 @@ struct CreatePostView: View {
             MediaPickerView(
                 selectedMedia: $selectedMedia,
                 maxSelectionCount: mediaPickerSelectionLimit,
-                allowsVideo: allowsVideoSelection,
+                allowsVideo: mediaPickerAllowsVideo,
                 appendSelection: mediaPickerAppendSelection,
                 onDismiss: { showMediaPicker = false }
             )
@@ -373,7 +377,13 @@ struct CreatePostView: View {
                 get: { nil },
                 set: { image in
                     if let image = image {
-                        selectedMedia.append(LocalMediaItem(type: .image, image: image))
+                        let newItem = LocalMediaItem(type: .image, image: image)
+                        if selectedMedia.contains(where: { $0.type == .video }) || selectedMedia.count >= 4 {
+                            selectedMedia = [newItem]
+                            presentToast(message: "Replaced attachments (max 4 photos).", kind: .info)
+                        } else {
+                            selectedMedia.append(newItem)
+                        }
                     }
                 }
             ))
@@ -393,10 +403,23 @@ struct CreatePostView: View {
         }
         .onChange(of: selectedMedia) { _, newValue in
             let videos = newValue.filter { $0.type == .video }
-            guard let firstVideo = videos.first else { return }
-            if newValue.count > 1 {
-                selectedMedia = [firstVideo]
-                presentToast(message: "Videos must be posted by themselves.", kind: .info)
+            let images = newValue.filter { $0.type == .image }
+
+            if !videos.isEmpty, !images.isEmpty {
+                selectedMedia = Array(images.prefix(4))
+                presentToast(message: "You can’t mix photos and video. Keeping photos.", kind: .info)
+                return
+            }
+
+            if videos.count > 1 {
+                selectedMedia = [videos[0]]
+                presentToast(message: "Attach up to 1 video.", kind: .info)
+                return
+            }
+
+            if images.count > 4 {
+                selectedMedia = Array(images.prefix(4))
+                presentToast(message: "Attach up to 4 photos.", kind: .info)
             }
         }
         .onChange(of: verificationViewModel.items) { _ in

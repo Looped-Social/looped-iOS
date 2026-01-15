@@ -37,7 +37,7 @@ protocol FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage
-    func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, poll: PollDraft?) async throws -> Post
+    func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, mediaAssetIds: [Int]?, poll: PollDraft?) async throws -> Post
     func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
     func unlikePost(postId: Int, communityId: Int?) async throws -> PostReactionResponse

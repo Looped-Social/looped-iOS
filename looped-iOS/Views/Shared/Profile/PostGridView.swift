@@ -155,12 +155,15 @@ struct MiniaturePostCard: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Text(post.content)
-                    .font(.loopedCustom(size: 8))
-                    .foregroundColor(.loopedTextPrimary)
-                    .lineLimit(8)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                LinkifiedText(
+                    post.content,
+                    font: .loopedCustom(size: 8),
+                    textColor: .loopedTextPrimary,
+                    linkColor: .loopedPrimary
+                )
+                .lineLimit(8)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Spacer()

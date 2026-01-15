@@ -390,8 +390,8 @@ class FeedViewModel: ObservableObject {
                 }
             }
 
-            var uploadedAttachment: MediaAttachment?
-            var mediaAssetId: Int?
+            var uploadedAttachments: [MediaAttachment] = []
+            var mediaAssetIds: [Int] = []
 
             if !media.isEmpty {
                 let actor: MediaUploadActor = isAnonymous ? .anon : .user
@@ -423,43 +423,57 @@ class FeedViewModel: ObservableObject {
                         durationSeconds: metadata.durationSeconds,
                         actor: actor
                     )
-                    mediaAssetId = asset.id
+                    mediaAssetIds = [asset.id]
                     if let cdnUrl = asset.cdnUrl, !cdnUrl.isEmpty {
-                        uploadedAttachment = MediaAttachment(
+                        uploadedAttachments = [MediaAttachment(
                             type: .video,
                             url: cdnUrl,
                             width: metadata.width,
                             height: metadata.height,
                             duration: TimeInterval(metadata.durationSeconds)
-                        )
+                        )]
                     }
                 } else if !images.isEmpty {
-                    let imageToUpload: UIImage?
-                    if images.count == 1 {
-                        imageToUpload = images.first?.image
-                    } else {
-                        imageToUpload = makeImageCollage(from: images.compactMap(\.image))
+                    for item in images.prefix(4) {
+                        guard let image = item.image else {
+                            errorMessage = "We couldn't read that image. Try another one."
+                            return false
+                        }
+                        guard let payload = makeUploadPayload(from: image) else {
+                            errorMessage = "We couldn't read that image. Try another one."
+                            return false
+                        }
+                        let asset = try await mediaService.uploadImage(
+                            data: payload.data,
+                            mimeType: payload.mimeType,
+                            width: payload.width,
+                            height: payload.height,
+                            actor: actor
+                        )
+                        mediaAssetIds.append(asset.id)
+                        if let url = asset.cdnUrl, !url.isEmpty {
+                            uploadedAttachments.append(
+                                MediaAttachment(type: .image, url: url, width: payload.width, height: payload.height)
+                            )
+                        }
                     }
+                }
+            }
 
-                    guard let imageToUpload else {
-                        errorMessage = "We couldn't read that image. Try another one."
-                        return false
+            if !mediaAssetIds.isEmpty, uploadedAttachments.count != mediaAssetIds.count {
+                do {
+                    let resolved = try await mediaService.resolvePublicMedia(ids: mediaAssetIds)
+                    let byId = Dictionary(uniqueKeysWithValues: resolved.map { ($0.id, $0) })
+                    let resolvedAttachments = mediaAssetIds.compactMap { id -> MediaAttachment? in
+                        guard let asset = byId[id], let url = asset.cdnUrl, !url.isEmpty else { return nil }
+                        let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
+                        return MediaAttachment(type: type, url: url)
                     }
-                    guard let payload = makeUploadPayload(from: imageToUpload) else {
-                        errorMessage = "We couldn't read that image. Try another one."
-                        return false
+                    if !resolvedAttachments.isEmpty {
+                        uploadedAttachments = resolvedAttachments
                     }
-                    let asset = try await mediaService.uploadImage(
-                        data: payload.data,
-                        mimeType: payload.mimeType,
-                        width: payload.width,
-                        height: payload.height,
-                        actor: actor
-                    )
-                    mediaAssetId = asset.id
-                    if let url = asset.cdnUrl, !url.isEmpty {
-                        uploadedAttachment = MediaAttachment(type: .image, url: url, width: payload.width, height: payload.height)
-                    }
+                } catch {
+                    // Best-effort: keep whatever URLs we already have.
                 }
             }
 
@@ -467,12 +481,13 @@ class FeedViewModel: ObservableObject {
                 content: trimmedContent,
                 isAnonymous: isAnonymous,
                 communityId: communityId,
-                mediaAssetId: mediaAssetId,
+                mediaAssetId: mediaAssetIds.first,
+                mediaAssetIds: mediaAssetIds.isEmpty ? nil : mediaAssetIds,
                 poll: poll
             )
             let resolvedPost: Post
-            if let uploadedAttachment, (newPost.attachments?.isEmpty ?? true) {
-                resolvedPost = newPost.updating(attachments: .some([uploadedAttachment]))
+            if !uploadedAttachments.isEmpty, (newPost.attachments?.isEmpty ?? true) {
+                resolvedPost = newPost.updating(attachments: .some(uploadedAttachments))
             } else {
                 resolvedPost = newPost
             }
@@ -596,55 +611,6 @@ private extension FeedViewModel {
             return true
         default:
             return false
-        }
-    }
-
-    func makeImageCollage(from images: [UIImage]) -> UIImage? {
-        let unique = Array(images.prefix(4))
-        guard unique.count >= 2 else { return unique.first }
-
-        let maxPixelDimension = unique
-            .map { max($0.size.width * $0.scale, $0.size.height * $0.scale) }
-            .max() ?? 0
-        let side = min(CGFloat(2048), max(CGFloat(1024), maxPixelDimension))
-        guard side > 0 else { return nil }
-
-        let gap: CGFloat = 6
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        format.opaque = false
-
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
-        return renderer.image { _ in
-            UIColor.clear.setFill()
-            UIRectFill(CGRect(x: 0, y: 0, width: side, height: side))
-
-            func draw(_ image: UIImage, in rect: CGRect) {
-                let imageSize = image.size
-                guard imageSize.width > 0, imageSize.height > 0 else { return }
-                let scale = max(rect.width / imageSize.width, rect.height / imageSize.height)
-                let scaledSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-                let origin = CGPoint(x: rect.midX - scaledSize.width / 2, y: rect.midY - scaledSize.height / 2)
-                image.draw(in: CGRect(origin: origin, size: scaledSize))
-            }
-
-            switch unique.count {
-            case 2:
-                let width = (side - gap) / 2
-                draw(unique[0], in: CGRect(x: 0, y: 0, width: width, height: side))
-                draw(unique[1], in: CGRect(x: width + gap, y: 0, width: width, height: side))
-            case 3:
-                let half = (side - gap) / 2
-                draw(unique[0], in: CGRect(x: 0, y: 0, width: half, height: side))
-                draw(unique[1], in: CGRect(x: half + gap, y: 0, width: half, height: half))
-                draw(unique[2], in: CGRect(x: half + gap, y: half + gap, width: half, height: half))
-            default:
-                let half = (side - gap) / 2
-                draw(unique[0], in: CGRect(x: 0, y: 0, width: half, height: half))
-                draw(unique[1], in: CGRect(x: half + gap, y: 0, width: half, height: half))
-                draw(unique[2], in: CGRect(x: 0, y: half + gap, width: half, height: half))
-                draw(unique[3], in: CGRect(x: half + gap, y: half + gap, width: half, height: half))
-            }
         }
     }
 }

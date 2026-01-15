@@ -8,6 +8,27 @@ struct ChatInputView: View {
     @State private var showAttachmentOptions = false
     @State private var showMediaPicker = false
     @State private var showCamera = false
+    
+    private var mediaPickerAllowsVideo: Bool {
+        selectedMedia.isEmpty
+    }
+    
+    private var mediaPickerAppendSelection: Bool {
+        let hasVideo = selectedMedia.contains(where: { $0.type == .video })
+        guard !selectedMedia.isEmpty, !hasVideo else { return false }
+        return selectedMedia.count < 4
+    }
+    
+    private var mediaPickerSelectionLimit: Int {
+        if mediaPickerAppendSelection {
+            return max(1, 4 - selectedMedia.count)
+        }
+        return 4
+    }
+    
+    private var isMediaSelectionFull: Bool {
+        selectedMedia.contains(where: { $0.type == .video }) || selectedMedia.count >= 4
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,6 +89,7 @@ struct ChatInputView: View {
                         .font(.loopedCustom(.medium, size: 20))
                         .foregroundColor(.loopedPrimary)
                 }
+                .disabled(isMediaSelectionFull)
 
                 // Text input field
                 HStack(spacing: 8) {
@@ -88,6 +110,7 @@ struct ChatInputView: View {
                                 .font(.loopedCustom(size: 20))
                                 .foregroundColor(.loopedPrimary)
                         }
+                        .disabled(isMediaSelectionFull)
 
                         // Photo library button (replaced microphone)
                         Button(action: {
@@ -97,6 +120,7 @@ struct ChatInputView: View {
                                 .font(.loopedCustom(size: 20))
                                 .foregroundColor(.loopedPrimary)
                         }
+                        .disabled(isMediaSelectionFull)
 
                         // Send button - show when there's text or media
                         if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedMedia.isEmpty {
@@ -124,6 +148,24 @@ struct ChatInputView: View {
         .safeAreaInset(edge: .bottom) {
             Color.loopedClear.frame(height: 0)
         }
+        .onChange(of: selectedMedia) { _, newValue in
+            let videos = newValue.filter { $0.type == .video }
+            let images = newValue.filter { $0.type == .image }
+
+            if !videos.isEmpty, !images.isEmpty {
+                selectedMedia = Array(images.prefix(4))
+                return
+            }
+
+            if videos.count > 1 {
+                selectedMedia = [videos[0]]
+                return
+            }
+
+            if images.count > 4 {
+                selectedMedia = Array(images.prefix(4))
+            }
+        }
         .actionSheet(isPresented: $showAttachmentOptions) {
             ActionSheet(
                 title: Text("Add Attachment"),
@@ -142,9 +184,9 @@ struct ChatInputView: View {
         .sheet(isPresented: $showMediaPicker) {
             MediaPickerView(
                 selectedMedia: $selectedMedia,
-                maxSelectionCount: 4,
-                allowsVideo: true,
-                appendSelection: true,
+                maxSelectionCount: mediaPickerSelectionLimit,
+                allowsVideo: mediaPickerAllowsVideo,
+                appendSelection: mediaPickerAppendSelection,
                 onDismiss: { showMediaPicker = false }
             )
         }
@@ -153,6 +195,7 @@ struct ChatInputView: View {
                 get: { nil },
                 set: { image in
                     if let image = image {
+                        guard !isMediaSelectionFull else { return }
                         selectedMedia.append(LocalMediaItem(type: .image, image: image))
                     }
                 }

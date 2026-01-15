@@ -16,6 +16,8 @@ struct TrendingPostDTO: Codable {
     let communityId: Int?
     let content: String
     let mediaAssetId: Int?
+    let mediaAssetIds: [Int]?
+    let mediaAssetIdsSnake: [Int]?
     let likesCount: Int
     let commentsCount: Int?
     let shareCount: Int?
@@ -49,6 +51,8 @@ struct PostDTO: Codable {
     let communityKind: String?
     let content: String
     let mediaAssetId: Int?
+    let mediaAssetIds: [Int]?
+    let mediaAssetIdsSnake: [Int]?
     let mediaUrl: String?
     let cdnUrl: String?
     let likesCount: Int?
@@ -79,6 +83,7 @@ struct CreatePostResponseDTO: Codable {
 struct CreatePostRequestDTO: Codable {
     let content: String
     let mediaAssetId: Int?
+    let mediaAssetIds: [Int]?
     let communityId: Int
     let isAnon: Bool?
     let anonProfileId: Int?

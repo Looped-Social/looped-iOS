@@ -331,13 +331,13 @@ struct PostedMediaThumbnail: View {
             AsyncImage(url: URL(string: attachment.type == .video ? (attachment.thumbnailUrl ?? attachment.url) : attachment.url)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(Color.loopedMutedBackground)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
 
             if attachment.type == .video {
                 Circle()
@@ -370,7 +370,10 @@ struct PostedMediaGridLayout: View {
     let onVideoTap: (String) -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
+        let spacing: CGFloat = 8
+        let rowHeight = maxHeight * 0.4
+
+        VStack(spacing: spacing) {
             if attachments.count == 3 {
                 HStack(spacing: 8) {
                     PostedMediaThumbnail(
@@ -384,14 +387,16 @@ struct PostedMediaGridLayout: View {
                         onVideoTap: onVideoTap
                     )
                 }
-                .frame(height: maxHeight * 0.4)
+                .frame(height: rowHeight)
+                .clipped()
 
                 PostedMediaThumbnail(
                     attachment: attachments[2],
                     onImageTap: onImageTap,
                     onVideoTap: onVideoTap
                 )
-                .frame(height: maxHeight * 0.4)
+                .frame(height: rowHeight)
+                .clipped()
             } else {
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
@@ -406,6 +411,8 @@ struct PostedMediaGridLayout: View {
                             onVideoTap: onVideoTap
                         )
                     }
+                    .frame(height: rowHeight)
+                    .clipped()
                     HStack(spacing: 8) {
                         PostedMediaThumbnail(
                             attachment: attachments[2],
@@ -420,10 +427,15 @@ struct PostedMediaGridLayout: View {
                             )
                         }
                     }
+                    .frame(height: rowHeight)
+                    .clipped()
                 }
-                .frame(maxHeight: maxHeight)
+                .frame(height: rowHeight * 2 + spacing)
+                .clipped()
             }
         }
+        .frame(height: rowHeight * 2 + spacing)
+        .clipped()
     }
 }
 

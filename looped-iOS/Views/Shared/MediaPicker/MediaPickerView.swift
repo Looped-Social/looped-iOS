@@ -51,7 +51,9 @@ struct MediaPickerView: UIViewControllerRepresentable {
         }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            parent.onDismiss?()
+            picker.dismiss(animated: true) {
+                self.parent.onDismiss?()
+            }
 
             guard !results.isEmpty else { return }
 

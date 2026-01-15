@@ -44,11 +44,14 @@ struct SimplifiedPostCard: View {
                         )
                         .multilineTextAlignment(.leading)
                     } else {
-                        Text(post.content)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .multilineTextAlignment(.leading)
-                            .lineLimit(nil)
+                        LinkifiedText(
+                            post.content,
+                            font: .loopedBody,
+                            textColor: .loopedTextPrimary,
+                            linkColor: .loopedPrimary
+                        )
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(nil)
                     }
                     
                 }

@@ -29,7 +29,8 @@ class FeedService: FeedServiceProtocol {
         if let communityId {
             endpoint += "&communityId=\(communityId)"
         }
-        let response: TrendingFeedResponseDTO = try await apiClient.get(endpoint)
+        let data = try await apiClient.getData(endpoint)
+        let response = try decode(TrendingFeedResponseDTO.self, from: data)
         return response.items.map(TrendingPost.init(dto:))
     }
 
@@ -42,7 +43,8 @@ class FeedService: FeedServiceProtocol {
             let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: allowed) ?? cursor
             endpoint += "&cursor=\(encodedCursor)"
         }
-        let response: FeedResponseDTO = try await apiClient.get(endpoint)
+        let data = try await apiClient.getData(endpoint)
+        let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
         return FeedPage(posts: posts, nextCursor: response.nextCursor)
     }
@@ -52,12 +54,16 @@ class FeedService: FeedServiceProtocol {
         isAnonymous: Bool,
         communityId: Int,
         mediaAssetId: Int?,
+        mediaAssetIds: [Int]?,
         poll: PollDraft?
     ) async throws -> Post {
         let pollRequest = poll.flatMap(makePollRequest(from:))
+        let normalizedMediaAssetIds = (mediaAssetIds ?? []).prefix(4)
+        let resolvedMediaAssetId = normalizedMediaAssetIds.isEmpty ? mediaAssetId : nil
         var request = CreatePostRequestDTO(
             content: content,
-            mediaAssetId: mediaAssetId,
+            mediaAssetId: resolvedMediaAssetId,
+            mediaAssetIds: normalizedMediaAssetIds.isEmpty ? nil : Array(normalizedMediaAssetIds),
             communityId: communityId,
             isAnon: nil,
             anonProfileId: nil,
@@ -74,7 +80,8 @@ class FeedService: FeedServiceProtocol {
             let anonContext = try await anonService.postContext(content: content, communityId: communityId)
             request = CreatePostRequestDTO(
                 content: content,
-                mediaAssetId: mediaAssetId,
+                mediaAssetId: resolvedMediaAssetId,
+                mediaAssetIds: normalizedMediaAssetIds.isEmpty ? nil : Array(normalizedMediaAssetIds),
                 communityId: communityId,
                 isAnon: true,
                 anonProfileId: anonContext.profileId,
@@ -98,10 +105,11 @@ class FeedService: FeedServiceProtocol {
             return Post(dto: dto, isAnonymousOverride: isAnonymous)
         }
         let response = try decode(CreatePostResponseDTO.self, from: data)
-        let dto: PostDTO = try await apiClient.get(
+        let postData = try await apiClient.getData(
             "/v1/posts/\(response.id)",
             requiresAuth: !isAnonymous
         )
+        let dto = try decode(PostDTO.self, from: postData)
         return Post(dto: dto, isAnonymousOverride: isAnonymous)
     }
 
@@ -116,12 +124,13 @@ class FeedService: FeedServiceProtocol {
                 anonCertKid: anonContext.certKid,
                 anonSig: anonContext.signature
             )
-            let dto: PostDTO = try await apiClient.put(
+            let data = try await apiClient.putData(
                 "/v1/posts/\(postId)",
                 body: request,
                 requiresAuth: false,
                 headers: ["X-Actor": "anon"]
             )
+            let dto = try decode(PostDTO.self, from: data)
             return Post(dto: dto, isAnonymousOverride: true)
         }
 
@@ -133,10 +142,11 @@ class FeedService: FeedServiceProtocol {
             anonCertKid: nil,
             anonSig: nil
         )
-        let dto: PostDTO = try await apiClient.put(
+        let data = try await apiClient.putData(
             "/v1/posts/\(postId)",
             body: request
         )
+        let dto = try decode(PostDTO.self, from: data)
         return Post(dto: dto)
     }
     
@@ -233,7 +243,8 @@ class FeedService: FeedServiceProtocol {
     }
 
     func fetchPost(postId: Int) async throws -> Post {
-        let dto: PostDTO = try await apiClient.get("/v1/posts/\(postId)")
+        let data = try await apiClient.getData("/v1/posts/\(postId)")
+        let dto = try decode(PostDTO.self, from: data)
         return await resolveMediaIfNeeded(for: Post(dto: dto))
     }
     
@@ -265,7 +276,8 @@ class FeedService: FeedServiceProtocol {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"
         }
-        let response: UserContentResponseDTO = try await apiClient.get(endpoint)
+        let data = try await apiClient.getData(endpoint)
+        let response = try decode(UserContentResponseDTO.self, from: data)
         let items = response.items.compactMap(UserContentItem.init(dto:))
         return UserContentPage(items: items, nextCursor: response.nextCursor)
     }
@@ -364,7 +376,8 @@ class FeedService: FeedServiceProtocol {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"
         }
-        let response: FeedResponseDTO = try await apiClient.get(endpoint)
+        let data = try await apiClient.getData(endpoint)
+        let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
         let resolved = await resolveMediaIfNeeded(for: posts)
         return FeedPage(posts: resolved, nextCursor: response.nextCursor)
@@ -393,11 +406,12 @@ class FeedService: FeedServiceProtocol {
         }
         endpoint = appendAnonQuery(to: endpoint, context: anonContext)
 
-        let response: FeedResponseDTO = try await apiClient.get(
+        let data = try await apiClient.getData(
             endpoint,
             requiresAuth: false,
             headers: ["X-Actor": "anon"]
         )
+        let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
         let resolved = await resolveMediaIfNeeded(for: posts)
         return FeedPage(posts: resolved, nextCursor: response.nextCursor)
@@ -425,9 +439,17 @@ private extension FeedService {
     }
 
     func resolveMediaIfNeeded(for posts: [Post]) async -> [Post] {
-        let missingIds: [Int] = posts.compactMap { post in
-            guard post.attachments?.isEmpty ?? true else { return nil }
-            return post.mediaAssetId
+        let missingIds: [Int] = posts.flatMap { post -> [Int] in
+            let ids = (post.mediaAssetIds ?? []).filter { $0 > 0 }
+            if !ids.isEmpty {
+                let existingCount = post.attachments?.count ?? 0
+                // Some endpoints still populate a single legacy media URL even when `media_asset_ids` is present.
+                // If we don't resolve in that case, the UI behaves like a single "merged" image.
+                return existingCount >= ids.count ? [] : ids
+            }
+            guard post.attachments?.isEmpty ?? true else { return [] }
+            if let id = post.mediaAssetId, id > 0 { return [id] }
+            return []
         }
         let uniqueIds = Array(Set(missingIds))
         guard !uniqueIds.isEmpty else { return posts }
@@ -442,6 +464,14 @@ private extension FeedService {
 
             if byId.isEmpty { return posts }
             return posts.map { post in
+                let resolvedIds = (post.mediaAssetIds ?? []).filter { $0 > 0 }
+                if !resolvedIds.isEmpty {
+                    let existingCount = post.attachments?.count ?? 0
+                    guard existingCount < resolvedIds.count else { return post }
+                    let attachments = resolvedIds.compactMap { byId[$0] }
+                    guard !attachments.isEmpty else { return post }
+                    return post.updating(attachments: .some(attachments))
+                }
                 guard post.attachments?.isEmpty ?? true else { return post }
                 guard let mediaAssetId = post.mediaAssetId, let attachment = byId[mediaAssetId] else { return post }
                 return post.updating(attachments: .some([attachment]))
@@ -484,7 +514,14 @@ private extension FeedService {
                 debugDescription: "Invalid ISO-8601 date: \(value)"
             )
         }
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.keyDecodingStrategy = .custom { codingPath in
+            guard let last = codingPath.last else { return AnyCodingKey(stringValue: "") }
+            let rawKey = last.stringValue
+            if rawKey == "media_asset_ids" {
+                return AnyCodingKey(stringValue: "mediaAssetIdsSnake")
+            }
+            return AnyCodingKey(stringValue: FeedService.convertFromSnakeCase(rawKey))
+        }
         return try decoder.decode(T.self, from: data)
     }
 }
@@ -504,3 +541,28 @@ private extension FeedService {
 }
 
 private struct EmptyBody: Codable {}
+
+private struct AnyCodingKey: CodingKey {
+    var stringValue: String
+    var intValue: Int?
+
+    init(stringValue: String) {
+        self.stringValue = stringValue
+        self.intValue = nil
+    }
+
+    init?(intValue: Int) {
+        self.stringValue = String(intValue)
+        self.intValue = intValue
+    }
+}
+
+private extension FeedService {
+    static func convertFromSnakeCase(_ stringKey: String) -> String {
+        guard stringKey.contains("_") else { return stringKey }
+        let components = stringKey.split(separator: "_")
+        guard let first = components.first else { return stringKey }
+        let rest = components.dropFirst().map { $0.prefix(1).uppercased() + $0.dropFirst() }
+        return ([String(first)] + rest).joined()
+    }
+}

@@ -28,6 +28,7 @@ struct Post: Codable, Identifiable {
     let repostedByFollowedUsersCount: Int?
     let userReaction: ReactionType?
     let mediaAssetId: Int?
+    let mediaAssetIds: [Int]?
     let attachments: [MediaAttachment]?
     let isSaved: Bool
     let authorDisplayCommunity: DisplayCommunity?
@@ -63,6 +64,7 @@ struct Post: Codable, Identifiable {
         repostedByFollowedUsersCount: Int? = nil,
         userReaction: ReactionType? = nil,
         mediaAssetId: Int? = nil,
+        mediaAssetIds: [Int]? = nil,
         attachments: [MediaAttachment]? = nil,
         isSaved: Bool = false,
         authorDisplayCommunity: DisplayCommunity? = nil,
@@ -97,6 +99,7 @@ struct Post: Codable, Identifiable {
         self.repostedByFollowedUsersCount = repostedByFollowedUsersCount
         self.userReaction = userReaction
         self.mediaAssetId = mediaAssetId
+        self.mediaAssetIds = mediaAssetIds
         self.attachments = attachments
         self.isSaved = isSaved
         self.authorDisplayCommunity = authorDisplayCommunity
@@ -130,8 +133,18 @@ extension Post {
         let authorIdValue: Int? = dto.authorId ?? dto.anonProfileId
         let resolvedAuthorId = authorIdValue.map(UUID.fromBackendId) ?? UUID()
         let resolvedReaction: ReactionType? = (dto.userLiked ?? false) ? .like : nil
+        let resolvedMediaAssetIds: [Int]? = {
+            let camel = (dto.mediaAssetIds ?? []).filter { $0 > 0 }
+            if !camel.isEmpty { return camel }
+            let snake = (dto.mediaAssetIdsSnake ?? []).filter { $0 > 0 }
+            if !snake.isEmpty { return snake }
+            return nil
+        }()
         let resolvedMediaUrl = (dto.cdnUrl ?? dto.mediaUrl)?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedAttachments: [MediaAttachment]? = {
+            if let ids = resolvedMediaAssetIds, ids.count > 1 {
+                return nil
+            }
             guard let resolvedMediaUrl, !resolvedMediaUrl.isEmpty else { return nil }
             let lowercased = resolvedMediaUrl.lowercased()
             let type: MediaType = lowercased.contains(".mp4") ? .video : .image
@@ -167,6 +180,7 @@ extension Post {
             repostedByFollowedUsersCount: bannerCount,
             userReaction: resolvedReaction,
             mediaAssetId: dto.mediaAssetId,
+            mediaAssetIds: resolvedMediaAssetIds,
             attachments: resolvedAttachments,
             isSaved: dto.isSaved ?? false,
             authorDisplayCommunity: dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:)),
@@ -223,6 +237,7 @@ extension Post {
             repostedByFollowedUsersCount: repostedByFollowedUsersCount ?? self.repostedByFollowedUsersCount,
             userReaction: userReaction ?? self.userReaction,
             mediaAssetId: mediaAssetId,
+            mediaAssetIds: mediaAssetIds,
             attachments: attachments ?? self.attachments,
             isSaved: isSaved ?? self.isSaved,
             authorDisplayCommunity: authorDisplayCommunity ?? self.authorDisplayCommunity,

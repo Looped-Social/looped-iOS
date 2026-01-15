@@ -5,6 +5,7 @@ struct HashtagText: View {
     let font: Font
     let textColor: Color
     let hashtagColor: Color
+    let linkColor: Color
     let onHashtagTap: (String) -> Void
 
     init(
@@ -12,12 +13,14 @@ struct HashtagText: View {
         font: Font = .loopedBodyScaled,
         textColor: Color = .loopedTextPrimary,
         hashtagColor: Color = .loopedPrimary,
+        linkColor: Color = .loopedPrimary,
         onHashtagTap: @escaping (String) -> Void
     ) {
         self.text = text
         self.font = font
         self.textColor = textColor
         self.hashtagColor = hashtagColor
+        self.linkColor = linkColor
         self.onHashtagTap = onHashtagTap
     }
 
@@ -37,7 +40,7 @@ struct HashtagText: View {
     }
 
     private var attributedText: AttributedString {
-        let components = parseText(text)
+        let components = LoopedTextParser.parse(text, detectHashtags: true, detectLinks: true)
         var result = AttributedString()
 
         for component in components {
@@ -53,50 +56,15 @@ struct HashtagText: View {
                 hashtagText.foregroundColor = hashtagColor
                 hashtagText.link = URL(string: "hashtag://\(cleanHashtag)")
                 result.append(hashtagText)
+            case .url(let string, let url):
+                var linkText = AttributedString(string)
+                linkText.foregroundColor = linkColor
+                linkText.link = url
+                result.append(linkText)
             }
         }
 
         return result
-    }
-
-    private func parseText(_ text: String) -> [TextComponent] {
-        var components: [TextComponent] = []
-        let pattern = "#\\w+"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return [.regular(text)]
-        }
-
-        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
-        var lastIndex = text.startIndex
-
-        for match in matches {
-            guard let range = Range(match.range, in: text) else { continue }
-
-            // Add regular text before hashtag
-            if lastIndex < range.lowerBound {
-                let regularText = String(text[lastIndex..<range.lowerBound])
-                components.append(.regular(regularText))
-            }
-
-            // Add hashtag
-            let hashtag = String(text[range])
-            components.append(.hashtag(hashtag))
-
-            lastIndex = range.upperBound
-        }
-
-        // Add remaining regular text
-        if lastIndex < text.endIndex {
-            let regularText = String(text[lastIndex...])
-            components.append(.regular(regularText))
-        }
-
-        return components.isEmpty ? [.regular(text)] : components
-    }
-
-    enum TextComponent {
-        case regular(String)
-        case hashtag(String)
     }
 }
 

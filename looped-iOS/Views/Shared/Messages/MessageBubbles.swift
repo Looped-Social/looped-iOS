@@ -350,9 +350,13 @@ struct ImageMessageBubble: View {
                         }
 
                         if !message.content.isEmpty {
-                            Text(message.content)
-                                .font(.loopedBody)
-                                .foregroundColor(.loopedTextPrimary)
+                            LinkifiedText(
+                                message.content,
+                                font: .loopedBody,
+                                textColor: .loopedTextPrimary,
+                                linkColor: .loopedPrimary
+                            )
+                            .multilineTextAlignment(isFromCurrentUser ? .trailing : .leading)
                         }
                     }
                     .padding(12)
@@ -397,11 +401,14 @@ private func bubbleTextWithNewlineTime(message: Message, isFromCurrentUser: Bool
         .foregroundColor(.loopedTextSecondary)
 
     return VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
-        Text(message.content)
-            .font(.loopedBody)
-            .foregroundColor(.loopedTextPrimary)
-            .multilineTextAlignment(isFromCurrentUser ? .trailing : .leading)
-            .fixedSize(horizontal: false, vertical: true)
+        LinkifiedText(
+            message.content,
+            font: .loopedBody,
+            textColor: .loopedTextPrimary,
+            linkColor: .loopedPrimary
+        )
+        .multilineTextAlignment(isFromCurrentUser ? .trailing : .leading)
+        .fixedSize(horizontal: false, vertical: true)
 
         timeText
             .opacity(0)

@@ -57,11 +57,14 @@ struct PostSearchResultItem: View {
                         .foregroundColor(.loopedTextSecondary)
                 }
 
-                Text(post.content)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedTextPrimary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(3)
+                LinkifiedText(
+                    post.content,
+                    font: .loopedBody,
+                    textColor: .loopedTextPrimary,
+                    linkColor: .loopedPrimary
+                )
+                .multilineTextAlignment(.leading)
+                .lineLimit(3)
 
                 HStack {
                     Text("\(post.reactionCount) reactions")
