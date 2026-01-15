@@ -94,6 +94,20 @@ private extension NotificationSettingsView {
     var typeDescriptors: [NotificationTypeDescriptor] {
         [
             NotificationTypeDescriptor(
+                id: .dmMessage,
+                icon: "message.fill",
+                title: "Direct Messages",
+                subtitle: "When someone messages you",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .channelMessage,
+                icon: "bubble.left.and.bubble.right.fill",
+                title: "Channel Messages",
+                subtitle: "When there’s new activity in a channel",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
                 id: .follow,
                 icon: "person.badge.plus",
                 title: "New Followers",

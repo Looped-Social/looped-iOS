@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct CommentRow: View {
     let comment: Comment
@@ -166,20 +167,22 @@ struct CommentRow: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
-                        PostedMediaGrid(
-                            attachments: attachments,
-                            maxHeight: 240,
-                            onImageTap: { url in
-                                guard !url.isEmpty, URL(string: url) != nil else { return }
-                                if let index = imageUrls.firstIndex(of: url) {
-                                    selectedImageIndex = index
-                                }
-                                showImageViewer = true
-                            },
-                            onVideoTap: { url in
-                                guard !url.isEmpty, URL(string: url) != nil else { return }
-                                selectedVideoUrl = url
+	                    if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
+	                        PostedMediaGrid(
+	                            attachments: attachments,
+	                            maxHeight: 240,
+	                            onImageTap: { url in
+	                                guard !url.isEmpty, URL(string: url) != nil else { return }
+	                                if let index = imageUrls.firstIndex(of: url) {
+	                                    selectedImageIndex = index
+	                                }
+	                                DispatchQueue.main.async {
+	                                    showImageViewer = true
+	                                }
+	                            },
+	                            onVideoTap: { url in
+	                                guard !url.isEmpty, URL(string: url) != nil else { return }
+	                                selectedVideoUrl = url
                                 showVideoPlayer = true
                             }
                         )

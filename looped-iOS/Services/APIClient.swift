@@ -410,6 +410,8 @@ class APIClient {
         if path.hasPrefix("/v1/conversations") { return true }
         if path.hasPrefix("/v1/message-requests") { return true }
         if path.hasPrefix("/v1/channels") { return true }
+        // Useful for debugging message attachments failures.
+        if path.hasPrefix("/v1/message-media") { return true }
 
         return false
     }

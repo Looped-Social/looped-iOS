@@ -15,6 +15,17 @@ struct Message: Codable, Identifiable {
     let createdAt: Date
 }
 
+extension Message {
+    /// Removes invisible placeholder characters used for attachment-only messages.
+    var normalizedContent: String {
+        content.replacingOccurrences(of: "\u{200B}", with: "")
+    }
+
+    var hasVisibleContent: Bool {
+        !normalizedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
 enum MessageType: String, Codable {
     case direct = "direct"
     case channel = "channel"

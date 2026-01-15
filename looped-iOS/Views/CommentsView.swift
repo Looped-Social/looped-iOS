@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct CommentsView: View {
     let post: Post
@@ -186,20 +187,22 @@ private extension CommentsView {
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
 
-                if let attachments = post.attachments, !attachments.isEmpty {
-                    PostedMediaGrid(
-                        attachments: attachments,
-                        maxHeight: 240,
-                        onImageTap: { url in
-                            guard !url.isEmpty, URL(string: url) != nil else { return }
-                            if let index = imageUrls.firstIndex(of: url) {
-                                selectedImageIndex = index
-                            }
-                            showImageViewer = true
-                        },
-                        onVideoTap: { url in
-                            guard !url.isEmpty, URL(string: url) != nil else { return }
-                            selectedVideoUrl = url
+	                if let attachments = post.attachments, !attachments.isEmpty {
+	                    PostedMediaGrid(
+	                        attachments: attachments,
+	                        maxHeight: 240,
+	                        onImageTap: { url in
+	                            guard !url.isEmpty, URL(string: url) != nil else { return }
+	                            if let index = imageUrls.firstIndex(of: url) {
+	                                selectedImageIndex = index
+	                            }
+	                            DispatchQueue.main.async {
+	                                showImageViewer = true
+	                            }
+	                        },
+	                        onVideoTap: { url in
+	                            guard !url.isEmpty, URL(string: url) != nil else { return }
+	                            selectedVideoUrl = url
                             showVideoPlayer = true
                         }
                     )

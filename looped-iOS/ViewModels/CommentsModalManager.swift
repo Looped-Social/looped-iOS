@@ -445,46 +445,8 @@ private extension CommentsModalManager {
     }
 
     func makeUploadPayload(from image: UIImage) -> ImageUploadPayload? {
-        let resized = resizedImageIfNeeded(image, maxDimension: 2048)
-        let width = Int(resized.size.width * resized.scale)
-        let height = Int(resized.size.height * resized.scale)
-
-        if imageHasAlpha(resized), let pngData = resized.pngData() {
-            return ImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
-        }
-
-        if let jpegData = resized.jpegData(compressionQuality: 0.85) {
-            return ImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
-        }
-
-        return nil
-    }
-
-    func resizedImageIfNeeded(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let pixelWidth = image.size.width * image.scale
-        let pixelHeight = image.size.height * image.scale
-        let maxPixel = max(pixelWidth, pixelHeight)
-        guard maxPixel > maxDimension, maxPixel > 0 else { return image }
-
-        let scaleFactor = maxDimension / maxPixel
-        let newSize = CGSize(width: image.size.width * scaleFactor, height: image.size.height * scaleFactor)
-
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
-    }
-
-    func imageHasAlpha(_ image: UIImage) -> Bool {
-        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
-        switch alphaInfo {
-        case .first, .last, .premultipliedFirst, .premultipliedLast:
-            return true
-        default:
-            return false
-        }
+        guard let output = ImageUploadTranscoder.makeUploadPayload(from: image) else { return nil }
+        return ImageUploadPayload(data: output.data, mimeType: output.mimeType, width: output.width, height: output.height)
     }
 
     func videoMetadata(url: URL) -> (width: Int, height: Int, durationSeconds: Int) {

@@ -111,11 +111,14 @@ class MessageService: MessageServiceProtocol {
         endpoint += "&limit=\(resolvedLimit)"
         if let cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
-            endpoint += "&cursor=\(encoded)"
+        endpoint += "&cursor=\(encoded)"
         }
 
         let response: MessageSearchResponseDTO = try await apiClient.get(endpoint)
-        let keysToResolve = response.items.flatMap { $0.matchedMessage?.attachments ?? [] }
+        let keysToResolve = response.items.flatMap { dto -> [String] in
+            guard let attachments = dto.matchedMessage?.attachments else { return [] }
+            return attachmentKeys(from: attachments)
+        }
         let resolvedByKey = (try? await resolveAttachmentMap(for: keysToResolve)) ?? [:]
         let items = response.items.compactMap { dto -> MessageSearchHit? in
             let type = MessageSearchHitType(rawValue: dto.type)
@@ -421,7 +424,10 @@ private extension MessageService {
         channelBackendId: Int?,
         messageType: MessageType
     ) async throws -> Message {
-        let resolvedAttachments = try await resolveAttachments(for: dto.attachments ?? [])
+        let attachmentDtos = dto.attachments ?? []
+        let keysToResolve = attachmentKeys(from: attachmentDtos)
+        let byKey = try await resolveAttachmentMap(for: keysToResolve)
+        let resolvedAttachments = resolveAttachments(attachmentDtos, with: byKey)
         return Message(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
@@ -444,7 +450,7 @@ private extension MessageService {
         channelBackendId: Int?,
         messageType: MessageType
     ) async throws -> [Message] {
-        let allKeys = dtos.flatMap { $0.attachments ?? [] }
+        let allKeys = dtos.flatMap { attachmentKeys(from: $0.attachments ?? []) }
         let byKey = try await resolveAttachmentMap(for: allKeys)
 
         return dtos.map { dto in
@@ -466,9 +472,14 @@ private extension MessageService {
         }
     }
 
-    func resolveAttachments(for keys: [String]) async throws -> [MediaAttachment]? {
-        let byKey = try await resolveAttachmentMap(for: keys)
-        return resolveAttachments(keys, with: byKey)
+    func attachmentKeys(from attachments: [MediaAttachmentDTO]) -> [String] {
+        attachments.compactMap { attachment in
+            let raw = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { return nil }
+            guard URL(string: raw)?.scheme == nil else { return nil }
+            guard raw.hasPrefix("dm/") else { return nil }
+            return raw
+        }
     }
 
     func resolveAttachmentMap(for keys: [String]) async throws -> [String: MessageMediaResolvedItem] {
@@ -488,12 +499,48 @@ private extension MessageService {
         return combined
     }
 
-    func resolveAttachments(_ keys: [String], with byKey: [String: MessageMediaResolvedItem]) -> [MediaAttachment]? {
-        let attachments = keys.compactMap { key -> MediaAttachment? in
-            guard let item = byKey[key], !item.downloadUrl.isEmpty else { return nil }
+    func resolveAttachments(_ attachments: [MediaAttachmentDTO], with byKey: [String: MessageMediaResolvedItem]) -> [MediaAttachment]? {
+        guard !attachments.isEmpty else { return nil }
+        var resolved: [MediaAttachment] = []
+        resolved.reserveCapacity(attachments.count)
+
+        for attachment in attachments {
+            let raw = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { continue }
+
+            if URL(string: raw)?.scheme != nil {
+                resolved.append(MediaAttachment(dto: attachment))
+                continue
+            }
+
+            guard raw.hasPrefix("dm/"), let item = byKey[raw], !item.downloadUrl.isEmpty else { continue }
             let mime = item.mimeType?.lowercased()
             let isVideo = mime?.hasPrefix("video/") == true || item.downloadUrl.lowercased().contains(".mp4")
-            return MediaAttachment(id: key, type: isVideo ? .video : .image, url: item.downloadUrl)
+            resolved.append(
+                MediaAttachment(
+                    id: raw,
+                    type: isVideo ? .video : .image,
+                    url: item.downloadUrl,
+                    thumbnailUrl: attachment.thumbnailUrl,
+                    width: attachment.width,
+                    height: attachment.height,
+                    duration: attachment.durationSeconds,
+                    fileSize: attachment.sizeBytes
+                )
+            )
+        }
+
+        return resolved.isEmpty ? nil : resolved
+    }
+
+    func resolveAttachments(_ keys: [String], with byKey: [String: MessageMediaResolvedItem]) -> [MediaAttachment]? {
+        let attachments = keys.compactMap { key -> MediaAttachment? in
+            let raw = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { return nil }
+            guard let item = byKey[raw], !item.downloadUrl.isEmpty else { return nil }
+            let mime = item.mimeType?.lowercased()
+            let isVideo = mime?.hasPrefix("video/") == true || item.downloadUrl.lowercased().contains(".mp4")
+            return MediaAttachment(id: raw, type: isVideo ? .video : .image, url: item.downloadUrl)
         }
         return attachments.isEmpty ? nil : attachments
     }

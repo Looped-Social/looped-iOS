@@ -86,6 +86,8 @@ struct MainTabView: View {
     @State private var showingChat = false
     @State private var selectedConversation: Conversation?
     @State private var selectedChannel: Channel?
+    @State private var deepLinkConversationId: Int?
+    @State private var deepLinkChannelId: Int?
     @State private var menuDestination: MenuDestination?
     @State private var showFAQSheet = false
     @State private var deepLinkProfile: DeepLinkProfile?
@@ -378,11 +380,15 @@ struct MainTabView: View {
             ChatView(
                 conversation: selectedConversation,
                 channel: selectedChannel,
+                conversationId: deepLinkConversationId,
+                channelId: deepLinkChannelId,
                 onBackTapped: {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showingChat = false
                         selectedConversation = nil
                         selectedChannel = nil
+                        deepLinkConversationId = nil
+                        deepLinkChannelId = nil
                     }
                 }
             )
@@ -476,6 +482,21 @@ struct MainTabView: View {
             deepLinkProfile = DeepLinkProfile(profileId: userId, isAnonymous: isAnonymous)
         case .announcement:
             selectedTab = .notifications
+        case .conversation(let conversationId):
+            openChat(conversationId: conversationId, channelId: nil)
+        case .channel(let channelId):
+            openChat(conversationId: nil, channelId: channelId)
+        }
+    }
+
+    private func openChat(conversationId: Int?, channelId: Int?) {
+        selectedTab = .messages
+        withAnimation(.easeInOut(duration: 0.3)) {
+            selectedConversation = nil
+            selectedChannel = nil
+            deepLinkConversationId = conversationId
+            deepLinkChannelId = channelId
+            showingChat = true
         }
     }
 
@@ -511,6 +532,10 @@ struct MainTabView: View {
             if let idValue { return .user(idValue, isAnonymous: isAnonymous) }
         case "announcement":
             if idValue != nil { return .announcement }
+        case "conversations":
+            if let idValue { return .conversation(idValue) }
+        case "channels":
+            if let idValue { return .channel(idValue) }
         default:
             break
         }
@@ -531,6 +556,8 @@ struct MainTabView: View {
         case comment(Int, postId: Int?)
         case user(Int, isAnonymous: Bool)
         case announcement
+        case conversation(Int)
+        case channel(Int)
     }
 
     private enum FeedDiscoveryStep: Int, CaseIterable {

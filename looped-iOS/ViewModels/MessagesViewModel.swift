@@ -252,7 +252,9 @@ class ChatViewModel: ObservableObject {
     private var conversationBackendId: Int?
     private var channelBackendId: Int?
     private var nextCursor: String?
-    
+    private var pollingTask: Task<Void, Never>?
+    private let pollingIntervalNanoseconds: UInt64 = 2_500_000_000
+
     init(
         messageService: MessageServiceProtocol = MessageService(),
         messageMediaService: MessageMediaServiceProtocol = MessageMediaService(),
@@ -268,7 +270,24 @@ class ChatViewModel: ObservableObject {
         self.conversationBackendId = conversationBackendId
         self.channelBackendId = channelBackendId
     }
-    
+
+    func startPolling() {
+        stopPolling()
+        pollingTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: pollingIntervalNanoseconds)
+                guard !Task.isCancelled else { return }
+                await pollOnce()
+            }
+        }
+    }
+
+    func stopPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+
     func loadMessages(for channel: Channel) async {
         isLoading = true
         errorMessage = nil
@@ -277,6 +296,23 @@ class ChatViewModel: ObservableObject {
         do {
             let page = try await messageService.getChannelMessages(channelBackendId: channel.backendId, cursor: nil)
             messages = page.messages
+            nextCursor = page.nextCursor
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isLoading = false
+    }
+
+    func loadChannelMessages(channelBackendId: Int) async {
+        isLoading = true
+        errorMessage = nil
+        messageRequestState = nil
+
+        do {
+            let page = try await messageService.getChannelMessages(channelBackendId: channelBackendId, cursor: nil)
+            messages = page.messages
+            nextCursor = page.nextCursor
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -298,6 +334,7 @@ class ChatViewModel: ObservableObject {
         do {
             let page = try await messageService.getConversationMessages(conversationId: conversationBackendId, cursor: nil)
             messages = page.messages
+            nextCursor = page.nextCursor
         } catch {
             handleDirectMessageError(error)
         }
@@ -312,16 +349,53 @@ class ChatViewModel: ObservableObject {
 
         do {
             let attachments = try await uploadAttachments(from: media)
+            let resolvedContent = normalizedMessageContent(trimmedContent, attachments: attachments)
+            guard let resolvedContent else {
+                let message = "Type a message or attach media."
+                errorMessage = message
+                toastMessage = ToastMessage(text: message, kind: .error)
+                return false
+            }
             let message = try await messageService.sendChannelMessage(
                 channelBackendId: channel.backendId,
-                content: trimmedContent,
+                content: resolvedContent,
                 attachments: attachments.isEmpty ? nil : attachments
             )
             messages.append(message)
             return true
         } catch {
-            errorMessage = error.localizedDescription
-            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+            let resolved = userFacingErrorMessage(for: error)
+            errorMessage = resolved
+            toastMessage = ToastMessage(text: resolved, kind: .error)
+            return false
+        }
+    }
+
+    func sendChannelMessage(channelBackendId: Int, content: String, media: [LocalMediaItem]) async -> Bool {
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        isSending = true
+        defer { isSending = false }
+
+        do {
+            let attachments = try await uploadAttachments(from: media)
+            let resolvedContent = normalizedMessageContent(trimmedContent, attachments: attachments)
+            guard let resolvedContent else {
+                let message = "Type a message or attach media."
+                errorMessage = message
+                toastMessage = ToastMessage(text: message, kind: .error)
+                return false
+            }
+            let message = try await messageService.sendChannelMessage(
+                channelBackendId: channelBackendId,
+                content: resolvedContent,
+                attachments: attachments.isEmpty ? nil : attachments
+            )
+            messages.append(message)
+            return true
+        } catch {
+            let resolved = userFacingErrorMessage(for: error)
+            errorMessage = resolved
+            toastMessage = ToastMessage(text: resolved, kind: .error)
             return false
         }
     }
@@ -338,16 +412,23 @@ class ChatViewModel: ObservableObject {
 
         do {
             let attachments = try await uploadAttachments(from: media)
+            let resolvedContent = normalizedMessageContent(trimmedContent, attachments: attachments)
+            guard let resolvedContent else {
+                let message = "Type a message or attach media."
+                errorMessage = message
+                toastMessage = ToastMessage(text: message, kind: .error)
+                return false
+            }
             let message = try await messageService.sendConversationMessage(
                 conversationId: conversationBackendId,
-                content: trimmedContent,
+                content: resolvedContent,
                 attachments: attachments.isEmpty ? nil : attachments
             )
             messages.append(message)
             return true
         } catch {
             handleDirectMessageError(error)
-            toastMessage = ToastMessage(text: errorMessage ?? error.localizedDescription, kind: .error)
+            toastMessage = ToastMessage(text: errorMessage ?? userFacingErrorMessage(for: error), kind: .error)
             return false
         }
     }
@@ -365,7 +446,43 @@ class ChatViewModel: ObservableObject {
                 return
             }
         }
-        errorMessage = error.localizedDescription
+        errorMessage = userFacingErrorMessage(for: error)
+    }
+
+    private func normalizedMessageContent(_ trimmedContent: String, attachments: [String]) -> String? {
+        if !trimmedContent.isEmpty { return trimmedContent }
+        if !attachments.isEmpty {
+            // Some backends reject empty strings; send an invisible character to represent attachment-only messages.
+            return "\u{200B}"
+        }
+        return nil
+    }
+
+    private func userFacingErrorMessage(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .apiError(_, let code, let message):
+                if code == "unsupported_content_type" {
+                    return "That file type isn’t supported for messages yet."
+                }
+                if code == "size_exceeds_limit" {
+                    return "That file is too large to send."
+                }
+                if code == "message_media_bucket_not_configured" {
+                    return "Media sending isn’t available right now. Try again later."
+                }
+                if code == "anonymous_not_allowed" {
+                    return "Anonymous users can’t send attachments."
+                }
+                if code == "invalid_attachments" {
+                    return "We couldn’t attach that media. Please try again."
+                }
+                return message ?? code
+            default:
+                return apiError.localizedDescription
+            }
+        }
+        return error.localizedDescription
     }
 
     private func uploadAttachments(from media: [LocalMediaItem]) async throws -> [String] {
@@ -379,6 +496,7 @@ class ChatViewModel: ObservableObject {
                 guard let image = item.image else { throw ChatMediaUploadError.unreadableImage }
                 guard let payload = makeUploadPayload(from: image) else { throw ChatMediaUploadError.unreadableImage }
                 let key = try await messageMediaService.uploadImage(data: payload.data, mimeType: payload.mimeType)
+                guard key.hasPrefix("dm/") else { throw ChatMediaUploadError.invalidAttachmentKey }
                 keys.append(key)
             case .video:
                 guard let url = item.videoURL else { throw ChatMediaUploadError.unreadableVideo }
@@ -388,6 +506,7 @@ class ChatViewModel: ObservableObject {
                     TemporaryMediaFile.deleteIfOwned(url)
                 }
                 let key = try await messageMediaService.uploadVideo(fileURL: mp4Url, mimeType: "video/mp4")
+                guard key.hasPrefix("dm/") else { throw ChatMediaUploadError.invalidAttachmentKey }
                 keys.append(key)
             case .gif:
                 throw ChatMediaUploadError.unsupportedMedia
@@ -398,46 +517,8 @@ class ChatViewModel: ObservableObject {
     }
 
     private func makeUploadPayload(from image: UIImage) -> ChatImageUploadPayload? {
-        let resized = resizedImageIfNeeded(image, maxDimension: 2048)
-        let width = Int(resized.size.width * resized.scale)
-        let height = Int(resized.size.height * resized.scale)
-
-        if imageHasAlpha(resized), let pngData = resized.pngData() {
-            return ChatImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
-        }
-
-        if let jpegData = resized.jpegData(compressionQuality: 0.85) {
-            return ChatImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
-        }
-
-        return nil
-    }
-
-    private func resizedImageIfNeeded(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let pixelWidth = image.size.width * image.scale
-        let pixelHeight = image.size.height * image.scale
-        let maxPixel = max(pixelWidth, pixelHeight)
-        guard maxPixel > maxDimension, maxPixel > 0 else { return image }
-
-        let scaleFactor = maxDimension / maxPixel
-        let newSize = CGSize(width: image.size.width * scaleFactor, height: image.size.height * scaleFactor)
-
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
-    }
-
-    private func imageHasAlpha(_ image: UIImage) -> Bool {
-        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
-        switch alphaInfo {
-        case .first, .last, .premultipliedFirst, .premultipliedLast:
-            return true
-        default:
-            return false
-        }
+        guard let output = ImageUploadTranscoder.makeUploadPayload(from: image) else { return nil }
+        return ChatImageUploadPayload(data: output.data, mimeType: output.mimeType, width: output.width, height: output.height)
     }
     
     private func setupWebSocketListeners() {
@@ -450,6 +531,48 @@ class ChatViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    private func pollOnce() async {
+        guard !isLoading else { return }
+        guard messageRequestState == nil else { return }
+        if conversationBackendId == nil && channelBackendId == nil { return }
+
+        do {
+            if let channelBackendId {
+                let page = try await messageService.getChannelMessages(channelBackendId: channelBackendId, cursor: nextCursor)
+                mergePolledMessages(page.messages)
+                if let cursor = page.nextCursor { nextCursor = cursor }
+                return
+            }
+            if let conversationBackendId {
+                let page = try await messageService.getConversationMessages(conversationId: conversationBackendId, cursor: nextCursor)
+                mergePolledMessages(page.messages)
+                if let cursor = page.nextCursor { nextCursor = cursor }
+            }
+        } catch {
+            // Back off by effectively stopping polling on auth/permission issues.
+            if case let APIError.apiError(_, code, _) = error, code == "message_request_pending" || code == "message_request_rejected" {
+                messageRequestState = code == "message_request_pending" ? .pending : .rejected
+                stopPolling()
+                return
+            }
+            // Keep polling on transient network errors.
+        }
+    }
+
+    private func mergePolledMessages(_ incoming: [Message]) {
+        guard !incoming.isEmpty else { return }
+        var seen = Set(messages.map(\.backendId))
+        var appended: [Message] = []
+        appended.reserveCapacity(incoming.count)
+
+        for message in incoming where !seen.contains(message.backendId) {
+            seen.insert(message.backendId)
+            appended.append(message)
+        }
+        guard !appended.isEmpty else { return }
+        messages.append(contentsOf: appended)
     }
 }
 
@@ -464,6 +587,7 @@ private enum ChatMediaUploadError: LocalizedError {
     case unsupportedMedia
     case unreadableImage
     case unreadableVideo
+    case invalidAttachmentKey
 
     var errorDescription: String? {
         switch self {
@@ -473,6 +597,8 @@ private enum ChatMediaUploadError: LocalizedError {
             return "We couldn't read that image. Try another one."
         case .unreadableVideo:
             return "We couldn't read that video. Try another one."
+        case .invalidAttachmentKey:
+            return "We couldn't attach that media. Please try again."
         }
     }
 }

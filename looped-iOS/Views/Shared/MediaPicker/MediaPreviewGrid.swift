@@ -209,36 +209,21 @@ struct PostedMediaGrid: View {
     }
 
     var body: some View {
-        Group {
-            if attachments.count == 1 {
-                // Single large display
-                SinglePostedMedia(
-                    attachment: attachments[0],
-                    maxHeight: maxHeight,
-                    onImageTap: onImageTap,
-                    onVideoTap: onVideoTap
-                )
-            } else if attachments.count == 2 {
-                // Two side-by-side
-                HStack(spacing: 8) {
-                    ForEach(attachments) { attachment in
-                        PostedMediaThumbnail(
-                            attachment: attachment,
-                            onImageTap: onImageTap,
-                            onVideoTap: onVideoTap
-                        )
-                    }
-                }
-                .frame(maxHeight: maxHeight * 0.7)
-            } else if attachments.count >= 3 {
-                // Grid layout
-                PostedMediaGridLayout(
-                    attachments: attachments,
-                    maxHeight: maxHeight,
-                    onImageTap: onImageTap,
-                    onVideoTap: onVideoTap
-                )
-            }
+        if attachments.count == 1 {
+            // Single large display
+            SinglePostedMedia(
+                attachment: attachments[0],
+                maxHeight: maxHeight,
+                onImageTap: onImageTap,
+                onVideoTap: onVideoTap
+            )
+        } else {
+            PostedMediaGridLayout(
+                attachments: attachments,
+                maxHeight: maxHeight,
+                onImageTap: onImageTap,
+                onVideoTap: onVideoTap
+            )
         }
     }
 }
@@ -261,8 +246,10 @@ struct SinglePostedMedia: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
+                            .onAppear { isShimmering = false }
                     case .failure:
                         MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                            .onAppear { isShimmering = false }
                     case .empty:
                         MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
                     @unknown default:
@@ -315,8 +302,10 @@ struct SinglePostedMedia: View {
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
+                        .onAppear { isShimmering = false }
                 case .failure:
                     MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                        .onAppear { isShimmering = false }
                 case .empty:
                     MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
                 @unknown default:
@@ -336,7 +325,7 @@ struct SinglePostedMedia: View {
 
     private func stopShimmerAfterDelay() async {
         guard isShimmering else { return }
-        try? await Task.sleep(nanoseconds: 2_500_000_000)
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
         isShimmering = false
     }
 }
@@ -356,15 +345,16 @@ struct PostedMediaThumbnail: View {
                     image
                         .resizable()
                         .scaledToFill()
+                        .onAppear { isShimmering = false }
                 case .failure:
                     MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                        .onAppear { isShimmering = false }
                 case .empty:
                     MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
                 @unknown default:
                     MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
             .task {
                 await stopShimmerAfterDelay()
@@ -394,7 +384,7 @@ struct PostedMediaThumbnail: View {
 
     private func stopShimmerAfterDelay() async {
         guard isShimmering else { return }
-        try? await Task.sleep(nanoseconds: 2_500_000_000)
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
         isShimmering = false
     }
 }
@@ -431,8 +421,19 @@ struct PostedMediaGridLayout: View {
     var body: some View {
         let spacing: CGFloat = 8
         let rowHeight = maxHeight * 0.4
+        let rowHeightForTwo = maxHeight * 0.7
 
         VStack(spacing: spacing) {
+            if attachments.count == 2 {
+                HStack(spacing: spacing) {
+                    PostedMediaThumbnail(attachment: attachments[0], onImageTap: onImageTap, onVideoTap: onVideoTap)
+                        .frame(maxWidth: .infinity)
+                    PostedMediaThumbnail(attachment: attachments[1], onImageTap: onImageTap, onVideoTap: onVideoTap)
+                        .frame(maxWidth: .infinity)
+                }
+                .frame(height: rowHeightForTwo)
+                .clipped()
+            } else
             if attachments.count == 3 {
                 HStack(spacing: 8) {
                     PostedMediaThumbnail(
@@ -440,11 +441,13 @@ struct PostedMediaGridLayout: View {
                         onImageTap: onImageTap,
                         onVideoTap: onVideoTap
                     )
+                    .frame(maxWidth: .infinity)
                     PostedMediaThumbnail(
                         attachment: attachments[1],
                         onImageTap: onImageTap,
                         onVideoTap: onVideoTap
                     )
+                    .frame(maxWidth: .infinity)
                 }
                 .frame(height: rowHeight)
                 .clipped()
@@ -454,6 +457,7 @@ struct PostedMediaGridLayout: View {
                     onImageTap: onImageTap,
                     onVideoTap: onVideoTap
                 )
+                .frame(maxWidth: .infinity)
                 .frame(height: rowHeight)
                 .clipped()
             } else {
@@ -464,11 +468,13 @@ struct PostedMediaGridLayout: View {
                             onImageTap: onImageTap,
                             onVideoTap: onVideoTap
                         )
+                        .frame(maxWidth: .infinity)
                         PostedMediaThumbnail(
                             attachment: attachments[1],
                             onImageTap: onImageTap,
                             onVideoTap: onVideoTap
                         )
+                        .frame(maxWidth: .infinity)
                     }
                     .frame(height: rowHeight)
                     .clipped()
@@ -478,12 +484,17 @@ struct PostedMediaGridLayout: View {
                             onImageTap: onImageTap,
                             onVideoTap: onVideoTap
                         )
+                        .frame(maxWidth: .infinity)
                         if attachments.count > 3 {
                             PostedMediaThumbnail(
                                 attachment: attachments[3],
                                 onImageTap: onImageTap,
                                 onVideoTap: onVideoTap
                             )
+                            .frame(maxWidth: .infinity)
+                        } else {
+                            Color.loopedClear
+                                .frame(maxWidth: .infinity)
                         }
                     }
                     .frame(height: rowHeight)
@@ -493,7 +504,7 @@ struct PostedMediaGridLayout: View {
                 .clipped()
             }
         }
-        .frame(height: rowHeight * 2 + spacing)
+        .frame(height: (attachments.count == 2 ? rowHeightForTwo : (rowHeight * 2 + spacing)))
         .clipped()
     }
 }

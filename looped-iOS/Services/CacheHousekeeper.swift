@@ -9,6 +9,11 @@ enum CacheHousekeeper {
     ) {
         URLCache.shared.memoryCapacity = memoryBytes
         URLCache.shared.diskCapacity = diskBytes
+
+        // If the app previously ran without a cap, the cache can grow very large; proactively trim.
+        if URLCache.shared.currentDiskUsage > diskBytes * 2 {
+            URLCache.shared.removeAllCachedResponses()
+        }
     }
 
     /// Runs lightweight cleanup at most once per 12 hours.
@@ -18,11 +23,10 @@ enum CacheHousekeeper {
         guard now.timeIntervalSince(lastRun) > 12 * 60 * 60 else { return }
         UserDefaults.standard.set(now, forKey: lastRunKey)
 
-        TemporaryMediaFile.cleanupOrphanedFiles(olderThan: 24 * 60 * 60)
+        TemporaryMediaFile.cleanupOrphanedFiles(olderThan: 6 * 60 * 60)
 
         // Avoid long-lived on-disk media cache growth; keep "recent" media hot.
-        let keepSince = now.addingTimeInterval(-7 * 24 * 60 * 60)
+        let keepSince = now.addingTimeInterval(-3 * 24 * 60 * 60)
         URLCache.shared.removeCachedResponses(since: keepSince)
     }
 }
-

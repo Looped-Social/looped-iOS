@@ -156,7 +156,7 @@ extension Post {
         let bannerUsers = dto.repostedByFollowedUsers?.map(RepostBannerUser.init(dto:))
         let bannerCount = dto.repostedByFollowedUsersCount ?? bannerUsers?.count
         self.init(
-            id: dto.id.map(UUID.fromBackendId) ?? UUID(),
+            id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
             authorBackendId: dto.authorId,
             authorPrincipalId: dto.authorPrincipalId,

@@ -4,6 +4,8 @@ import Foundation
 struct ChatView: View {
     let conversation: Conversation?
     let channel: Channel?
+    let conversationId: Int?
+    let channelId: Int?
     let onBackTapped: () -> Void
 
     @EnvironmentObject private var authViewModel: AuthViewModel
@@ -14,8 +16,22 @@ struct ChatView: View {
     @State private var showChatDetails = false
     @State private var conversationBackendId: Int?
 
+    init(
+        conversation: Conversation?,
+        channel: Channel?,
+        conversationId: Int? = nil,
+        channelId: Int? = nil,
+        onBackTapped: @escaping () -> Void
+    ) {
+        self.conversation = conversation
+        self.channel = channel
+        self.conversationId = conversationId
+        self.channelId = channelId
+        self.onBackTapped = onBackTapped
+    }
+
     private var isGroupChat: Bool {
-        return channel != nil
+        return channel != nil || channelId != nil
     }
 
     private var chatTitle: String {
@@ -23,6 +39,10 @@ struct ChatView: View {
             return channel.name
         } else if let conversation = conversation {
             return conversation.userName
+        } else if channelId != nil {
+            return "Channel"
+        } else if conversationId != nil {
+            return "Conversation"
         } else {
             return "Chat"
         }
@@ -179,6 +199,10 @@ struct ChatView: View {
         .task {
             configureIds()
             await loadMessages()
+            viewModel.startPolling()
+        }
+        .onDisappear {
+            viewModel.stopPolling()
         }
     }
 
@@ -201,8 +225,12 @@ struct ChatView: View {
 
         Task {
             let didSend: Bool
-            if let channel = channel {
-                didSend = await viewModel.sendMessage(contentToSend, media: mediaToSend, to: channel)
+            if let channelBackendId = channel?.backendId ?? channelId {
+                if let channel {
+                    didSend = await viewModel.sendMessage(contentToSend, media: mediaToSend, to: channel)
+                } else {
+                    didSend = await viewModel.sendChannelMessage(channelBackendId: channelBackendId, content: contentToSend, media: mediaToSend)
+                }
             } else {
                 didSend = await viewModel.sendDirectMessage(contentToSend, media: mediaToSend)
             }
@@ -217,14 +245,21 @@ struct ChatView: View {
         if let conversation = conversation {
             conversationBackendId = conversation.backendId
             viewModel.configure(conversationBackendId: conversation.backendId, channelBackendId: nil)
+        } else if let conversationId {
+            conversationBackendId = conversationId
+            viewModel.configure(conversationBackendId: conversationId, channelBackendId: nil)
         } else if let channel = channel {
             viewModel.configure(conversationBackendId: nil, channelBackendId: channel.backendId)
+        } else if let channelId {
+            viewModel.configure(conversationBackendId: nil, channelBackendId: channelId)
         }
     }
 
     private func loadMessages() async {
         if let channel = channel {
             await viewModel.loadMessages(for: channel)
+        } else if let channelId {
+            await viewModel.loadChannelMessages(channelBackendId: channelId)
         } else {
             await viewModel.loadDirectMessages()
         }

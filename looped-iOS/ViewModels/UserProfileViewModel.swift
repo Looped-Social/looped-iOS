@@ -50,7 +50,9 @@ final class UserProfileViewModel: ObservableObject {
                 profile = UserProfile.from(user: user, isCurrentUser: user.backendId == currentUserId)
             case .anon(let anonProfileId):
                 let anonProfile = try await anonService.fetchProfile(id: anonProfileId)
-                profile = anonProfile.asUserProfile(companyName: nil, isCurrentUser: false)
+                let currentIdentity = await anonService.currentIdentity()
+                let isCurrentUser = currentIdentity?.profileId == anonProfileId
+                profile = anonProfile.asUserProfile(companyName: nil, isCurrentUser: isCurrentUser)
             }
         } catch {
             errorMessage = error.localizedDescription

@@ -439,29 +439,10 @@ class FeedViewModel: ObservableObject {
                         )]
                     }
                 } else if !images.isEmpty {
-                    for item in images.prefix(4) {
-                        guard let image = item.image else {
-                            errorMessage = "We couldn't read that image. Try another one."
-                            return false
-                        }
-                        guard let payload = makeUploadPayload(from: image) else {
-                            errorMessage = "We couldn't read that image. Try another one."
-                            return false
-                        }
-                        let asset = try await mediaService.uploadImage(
-                            data: payload.data,
-                            mimeType: payload.mimeType,
-                            width: payload.width,
-                            height: payload.height,
-                            actor: actor
-                        )
-                        mediaAssetIds.append(asset.id)
-                        if let url = asset.cdnUrl, !url.isEmpty {
-                            uploadedAttachments.append(
-                                MediaAttachment(id: "asset:\(asset.id)", type: .image, url: url, width: payload.width, height: payload.height)
-                            )
-                        }
-                    }
+                    let selection = Array(images.prefix(4))
+                    let result = try await uploadImages(selection, actor: actor, maxConcurrentUploads: 3)
+                    mediaAssetIds = result.assetIds
+                    uploadedAttachments = result.attachments
                 }
             }
 
@@ -509,6 +490,108 @@ class FeedViewModel: ObservableObject {
 }
 
 private extension FeedViewModel {
+    struct UnsafeSendable<T>: @unchecked Sendable {
+        let value: T
+        init(_ value: T) { self.value = value }
+    }
+
+    struct UploadedMediaResult {
+        let assetIds: [Int]
+        let attachments: [MediaAttachment]
+    }
+
+    enum FeedMediaUploadError: LocalizedError {
+        case unreadableImage
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadableImage:
+                return "We couldn't read that image. Try another one."
+            }
+        }
+    }
+
+    func uploadImages(
+        _ items: [LocalMediaItem],
+        actor: MediaUploadActor,
+        maxConcurrentUploads: Int
+    ) async throws -> UploadedMediaResult {
+        guard !items.isEmpty else { return UploadedMediaResult(assetIds: [], attachments: []) }
+        let unsafeMediaService = UnsafeSendable(mediaService)
+
+        var indexedImages: [(index: Int, image: UnsafeSendable<UIImage>)] = []
+        indexedImages.reserveCapacity(items.count)
+        for (index, item) in items.enumerated() {
+            guard let image = item.image else { throw FeedMediaUploadError.unreadableImage }
+            indexedImages.append((index: index, image: UnsafeSendable(image)))
+        }
+
+        let resolvedConcurrency = min(max(maxConcurrentUploads, 1), indexedImages.count)
+
+        var results: [(index: Int, asset: MediaAsset, attachment: MediaAttachment?)] = []
+        results.reserveCapacity(indexedImages.count)
+
+        try await withThrowingTaskGroup(of: (Int, MediaAsset, MediaAttachment?).self) { group in
+            #if DEBUG
+            let startedAt = Date()
+            #endif
+            var nextIndex = 0
+
+            func enqueue(_ index: Int) {
+                group.addTask { [unsafeMediaService] in
+                    let entry = indexedImages[index]
+                    guard let payload = autoreleasepool(invoking: { FeedViewModel.makeUploadPayload(from: entry.image.value) }) else {
+                        throw FeedMediaUploadError.unreadableImage
+                    }
+                    #if DEBUG
+                    print("Post image prepared index=\(entry.index) bytes=\(payload.data.count) mime=\(payload.mimeType) size=\(payload.width)x\(payload.height)")
+                    #endif
+
+                    let asset = try await unsafeMediaService.value.uploadImage(
+                        data: payload.data,
+                        mimeType: payload.mimeType,
+                        width: payload.width,
+                        height: payload.height,
+                        actor: actor
+                    )
+
+                    let attachment = asset.cdnUrl.flatMap { url -> MediaAttachment? in
+                        guard !url.isEmpty else { return nil }
+                        return MediaAttachment(
+                            id: "asset:\(asset.id)",
+                            type: .image,
+                            url: url,
+                            width: payload.width,
+                            height: payload.height
+                        )
+                    }
+                    return (entry.index, asset, attachment)
+                }
+            }
+
+            while nextIndex < resolvedConcurrency {
+                enqueue(nextIndex)
+                nextIndex += 1
+            }
+
+            while let completed = try await group.next() {
+                results.append((completed.0, completed.1, completed.2))
+                if nextIndex < indexedImages.count {
+                    enqueue(nextIndex)
+                    nextIndex += 1
+                }
+            }
+            #if DEBUG
+            print("Post images prepared+uploaded in \(Int(Date().timeIntervalSince(startedAt) * 1000))ms")
+            #endif
+        }
+
+        let ordered = results.sorted { $0.index < $1.index }
+        let assetIds = ordered.map { $0.asset.id }
+        let attachments = ordered.compactMap(\.attachment)
+        return UploadedMediaResult(assetIds: assetIds, attachments: attachments)
+    }
+
     func performCommunitySearch(query: String) async {
         isCommunitySearchLoading = true
         defer { isCommunitySearchLoading = false }
@@ -564,37 +647,9 @@ private extension FeedViewModel {
         UserDefaults.standard.set(community.memberCount, forKey: feedRecentCommunityMemberCountKey)
     }
 
-    func makeUploadPayload(from image: UIImage) -> ImageUploadPayload? {
-        let resized = resizedImageIfNeeded(image, maxDimension: 2048)
-        let width = Int(resized.size.width * resized.scale)
-        let height = Int(resized.size.height * resized.scale)
-
-        if imageHasAlpha(resized), let pngData = resized.pngData() {
-            return ImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
-        }
-
-        if let jpegData = resized.jpegData(compressionQuality: 0.85) {
-            return ImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
-        }
-
-        return nil
-    }
-
-    func resizedImageIfNeeded(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let pixelWidth = image.size.width * image.scale
-        let pixelHeight = image.size.height * image.scale
-        let maxPixel = max(pixelWidth, pixelHeight)
-        guard maxPixel > maxDimension, maxPixel > 0 else { return image }
-
-        let scaleFactor = maxDimension / maxPixel
-        let newSize = CGSize(width: image.size.width * scaleFactor, height: image.size.height * scaleFactor)
-
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
+    nonisolated static func makeUploadPayload(from image: UIImage) -> ImageUploadPayload? {
+        guard let output = ImageUploadTranscoder.makeUploadPayload(from: image) else { return nil }
+        return ImageUploadPayload(data: output.data, mimeType: output.mimeType, width: output.width, height: output.height)
     }
 
     func videoMetadata(url: URL) -> (width: Int, height: Int, durationSeconds: Int) {
@@ -609,18 +664,9 @@ private extension FeedViewModel {
         return (width: max(width, 0), height: max(height, 0), durationSeconds: max(duration, 0))
     }
 
-    func imageHasAlpha(_ image: UIImage) -> Bool {
-        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
-        switch alphaInfo {
-        case .first, .last, .premultipliedFirst, .premultipliedLast:
-            return true
-        default:
-            return false
-        }
-    }
 }
 
-private struct ImageUploadPayload {
+private struct ImageUploadPayload: Sendable {
     let data: Data
     let mimeType: String
     let width: Int

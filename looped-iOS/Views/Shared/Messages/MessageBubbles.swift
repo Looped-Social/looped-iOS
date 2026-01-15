@@ -91,7 +91,7 @@ struct SentMessageBubble: View {
                                 )
                         }
                         .overlay(alignment: .bottomTrailing) {
-                            if message.content.isEmpty, index == attachments.count - 1 {
+                            if !message.hasVisibleContent, index == attachments.count - 1 {
                                 MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                             }
                         }
@@ -112,24 +112,26 @@ struct SentMessageBubble: View {
                         .frame(maxWidth: 220, maxHeight: 220)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .overlay(alignment: .bottomTrailing) {
-                            if message.content.isEmpty, index == attachments.count - 1 {
+                            if !message.hasVisibleContent, index == attachments.count - 1 {
                                 MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                             }
                         }
-                        .onTapGesture {
-                            // Find the index of the tapped image among all images
-                            if let index = imageUrls.firstIndex(of: attachment.url) {
-                                selectedImageIndex = index
-                            }
-                            selectedImageUrl = attachment.url
-                            showImageViewer = true
-                        }
+	                        .onTapGesture {
+	                            // Find the index of the tapped image among all images
+	                            if let index = imageUrls.firstIndex(of: attachment.url) {
+	                                selectedImageIndex = index
+	                            }
+	                            selectedImageUrl = attachment.url
+	                            DispatchQueue.main.async {
+	                                showImageViewer = true
+	                            }
+	                        }
                     }
                 }
             }
 
             // Show text if present
-            if !message.content.isEmpty {
+            if message.hasVisibleContent {
                 let bubbleShape = ChatBubbleShape(isFromCurrentUser: true, isGroupStart: isGroupStart, isGroupEnd: isGroupEnd)
                 ChatBubbleWidthLayout(maxWidth: MessageBubbleLayout.bubbleMaxWidth) {
                     bubbleTextWithNewlineTime(message: message, isFromCurrentUser: true)
@@ -227,7 +229,7 @@ struct ReceivedMessageBubble: View {
                                     )
                             }
                             .overlay(alignment: .bottomTrailing) {
-                                if message.content.isEmpty, index == attachments.count - 1 {
+                                if !message.hasVisibleContent, index == attachments.count - 1 {
                                     MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                                 }
                             }
@@ -248,24 +250,26 @@ struct ReceivedMessageBubble: View {
                             .frame(maxWidth: 220, maxHeight: 220)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .overlay(alignment: .bottomTrailing) {
-                                if message.content.isEmpty, index == attachments.count - 1 {
+                                if !message.hasVisibleContent, index == attachments.count - 1 {
                                     MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                                 }
                             }
-                            .onTapGesture {
-                                // Find the index of the tapped image among all images
-                                if let index = imageUrls.firstIndex(of: attachment.url) {
-                                    selectedImageIndex = index
-                                }
-                                selectedImageUrl = attachment.url
-                                showImageViewer = true
-                            }
+	                            .onTapGesture {
+	                                // Find the index of the tapped image among all images
+	                                if let index = imageUrls.firstIndex(of: attachment.url) {
+	                                    selectedImageIndex = index
+	                                }
+	                                selectedImageUrl = attachment.url
+	                                DispatchQueue.main.async {
+	                                    showImageViewer = true
+	                                }
+	                            }
                         }
                     }
                 }
 
                 // Show text if present
-                if !message.content.isEmpty {
+                if message.hasVisibleContent {
                     let bubbleShape = ChatBubbleShape(isFromCurrentUser: false, isGroupStart: isGroupStart, isGroupEnd: isGroupEnd)
                     ChatBubbleWidthLayout(maxWidth: MessageBubbleLayout.bubbleMaxWidth) {
                         bubbleTextWithNewlineTime(message: message, isFromCurrentUser: false)
@@ -349,9 +353,9 @@ struct ImageMessageBubble: View {
                             showImageViewer = true
                         }
 
-                        if !message.content.isEmpty {
+                        if message.hasVisibleContent {
                             LinkifiedText(
-                                message.content,
+                                message.normalizedContent,
                                 font: .loopedBody,
                                 textColor: .loopedTextPrimary,
                                 linkColor: .loopedPrimary
@@ -402,7 +406,7 @@ private func bubbleTextWithNewlineTime(message: Message, isFromCurrentUser: Bool
 
     return VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
         LinkifiedText(
-            message.content,
+            message.normalizedContent,
             font: .loopedBody,
             textColor: .loopedTextPrimary,
             linkColor: .loopedPrimary

@@ -6,7 +6,7 @@ struct FullScreenImageViewer: View {
     let initialIndex: Int
     @Binding var isPresented: Bool
 
-    @State private var currentIndex: Int
+    @State private var currentIndex: Int = 0
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
@@ -18,7 +18,8 @@ struct FullScreenImageViewer: View {
         self.imageUrls = imageUrls
         self.initialIndex = initialIndex
         self._isPresented = isPresented
-        self._currentIndex = State(initialValue: initialIndex)
+        let clamped = min(max(initialIndex, 0), max(imageUrls.count - 1, 0))
+        self._currentIndex = State(initialValue: clamped)
     }
 
     var body: some View {
@@ -100,11 +101,32 @@ struct FullScreenImageViewer: View {
             }
         }
         .statusBar(hidden: !showControls)
+        .onAppear {
+            syncToInitialIndex()
+        }
+        .onChange(of: initialIndex) { _, _ in
+            syncToInitialIndex()
+        }
         .sheet(isPresented: $showShareSheet) {
             if let url = URL(string: imageUrls[currentIndex]) {
                 ShareSheet(items: [url])
             }
         }
+    }
+
+    private func syncToInitialIndex() {
+        guard !imageUrls.isEmpty else {
+            currentIndex = 0
+            return
+        }
+
+        let clamped = min(max(initialIndex, 0), imageUrls.count - 1)
+        currentIndex = clamped
+        scale = 1.0
+        lastScale = 1.0
+        offset = .zero
+        lastOffset = .zero
+        showControls = true
     }
 }
 

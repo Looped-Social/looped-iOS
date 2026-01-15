@@ -452,14 +452,16 @@ struct PostCard: View {
 		        }
 		    }
 
-		    private func handlePostedImageTap(_ url: String) {
-		        guard !url.isEmpty, URL(string: url) != nil else { return }
-		        if let index = imageUrls.firstIndex(of: url) {
-		            selectedImageIndex = index
-		        }
-		        selectedImageUrl = url
-		        showImageViewer = true
-		    }
+			    private func handlePostedImageTap(_ url: String) {
+			        guard !url.isEmpty, URL(string: url) != nil else { return }
+			        if let index = imageUrls.firstIndex(of: url) {
+			            selectedImageIndex = index
+			        }
+			        selectedImageUrl = url
+			        DispatchQueue.main.async {
+			            showImageViewer = true
+			        }
+			    }
 
 		    private func handlePostedVideoTap(_ url: String) {
 		        guard !url.isEmpty, URL(string: url) != nil else { return }

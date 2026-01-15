@@ -46,7 +46,7 @@ struct MessageDTO: Codable {
     let id: Int
     let senderId: Int
     let content: String
-    let attachments: [String]?
+    let attachments: [MediaAttachmentDTO]?
     let createdAt: Date
 }
 
