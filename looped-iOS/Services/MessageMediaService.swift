@@ -33,8 +33,15 @@ final class MessageMediaService: MessageMediaServiceProtocol {
                 "/v1/message-media/resolve",
                 body: request
             )
+            let now = Date()
             resolved.append(contentsOf: dto.items.map { item in
-                MessageMediaResolvedItem(key: item.key, downloadUrl: item.downloadUrl, mimeType: item.mimeType)
+                let expiresAt = now.addingTimeInterval(TimeInterval(item.expiresInSeconds ?? 300))
+                return MessageMediaResolvedItem(
+                    key: item.key,
+                    downloadUrl: item.downloadUrl,
+                    mimeType: item.mimeType,
+                    expiresAt: expiresAt
+                )
             })
             index = end
         }

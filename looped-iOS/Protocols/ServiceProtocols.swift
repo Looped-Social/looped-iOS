@@ -324,6 +324,7 @@ struct MessageMediaResolvedItem: Equatable {
     let key: String
     let downloadUrl: String
     let mimeType: String?
+    let expiresAt: Date
 }
 
 protocol CommunityRequestServiceProtocol {

@@ -418,6 +418,8 @@ struct PrivacyView: View {
     @State private var isUpdating = false
     @State private var skipToggleUpdate = false
     @State private var toastMessage: ToastMessage?
+    @State private var showClearCacheAlert = false
+    @State private var isClearingCache = false
 
     var body: some View {
         ScrollView {
@@ -488,6 +490,52 @@ struct PrivacyView: View {
                 .cornerRadius(12)
                 .padding(.horizontal, 16)
 
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Storage")
+                        .font(.loopedSubheadMedium)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    Button {
+                        showClearCacheAlert = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "trash")
+                                .font(.loopedCustom(.medium, size: 18))
+                                .foregroundColor(.loopedPrimary)
+                                .frame(width: 26, height: 26)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Clear cached media")
+                                    .font(.loopedBodyMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                                Text("Frees up storage used by downloaded media.")
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+
+                            Spacer()
+
+                            if isClearingCache {
+                                ProgressView()
+                                    .tint(.loopedSecondary)
+                            } else {
+                                Image(systemName: "chevron.right")
+                                    .font(.loopedCustom(.semibold, size: 14))
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isClearingCache)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .background(Color.loopedTextSecondary.opacity(0.05))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+
                 Spacer(minLength: 20)
             }
             .padding(.top, 16)
@@ -497,10 +545,31 @@ struct PrivacyView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toast($toastMessage)
         .task { await loadPreferences() }
+        .alert("Clear cached media?", isPresented: $showClearCacheAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
+                Task { await clearCachedMedia() }
+            }
+        } message: {
+            Text("This removes downloaded media and temporary upload files. It won’t delete any posts or messages.")
+        }
         .onChange(of: hideAnonymousPosts) { oldValue, newValue in
             guard !skipToggleUpdate else { return }
             Task { await updateHideAnonymousPosts(from: oldValue, to: newValue) }
         }
+    }
+
+    private func clearCachedMedia() async {
+        guard !isClearingCache else { return }
+        isClearingCache = true
+        defer { isClearingCache = false }
+
+        await Task.detached(priority: .background) {
+            URLCache.shared.removeAllCachedResponses()
+            TemporaryMediaFile.cleanupOrphanedFiles(olderThan: 0)
+        }.value
+
+        toastMessage = ToastMessage(text: "Cleared cached media.", kind: .success)
     }
 
     private func loadPreferences() async {

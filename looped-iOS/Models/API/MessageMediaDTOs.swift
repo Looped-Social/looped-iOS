@@ -23,5 +23,5 @@ struct MessageMediaResolveItemDTO: Decodable {
     let key: String
     let downloadUrl: String
     let mimeType: String?
+    let expiresInSeconds: Int?
 }
-

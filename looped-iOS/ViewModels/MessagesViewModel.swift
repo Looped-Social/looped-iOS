@@ -383,6 +383,10 @@ class ChatViewModel: ObservableObject {
             case .video:
                 guard let url = item.videoURL else { throw ChatMediaUploadError.unreadableVideo }
                 let mp4Url = try await VideoTranscoder.ensureMP4(at: url)
+                defer {
+                    TemporaryMediaFile.deleteIfOwned(mp4Url)
+                    TemporaryMediaFile.deleteIfOwned(url)
+                }
                 let key = try await messageMediaService.uploadVideo(fileURL: mp4Url, mimeType: "video/mp4")
                 keys.append(key)
             case .gif:

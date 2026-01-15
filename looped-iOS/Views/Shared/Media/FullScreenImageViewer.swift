@@ -117,6 +117,7 @@ struct SingleImageView: View {
     @Binding var lastOffset: CGSize
     @Binding var showControls: Bool
     @Binding var isPresented: Bool
+    @State private var isShimmering = true
 
     var body: some View {
         AsyncImage(url: URL(string: imageUrl)) { phase in
@@ -211,6 +212,9 @@ struct SingleImageView: View {
                             }
                         }
                     }
+                    .onAppear {
+                        isShimmering = false
+                    }
 
             case .failure(_):
                 VStack(spacing: 16) {
@@ -222,14 +226,28 @@ struct SingleImageView: View {
                 }
 
             case .empty:
-                ProgressView()
-                    .tint(.loopedWhite)
-                    .scaleEffect(1.5)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.loopedMutedBackground.opacity(0.25))
+                    .frame(width: 240, height: 240)
+                    .overlay {
+                        ProgressView()
+                            .tint(.loopedWhite.opacity(0.7))
+                    }
+                    .shimmering(isShimmering)
+                    .task {
+                        await stopShimmerAfterDelay()
+                    }
 
             @unknown default:
                 EmptyView()
             }
         }
+    }
+
+    private func stopShimmerAfterDelay() async {
+        guard isShimmering else { return }
+        try? await Task.sleep(nanoseconds: 1_800_000_000)
+        isShimmering = false
     }
 }
 

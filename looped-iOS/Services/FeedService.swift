@@ -459,7 +459,7 @@ private extension FeedService {
             let byId = Dictionary(uniqueKeysWithValues: assets.compactMap { asset -> (Int, MediaAttachment)? in
                 guard let url = asset.cdnUrl, !url.isEmpty else { return nil }
                 let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
-                return (asset.id, MediaAttachment(type: type, url: url))
+                return (asset.id, MediaAttachment(id: "asset:\(asset.id)", type: type, url: url))
             })
 
             if byId.isEmpty { return posts }

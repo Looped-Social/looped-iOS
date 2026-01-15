@@ -3,14 +3,17 @@ import Foundation
 class MessageService: MessageServiceProtocol {
     private let apiClient: APIClient
     private let messageMediaService: MessageMediaServiceProtocol
+    private let mediaResolveCache: MessageMediaResolvedCache
     private struct EmptyBody: Codable {}
     
     init(
         apiClient: APIClient = APIClient(),
-        messageMediaService: MessageMediaServiceProtocol = MessageMediaService()
+        messageMediaService: MessageMediaServiceProtocol = MessageMediaService(),
+        mediaResolveCache: MessageMediaResolvedCache = MessageMediaResolvedCache()
     ) {
         self.apiClient = apiClient
         self.messageMediaService = messageMediaService
+        self.mediaResolveCache = mediaResolveCache
     }
     
     func listConversations(cursor: String?) async throws -> ConversationPage {
@@ -471,8 +474,18 @@ private extension MessageService {
     func resolveAttachmentMap(for keys: [String]) async throws -> [String: MessageMediaResolvedItem] {
         let deduped = Array(Set(keys)).sorted()
         guard !deduped.isEmpty else { return [:] }
-        let items = try await messageMediaService.resolve(keys: deduped)
-        return Dictionary(uniqueKeysWithValues: items.map { ($0.key, $0) })
+        let cached = await mediaResolveCache.getValid(for: deduped)
+        let missing = deduped.filter { cached[$0] == nil }
+        guard !missing.isEmpty else { return cached }
+
+        let fetched = try await messageMediaService.resolve(keys: missing)
+        await mediaResolveCache.store(fetched)
+
+        var combined = cached
+        for item in fetched {
+            combined[item.key] = item
+        }
+        return combined
     }
 
     func resolveAttachments(_ keys: [String], with byKey: [String: MessageMediaResolvedItem]) -> [MediaAttachment]? {
@@ -480,7 +493,7 @@ private extension MessageService {
             guard let item = byKey[key], !item.downloadUrl.isEmpty else { return nil }
             let mime = item.mimeType?.lowercased()
             let isVideo = mime?.hasPrefix("video/") == true || item.downloadUrl.lowercased().contains(".mp4")
-            return MediaAttachment(type: isVideo ? .video : .image, url: item.downloadUrl)
+            return MediaAttachment(id: key, type: isVideo ? .video : .image, url: item.downloadUrl)
         }
         return attachments.isEmpty ? nil : attachments
     }

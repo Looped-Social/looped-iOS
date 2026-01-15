@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 
 struct MediaAttachment: Codable, Identifiable, Equatable {
-    let id: UUID
+    let id: String
     let type: MediaType
     let url: String
     let thumbnailUrl: String?
@@ -13,7 +13,7 @@ struct MediaAttachment: Codable, Identifiable, Equatable {
     let createdAt: Date
 
     init(
-        id: UUID = UUID(),
+        id: String? = nil,
         type: MediaType,
         url: String,
         thumbnailUrl: String? = nil,
@@ -23,9 +23,10 @@ struct MediaAttachment: Codable, Identifiable, Equatable {
         fileSize: Int64? = nil,
         createdAt: Date = Date()
     ) {
-        self.id = id
+        let resolvedUrl = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.id = (id ?? resolvedUrl).trimmingCharacters(in: .whitespacesAndNewlines)
         self.type = type
-        self.url = url
+        self.url = resolvedUrl
         self.thumbnailUrl = thumbnailUrl
         self.width = width
         self.height = height
@@ -43,17 +44,18 @@ enum MediaType: String, Codable, CaseIterable {
 
 extension MediaAttachment {
     init(dto: MediaAttachmentDTO) {
-        self.id = UUID()
+        let resolvedUrl = dto.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.id = resolvedUrl
         let trimmedType = dto.type?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedType: MediaType
         if let trimmedType, !trimmedType.isEmpty, let type = MediaType(rawValue: trimmedType) {
             resolvedType = type
         } else {
-            let lowercased = dto.url.lowercased()
+            let lowercased = resolvedUrl.lowercased()
             resolvedType = lowercased.contains(".mp4") ? .video : .image
         }
         self.type = resolvedType
-        self.url = dto.url
+        self.url = resolvedUrl
         self.thumbnailUrl = dto.thumbnailUrl
         self.width = dto.width
         self.height = dto.height

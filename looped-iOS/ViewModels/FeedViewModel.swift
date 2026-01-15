@@ -414,6 +414,10 @@ class FeedViewModel: ObservableObject {
                         return false
                     }
                     let mp4Url = try await VideoTranscoder.ensureMP4(at: url)
+                    defer {
+                        TemporaryMediaFile.deleteIfOwned(mp4Url)
+                        TemporaryMediaFile.deleteIfOwned(url)
+                    }
                     let metadata = videoMetadata(url: mp4Url)
                     let asset = try await mediaService.uploadVideo(
                         fileURL: mp4Url,
@@ -426,6 +430,7 @@ class FeedViewModel: ObservableObject {
                     mediaAssetIds = [asset.id]
                     if let cdnUrl = asset.cdnUrl, !cdnUrl.isEmpty {
                         uploadedAttachments = [MediaAttachment(
+                            id: "asset:\(asset.id)",
                             type: .video,
                             url: cdnUrl,
                             width: metadata.width,
@@ -453,7 +458,7 @@ class FeedViewModel: ObservableObject {
                         mediaAssetIds.append(asset.id)
                         if let url = asset.cdnUrl, !url.isEmpty {
                             uploadedAttachments.append(
-                                MediaAttachment(type: .image, url: url, width: payload.width, height: payload.height)
+                                MediaAttachment(id: "asset:\(asset.id)", type: .image, url: url, width: payload.width, height: payload.height)
                             )
                         }
                     }
@@ -467,7 +472,7 @@ class FeedViewModel: ObservableObject {
                     let resolvedAttachments = mediaAssetIds.compactMap { id -> MediaAttachment? in
                         guard let asset = byId[id], let url = asset.cdnUrl, !url.isEmpty else { return nil }
                         let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
-                        return MediaAttachment(type: type, url: url)
+                        return MediaAttachment(id: "asset:\(asset.id)", type: type, url: url)
                     }
                     if !resolvedAttachments.isEmpty {
                         uploadedAttachments = resolvedAttachments

@@ -249,22 +249,31 @@ struct SinglePostedMedia: View {
     let maxHeight: CGFloat
     let onImageTap: (String) -> Void
     let onVideoTap: (String) -> Void
+    @State private var isShimmering = true
 
     var body: some View {
         if attachment.type == .video {
             // Video thumbnail with play button
             ZStack {
-                AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.loopedMutedBackground)
-                        .overlay(ProgressView())
+                AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                    case .empty:
+                        MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
+                    @unknown default:
+                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                    }
                 }
                 .frame(maxHeight: maxHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .task {
+                    await stopShimmerAfterDelay()
+                }
 
                 // Play button overlay
                 Circle()
@@ -300,23 +309,35 @@ struct SinglePostedMedia: View {
             }
         } else {
             // Image
-            AsyncImage(url: URL(string: attachment.url)) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.loopedMutedBackground)
-                    .overlay(
-                        ProgressView()
-                    )
+            AsyncImage(url: URL(string: attachment.url)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure:
+                    MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                case .empty:
+                    MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
+                @unknown default:
+                    MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                }
             }
             .frame(maxHeight: maxHeight)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .task {
+                await stopShimmerAfterDelay()
+            }
             .onTapGesture {
                 onImageTap(attachment.url)
             }
         }
+    }
+
+    private func stopShimmerAfterDelay() async {
+        guard isShimmering else { return }
+        try? await Task.sleep(nanoseconds: 2_500_000_000)
+        isShimmering = false
     }
 }
 
@@ -325,19 +346,29 @@ struct PostedMediaThumbnail: View {
     let attachment: MediaAttachment
     let onImageTap: (String) -> Void
     let onVideoTap: (String) -> Void
+    @State private var isShimmering = true
 
     var body: some View {
         ZStack {
-            AsyncImage(url: URL(string: attachment.type == .video ? (attachment.thumbnailUrl ?? attachment.url) : attachment.url)) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.loopedMutedBackground)
+            AsyncImage(url: URL(string: attachment.type == .video ? (attachment.thumbnailUrl ?? attachment.url) : attachment.url)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure:
+                    MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                case .empty:
+                    MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
+                @unknown default:
+                    MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
+            .task {
+                await stopShimmerAfterDelay()
+            }
 
             if attachment.type == .video {
                 Circle()
@@ -359,6 +390,34 @@ struct PostedMediaThumbnail: View {
                 onImageTap(attachment.url)
             }
         }
+    }
+
+    private func stopShimmerAfterDelay() async {
+        guard isShimmering else { return }
+        try? await Task.sleep(nanoseconds: 2_500_000_000)
+        isShimmering = false
+    }
+}
+
+private struct MediaLoadPlaceholder: View {
+    let isShimmering: Bool
+    let showProgress: Bool
+    let showErrorIcon: Bool
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.loopedMutedBackground)
+            .overlay {
+                if showErrorIcon {
+                    Image(systemName: "photo")
+                        .font(.loopedCustom(size: 18))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.9))
+                } else if showProgress {
+                    ProgressView()
+                        .tint(.loopedTextSecondary.opacity(0.9))
+                }
+            }
+            .shimmering(isShimmering)
     }
 }
 

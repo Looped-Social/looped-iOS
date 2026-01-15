@@ -415,12 +415,16 @@ private extension CommentsModalManager {
             )
             let attachment = asset.cdnUrl.flatMap { url -> MediaAttachment? in
                 guard !url.isEmpty else { return nil }
-                return MediaAttachment(type: .image, url: url, width: payload.width, height: payload.height)
+                return MediaAttachment(id: "asset:\(asset.id)", type: .image, url: url, width: payload.width, height: payload.height)
             }
             return UploadResult(asset: asset, attachment: attachment)
         case .video:
             guard let url = item.videoURL else { throw CommentMediaUploadError.unreadable }
             let mp4Url = try await VideoTranscoder.ensureMP4(at: url)
+            defer {
+                TemporaryMediaFile.deleteIfOwned(mp4Url)
+                TemporaryMediaFile.deleteIfOwned(url)
+            }
             let metadata = videoMetadata(url: mp4Url)
             let asset = try await mediaService.uploadVideo(
                 fileURL: mp4Url,
@@ -432,7 +436,7 @@ private extension CommentsModalManager {
             )
             let attachment = asset.cdnUrl.flatMap { url -> MediaAttachment? in
                 guard !url.isEmpty else { return nil }
-                return MediaAttachment(type: .video, url: url, width: metadata.width, height: metadata.height, duration: TimeInterval(metadata.durationSeconds))
+                return MediaAttachment(id: "asset:\(asset.id)", type: .video, url: url, width: metadata.width, height: metadata.height, duration: TimeInterval(metadata.durationSeconds))
             }
             return UploadResult(asset: asset, attachment: attachment)
         case .gif:

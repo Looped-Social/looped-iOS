@@ -148,12 +148,15 @@ extension Post {
             guard let resolvedMediaUrl, !resolvedMediaUrl.isEmpty else { return nil }
             let lowercased = resolvedMediaUrl.lowercased()
             let type: MediaType = lowercased.contains(".mp4") ? .video : .image
+            if let mediaAssetId = dto.mediaAssetId, mediaAssetId > 0 {
+                return [MediaAttachment(id: "asset:\(mediaAssetId)", type: type, url: resolvedMediaUrl)]
+            }
             return [MediaAttachment(type: type, url: resolvedMediaUrl)]
         }()
         let bannerUsers = dto.repostedByFollowedUsers?.map(RepostBannerUser.init(dto:))
         let bannerCount = dto.repostedByFollowedUsersCount ?? bannerUsers?.count
         self.init(
-            id: UUID(),
+            id: dto.id.map(UUID.fromBackendId) ?? UUID(),
             backendId: dto.id,
             authorBackendId: dto.authorId,
             authorPrincipalId: dto.authorPrincipalId,

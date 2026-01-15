@@ -31,6 +31,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     return true
   }
 
+  func applicationDidEnterBackground(_ application: UIApplication) {
+      CacheHousekeeper.runIfNeeded()
+  }
+
   private func configureNotifications() {
       let center = UNUserNotificationCenter.current()
       center.delegate = self
@@ -141,6 +145,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 struct looped_iOSApp: App {
     init() {
         LoopedFontLoader.registerFonts()
+        CacheHousekeeper.configureCacheLimits()
+        CacheHousekeeper.runIfNeeded()
     }
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue

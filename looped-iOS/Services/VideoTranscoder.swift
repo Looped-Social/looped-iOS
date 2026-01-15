@@ -26,9 +26,7 @@ enum VideoTranscoder {
             throw VideoTranscoderError.exportUnavailable
         }
 
-        let outputUrl = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("mp4")
+        let outputUrl = TemporaryMediaFile.makeURL(extension: "mp4")
 
         try? FileManager.default.removeItem(at: outputUrl)
         export.outputURL = outputUrl
@@ -53,4 +51,3 @@ enum VideoTranscoder {
         return outputUrl
     }
 }
-
