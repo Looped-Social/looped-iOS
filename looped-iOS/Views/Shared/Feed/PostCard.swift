@@ -435,7 +435,11 @@ struct PostCard: View {
 		                onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
 		            }
 		            .padding(.top, 4)
-		            .highPriorityGesture(TapGesture(count: 2).onEnded { })
+		            .highPriorityGesture(
+		                TapGesture(count: 2).onEnded {
+		                    handleDoubleTapLike()
+		                }
+		            )
 		        }
 		    }
 
@@ -691,12 +695,20 @@ struct PostCard: View {
                 repostBanner
                 headerSection
                 postTextSection
+                    .contentShape(Rectangle())
+                    .highPriorityGesture(
+                        TapGesture(count: 2).onEnded {
+                            handleDoubleTapLike()
+                        }
+                    )
                 pollSection
                 attachmentsSection
                     .contentShape(Rectangle())
-                    .onTapGesture(count: 2) {
-                        handleDoubleTapLike()
-                    }
+                    .highPriorityGesture(
+                        TapGesture(count: 2).onEnded {
+                            handleDoubleTapLike()
+                        }
+                    )
                 engagementBar
                 timestampSection
             }

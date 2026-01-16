@@ -142,6 +142,13 @@ struct CommentRow: View {
         comment.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
     }
 
+    private func handleDoubleTapLike() {
+        guard !comment.isDeleted else { return }
+        guard let onLike else { return }
+        guard !comment.userLiked else { return }
+        onLike(comment)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
@@ -165,6 +172,12 @@ struct CommentRow: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .highPriorityGesture(
+                            TapGesture(count: 2).onEnded {
+                                handleDoubleTapLike()
+                            }
+                        )
                     }
 
 	                    if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
@@ -184,6 +197,12 @@ struct CommentRow: View {
 	                                guard !url.isEmpty, URL(string: url) != nil else { return }
 	                                selectedVideoUrl = url
                                 showVideoPlayer = true
+                            }
+                        )
+                        .contentShape(Rectangle())
+                        .highPriorityGesture(
+                            TapGesture(count: 2).onEnded {
+                                handleDoubleTapLike()
                             }
                         )
                     }
