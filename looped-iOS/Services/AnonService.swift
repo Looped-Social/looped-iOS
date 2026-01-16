@@ -154,6 +154,37 @@ actor AnonService {
         return AnonProfile(dto: dto)
     }
 
+    func updateDisplaySpecialization(specializationId: Int?) async throws -> AnonProfile {
+        let fallbackCommunityId = resolveCommunityId(explicit: nil)
+            ?? currentIdentity()?.memberships.keys.sorted().first
+        let identity = try await ensureIdentity(communityId: fallbackCommunityId)
+        guard let membershipCommunityId = resolveMembershipCommunityId(
+            requestedCommunityId: nil,
+            identity: identity
+        ),
+        let membership = identity.membership(for: membershipCommunityId) else {
+            throw AnonServiceError.missingIdentity
+        }
+        let privateKey = try loadOrCreatePrivateKey()
+        let canonical = "anon_display_specialization|v1|\(identity.profileId)"
+        let signature = try sign(message: canonical, privateKey: privateKey)
+        let request = AnonDisplaySpecializationRequestDTO(
+            specializationId: specializationId,
+            asAnon: true,
+            anonProfileId: identity.profileId,
+            anonCert: membership.cert,
+            anonCertKid: membership.certKid,
+            anonSig: signature
+        )
+        let dto: AnonProfileDTO = try await apiClient.put(
+            "/v1/anon/\(identity.profileId)/display-specialization",
+            body: request,
+            requiresAuth: false,
+            headers: anonHeaders
+        )
+        return AnonProfile(dto: dto)
+    }
+
     func postContext(content: String, communityId: Int) async throws -> AnonPostContext {
         let identity = try await ensureIdentity(communityId: communityId)
         guard let membership = identity.membership(for: communityId) else {

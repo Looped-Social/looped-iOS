@@ -336,6 +336,10 @@ struct PostedMediaThumbnail: View {
     let onImageTap: (String) -> Void
     let onVideoTap: (String) -> Void
     @State private var isShimmering = true
+    @State private var loadCompleted = false
+    @State private var scheduledRetry = false
+    @State private var retryCount = 0
+    @State private var reloadToken = UUID()
 
     var body: some View {
         ZStack {
@@ -346,19 +350,24 @@ struct PostedMediaThumbnail: View {
                         .resizable()
                         .scaledToFill()
                         .onAppear { isShimmering = false }
+                        .onAppear { loadCompleted = true }
                 case .failure:
                     MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
                         .onAppear { isShimmering = false }
+                        .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
                 case .empty:
                     MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
+                        .task { await scheduleRetryIfNeeded(afterNanoseconds: 4_000_000_000) }
                 @unknown default:
                     MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                        .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
                 }
             }
             .clipped()
             .task {
                 await stopShimmerAfterDelay()
             }
+            .id(reloadToken)
 
             if attachment.type == .video {
                 Circle()
@@ -380,6 +389,40 @@ struct PostedMediaThumbnail: View {
                 onImageTap(attachment.url)
             }
         }
+        .onChange(of: attachment.url) { _, _ in
+            isShimmering = true
+            loadCompleted = false
+            scheduledRetry = false
+            retryCount = 0
+            reloadToken = UUID()
+        }
+        .onChange(of: attachment.thumbnailUrl) { _, _ in
+            isShimmering = true
+            loadCompleted = false
+            scheduledRetry = false
+            retryCount = 0
+            reloadToken = UUID()
+        }
+    }
+
+    @MainActor
+    private func scheduleRetryIfNeeded(afterNanoseconds delay: UInt64) async {
+        guard !loadCompleted else { return }
+        guard !scheduledRetry else { return }
+        guard retryCount < 2 else {
+            loadCompleted = true
+            return
+        }
+
+        scheduledRetry = true
+        try? await Task.sleep(nanoseconds: delay)
+        guard !Task.isCancelled else { return }
+        guard !loadCompleted else { return }
+
+        retryCount += 1
+        scheduledRetry = false
+        isShimmering = true
+        reloadToken = UUID()
     }
 
     private func stopShimmerAfterDelay() async {

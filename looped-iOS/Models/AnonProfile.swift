@@ -10,6 +10,7 @@ struct AnonProfile: Codable, Identifiable {
     let createdAt: Date?
     let updatedAt: Date?
     let displayCommunity: DisplayCommunity?
+    let displaySpecialization: DisplayCommunity?
 
     var formattedHandle: String {
         let trimmed = handle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -28,6 +29,7 @@ extension AnonProfile {
         createdAt = dto.createdAt
         updatedAt = dto.updatedAt
         displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
+        displaySpecialization = dto.displaySpecialization.map(DisplayCommunity.init(dto:))
     }
 
     func asUserProfile(companyName: String?, isCurrentUser: Bool = true) -> UserProfile {
@@ -56,7 +58,7 @@ extension AnonProfile {
             showFollowerCount: false,
             isCurrentUser: isCurrentUser,
             displayCommunity: displayCommunity,
-            displaySpecialization: nil,
+            displaySpecialization: displaySpecialization,
             createdAt: createdAt,
             updatedAt: updatedAt ?? now
         )

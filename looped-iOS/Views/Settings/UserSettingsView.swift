@@ -39,6 +39,11 @@ struct UserSettingsView: View {
     @State private var initialAnonDisplayCommunityId: Int?
     @State private var isLoadingAnonDisplayCommunities = false
     @State private var anonDisplayCommunityError: String?
+    @State private var anonHandle: String?
+    @State private var anonDisplaySpecialization: DisplayCommunity?
+    @State private var initialAnonDisplaySpecializationId: Int?
+    @State private var anonDisplaySpecializationError: String?
+    @State private var isShowingAnonSpecializationPicker = false
     @State private var toastMessage: ToastMessage?
     @State private var selectedProfilePhoto: PhotosPickerItem?
     @State private var profilePhotoPreview: UIImage?
@@ -75,170 +80,39 @@ struct UserSettingsView: View {
             // Scrollable content
             ScrollView {
                 VStack(spacing: 24) {
-                    // Profile Picture Section
-                    VStack(spacing: 12) {
-                        PhotosPicker(selection: $selectedProfilePhoto, matching: .images) {
-                            ZStack(alignment: .bottomTrailing) {
-                                Group {
-                                    if let profilePhotoPreview {
-                                        Image(uiImage: profilePhotoPreview)
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                            .frame(width: 96, height: 96)
-                                            .clipShape(Circle())
-                                    } else {
-                                        ProfileAvatarView(imageURL: authViewModel.currentUser?.profileImageURL, size: 96, iconScale: 0.4)
-                                    }
-                                }
-
-                                Circle()
-                                    .fill(Color.loopedPrimary)
-                                    .frame(width: 32, height: 32)
-                                    .overlay(
-                                        Image(systemName: "camera.fill")
-                                            .font(.loopedCustom(size: 14))
-                                            .foregroundColor(.loopedWhite)
-                                    )
-                            }
-                        }
-                        .onChange(of: selectedProfilePhoto) { _, newValue in
-                            Task { await handleProfilePhotoSelection(newValue) }
-                        }
-
-                        Text("Tap to change profile photo")
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedSecondary)
-                    }
-                    .padding(.top, 20)
-
-                    // Username Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Username")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        TextField("Username", text: $username)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .padding(12)
-                            .background(Color.loopedTextSecondary.opacity(0.1))
-                            .cornerRadius(8)
-                            .textInputAutocapitalization(.none)
-                            .autocorrectionDisabled()
-                            .onChange(of: username) { _, newValue in
-                                handleUsernameChange(newValue)
-                            }
-
-                        if let statusText = usernameStatusText {
-                            Text(statusText)
-                                .font(.loopedSmallText)
-                                .foregroundColor(usernameStatusColor)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Display Community Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Display Community")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        Text("Choose a verified community to show on your profile and posts.")
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
-
-                        if isLoadingDisplayCommunities {
-                            HStack(spacing: 8) {
-                                ProgressView()
-                                Text("Loading verified communities...")
-                                    .font(.loopedSubBodyRegular)
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-                            .padding(.vertical, 8)
-                        } else if verifiedCommunities.isEmpty {
-                            DisplayCommunityRow(
-                                displayCommunity: selectedDisplayCommunity,
-                                fallbackText: "Verify a community to add it here",
-                                font: .loopedBody,
-                                textColor: selectedDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
-                                iconSize: 18
-                            )
-                            .padding(12)
-                            .background(Color.loopedTextSecondary.opacity(0.1))
-                            .cornerRadius(8)
-                        } else {
-                            Picker(
-                                selection: $displayCommunityId,
-                                label: DisplayCommunityRow(
-                                    displayCommunity: selectedDisplayCommunity,
-                                    fallbackText: "Select a primary community",
-                                    font: .loopedBody,
-                                    textColor: selectedDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
-                                    iconSize: 18,
-                                    showsDisclosure: true
-                                )
-                                .padding(12)
-                                .background(Color.loopedTextSecondary.opacity(0.1))
-                                .cornerRadius(8)
-                            ) {
-                                Text("None").tag(Int?.none)
-                                ForEach(verifiedCommunities) { verification in
-                                    let option = DisplayCommunity(verification: verification)
-                                    Text(option.displayText)
-                                        .tag(Optional(verification.communityId))
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .disabled(isSaving)
-                        }
-
-                        if let displayCommunityError {
-                            Text(displayCommunityError)
-                                .font(.loopedSmallText)
-                                .foregroundColor(.loopedError)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Display Specialization Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Display Specialization")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        Text("Choose a major or department to show on your profile.")
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
-
-                        Button(action: { isShowingSpecializationPicker = true }) {
-                            DisplaySpecializationRow(
-                                specialization: displaySpecialization,
-                                displayCommunity: selectedDisplayCommunity,
-                                fallbackText: "Select a major or department",
-                                font: .loopedBody,
-                                textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
-                                iconSize: 18,
-                                showsDisclosure: true,
-                                showsCommunityFallback: false
-                            )
-                            .padding(12)
-                            .background(Color.loopedTextSecondary.opacity(0.1))
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .disabled(isSaving)
-
-                        if let displaySpecializationError {
-                            Text(displaySpecializationError)
-                                .font(.loopedSmallText)
-                                .foregroundColor(.loopedError)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-
                     if isAnonymousMode {
+                        VStack(spacing: 12) {
+                            ProfileAvatarView(imageURL: nil, size: 96, iconScale: 0.4)
+
+                            Text("Anonymous profiles don’t have a profile photo")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedSecondary)
+                        }
+                        .padding(.top, 20)
+
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Anonymous Display Community")
+                            Text("Username")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            HStack {
+                                Text(anonFormattedHandle)
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedTextSecondary)
+                                Spacer()
+                            }
+                            .padding(12)
+                            .background(Color.loopedTextSecondary.opacity(0.1))
+                            .cornerRadius(8)
+
+                            Text("Anonymous usernames can’t be changed.")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Display Community")
                                 .font(.loopedBodyStrong)
                                 .foregroundColor(.loopedTextPrimary)
 
@@ -297,78 +171,266 @@ struct UserSettingsView: View {
                             }
                         }
                         .padding(.horizontal, 20)
-                    }
 
-                    // First Name Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("First Name")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        TextField("First Name", text: $firstName)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .padding(12)
-                            .background(Color.loopedTextSecondary.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Last Name Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Last Name")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        TextField("Last Name", text: $lastName)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .padding(12)
-                            .background(Color.loopedTextSecondary.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Date of Birth Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Date of Birth")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        DatePicker("", selection: $dateOfBirth, in: ...Date(), displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .labelsHidden()
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.horizontal, 20)
-
-                    // Bio Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Bio")
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        ZStack(alignment: .topLeading) {
-                            TextEditor(text: $bio)
-                                .font(.loopedBody)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Display Specialization")
+                                .font(.loopedBodyStrong)
                                 .foregroundColor(.loopedTextPrimary)
-                                .scrollContentBackground(.hidden)
-                                .padding(8)
 
-                            if bio.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                Text("Tell us a bit about you")
-                                    .font(.loopedBody)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 12)
+                            Text("Choose a major or department to show on your anonymous profile.")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            Button(action: { isShowingAnonSpecializationPicker = true }) {
+                                DisplaySpecializationRow(
+                                    specialization: anonDisplaySpecialization,
+                                    displayCommunity: selectedAnonDisplayCommunity,
+                                    fallbackText: "Select a major or department",
+                                    font: .loopedBody,
+                                    textColor: anonDisplaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                    iconSize: 18,
+                                    showsDisclosure: true,
+                                    showsCommunityFallback: false
+                                )
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(isSaving)
+
+                            if let anonDisplaySpecializationError {
+                                Text(anonDisplaySpecializationError)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedError)
                             }
                         }
-                        .frame(minHeight: 110)
-                        .background(Color.loopedTextSecondary.opacity(0.1))
-                        .cornerRadius(8)
+                        .padding(.horizontal, 20)
+                    } else {
+                        VStack(spacing: 12) {
+                            PhotosPicker(selection: $selectedProfilePhoto, matching: .images) {
+                                ZStack(alignment: .bottomTrailing) {
+                                    Group {
+                                        if let profilePhotoPreview {
+                                            Image(uiImage: profilePhotoPreview)
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(width: 96, height: 96)
+                                                .clipShape(Circle())
+                                        } else {
+                                            ProfileAvatarView(imageURL: authViewModel.currentUser?.profileImageURL, size: 96, iconScale: 0.4)
+                                        }
+                                    }
+
+                                    Circle()
+                                        .fill(Color.loopedPrimary)
+                                        .frame(width: 32, height: 32)
+                                        .overlay(
+                                            Image(systemName: "camera.fill")
+                                                .font(.loopedCustom(size: 14))
+                                                .foregroundColor(.loopedWhite)
+                                        )
+                                }
+                            }
+                            .onChange(of: selectedProfilePhoto) { _, newValue in
+                                Task { await handleProfilePhotoSelection(newValue) }
+                            }
+
+                            Text("Tap to change profile photo")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedSecondary)
+                        }
+                        .padding(.top, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Username")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            TextField("Username", text: $username)
+                                .font(.loopedBody)
+                                .foregroundColor(.loopedTextPrimary)
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                                .textInputAutocapitalization(.none)
+                                .autocorrectionDisabled()
+                                .onChange(of: username) { _, newValue in
+                                    handleUsernameChange(newValue)
+                                }
+
+                            if let statusText = usernameStatusText {
+                                Text(statusText)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(usernameStatusColor)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Display Community")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            Text("Choose a verified community to show on your profile and posts.")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            if isLoadingDisplayCommunities {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                    Text("Loading verified communities...")
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .padding(.vertical, 8)
+                            } else if verifiedCommunities.isEmpty {
+                                DisplayCommunityRow(
+                                    displayCommunity: selectedDisplayCommunity,
+                                    fallbackText: "Verify a community to add it here",
+                                    font: .loopedBody,
+                                    textColor: selectedDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                    iconSize: 18
+                                )
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                            } else {
+                                Picker(
+                                    selection: $displayCommunityId,
+                                    label: DisplayCommunityRow(
+                                        displayCommunity: selectedDisplayCommunity,
+                                        fallbackText: "Select a primary community",
+                                        font: .loopedBody,
+                                        textColor: selectedDisplayCommunity == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                        iconSize: 18,
+                                        showsDisclosure: true
+                                    )
+                                    .padding(12)
+                                    .background(Color.loopedTextSecondary.opacity(0.1))
+                                    .cornerRadius(8)
+                                ) {
+                                    Text("None").tag(Int?.none)
+                                    ForEach(verifiedCommunities) { verification in
+                                        let option = DisplayCommunity(verification: verification)
+                                        Text(option.displayText)
+                                            .tag(Optional(verification.communityId))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .disabled(isSaving)
+                            }
+
+                            if let displayCommunityError {
+                                Text(displayCommunityError)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedError)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Display Specialization")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            Text("Choose a major or department to show on your profile.")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            Button(action: { isShowingSpecializationPicker = true }) {
+                                DisplaySpecializationRow(
+                                    specialization: displaySpecialization,
+                                    displayCommunity: selectedDisplayCommunity,
+                                    fallbackText: "Select a major or department",
+                                    font: .loopedBody,
+                                    textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                    iconSize: 18,
+                                    showsDisclosure: true,
+                                    showsCommunityFallback: false
+                                )
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(isSaving)
+
+                            if let displaySpecializationError {
+                                Text(displaySpecializationError)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedError)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("First Name")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            TextField("First Name", text: $firstName)
+                                .font(.loopedBody)
+                                .foregroundColor(.loopedTextPrimary)
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Last Name")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            TextField("Last Name", text: $lastName)
+                                .font(.loopedBody)
+                                .foregroundColor(.loopedTextPrimary)
+                                .padding(12)
+                                .background(Color.loopedTextSecondary.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Date of Birth")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            DatePicker("", selection: $dateOfBirth, in: ...Date(), displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Bio")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            ZStack(alignment: .topLeading) {
+                                TextEditor(text: $bio)
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedTextPrimary)
+                                    .scrollContentBackground(.hidden)
+                                    .padding(8)
+
+                                if bio.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    Text("Tell us a bit about you")
+                                        .font(.loopedBody)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 12)
+                                }
+                            }
+                            .frame(minHeight: 110)
+                            .background(Color.loopedTextSecondary.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        .padding(.horizontal, 20)
                     }
-                    .padding(.horizontal, 20)
 
                     // Save Button
                     Button(action: saveProfile) {
@@ -407,6 +469,9 @@ struct UserSettingsView: View {
         .sheet(isPresented: $isShowingSpecializationPicker) {
             DisplaySpecializationPickerView(selectedSpecialization: $displaySpecialization)
         }
+        .sheet(isPresented: $isShowingAnonSpecializationPicker) {
+            DisplaySpecializationPickerView(selectedSpecialization: $anonDisplaySpecialization)
+        }
         .onAppear {
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
@@ -425,14 +490,24 @@ struct UserSettingsView: View {
         .onChange(of: displaySpecialization?.id) { _, _ in
             displaySpecializationError = nil
         }
+        .onChange(of: anonDisplaySpecialization?.id) { _, _ in
+            anonDisplaySpecializationError = nil
+        }
         .onChange(of: isAnonymousMode) { _, newValue in
             if newValue {
+                profilePhotoPayload = nil
+                selectedProfilePhoto = nil
+                profilePhotoPreview = nil
                 Task { await loadAnonDisplayCommunities() }
             } else {
                 anonDisplayCommunityId = nil
                 initialAnonDisplayCommunityId = nil
                 anonDisplayCommunityError = nil
                 anonDisplayCommunities = []
+                anonHandle = nil
+                anonDisplaySpecialization = nil
+                initialAnonDisplaySpecializationId = nil
+                anonDisplaySpecializationError = nil
             }
         }
         .navigationBarHidden(true)
@@ -473,14 +548,19 @@ private extension UserSettingsView {
             if case .available = self { return true }
             return false
         }
-    }
+	    }
 
-    var currentUser: User? { authViewModel.currentUser }
+	    var currentUser: User? { authViewModel.currentUser }
 
-    var selectedDisplayCommunity: DisplayCommunity? {
-        guard let id = displayCommunityId else { return nil }
-        if let verification = verifiedCommunities.first(where: { $0.communityId == id }) {
-            return DisplayCommunity(verification: verification)
+	    var anonFormattedHandle: String {
+	        let trimmed = (anonHandle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+	        return "@\(trimmed.isEmpty ? "anonymous" : trimmed)"
+	    }
+
+	    var selectedDisplayCommunity: DisplayCommunity? {
+	        guard let id = displayCommunityId else { return nil }
+	        if let verification = verifiedCommunities.first(where: { $0.communityId == id }) {
+	            return DisplayCommunity(verification: verification)
         }
         if let current = currentUser?.displayCommunity, current.id == id {
             return current
@@ -548,9 +628,12 @@ private extension UserSettingsView {
                 }
                 identity = try await anonService.ensureIdentity(communityId: communityId)
             }
+            anonHandle = identity.handle
             let profile = try? await anonService.fetchProfile(id: identity.profileId)
             anonDisplayCommunityId = profile?.displayCommunity?.id
             initialAnonDisplayCommunityId = anonDisplayCommunityId
+            anonDisplaySpecialization = profile?.displaySpecialization
+            initialAnonDisplaySpecializationId = profile?.displaySpecialization?.id
 
             let memberships = await anonService.currentMemberships()
             guard !memberships.isEmpty else {
@@ -575,11 +658,18 @@ private extension UserSettingsView {
         } catch {
             anonDisplayCommunityError = error.localizedDescription
             anonDisplayCommunities = []
+            anonHandle = nil
+            anonDisplaySpecialization = nil
+            initialAnonDisplaySpecializationId = nil
         }
     }
 
     func saveProfile() {
         guard !isSaving else { return }
+        if isAnonymousMode {
+            saveAnonymousProfile()
+            return
+        }
         guard isFormValid else { return }
         let impact = UIImpactFeedbackGenerator(style: .light)
         impact.impactOccurred()
@@ -635,14 +725,46 @@ private extension UserSettingsView {
                         throw error
                     }
                 }
-                if isAnonymousMode, anonDisplayCommunityId != initialAnonDisplayCommunityId {
-                    _ = try await anonService.updateDisplayCommunity(communityId: anonDisplayCommunityId)
-                    initialAnonDisplayCommunityId = anonDisplayCommunityId
-                }
                 await authViewModel.loadCurrentUser()
                 profilePhotoPayload = nil
                 selectedProfilePhoto = nil
                 profilePhotoPreview = nil
+                presentToast(message: "Changes saved", kind: .success)
+            } catch {
+                saveError = mapSaveError(error)
+                presentToast(message: "Changes not saved", kind: .error)
+            }
+        }
+    }
+
+    func saveAnonymousProfile() {
+        let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.impactOccurred()
+        saveError = nil
+        anonDisplayCommunityError = nil
+        anonDisplaySpecializationError = nil
+        isSaving = true
+
+        Task {
+            defer { isSaving = false }
+            do {
+                var updatedProfile: AnonProfile?
+                if anonDisplayCommunityId != initialAnonDisplayCommunityId {
+                    updatedProfile = try await anonService.updateDisplayCommunity(communityId: anonDisplayCommunityId)
+                    anonDisplayCommunityId = updatedProfile?.displayCommunity?.id
+                    initialAnonDisplayCommunityId = anonDisplayCommunityId
+                }
+                let specializationId = anonDisplaySpecialization?.id
+                if specializationId != initialAnonDisplaySpecializationId {
+                    do {
+                        updatedProfile = try await anonService.updateDisplaySpecialization(specializationId: specializationId)
+                        anonDisplaySpecialization = updatedProfile?.displaySpecialization
+                        initialAnonDisplaySpecializationId = specializationId
+                    } catch {
+                        anonDisplaySpecializationError = mapSaveError(error)
+                        throw error
+                    }
+                }
                 presentToast(message: "Changes saved", kind: .success)
             } catch {
                 saveError = mapSaveError(error)
@@ -656,7 +778,8 @@ private extension UserSettingsView {
     }
 
     var isFormValid: Bool {
-        isUsernameReady
+        if isAnonymousMode { return true }
+        return isUsernameReady
             && !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -784,6 +907,10 @@ private extension UserSettingsView {
                 return "Select a major or department to display."
             case "specialization_not_joined":
                 return "You must join that major or department to display it."
+            case "invalid_anon_proof":
+                return "Anonymous identity proof failed. Try toggling anonymous mode off/on."
+            case "anon_jwt_not_allowed":
+                return "Anonymous updates can’t use your login session. Please try again."
             default:
                 if let message, !message.isEmpty {
                     return message

@@ -74,6 +74,9 @@ struct MediaPickerView: UIViewControllerRepresentable {
                         let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension
                         let tempURL = TemporaryMediaFile.makeURL(extension: ext)
                         try? FileManager.default.copyItem(at: url, to: tempURL)
+                        if url.standardizedFileURL.path.hasPrefix(FileManager.default.temporaryDirectory.standardizedFileURL.path) {
+                            try? FileManager.default.removeItem(at: url)
+                        }
 
                         // Generate thumbnail
                         let thumbnail = self.generateVideoThumbnail(url: tempURL)

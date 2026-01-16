@@ -59,6 +59,7 @@ struct ChatInputView: View {
 
                                 // Remove button
                                 Button(action: {
+                                    TemporaryMediaFile.deleteIfOwned(item.videoURL)
                                     selectedMedia.removeAll { $0.id == item.id }
                                 }) {
                                     Circle()

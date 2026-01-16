@@ -134,7 +134,8 @@ class ProfileViewModel: ObservableObject {
             postsCount: nil,
             createdAt: nil,
             updatedAt: nil,
-            displayCommunity: nil
+            displayCommunity: nil,
+            displaySpecialization: nil
         )
     }
     

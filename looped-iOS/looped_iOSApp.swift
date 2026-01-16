@@ -31,6 +31,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     return true
   }
 
+  func applicationDidBecomeActive(_ application: UIApplication) {
+      CacheHousekeeper.runIfNeeded()
+  }
+
   func applicationDidEnterBackground(_ application: UIApplication) {
       CacheHousekeeper.runIfNeeded()
   }

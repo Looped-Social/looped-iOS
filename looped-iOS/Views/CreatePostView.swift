@@ -272,6 +272,7 @@ struct CreatePostView: View {
                     // Media preview grid
                     if !selectedMedia.isEmpty {
                         MediaPreviewStrip(media: selectedMedia) { item in
+                            TemporaryMediaFile.deleteIfOwned(item.videoURL)
                             selectedMedia.removeAll { $0.id == item.id }
                         }
                     }
@@ -579,6 +580,7 @@ struct CreatePostView: View {
 
     private func handleCancel() {
         guard hasDraftableContent else {
+            cleanupSelectedMedia()
             dismiss()
             return
         }
@@ -595,6 +597,7 @@ struct CreatePostView: View {
             poll: pollDraft
         )
         activeDraftId = draft.id
+        cleanupSelectedMedia()
         dismiss()
     }
 
@@ -602,6 +605,7 @@ struct CreatePostView: View {
         if let activeDraftId {
             draftStore.delete(id: activeDraftId)
         }
+        cleanupSelectedMedia()
         dismiss()
     }
 
@@ -616,11 +620,18 @@ struct CreatePostView: View {
         if pollDraft == nil {
             pollDraft = PollDraft(maxSelections: 1)
             if !selectedMedia.isEmpty {
+                cleanupSelectedMedia()
                 selectedMedia = []
                 presentToast(message: "Removed media attachments. Poll posts are text-only for now.", kind: .info)
             }
         } else {
             pollDraft = nil
+        }
+    }
+
+    private func cleanupSelectedMedia() {
+        for item in selectedMedia {
+            TemporaryMediaFile.deleteIfOwned(item.videoURL)
         }
     }
 

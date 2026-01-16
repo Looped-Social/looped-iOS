@@ -13,6 +13,7 @@ private enum MessageBubbleLayout {
     static let horizontalPadding: CGFloat = 12
     static let verticalPadding: CGFloat = 10
     static let bubbleMaxWidth: CGFloat = min(420, UIScreen.main.bounds.width * 0.72)
+    static let mediaTileSize: CGFloat = 220
 }
 
 private struct ChatBubbleWidthLayout: Layout {
@@ -67,17 +68,12 @@ struct SentMessageBubble: View {
                     if attachment.type == .video {
                         // Video thumbnail with play button
                         ZStack {
-                            AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle()
-                                    .fill(Color.loopedMutedBackground)
-                                    .overlay(ProgressView())
-                            }
-                            .frame(maxWidth: 220, maxHeight: 220)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            MessageMediaTile(
+                                url: firstValidURL(from: [attachment.thumbnailUrl, attachment.url]),
+                                resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+                            )
+                                .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                             // Play button overlay
                             Circle()
@@ -100,17 +96,12 @@ struct SentMessageBubble: View {
                             showVideoPlayer = true
                         }
                     } else {
-                        AsyncImage(url: URL(string: attachment.url)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Rectangle()
-                                .fill(Color.loopedMutedBackground)
-                                .overlay(ProgressView())
-                        }
-                        .frame(maxWidth: 220, maxHeight: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        MessageMediaTile(
+                            url: firstValidURL(from: [attachment.url]),
+                            resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+                        )
+                            .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(alignment: .bottomTrailing) {
                             if !message.hasVisibleContent, index == attachments.count - 1 {
                                 MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
@@ -202,20 +193,15 @@ struct ReceivedMessageBubble: View {
                 // Show media if present
                 if let attachments = message.attachments, !attachments.isEmpty {
                     ForEach(Array(attachments.enumerated()), id: \.element.id) { index, attachment in
-                        if attachment.type == .video {
-                            // Video thumbnail with play button
-                            ZStack {
-                                AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Rectangle()
-                                        .fill(Color.loopedMutedBackground)
-                                        .overlay(ProgressView())
-                                }
-                                .frame(maxWidth: 220, maxHeight: 220)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+	                        if attachment.type == .video {
+	                            // Video thumbnail with play button
+	                            ZStack {
+	                                MessageMediaTile(
+	                                    url: firstValidURL(from: [attachment.thumbnailUrl, attachment.url]),
+	                                    resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+	                                )
+	                                    .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+	                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                                 // Play button overlay
                                 Circle()
@@ -232,26 +218,21 @@ struct ReceivedMessageBubble: View {
                                 if !message.hasVisibleContent, index == attachments.count - 1 {
                                     MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                                 }
-                            }
-                            .onTapGesture {
-                                selectedVideoUrl = attachment.url
-                                showVideoPlayer = true
-                            }
-                        } else {
-                            AsyncImage(url: URL(string: attachment.url)) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle()
-                                    .fill(Color.loopedMutedBackground)
-                                    .overlay(ProgressView())
-                            }
-                            .frame(maxWidth: 220, maxHeight: 220)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(alignment: .bottomTrailing) {
-                                if !message.hasVisibleContent, index == attachments.count - 1 {
-                                    MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
+	                            }
+	                            .onTapGesture {
+	                                selectedVideoUrl = attachment.url
+	                                showVideoPlayer = true
+	                            }
+	                        } else {
+	                            MessageMediaTile(
+	                                url: firstValidURL(from: [attachment.url]),
+	                                resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+	                            )
+	                                .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+	                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+	                            .overlay(alignment: .bottomTrailing) {
+	                                if !message.hasVisibleContent, index == attachments.count - 1 {
+	                                    MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                                 }
                             }
 	                            .onTapGesture {
@@ -333,22 +314,9 @@ struct ImageMessageBubble: View {
                 VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
                     // Image with text overlay if there's content
                     VStack(spacing: 8) {
-                        AsyncImage(url: URL(string: imageUrl)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(maxWidth: 200, maxHeight: 200)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        } placeholder: {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.loopedGray.opacity(0.3))
-                                .frame(width: 200, height: 200)
-                                .overlay(
-                                    Text("IMG_\(String(imageUrl.suffix(4)))")
-                                        .font(.loopedBodyMedium)
-                                        .foregroundColor(.loopedTextSecondary)
-                                )
-                        }
+                        MessageMediaTile(url: firstValidURL(from: [imageUrl]), resolveKey: nil)
+                            .frame(width: 200, height: 200)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .onTapGesture {
                             showImageViewer = true
                         }
@@ -392,6 +360,167 @@ struct ImageMessageBubble: View {
             )
         }
     }
+}
+
+private struct MessageMediaTile: View {
+    let url: URL?
+    let resolveKey: String?
+
+    @State private var resolvedUrl: URL?
+    @State private var showSpinner = true
+    @State private var loadCompleted = false
+    @State private var scheduledRetry = false
+    @State private var retryCount = 0
+    @State private var reloadToken = UUID()
+    @State private var resolveAttemptCount = 0
+    @State private var resolveInFlight = false
+
+    private static let messageMediaService: MessageMediaServiceProtocol = MessageMediaService()
+
+    init(url: URL?, resolveKey: String?) {
+        self.url = url
+        self.resolveKey = resolveKey
+        _resolvedUrl = State(initialValue: url)
+    }
+
+    var body: some View {
+        let urlToLoad = resolvedUrl
+        Group {
+            if let urlToLoad {
+                AsyncImage(url: urlToLoad) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .onAppear {
+                                loadCompleted = true
+                            }
+                    case .failure:
+                        placeholder(showSpinner: retryCount < 2, showErrorIcon: true)
+                            .task {
+                                await refreshSignedUrlIfPossible()
+                            }
+                            .task {
+                                await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000)
+                            }
+                    case .empty:
+                        placeholder(showSpinner: showSpinner, showErrorIcon: false)
+                            .task {
+                                guard showSpinner else { return }
+                                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                                showSpinner = false
+                            }
+                            .task {
+                                await scheduleRetryIfNeeded(afterNanoseconds: 4_000_000_000)
+                            }
+                    @unknown default:
+                        placeholder(showSpinner: retryCount < 2, showErrorIcon: true)
+                            .task {
+                                await refreshSignedUrlIfPossible()
+                            }
+                            .task {
+                                await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000)
+                            }
+                    }
+                }
+                .id(reloadToken)
+            } else {
+                placeholder(showSpinner: false, showErrorIcon: true)
+            }
+        }
+        .onChange(of: url) { _, _ in
+            showSpinner = true
+            loadCompleted = false
+            scheduledRetry = false
+            retryCount = 0
+            reloadToken = UUID()
+            resolveAttemptCount = 0
+            resolveInFlight = false
+            resolvedUrl = url
+        }
+    }
+
+    @MainActor
+    private func scheduleRetryIfNeeded(afterNanoseconds delay: UInt64) async {
+        guard !loadCompleted else { return }
+        guard !scheduledRetry else { return }
+        guard retryCount < 2 else {
+            loadCompleted = true
+            return
+        }
+
+        scheduledRetry = true
+        try? await Task.sleep(nanoseconds: delay)
+        guard !Task.isCancelled else { return }
+        guard !loadCompleted else { return }
+
+        retryCount += 1
+        scheduledRetry = false
+        showSpinner = true
+        reloadToken = UUID()
+    }
+
+    private func placeholder(showSpinner: Bool, showErrorIcon: Bool) -> some View {
+        Rectangle()
+            .fill(Color.loopedMutedBackground)
+            .overlay {
+                if showErrorIcon {
+                    Image(systemName: "photo")
+                        .font(.loopedCustom(size: 18))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.9))
+                } else if showSpinner {
+                    ProgressView()
+                        .tint(.loopedTextSecondary.opacity(0.9))
+                } else {
+                    Image(systemName: "photo")
+                        .font(.loopedCustom(size: 18))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.9))
+                }
+            }
+    }
+
+    @MainActor
+    private func refreshSignedUrlIfPossible() async {
+        guard !loadCompleted else { return }
+        guard let resolveKey, resolveKey.hasPrefix("dm/") else { return }
+        guard !resolveInFlight else { return }
+        guard resolveAttemptCount < 2 else { return }
+
+        resolveInFlight = true
+        resolveAttemptCount += 1
+        defer { resolveInFlight = false }
+
+        do {
+            let items = try await Self.messageMediaService.resolve(keys: [resolveKey])
+            guard let item = items.first, let fresh = URL(string: item.downloadUrl), !item.downloadUrl.isEmpty else { return }
+            resolvedUrl = fresh
+            showSpinner = true
+            loadCompleted = false
+            scheduledRetry = false
+            retryCount = 0
+            reloadToken = UUID()
+        } catch {
+            // Best-effort: keep showing placeholder/retry.
+        }
+    }
+}
+
+private func firstValidURL(from candidates: [String?]) -> URL? {
+    for candidate in candidates {
+        let trimmed = (candidate ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else { continue }
+
+        if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            return url
+        }
+        // If a URL is missing scheme but has a host, we can still try it.
+        if url.scheme == nil, url.host != nil {
+            return url
+        }
+    }
+
+    return nil
 }
 
 // MARK: - Helper Functions

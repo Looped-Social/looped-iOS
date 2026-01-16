@@ -77,6 +77,7 @@ struct CommentsView: View {
             }
             .onDisappear {
                 removeKeyboardObservers()
+                cleanupSelectedMedia()
             }
             .onChange(of: isAnonymousMode) { _, _ in
                 Task { await loadAnonProfileId() }
@@ -84,9 +85,11 @@ struct CommentsView: View {
             .onChange(of: commentsManager.editTarget?.backendId) { _, newValue in
                 if let newValue, let target = commentsManager.editTarget, target.backendId == newValue {
                     commentText = target.content
+                    cleanupSelectedMedia()
                     selectedMedia = []
                 } else if commentsManager.editTarget == nil {
                     commentText = ""
+                    cleanupSelectedMedia()
                     selectedMedia = []
                 }
             }
@@ -293,6 +296,7 @@ private extension CommentsView {
                     media: selectedMedia,
                     maxHeight: 180,
                     onRemove: { item in
+                        TemporaryMediaFile.deleteIfOwned(item.videoURL)
                         selectedMedia.removeAll { $0.id == item.id }
                     }
                 )
@@ -397,14 +401,15 @@ private extension CommentsView {
                         if commentsManager.editTarget != nil {
                             guard !trimmed.isEmpty else { return }
                             await commentsManager.editComment(content: trimmed)
-                        } else {
-                            guard !trimmed.isEmpty || !selectedMedia.isEmpty else { return }
-                            await commentsManager.postComment(content: trimmed, media: selectedMedia)
-                            selectedMedia = []
-                        }
-                        commentText = ""
-                    }
-                }) {
+	                        } else {
+	                            guard !trimmed.isEmpty || !selectedMedia.isEmpty else { return }
+	                            await commentsManager.postComment(content: trimmed, media: selectedMedia)
+	                            cleanupSelectedMedia()
+	                            selectedMedia = []
+	                        }
+	                        commentText = ""
+	                    }
+	                }) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.loopedCustom(.semibold, size: 28))
                         .foregroundColor(
@@ -440,10 +445,19 @@ private extension CommentsView {
                 get: { nil },
                 set: { image in
                     if let image = image {
+                        cleanupSelectedMedia()
                         selectedMedia = [LocalMediaItem(type: .image, image: image)]
                     }
                 }
             ))
+        }
+    }
+}
+
+private extension CommentsView {
+    func cleanupSelectedMedia() {
+        for item in selectedMedia {
+            TemporaryMediaFile.deleteIfOwned(item.videoURL)
         }
     }
 }

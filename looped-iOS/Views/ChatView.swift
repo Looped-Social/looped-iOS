@@ -203,6 +203,9 @@ struct ChatView: View {
         }
         .onDisappear {
             viewModel.stopPolling()
+            for item in selectedMedia {
+                TemporaryMediaFile.deleteIfOwned(item.videoURL)
+            }
         }
     }
 
@@ -236,6 +239,9 @@ struct ChatView: View {
             }
 
             guard didSend else { return }
+            for item in mediaToSend {
+                TemporaryMediaFile.deleteIfOwned(item.videoURL)
+            }
             messageText = ""
             selectedMedia = []
         }

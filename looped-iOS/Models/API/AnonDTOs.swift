@@ -33,6 +33,7 @@ struct AnonProfileDTO: Decodable {
     let updatedAt: Date?
     let stats: AnonProfileStatsDTO?
     let displayCommunity: DisplayCommunityDTO?
+    let displaySpecialization: DisplayCommunityDTO?
 }
 
 struct AnonProfileStatsDTO: Decodable {
@@ -43,6 +44,15 @@ struct AnonProfileStatsDTO: Decodable {
 
 struct AnonDisplayCommunityRequestDTO: Encodable {
     let communityId: Int?
+    let asAnon: Bool
+    let anonProfileId: Int
+    let anonCert: String
+    let anonCertKid: String
+    let anonSig: String
+}
+
+struct AnonDisplaySpecializationRequestDTO: Encodable {
+    let specializationId: Int?
     let asAnon: Bool
     let anonProfileId: Int
     let anonCert: String
