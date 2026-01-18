@@ -31,62 +31,6 @@ struct LoopedBackButton: View {
     }
 }
 
-struct LoopedOverlayBackButton: View {
-    let action: () -> Void
-    var usesHaptics: Bool = true
-    var foregroundColor: Color = .loopedTextSecondary
-    var size: CGFloat = 36
-
-    var body: some View {
-        LoopedOverlayIconButton(
-            systemName: "chevron.backward",
-            action: action,
-            usesHaptics: usesHaptics,
-            foregroundColor: foregroundColor,
-            size: size,
-            accessibilityLabel: "Back"
-        )
-    }
-}
-
-struct LoopedOverlayIconButton: View {
-    let systemName: String
-    let action: () -> Void
-    var usesHaptics: Bool = true
-    var foregroundColor: Color = .loopedTextSecondary
-    var size: CGFloat = 36
-    var accessibilityLabel: String
-
-    var body: some View {
-        Button(action: trigger) {
-            Image(systemName: systemName)
-                .font(.loopedCustom(.semibold, size: 18))
-                .foregroundColor(foregroundColor)
-                .frame(width: size, height: size)
-                .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color.loopedTextSecondary.opacity(0.14), lineWidth: 1)
-                )
-                .shadow(color: Color.loopedTextSecondary.opacity(0.10), radius: 10, x: 0, y: 4)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    private func trigger() {
-        if usesHaptics {
-            let impact = UIImpactFeedbackGenerator(style: .light)
-            impact.impactOccurred()
-        }
-        action()
-    }
-}
-
 struct LoopedCloseButton: View {
     let action: () -> Void
     var foregroundColor: Color = .loopedTextSecondary

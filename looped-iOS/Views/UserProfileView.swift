@@ -19,6 +19,7 @@ struct UserProfileView: View {
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
+    @State private var canPop = false
     @AppStorage("anonymousMode") private var isAnonymousMode = false
 	    @State private var showActionMenu = false
 	    @State private var showBlockConfirm = false
@@ -76,11 +77,40 @@ struct UserProfileView: View {
     }
 
 	    var body: some View {
-	        profileLayout
-	            .background(Color.loopedBackground.ignoresSafeArea())
-	            .toolbar(.hidden, for: .navigationBar)
-	            .overlay(alignment: .top) { overlayHeader }
-	            .edgeSwipeToDismiss { dismiss() }
+		        profileLayout
+		            .background(Color.loopedBackground.ignoresSafeArea())
+		            .navigationBarTitleDisplayMode(.inline)
+		            .toolbar(.visible, for: .navigationBar)
+		            .toolbarBackground(Color.loopedClear, for: .navigationBar)
+		            .toolbarBackground(.visible, for: .navigationBar)
+		            .toolbar {
+		                if !canPop {
+		                    ToolbarItem(placement: .topBarLeading) {
+		                        Button(action: { dismiss() }) {
+	                            Image(systemName: "xmark")
+	                                .font(.loopedCustom(.semibold, size: 16))
+	                                .foregroundColor(.loopedTextSecondary)
+	                                .frame(width: 44, height: 44)
+	                        }
+	                        .buttonStyle(.plain)
+	                        .accessibilityLabel("Close")
+	                    }
+	                }
+
+	                if canShowActionMenu {
+	                    ToolbarItem(placement: .topBarTrailing) {
+	                        Button(action: { showActionMenu = true }) {
+	                            Image(systemName: "ellipsis")
+	                                .font(.loopedCustom(.medium, size: 18))
+	                                .foregroundColor(.loopedTextSecondary)
+	                                .frame(width: 44, height: 44)
+	                        }
+	                        .buttonStyle(.plain)
+	                        .accessibilityLabel("More options")
+	                    }
+	                }
+	            }
+	            .background(NavigationCanPopReader(canPop: $canPop))
 	            .environmentObject(commentsManager)
             .modifier(
                 ProfileActionsModifier(
@@ -136,28 +166,6 @@ struct UserProfileView: View {
                     Task { await repostsViewModel.loadInitial() }
                 }
             }
-    }
-
-    private var overlayHeader: some View {
-        HStack(spacing: 12) {
-            LoopedOverlayBackButton(action: { dismiss() })
-
-            Spacer()
-
-            if canShowActionMenu {
-                LoopedOverlayIconButton(
-                    systemName: "ellipsis",
-                    action: { showActionMenu = true },
-                    usesHaptics: true,
-                    foregroundColor: .loopedTextSecondary,
-                    size: 36,
-                    accessibilityLabel: "More options"
-                )
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .frame(maxWidth: .infinity)
     }
 
     private var tabs: [UserProfileTab] {

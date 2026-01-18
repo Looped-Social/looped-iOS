@@ -15,6 +15,7 @@ struct CommunityProfileView: View {
     @State private var showSpecializationJoinInfo = false
     @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
+    @State private var canPop = false
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
@@ -35,14 +36,27 @@ struct CommunityProfileView: View {
                 await viewModel.refresh()
             }
             .task { await loadIfNeeded() }
-
-            CommunityProfileHeader { dismiss() }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .edgeSwipeToDismiss {
-            dismiss()
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(Color.loopedClear, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            if !canPop {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(.loopedCustom(.semibold, size: 16))
+                            .foregroundColor(.loopedTextSecondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
+                }
+            }
         }
+        .background(NavigationCanPopReader(canPop: $canPop))
         .environmentObject(commentsManager)
         .overlay(
             Group {
@@ -507,20 +521,6 @@ struct CommunityProfileView: View {
             singular = "specialization"
         }
         return count == 1 ? singular : "\(singular)s"
-    }
-}
-
-struct CommunityProfileHeader: View {
-    let onBack: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            LoopedOverlayBackButton(action: onBack)
-
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
     }
 }
 
