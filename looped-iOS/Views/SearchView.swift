@@ -6,7 +6,7 @@ struct SearchView: View {
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
                     // Search Bar - Tappable to show search results
@@ -199,7 +199,6 @@ struct SearchView: View {
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationBarHidden(true)
         }
-        .navigationViewStyle(.stack)
         .fullScreenCover(isPresented: $showSearchResults) {
             SearchResultsView()
         }

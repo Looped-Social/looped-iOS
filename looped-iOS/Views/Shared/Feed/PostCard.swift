@@ -1244,7 +1244,7 @@ struct EditPostSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Edit your post")
                     .font(.loopedSubBodyMedium)
@@ -1282,7 +1282,6 @@ struct EditPostSheet: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
     }
 }
 

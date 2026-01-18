@@ -276,10 +276,9 @@ struct SettingsView: View {
             SafariView(url: userAgreementUrl)
         }
         .fullScreenCover(item: $contentDestination) { destination in
-            NavigationView {
+            NavigationStack {
                 MenuDestinationView(destination: destination)
             }
-            .navigationViewStyle(.stack)
         }
         .onChange(of: anonymousMode) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }

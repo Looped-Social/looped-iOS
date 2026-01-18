@@ -31,6 +31,33 @@ struct LoopedBackButton: View {
     }
 }
 
+struct LoopedOverlayBackButton: View {
+    let action: () -> Void
+    var usesHaptics: Bool = true
+    var foregroundColor: Color = .loopedTextSecondary
+    var backgroundColor: Color = .loopedBackground
+    var size: CGFloat = 36
+
+    var body: some View {
+        LoopedBackButton(
+            action: action,
+            usesHaptics: usesHaptics,
+            foregroundColor: foregroundColor,
+            iconSize: 18,
+            iconWeight: .semibold,
+            hitWidth: size,
+            hitHeight: size
+        )
+        .background(Circle().fill(backgroundColor))
+        .overlay(
+            Circle()
+                .stroke(Color.loopedTextSecondary.opacity(0.14), lineWidth: 1)
+        )
+        .shadow(color: Color.loopedTextSecondary.opacity(0.10), radius: 10, x: 0, y: 4)
+        .clipShape(Circle())
+    }
+}
+
 struct LoopedCloseButton: View {
     let action: () -> Void
     var foregroundColor: Color = .loopedTextSecondary

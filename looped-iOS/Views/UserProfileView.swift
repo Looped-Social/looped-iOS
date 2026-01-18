@@ -19,7 +19,6 @@ struct UserProfileView: View {
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
-    @State private var overlayHeaderHeight: CGFloat = 0
     @AppStorage("anonymousMode") private var isAnonymousMode = false
 	    @State private var showActionMenu = false
 	    @State private var showBlockConfirm = false
@@ -79,10 +78,9 @@ struct UserProfileView: View {
 	    var body: some View {
 	        profileLayout
 	            .background(Color.loopedBackground.ignoresSafeArea())
-	            .navigationBarHidden(true)
-                .edgeSwipeToDismiss {
-                    dismiss()
-                }
+	            .toolbar(.hidden, for: .navigationBar)
+	            .overlay(alignment: .top) { overlayHeader }
+	            .edgeSwipeToDismiss { dismiss() }
 	            .environmentObject(commentsManager)
             .modifier(
                 ProfileActionsModifier(
@@ -116,9 +114,9 @@ struct UserProfileView: View {
 	                )
 	            ) {
 	                Button("OK", role: .cancel) { }
-	            } message: {
-	                Text(messageErrorMessage ?? "")
-	            }
+            } message: {
+                Text(messageErrorMessage ?? "")
+            }
 	            .alert(
 	                "Couldn't update follow",
 	                isPresented: Binding(
@@ -138,11 +136,34 @@ struct UserProfileView: View {
                     Task { await repostsViewModel.loadInitial() }
                 }
             }
-            .onPreferenceChange(UserProfileHeaderHeightKey.self) { newValue in
-                if newValue > 0, abs(newValue - overlayHeaderHeight) > 1 {
-                    overlayHeaderHeight = newValue
+    }
+
+    private var overlayHeader: some View {
+        HStack(spacing: 12) {
+            LoopedOverlayBackButton(action: { dismiss() })
+
+            Spacer()
+
+            if canShowActionMenu {
+                Button(action: { showActionMenu = true }) {
+                    Image(systemName: "ellipsis")
+                        .font(.loopedCustom(.medium, size: 18))
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.loopedBackground))
+                        .overlay(
+                            Circle()
+                                .stroke(Color.loopedTextSecondary.opacity(0.14), lineWidth: 1)
+                        )
+                        .shadow(color: Color.loopedTextSecondary.opacity(0.10), radius: 10, x: 0, y: 4)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More options")
             }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .frame(maxWidth: .infinity)
     }
 
     private var tabs: [UserProfileTab] {
@@ -169,30 +190,15 @@ struct UserProfileView: View {
 	    }
 
     private var profileLayout: some View {
-        ZStack(alignment: .top) {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    content
-                    Color.loopedClear.frame(height: 80)
-                }
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                content
+                Color.loopedClear.frame(height: 80)
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.loopedClear.frame(height: overlayHeaderHeight)
-            }
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .task { await loadIfNeeded() }
-            .refreshable { await reload() }
-
-            UserProfileHeader(
-                onBack: { dismiss() },
-                onMore: canShowActionMenu ? { showActionMenu = true } : nil
-            )
-            .background(
-                GeometryReader { proxy in
-                    Color.loopedClear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
-                }
-            )
         }
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .task { await loadIfNeeded() }
+        .refreshable { await reload() }
     }
 
     private var commentsOverlay: some View {
@@ -398,44 +404,6 @@ private struct ProfileActionsModifier: ViewModifier {
             } message: {
                 Text(blockErrorMessage ?? "")
             }
-    }
-}
-
-// MARK: - Header
-struct UserProfileHeader: View {
-    let onBack: () -> Void
-    let onMore: (() -> Void)?
-
-    var body: some View {
-        HStack(spacing: 12) {
-            LoopedBackButton(action: onBack)
-                .background(Color.loopedBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.loopedTextSecondary, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-            Spacer()
-
-            if let onMore {
-                Button(action: onMore) {
-                    Image(systemName: "ellipsis")
-                        .font(.loopedCustom(.medium, size: 18))
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(width: 44, height: 44)
-                        .background(Color.loopedBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.loopedTextSecondary, lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .accessibilityLabel("More options")
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 24)
     }
 }
 
@@ -986,18 +954,10 @@ struct UserCommentsList: View {
         updatedAt: Date()
     )
 
-    NavigationView {
+    NavigationStack {
         UserProfileView(userId: 1, preloadedProfile: sampleProfile)
     }
     .environmentObject(AuthViewModel())
     .environmentObject(FeedViewModel())
     .environment(\.floatingActionButtonState, FloatingActionButtonState())
-}
-
-private struct UserProfileHeaderHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
 }

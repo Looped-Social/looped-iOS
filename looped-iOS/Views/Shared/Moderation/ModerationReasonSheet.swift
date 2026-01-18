@@ -14,7 +14,7 @@ struct ModerationReasonSheet: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(title)
@@ -88,7 +88,6 @@ struct ModerationReasonSheet: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
     }
 
     private var isSubmitEnabled: Bool {

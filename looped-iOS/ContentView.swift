@@ -181,10 +181,9 @@ struct MainTabView: View {
             .preferredColorScheme(preferredColorScheme)
         }
         .fullScreenCover(item: $menuDestination) { destination in
-            NavigationView {
+            NavigationStack {
                 destinationView(for: destination)
             }
-            .navigationViewStyle(.stack)
             .preferredColorScheme(preferredColorScheme)
         }
         .sheet(isPresented: $showFAQSheet) {
@@ -192,14 +191,13 @@ struct MainTabView: View {
                 .ignoresSafeArea()
         }
         .fullScreenCover(item: $deepLinkProfile) { profile in
-            NavigationView {
+            NavigationStack {
                 if profile.isAnonymous {
                     UserProfileView(anonProfileId: profile.profileId)
                 } else {
                     UserProfileView(userId: profile.profileId)
                 }
             }
-            .navigationViewStyle(.stack)
             .preferredColorScheme(preferredColorScheme)
         }
         .onOpenURL { url in
@@ -315,7 +313,7 @@ struct MainTabView: View {
     private var tabContent: some View {
         switch selectedTab {
         case .home:
-            NavigationView {
+            NavigationStack {
                 FeedView(
                     isTabBarVisible: $isTabBarVisible,
                     onProfileTap: {
@@ -327,9 +325,8 @@ struct MainTabView: View {
                 .environmentObject(feedViewModel)
                 .environmentObject(commentsManager)
             }
-            .navigationViewStyle(.stack)
         case .messages:
-            NavigationView {
+            NavigationStack {
                 MessagesView(
                     onChatSelected: { conversation, channel in
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -340,16 +337,14 @@ struct MainTabView: View {
                     }
                 )
             }
-            .navigationViewStyle(.stack)
         case .search:
             SearchView()
         case .notifications:
             NotificationsView()
         case .profile:
-            NavigationView {
+            NavigationStack {
                 ProfileView()
             }
-            .navigationViewStyle(.stack)
         }
     }
 

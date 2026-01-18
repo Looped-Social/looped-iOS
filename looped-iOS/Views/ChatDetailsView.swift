@@ -71,7 +71,7 @@ struct ChatDetailsView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // Profile Section
@@ -220,7 +220,6 @@ struct ChatDetailsView: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
         .toast($toastMessage)
         .sheet(isPresented: $showAddMembers) {
             NewMessageView(
@@ -532,7 +531,7 @@ struct GroupMemberDetailsView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // Profile Section
@@ -660,7 +659,6 @@ struct GroupMemberDetailsView: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
         .toast($toastMessage)
         .sheet(isPresented: $showImagePicker) {
             // Full-screen image viewer

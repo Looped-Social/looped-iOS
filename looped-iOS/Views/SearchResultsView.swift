@@ -13,7 +13,7 @@ struct SearchResultsView: View {
     @State private var showCommunityProfile = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Custom Navigation Header
                 searchHeader
@@ -95,7 +95,6 @@ struct SearchResultsView: View {
                 .hidden()
             )
         }
-        .navigationViewStyle(.stack)
         .onAppear {
             searchFieldFocused = true
         }

@@ -81,7 +81,7 @@ struct ButtonExamples: View {
 }
 
 #Preview {
-    NavigationView {
+    NavigationStack {
         ButtonExamples()
     }
 }

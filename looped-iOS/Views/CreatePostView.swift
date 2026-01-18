@@ -124,7 +124,7 @@ struct CreatePostView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Main content
                 VStack(alignment: .leading, spacing: 16) {
@@ -354,7 +354,6 @@ struct CreatePostView: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
         .toast($toastMessage)
         .alert("Verification Required", isPresented: $showVerificationInfoAlert) {
             Button("OK", role: .cancel) { }

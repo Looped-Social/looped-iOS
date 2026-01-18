@@ -15,7 +15,6 @@ struct CommunityProfileView: View {
     @State private var showSpecializationJoinInfo = false
     @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
-    @State private var overlayHeaderHeight: CGFloat = 0
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
@@ -31,9 +30,6 @@ struct CommunityProfileView: View {
                     Color.loopedClear.frame(height: 80)
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.loopedClear.frame(height: overlayHeaderHeight)
-            }
             .background(Color.loopedBackground.ignoresSafeArea())
             .refreshable {
                 await viewModel.refresh()
@@ -41,11 +37,6 @@ struct CommunityProfileView: View {
             .task { await loadIfNeeded() }
 
             CommunityProfileHeader { dismiss() }
-                .background(
-                    GeometryReader { proxy in
-                        Color.loopedClear.preference(key: CommunityProfileHeaderHeightKey.self, value: proxy.size.height)
-                    }
-                )
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
@@ -81,11 +72,6 @@ struct CommunityProfileView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.followErrorMessage ?? "")
-        }
-        .onPreferenceChange(CommunityProfileHeaderHeightKey.self) { newValue in
-            if newValue > 0, abs(newValue - overlayHeaderHeight) > 1 {
-                overlayHeaderHeight = newValue
-            }
         }
     }
 
@@ -524,20 +510,12 @@ struct CommunityProfileView: View {
     }
 }
 
-private struct CommunityProfileHeaderHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
 struct CommunityProfileHeader: View {
     let onBack: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            LoopedBackButton(action: onBack)
+            LoopedOverlayBackButton(action: onBack)
 
             Spacer()
         }

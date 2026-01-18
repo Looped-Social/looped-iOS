@@ -26,7 +26,7 @@ struct ReportReasonSheet: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 Text("Why are you reporting this?")
                     .font(.loopedHeading)
@@ -109,7 +109,6 @@ struct ReportReasonSheet: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
     }
 
     private var isSubmitEnabled: Bool {

@@ -18,7 +18,7 @@ struct NewMessageView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // To: Field and Recipients
                 toFieldSection
@@ -44,7 +44,6 @@ struct NewMessageView: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
         .onChange(of: searchText) { newValue in
             Task { await searchViewModel.search(query: newValue) }
         }
