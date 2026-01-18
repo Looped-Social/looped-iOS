@@ -35,26 +35,55 @@ struct LoopedOverlayBackButton: View {
     let action: () -> Void
     var usesHaptics: Bool = true
     var foregroundColor: Color = .loopedTextSecondary
-    var backgroundColor: Color = .loopedBackground
     var size: CGFloat = 36
 
     var body: some View {
-        LoopedBackButton(
+        LoopedOverlayIconButton(
+            systemName: "chevron.backward",
             action: action,
             usesHaptics: usesHaptics,
             foregroundColor: foregroundColor,
-            iconSize: 18,
-            iconWeight: .semibold,
-            hitWidth: size,
-            hitHeight: size
+            size: size,
+            accessibilityLabel: "Back"
         )
-        .background(Circle().fill(backgroundColor))
-        .overlay(
-            Circle()
-                .stroke(Color.loopedTextSecondary.opacity(0.14), lineWidth: 1)
-        )
-        .shadow(color: Color.loopedTextSecondary.opacity(0.10), radius: 10, x: 0, y: 4)
-        .clipShape(Circle())
+    }
+}
+
+struct LoopedOverlayIconButton: View {
+    let systemName: String
+    let action: () -> Void
+    var usesHaptics: Bool = true
+    var foregroundColor: Color = .loopedTextSecondary
+    var size: CGFloat = 36
+    var accessibilityLabel: String
+
+    var body: some View {
+        Button(action: trigger) {
+            Image(systemName: systemName)
+                .font(.loopedCustom(.semibold, size: 18))
+                .foregroundColor(foregroundColor)
+                .frame(width: size, height: size)
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.loopedTextSecondary.opacity(0.14), lineWidth: 1)
+                )
+                .shadow(color: Color.loopedTextSecondary.opacity(0.10), radius: 10, x: 0, y: 4)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func trigger() {
+        if usesHaptics {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+        }
+        action()
     }
 }
 

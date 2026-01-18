@@ -145,20 +145,14 @@ struct UserProfileView: View {
             Spacer()
 
             if canShowActionMenu {
-                Button(action: { showActionMenu = true }) {
-                    Image(systemName: "ellipsis")
-                        .font(.loopedCustom(.medium, size: 18))
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(width: 36, height: 36)
-                        .background(Circle().fill(Color.loopedBackground))
-                        .overlay(
-                            Circle()
-                                .stroke(Color.loopedTextSecondary.opacity(0.14), lineWidth: 1)
-                        )
-                        .shadow(color: Color.loopedTextSecondary.opacity(0.10), radius: 10, x: 0, y: 4)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("More options")
+                LoopedOverlayIconButton(
+                    systemName: "ellipsis",
+                    action: { showActionMenu = true },
+                    usesHaptics: true,
+                    foregroundColor: .loopedTextSecondary,
+                    size: 36,
+                    accessibilityLabel: "More options"
+                )
             }
         }
         .padding(.horizontal, 16)
