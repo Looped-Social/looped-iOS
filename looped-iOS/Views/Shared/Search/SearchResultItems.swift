@@ -173,7 +173,7 @@ struct LoopSearchResultItem: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .scaledToFill()
+                            .scaledToFit()
                     case .failure:
                         placeholderImage
                     case .empty:
@@ -191,11 +191,15 @@ struct LoopSearchResultItem: View {
 
     private var placeholderImage: some View {
         RoundedRectangle(cornerRadius: 10)
-            .fill(Color.loopedMutedBackground)
+            .fill(Color.loopedBackground)
             .overlay(
                 Image(systemName: "person.3.fill")
                     .foregroundColor(.loopedTextSecondary)
                     .font(.loopedCustom(size: 16))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.loopedMutedBackground, lineWidth: 1)
             )
     }
 }

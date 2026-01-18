@@ -15,9 +15,6 @@ struct SearchResultsView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Custom Navigation Header
-                searchHeader
-
                 SearchTypeFilterPills(
                     selectedFilter: viewModel.selectedFilter,
                     onSelect: { viewModel.selectedFilter = $0 }
@@ -54,9 +51,26 @@ struct SearchResultsView: View {
                 Spacer(minLength: 0)
             }
             .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .edgeSwipeToDismiss {
-                dismiss()
+            .navigationTitle("Search")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedPrimary)
+                }
+            }
+            .searchable(
+                text: $viewModel.searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search Looped"
+            )
+            .searchFocused($searchFieldFocused)
+            .onSubmit(of: .search) {
+                handleSearchSubmit()
             }
             .background(
                 Group {
@@ -97,25 +111,6 @@ struct SearchResultsView: View {
         }
         .onAppear {
             searchFieldFocused = true
-        }
-    }
-
-    // MARK: - Search Header
-    private var searchHeader: some View {
-        VStack(spacing: 0) {
-            SearchResultsBar(
-                searchText: $viewModel.searchText,
-                placeholder: "Search Looped",
-                onCancel: {
-                    dismiss()
-                },
-                isSearchFieldFocused: $searchFieldFocused
-            )
-            .onSubmit {
-                handleSearchSubmit()
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 4)
         }
     }
 

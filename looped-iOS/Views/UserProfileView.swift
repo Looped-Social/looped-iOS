@@ -81,8 +81,7 @@ struct UserProfileView: View {
 		            .background(Color.loopedBackground.ignoresSafeArea())
 		            .navigationBarTitleDisplayMode(.inline)
 		            .toolbar(.visible, for: .navigationBar)
-		            .toolbarBackground(Color.loopedClear, for: .navigationBar)
-		            .toolbarBackground(.visible, for: .navigationBar)
+		            .toolbarBackground(.hidden, for: .navigationBar)
 		            .toolbar {
 		                if !canPop {
 		                    ToolbarItem(placement: .topBarLeading) {
@@ -207,7 +206,7 @@ struct UserProfileView: View {
     private var commentsOverlay: some View {
         Group {
             if commentsManager.isPresented, let post = commentsManager.currentPost {
-                CommentsView(post: post) {
+                CommentsNavigationHost(post: post) {
                     commentsManager.dismissComments()
                 }
                 .environmentObject(commentsManager)
@@ -240,6 +239,7 @@ struct UserProfileView: View {
                     commentsViewModel: commentsViewModel
                 )
             }
+            .padding(.top, 12)
         } else {
             Text("Profile unavailable")
                 .font(.loopedBodyMedium)

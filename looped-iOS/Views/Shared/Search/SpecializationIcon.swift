@@ -7,12 +7,16 @@ struct SpecializationIcon: View {
     var body: some View {
         VStack(spacing: 8) {
             Circle()
-                .fill(Color.loopedMutedBackground)
+                .fill(Color.loopedBackground)
                 .frame(width: 50, height: 50)
                 .overlay(
                     Text(initials)
-                        .font(.loopedCustom(.semibold, size: 18))
-                        .foregroundColor(.loopedTextSecondary)
+                        .font(.loopedCustom(.semibold, size: 24))
+                        .foregroundColor(.loopedPrimary)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.loopedMutedBackground, lineWidth: 1)
                 )
 
             VStack(spacing: 2) {

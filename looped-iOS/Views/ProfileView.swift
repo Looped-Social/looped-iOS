@@ -141,7 +141,7 @@ struct ProfileView: View {
         .overlay(
             Group {
                 if commentsManager.isPresented, let post = commentsManager.currentPost {
-                    CommentsView(post: post) {
+                    CommentsNavigationHost(post: post) {
                         commentsManager.dismissComments()
                     }
                     .environmentObject(commentsManager)

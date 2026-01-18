@@ -70,12 +70,16 @@ struct LoopCard: View {
     }
 
     private var placeholderImage: some View {
-        Rectangle()
-            .fill(Color.loopedMutedBackground)
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color.loopedBackground)
             .overlay(
                 Image(systemName: "person.3")
                     .font(.loopedCustom(size: 20))
                     .foregroundColor(.loopedTextSecondary.opacity(0.6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.loopedMutedBackground, lineWidth: 1)
             )
     }
 }

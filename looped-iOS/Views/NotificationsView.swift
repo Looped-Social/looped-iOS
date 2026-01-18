@@ -5,14 +5,6 @@ struct NotificationsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            NotificationsHeader(
-                isMarkAllDisabled: viewModel.notifications.allSatisfy(\.isRead) || viewModel.isLoading,
-                onMarkAllRead: {
-                    Task { await viewModel.markAllAsRead() }
-                }
-            )
-
             // Notifications List
             if viewModel.notifications.isEmpty, let errorMessage = viewModel.errorMessage {
                 VStack(spacing: 16) {
@@ -107,45 +99,30 @@ struct NotificationsView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await viewModel.markAllAsRead() }
+                } label: {
+                    Image(systemName: "checkmark.circle")
+                        .font(.loopedCustom(size: 20))
+                        .foregroundColor(isMarkAllDisabled ? .loopedTextSecondary.opacity(0.4) : .loopedTextSecondary)
+                }
+                .disabled(isMarkAllDisabled)
+            }
+        }
         .toast($viewModel.toastMessage)
         .task {
             await viewModel.loadNotifications()
         }
     }
-}
 
-// MARK: - Notifications Header
-struct NotificationsHeader: View {
-    let isMarkAllDisabled: Bool
-    let onMarkAllRead: () -> Void
-
-    var body: some View {
-        HStack {
-            Text("Notifications")
-                .font(.loopedHeadingMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            // Mark all as read button (optional)
-            Button(action: {
-                onMarkAllRead()
-            }) {
-                Image(systemName: "checkmark.circle")
-                    .font(.loopedCustom(size: 20))
-                    .foregroundColor(isMarkAllDisabled ? .loopedTextSecondary.opacity(0.4) : .loopedTextSecondary)
-            }
-            .disabled(isMarkAllDisabled)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
-        .background(Color.loopedBackground)
-
-        // Divider
-        Rectangle()
-            .frame(height: 1)
-            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+    private var isMarkAllDisabled: Bool {
+        viewModel.notifications.isEmpty || viewModel.notifications.allSatisfy(\.isRead) || viewModel.isLoading
     }
 }
 

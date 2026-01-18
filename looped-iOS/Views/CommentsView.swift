@@ -2,8 +2,14 @@ import SwiftUI
 import Foundation
 
 struct CommentsView: View {
+    enum PresentationStyle {
+        case overlay
+        case navigation
+    }
+
     let post: Post
     let onDismiss: () -> Void
+    let presentationStyle: PresentationStyle
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
@@ -50,28 +56,58 @@ struct CommentsView: View {
         post.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
     }
 
+    private var titleText: String {
+        "\(comments.count) comment\(comments.count == 1 ? "" : "s")"
+    }
+
+    @ViewBuilder
+    private var commentsScrollView: some View {
+        if presentationStyle == .navigation {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    threadHeader
+                    commentsContent
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
+            }
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    threadHeader
+                    commentsContent
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
+            }
+        }
+    }
+
+    init(
+        post: Post,
+        presentationStyle: PresentationStyle = .overlay,
+        onDismiss: @escaping () -> Void
+    ) {
+        self.post = post
+        self.presentationStyle = presentationStyle
+        self.onDismiss = onDismiss
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-                headerBar
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 28) {
-                        threadHeader
-                        commentsContent
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    .padding(.bottom, 24)
+                if presentationStyle == .overlay {
+                    headerBar
                 }
+
+                commentsScrollView
 
                 commentInput
             }
             .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .edgeSwipeToDismiss {
-                onDismiss()
-            }
+            .modifier(CommentsPresentationModifier(style: presentationStyle, title: titleText, onDismiss: onDismiss))
             .onAppear {
                 pendingFocusCommentId = commentsManager.focusCommentId
                 setupKeyboardObservers()
@@ -126,13 +162,33 @@ struct CommentsView: View {
     }
 }
 
+private struct CommentsPresentationModifier: ViewModifier {
+    let style: CommentsView.PresentationStyle
+    let title: String
+    let onDismiss: () -> Void
+
+    func body(content: Content) -> some View {
+        switch style {
+        case .overlay:
+            content
+                .navigationBarHidden(true)
+                .edgeSwipeToDismiss { onDismiss() }
+        case .navigation:
+            content
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+}
+
 // MARK: - Subviews
 private extension CommentsView {
     var headerBar: some View {
         HStack(alignment: .center, spacing: 12) {
             LoopedBackButton(action: onDismiss)
 
-            Text("\(comments.count) comment\(comments.count == 1 ? "" : "s")")
+            Text(titleText)
                 .font(.loopedSubheadMedium)
                 .foregroundColor(.loopedTextPrimary)
 

@@ -26,6 +26,7 @@ struct CommunityProfileView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     headerContent
+                        .padding(.top, 12)
                     tabBar
                     tabContent
                     Color.loopedClear.frame(height: 80)
@@ -40,8 +41,7 @@ struct CommunityProfileView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        .toolbarBackground(Color.loopedClear, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             if !canPop {
                 ToolbarItem(placement: .topBarLeading) {
@@ -61,7 +61,7 @@ struct CommunityProfileView: View {
         .overlay(
             Group {
                 if commentsManager.isPresented, let post = commentsManager.currentPost {
-                    CommentsView(post: post) {
+                    CommentsNavigationHost(post: post) {
                         commentsManager.dismissComments()
                     }
                     .environmentObject(commentsManager)
