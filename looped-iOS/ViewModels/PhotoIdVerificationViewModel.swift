@@ -62,11 +62,6 @@ final class PhotoIdVerificationViewModel: ObservableObject {
     }
 
     func submit(selfie: UIImage, idFront: UIImage, idBack: UIImage?) async -> Bool {
-        guard let session else {
-            handleError(APIError.apiError(code: 400, error: "missing_session", message: "Verification session not ready yet."))
-            return false
-        }
-
         isSubmitting = true
         defer { isSubmitting = false }
 
@@ -75,51 +70,88 @@ final class PhotoIdVerificationViewModel: ObservableObject {
                 throw APIError.apiError(code: 400, error: "id_back_required", message: "Please upload the back of your ID.")
             }
 
-            let contentType = selectUploadContentType()
-            let maxBytes = session.constraints.maxBytes
-
-            let selfieData = try encode(image: selfie, contentType: contentType, maxBytes: maxBytes)
-            let idFrontData = try encode(image: idFront, contentType: contentType, maxBytes: maxBytes)
-            let idBackData = try encode(image: idBack, contentType: contentType, maxBytes: maxBytes)
-
-            async let selfieKey = service.uploadDocument(
-                uploadSessionId: session.uploadSessionId,
-                kind: .selfie,
-                data: selfieData,
-                contentType: contentType
-            )
-            async let idFrontKey = service.uploadDocument(
-                uploadSessionId: session.uploadSessionId,
-                kind: .idFront,
-                data: idFrontData,
-                contentType: contentType
-            )
-
-            let idBackKey = try await service.uploadDocument(
-                uploadSessionId: session.uploadSessionId,
-                kind: .idBack,
-                data: idBackData,
-                contentType: contentType
-            )
-
-            let response = try await service.submit(
-                uploadSessionId: session.uploadSessionId,
-                selfieKey: try await selfieKey,
-                idFrontKey: try await idFrontKey,
-                idBackKey: idBackKey
-            )
-
-            guard response.status == "pending_review" else {
-                throw APIError.apiError(
-                    code: 400,
-                    error: "verification_submit_failed",
-                    message: "Upload finished but verification wasn’t submitted. Please try again."
-                )
+            let activeSession = try await startSessionIfNeeded(forceNew: false)
+            do {
+                try await uploadAndSubmit(selfie: selfie, idFront: idFront, idBack: idBack, session: activeSession)
+                session = nil
+                return true
+            } catch let apiError as APIError {
+                if apiError.isInvalidSession {
+                    let refreshed = try await startSessionIfNeeded(forceNew: true)
+                    try await uploadAndSubmit(selfie: selfie, idFront: idFront, idBack: idBack, session: refreshed)
+                    session = nil
+                    return true
+                }
+                throw apiError
             }
-            return true
         } catch {
             handleError(error)
             return false
+        }
+    }
+
+    private func startSessionIfNeeded(forceNew: Bool) async throws -> PhotoIdVerificationStartResponse {
+        if forceNew {
+            session = nil
+            didPrepare = false
+        }
+        if let session { return session }
+
+        let start = try await service.start()
+        if start.required.contains(where: { $0 != .selfie && $0 != .idFront && $0 != .idBack }) {
+            throw APIError.apiError(code: 400, error: "unsupported_requirements", message: "This app version doesn't support the required documents.")
+        }
+        session = start
+        didPrepare = true
+        return start
+    }
+
+    private func uploadAndSubmit(
+        selfie: UIImage,
+        idFront: UIImage,
+        idBack: UIImage,
+        session: PhotoIdVerificationStartResponse
+    ) async throws {
+        let contentType = selectUploadContentType()
+        let maxBytes = session.constraints.maxBytes
+
+        let selfieData = try encode(image: selfie, contentType: contentType, maxBytes: maxBytes)
+        let idFrontData = try encode(image: idFront, contentType: contentType, maxBytes: maxBytes)
+        let idBackData = try encode(image: idBack, contentType: contentType, maxBytes: maxBytes)
+
+        async let selfieKey = service.uploadDocument(
+            uploadSessionId: session.uploadSessionId,
+            kind: .selfie,
+            data: selfieData,
+            contentType: contentType
+        )
+        async let idFrontKey = service.uploadDocument(
+            uploadSessionId: session.uploadSessionId,
+            kind: .idFront,
+            data: idFrontData,
+            contentType: contentType
+        )
+
+        let idBackKey = try await service.uploadDocument(
+            uploadSessionId: session.uploadSessionId,
+            kind: .idBack,
+            data: idBackData,
+            contentType: contentType
+        )
+
+        let response = try await service.submit(
+            uploadSessionId: session.uploadSessionId,
+            selfieKey: try await selfieKey,
+            idFrontKey: try await idFrontKey,
+            idBackKey: idBackKey
+        )
+
+        guard response.status == "pending_review" else {
+            throw APIError.apiError(
+                code: 400,
+                error: "verification_submit_failed",
+                message: "Upload finished but verification wasn’t submitted. Please try again."
+            )
         }
     }
 
@@ -161,7 +193,37 @@ final class PhotoIdVerificationViewModel: ObservableObject {
     }
 
     private func handleError(_ error: Error) {
-        errorMessage = error.localizedDescription
+        if let apiError = error as? APIError {
+            errorMessage = apiError.humanReadableMessage
+        } else {
+            errorMessage = error.localizedDescription
+        }
         showErrorAlert = true
+    }
+}
+
+private extension APIError {
+    var isInvalidSession: Bool {
+        if case .apiError(_, let error, _) = self {
+            return error == "invalid_session"
+        }
+        return false
+    }
+
+    var humanReadableMessage: String {
+        if case .apiError(_, let error, let message) = self {
+            if let message { return message }
+            switch error {
+            case "invalid_session":
+                return "Your verification session expired. Please try again."
+            case "already_pending":
+                return "You already have a verification pending review."
+            case "already_verified":
+                return "You're already verified."
+            default:
+                break
+            }
+        }
+        return localizedDescription
     }
 }

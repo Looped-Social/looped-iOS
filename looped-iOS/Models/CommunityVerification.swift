@@ -70,6 +70,10 @@ struct CommunityVerificationFinishResponse: Equatable {
     let expiresAt: Date?
 }
 
+struct CommunityVerificationUnverifyResponse: Equatable {
+    let status: String
+}
+
 extension CommunityVerificationStartResponse {
     init(dto: CommunityVerificationStartResponseDTO) {
         status = dto.status
@@ -85,5 +89,11 @@ extension CommunityVerificationFinishResponse {
         verified = dto.verified
         status = dto.status
         expiresAt = dto.expiresAt
+    }
+}
+
+extension CommunityVerificationUnverifyResponse {
+    init(dto: CommunityVerificationUnverifyResponseDTO) {
+        status = dto.status
     }
 }

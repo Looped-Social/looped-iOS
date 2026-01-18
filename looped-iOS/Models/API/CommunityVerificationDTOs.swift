@@ -40,3 +40,7 @@ struct CommunityVerificationFinishResponseDTO: Decodable {
     let status: String
     let expiresAt: Date?
 }
+
+struct CommunityVerificationUnverifyResponseDTO: Decodable {
+    let status: String
+}

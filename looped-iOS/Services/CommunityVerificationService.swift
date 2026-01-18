@@ -41,4 +41,12 @@ class CommunityVerificationService: CommunityVerificationServiceProtocol {
         )
         return CommunityVerificationFinishResponse(dto: response)
     }
+
+    func unverifyCommunity(communityId: Int) async throws -> CommunityVerificationUnverifyResponse {
+        let response: CommunityVerificationUnverifyResponseDTO = try await apiClient.delete(
+            "/v1/communities/\(communityId)/verification",
+            expecting: CommunityVerificationUnverifyResponseDTO.self
+        )
+        return CommunityVerificationUnverifyResponse(dto: response)
+    }
 }

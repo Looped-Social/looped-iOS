@@ -8,7 +8,6 @@ struct OrganizationSelectionView: View {
     @Binding var searchText: String
     let selectedOrganizationId: UUID?
     let onSelect: (Organization) -> Void
-    let onBack: () -> Void
     let onNavigate: (AuthScreen) -> Void
 
     @StateObject private var viewModel: OnboardingOrganizationSearchViewModel
@@ -20,7 +19,6 @@ struct OrganizationSelectionView: View {
         searchText: Binding<String>,
         selectedOrganizationId: UUID?,
         onSelect: @escaping (Organization) -> Void,
-        onBack: @escaping () -> Void,
         onNavigate: @escaping (AuthScreen) -> Void
     ) {
         self.title = title
@@ -28,7 +26,6 @@ struct OrganizationSelectionView: View {
         _searchText = searchText
         self.selectedOrganizationId = selectedOrganizationId
         self.onSelect = onSelect
-        self.onBack = onBack
         self.onNavigate = onNavigate
         _viewModel = StateObject(wrappedValue: OnboardingOrganizationSearchViewModel(scope: scope))
     }
@@ -36,12 +33,8 @@ struct OrganizationSelectionView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
-
                 Spacer()
-                    .frame(height: 24)
+                    .frame(height: 12)
 
                 Text(title)
                     .font(.loopedHeadingMedium)
@@ -128,6 +121,9 @@ struct OrganizationSelectionView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             viewModel.query = searchText
             viewModel.refresh()
@@ -139,15 +135,6 @@ struct OrganizationSelectionView: View {
             Button("Got it", role: .cancel) { }
         } message: {
             Text("If you work and go to school, no worries — you can verify additional communities later. Pick the one you want to feature on your profile for now. You can always change this later.")
-        }
-    }
-}
-
-private extension OrganizationSelectionView {
-    var header: some View {
-        HStack {
-            LoopedBackButton(action: onBack)
-            Spacer()
         }
     }
 }
@@ -198,13 +185,14 @@ private struct OrganizationListRow: View {
 }
 
 #Preview {
-    OrganizationSelectionView(
-        title: "Where do you work?",
-        scope: .companiesOnly,
-        searchText: .constant(""),
-        selectedOrganizationId: nil,
-        onSelect: { _ in },
-        onBack: { },
-        onNavigate: { _ in }
-    )
+    NavigationStack {
+        OrganizationSelectionView(
+            title: "Where do you work?",
+            scope: .companiesOnly,
+            searchText: .constant(""),
+            selectedOrganizationId: nil,
+            onSelect: { _ in },
+            onNavigate: { _ in }
+        )
+    }
 }

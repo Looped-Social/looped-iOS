@@ -120,6 +120,17 @@ class AuthViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    func finishOnboardingFromNotificationsStep() async {
+        await reportOnboardingStep(.verificationNotifications)
+
+        guard !onboardingComplete else { return }
+        guard isProvisioned else { return }
+
+        onboardingComplete = true
+        onboardingStep = .verificationNotifications
+        shouldEnterOnboardingFlow = false
+    }
     
     // MARK: - Google Sign-In (triggered from View)
     func signInWithGoogle() async {

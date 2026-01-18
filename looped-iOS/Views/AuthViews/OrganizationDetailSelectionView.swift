@@ -6,7 +6,6 @@ struct OrganizationDetailSelectionView: View {
     @Binding var searchText: String
     @Binding var selectedItem: CommunitySearchResult?
     let onSelect: (CommunitySearchResult) -> Void
-    let onBack: () -> Void
 
     @StateObject private var viewModel: OnboardingSpecializationSelectionViewModel
     @State private var isInfoPresented = false
@@ -16,27 +15,21 @@ struct OrganizationDetailSelectionView: View {
         kind: CommunitySearchKind,
         searchText: Binding<String>,
         selectedItem: Binding<CommunitySearchResult?>,
-        onSelect: @escaping (CommunitySearchResult) -> Void,
-        onBack: @escaping () -> Void
+        onSelect: @escaping (CommunitySearchResult) -> Void
     ) {
         self.title = title
         self.kind = kind
         _searchText = searchText
         _selectedItem = selectedItem
         self.onSelect = onSelect
-        self.onBack = onBack
         _viewModel = StateObject(wrappedValue: OnboardingSpecializationSelectionViewModel(kind: kind))
     }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
-
                 Spacer()
-                    .frame(height: 24)
+                    .frame(height: 12)
 
                 Text(title)
                     .font(.loopedHeadingMedium)
@@ -127,6 +120,9 @@ struct OrganizationDetailSelectionView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             viewModel.query = searchText
             viewModel.refresh()
@@ -143,13 +139,6 @@ struct OrganizationDetailSelectionView: View {
 }
 
 private extension OrganizationDetailSelectionView {
-    var header: some View {
-        HStack {
-            LoopedBackButton(action: onBack)
-            Spacer()
-        }
-    }
-
     var infoText: String {
         switch kind {
         case .department:
@@ -199,12 +188,13 @@ private struct OrganizationDetailRow: View {
 }
 
 #Preview {
-    OrganizationDetailSelectionView(
-        title: "Department",
-        kind: .department,
-        searchText: .constant(""),
-        selectedItem: .constant(nil as CommunitySearchResult?),
-        onSelect: { _ in },
-        onBack: { }
-    )
+    NavigationStack {
+        OrganizationDetailSelectionView(
+            title: "Department",
+            kind: .department,
+            searchText: .constant(""),
+            selectedItem: .constant(nil as CommunitySearchResult?),
+            onSelect: { _ in }
+        )
+    }
 }

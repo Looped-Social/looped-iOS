@@ -258,6 +258,7 @@ protocol CommunityVerificationServiceProtocol {
     func fetchCommunityVerifications() async throws -> [CommunityVerification]
     func startVerification(communityId: Int, method: CommunityVerificationMethod, email: String?) async throws -> CommunityVerificationStartResponse
     func finishVerification(communityId: Int, request: CommunityVerificationFinishRequest) async throws -> CommunityVerificationFinishResponse
+    func unverifyCommunity(communityId: Int) async throws -> CommunityVerificationUnverifyResponse
 }
 
 protocol PhotoIdVerificationServiceProtocol {

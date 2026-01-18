@@ -16,7 +16,6 @@ enum MenuDestination: Identifiable {
     case replies
     case liked
     case saved
-    case privacy
     case drafts
     case analytics
     case faq
@@ -28,7 +27,6 @@ enum MenuDestination: Identifiable {
         case .replies: return "replies"
         case .liked: return "liked"
         case .saved: return "saved"
-        case .privacy: return "privacy"
         case .drafts: return "drafts"
         case .analytics: return "analytics"
         case .faq: return "faq"
@@ -103,7 +101,12 @@ struct MainTabView: View {
     @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var fabState = FloatingActionButtonState()
     @StateObject private var coachMarkPresenter = CoachMarkPresenter()
+    @StateObject private var notificationsViewModel = NotificationsViewModel()
+    @StateObject private var messagesViewModel = MessagesViewModel()
     @State private var isTabBarVisible = true
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
+    @AppStorage("lastSeenNotificationsAt") private var lastSeenNotificationsAt = 0.0
+    @AppStorage("lastSeenMessagesAt") private var lastSeenMessagesAt = 0.0
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
@@ -117,7 +120,14 @@ struct MainTabView: View {
         }
         .environment(\.floatingActionButtonState, fabState)
         .task {
-            await feedViewModel.loadFollowedCommunities()
+            async let loadCommunities: Void = feedViewModel.loadFollowedCommunities()
+            async let loadNotifications: Void = notificationsViewModel.loadNotifications()
+            if !isAnonymousMode {
+                async let loadInbox: Void = messagesViewModel.loadInbox()
+                _ = await (loadCommunities, loadNotifications, loadInbox)
+            } else {
+                _ = await (loadCommunities, loadNotifications)
+            }
         }
         .onAppear {
             startFeedDiscoveryIfNeeded()
@@ -126,6 +136,7 @@ struct MainTabView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 isTabBarVisible = true
             }
+            updateLastSeen(for: selectedTab)
             startFeedDiscoveryIfNeeded()
         }
         .onChange(of: isRightMenuOpen) { _, _ in
@@ -136,6 +147,18 @@ struct MainTabView: View {
         }
         .onChange(of: showingChat) { _, _ in
             startFeedDiscoveryIfNeeded()
+        }
+        .onReceive(notificationsViewModel.$notifications) { _ in
+            guard selectedTab == .notifications else { return }
+            lastSeenNotificationsAt = Date().timeIntervalSince1970
+        }
+        .onReceive(messagesViewModel.$conversations) { _ in
+            guard selectedTab == .messages else { return }
+            lastSeenMessagesAt = Date().timeIntervalSince1970
+        }
+        .onReceive(messagesViewModel.$messageRequests) { _ in
+            guard selectedTab == .messages else { return }
+            lastSeenMessagesAt = Date().timeIntervalSince1970
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
@@ -289,7 +312,10 @@ struct MainTabView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if isTabBarVisible {
-                    CustomTabBar(selectedTab: $selectedTab)
+                    CustomTabBar(
+                        selectedTab: $selectedTab,
+                        showsUpdateDot: { tab in shouldShowUpdateDot(for: tab) }
+                    )
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
@@ -334,6 +360,7 @@ struct MainTabView: View {
         case .messages:
             NavigationStack {
                 MessagesView(
+                    viewModel: messagesViewModel,
                     onChatSelected: { conversation, channel in
                         withAnimation(.easeInOut(duration: 0.3)) {
                             selectedConversation = conversation
@@ -347,12 +374,48 @@ struct MainTabView: View {
             SearchView()
         case .notifications:
             NavigationStack {
-                NotificationsView()
+                NotificationsView(viewModel: notificationsViewModel)
             }
         case .profile:
             NavigationStack {
                 ProfileView()
             }
+        }
+    }
+
+    private func shouldShowUpdateDot(for tab: TabItem) -> Bool {
+        switch tab {
+        case .messages:
+            guard !isAnonymousMode else { return false }
+            guard selectedTab != .messages else { return false }
+            let lastSeen = Date(timeIntervalSince1970: lastSeenMessagesAt)
+            let hasNewUnreadConversation = messagesViewModel.conversations.contains { conversation in
+                conversation.hasUnreadMessages && conversation.lastMessageTimestamp > lastSeen
+            }
+            let hasNewRequest = messagesViewModel.messageRequests.contains { request in
+                request.previewCreatedAt > lastSeen
+            }
+            return hasNewUnreadConversation || hasNewRequest
+        case .notifications:
+            guard selectedTab != .notifications else { return false }
+            let lastSeen = Date(timeIntervalSince1970: lastSeenNotificationsAt)
+            return notificationsViewModel.notifications.contains { notification in
+                !notification.isRead && notification.createdAt > lastSeen
+            }
+        default:
+            return false
+        }
+    }
+
+    private func updateLastSeen(for tab: TabItem) {
+        let now = Date().timeIntervalSince1970
+        switch tab {
+        case .messages:
+            lastSeenMessagesAt = now
+        case .notifications:
+            lastSeenNotificationsAt = now
+        default:
+            break
         }
     }
 

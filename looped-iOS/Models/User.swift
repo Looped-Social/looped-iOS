@@ -21,6 +21,7 @@ struct User: Codable, Identifiable {
     let followingCount: Int?
     let postsCount: Int?
     let commentsCount: Int?
+    let likesReceivedCount: Int?
     let showFollowerCount: Bool?
     let hideAnonymousPosts: Bool?
     let messagePermission: MessagePermission?
@@ -48,6 +49,7 @@ struct User: Codable, Identifiable {
         followingCount: Int? = nil,
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
+        likesReceivedCount: Int? = nil,
         showFollowerCount: Bool? = nil,
         hideAnonymousPosts: Bool? = nil,
         messagePermission: MessagePermission? = nil,
@@ -74,6 +76,7 @@ struct User: Codable, Identifiable {
         self.followingCount = followingCount
         self.postsCount = postsCount
         self.commentsCount = commentsCount
+        self.likesReceivedCount = likesReceivedCount
         self.showFollowerCount = showFollowerCount
         self.hideAnonymousPosts = hideAnonymousPosts
         self.messagePermission = messagePermission
@@ -111,6 +114,7 @@ extension User {
         self.followingCount = stats?.followingCount ?? profile?.followingCount
         self.postsCount = stats?.postsCount ?? profile?.postsCount
         self.commentsCount = stats?.commentsCount ?? profile?.commentsCount
+        self.likesReceivedCount = stats?.likesReceivedCount ?? profile?.likesReceivedCount
         self.showFollowerCount = profile?.showFollowerCount ?? dto.showFollowerCount
         self.hideAnonymousPosts = dto.hideAnonymousPosts
         self.messagePermission = dto.messagePermission ?? profile?.messagePermission
@@ -137,6 +141,7 @@ extension User {
         followingCount: Int? = nil,
         postsCount: Int? = nil,
         commentsCount: Int? = nil,
+        likesReceivedCount: Int? = nil,
         showFollowerCount: Bool? = nil,
         hideAnonymousPosts: Bool? = nil,
         messagePermission: MessagePermission? = nil,
@@ -164,6 +169,7 @@ extension User {
             followingCount: followingCount,
             postsCount: postsCount,
             commentsCount: commentsCount,
+            likesReceivedCount: likesReceivedCount,
             showFollowerCount: showFollowerCount,
             hideAnonymousPosts: hideAnonymousPosts,
             messagePermission: messagePermission,
@@ -200,6 +206,7 @@ extension User {
             followingCount: followingCount,
             postsCount: postsCount,
             commentsCount: commentsCount,
+            likesReceivedCount: likesReceivedCount,
             showFollowerCount: showFollowerCount,
             hideAnonymousPosts: hideAnonymousPosts,
             messagePermission: messagePermission,

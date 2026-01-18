@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-struct PhotoIdVerificationView: View {
+	struct PhotoIdVerificationView: View {
     let communityId: Int?
     let currentStep: Int
     let totalSteps: Int
@@ -14,10 +14,11 @@ struct PhotoIdVerificationView: View {
     @State private var selfieImage: UIImage?
     @State private var idFrontImage: UIImage?
     @State private var idBackImage: UIImage?
-    @State private var showSelfieCamera = false
-    @State private var showIdFrontCamera = false
-    @State private var showIdBackCamera = false
-    @StateObject private var viewModel: PhotoIdVerificationViewModel
+	    @State private var showSelfieCamera = false
+	    @State private var showIdFrontCamera = false
+	    @State private var showIdBackCamera = false
+	    @StateObject private var viewModel: PhotoIdVerificationViewModel
+	    @State private var containerWidth: CGFloat = 0
 
     init(
         communityId: Int? = nil,
@@ -42,41 +43,40 @@ struct PhotoIdVerificationView: View {
         )
     }
 
-    var body: some View {
-        ZStack {
-            GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    if showsHeader {
-                        header
-                            .padding(.top, 8)
-                            .padding(.horizontal, 16)
-                    }
+	    var body: some View {
+	        ZStack {
+	            VStack(spacing: 0) {
+	                if showsHeader {
+	                    header
+	                        .padding(.top, 8)
+	                        .padding(.horizontal, 16)
+	                }
 
-                    Spacer()
-                        .frame(height: geometry.size.height * 0.05)
+	                ScrollView(showsIndicators: false) {
+	                    VStack(spacing: 32) {
+	                        logo
+	                            .padding(.top, showsHeader ? 16 : 24)
 
-                    logo
+	                        switch stage {
+	                        case .selfie:
+	                            selfieStage
+	                        case .workId:
+	                            workIdStage
+	                        }
+	                    }
+	                    .frame(maxWidth: 520)
+	                    .frame(maxWidth: .infinity, alignment: .center)
+	                    .padding(.horizontal, 24)
+	                    .padding(.bottom, 24)
+	                }
+	            }
+	            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+	            .background(Color.loopedBackground.ignoresSafeArea())
 
-                    Spacer()
-                        .frame(height: geometry.size.height * 0.08)
-
-                    switch stage {
-                    case .selfie:
-                        selfieStage
-                    case .workId:
-                        workIdStage
-                    }
-
-                    Spacer(minLength: 24)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .background(Color.loopedBackground.ignoresSafeArea())
-            }
-
-            if viewModel.isPreparing || viewModel.isSubmitting {
-                ZStack {
-                    Color.loopedBlack.opacity(0.35).ignoresSafeArea()
-                    VStack(spacing: 12) {
+	            if viewModel.isPreparing || viewModel.isSubmitting {
+	                ZStack {
+	                    Color.loopedBlack.opacity(0.35).ignoresSafeArea()
+	                    VStack(spacing: 12) {
                         ProgressView()
                             .tint(Color.loopedWhite)
                         Text(viewModel.isPreparing ? "Preparing verification…" : "Uploading…")
@@ -88,16 +88,31 @@ struct PhotoIdVerificationView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
-        }
-        .fullScreenCover(isPresented: $showSelfieCamera) {
-            CameraCaptureView(
-                position: .front,
-                overlayStyle: .none,
-                instruction: "Slowly turn your head to the\nRight",
-                onCancel: { showSelfieCamera = false },
-                onConfirm: { image in
-                    selfieImage = image
-                    showSelfieCamera = false
+	        }
+	        .readWidth { containerWidth = $0 }
+	        .safeAreaInset(edge: .bottom, spacing: 0) {
+	            let fallbackWidth = UIScreen.main.bounds.width
+	            let availableWidth = max(0, (containerWidth > 0 ? containerWidth : fallbackWidth) - 48)
+	            let actionWidth = min(520, availableWidth)
+	            HStack {
+	                Spacer(minLength: 0)
+	                bottomAction
+	                    .frame(width: actionWidth)
+	                Spacer(minLength: 0)
+	            }
+	            .frame(maxWidth: .infinity)
+	            .padding(.horizontal, 24)
+	            .padding(.bottom, 12)
+	        }
+	        .fullScreenCover(isPresented: $showSelfieCamera) {
+	            CameraCaptureView(
+	                position: .front,
+	                overlayStyle: .none,
+	                instruction: "Position your face clearly in the frame",
+	                onCancel: { showSelfieCamera = false },
+	                onConfirm: { image in
+	                    selfieImage = image
+	                    showSelfieCamera = false
                 }
             )
         }
@@ -186,23 +201,17 @@ private extension PhotoIdVerificationView {
         }
     }
 
-    var logo: some View {
-        HStack(spacing: 2) {
-            Image("logo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 48)
+	    var logo: some View {
+	        Image("logo-banner")
+	            .resizable()
+	            .scaledToFit()
+	            .frame(height: 68)
+	    }
 
-            Text("ooped")
-                .font(.loopedLargeHeading)
-                .foregroundColor(.loopedTextPrimary)
-        }
-    }
-
-    var selfieStage: some View {
-        VStack(spacing: 20) {
-            Button(action: { showSelfieCamera = true }) {
-                Circle()
+	    var selfieStage: some View {
+	        VStack(spacing: 20) {
+	            Button(action: { showSelfieCamera = true }) {
+	                Circle()
                     .fill(Color.loopedPrimary)
                     .frame(width: 180, height: 180)
                     .overlay(
@@ -219,45 +228,41 @@ private extension PhotoIdVerificationView {
                         }
                             .clipShape(Circle())
                     )
-            }
-            .buttonStyle(PlainButtonStyle())
+	            }
+	            .buttonStyle(PlainButtonStyle())
 
-            Text("Slowly turn your head to the\nRight")
-                .font(.loopedSubBodyMedium)
-                .foregroundColor(.loopedTextPrimary)
-                .multilineTextAlignment(.center)
+	            Text("Position your face clearly in the frame")
+	                .font(.loopedSubBodyMedium)
+	                .foregroundColor(.loopedTextPrimary)
+	                .multilineTextAlignment(.center)
 
-            Button(action: { showSelfieCamera = true }) {
-                Text(selfieImage == nil ? "Take Selfie" : "Retake Selfie")
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedSecondary)
-            }
+	            Button(action: { showSelfieCamera = true }) {
+	                Text(selfieImage == nil ? "Take Selfie" : "Retake Selfie")
+	                    .font(.loopedSubBodyMedium)
+	                    .foregroundColor(.loopedSecondary)
+	            }
+	        }
+	    }
 
-            PrimaryButton(title: "Continue", isEnabled: selfieImage != nil) {
-                stage = .workId
-            }
-            .padding(.horizontal, 32)
-        }
-    }
+	    var workIdStage: some View {
+	        VStack(spacing: 20) {
+	            VStack(spacing: 14) {
+	                Button(action: { showIdFrontCamera = true }) {
+	                    IdDocumentCardView(title: "ID Front", image: idFrontImage)
+	                }
+	                .buttonStyle(PlainButtonStyle())
 
-    var workIdStage: some View {
-        VStack(spacing: 20) {
-            VStack(spacing: 14) {
-                Button(action: { showIdFrontCamera = true }) {
-                    IdDocumentCardView(title: "ID Front", image: idFrontImage)
-                }
-                .buttonStyle(PlainButtonStyle())
+	                Button(action: { showIdBackCamera = true }) {
+	                    IdDocumentCardView(title: "ID Back", image: idBackImage)
+	                }
+	                .buttonStyle(PlainButtonStyle())
+	            }
+	            .frame(maxWidth: .infinity)
 
-                Button(action: { showIdBackCamera = true }) {
-                    IdDocumentCardView(title: "ID Back", image: idBackImage)
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-
-            Text("Position your ID within\nframe")
-                .font(.loopedSubBodyMedium)
-                .foregroundColor(.loopedTextPrimary)
-                .multilineTextAlignment(.center)
+	            Text("Position your ID within\nframe")
+	                .font(.loopedSubBodyMedium)
+	                .foregroundColor(.loopedTextPrimary)
+	                .multilineTextAlignment(.center)
 
             HStack(spacing: 18) {
                 Button(action: { showIdFrontCamera = true }) {
@@ -274,15 +279,25 @@ private extension PhotoIdVerificationView {
                 .opacity(0.85)
             }
 
-            PrimaryButton(
-                title: "Continue",
-                isEnabled: idFrontImage != nil && idBackImage != nil && selfieImage != nil && !viewModel.isPreparing,
-                isLoading: viewModel.isSubmitting,
-                action: handleSubmit
-            )
-            .padding(.horizontal, 32)
-        }
-    }
+	        }
+	    }
+
+	    @ViewBuilder
+	    var bottomAction: some View {
+	        switch stage {
+	        case .selfie:
+	            PrimaryButton(title: "Continue", isEnabled: selfieImage != nil) {
+	                stage = .workId
+	            }
+	        case .workId:
+	            PrimaryButton(
+	                title: "Continue",
+	                isEnabled: idFrontImage != nil && idBackImage != nil && selfieImage != nil && !viewModel.isPreparing,
+	                isLoading: viewModel.isSubmitting,
+	                action: handleSubmit
+	            )
+	        }
+	    }
 
     func handleBack() {
         if stage == .workId {
@@ -308,48 +323,71 @@ private enum PhotoIdStage {
     case workId
 }
 
-private struct IdDocumentCardView: View {
-    let title: String
-    let image: UIImage?
+	private struct IdDocumentCardView: View {
+	    let title: String
+	    let image: UIImage?
 
-    var body: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color.loopedMutedBackground)
-            .frame(width: 280, height: 170)
-            .shadow(color: Color.loopedBlack.opacity(0.12), radius: 10, x: 0, y: 6)
-            .overlay(
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Looped")
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedTextPrimary)
-                        Text(title)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
+	    var body: some View {
+	        RoundedRectangle(cornerRadius: 18, style: .continuous)
+	            .fill(Color.loopedMutedBackground)
+	            .frame(maxWidth: .infinity)
+	            .frame(height: 170)
+	            .shadow(color: Color.loopedBlack.opacity(0.12), radius: 10, x: 0, y: 6)
+	            .overlay(
+	                HStack(spacing: 16) {
+	                    VStack(alignment: .leading, spacing: 8) {
+	                        Text("Looped")
+	                            .font(.loopedBodyMedium)
+	                            .foregroundColor(.loopedTextPrimary)
+	                        Text(title)
+	                            .font(.loopedSmallText)
+	                            .foregroundColor(.loopedTextSecondary)
+	                    }
 
-                    Spacer()
+	                    Spacer()
 
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.loopedBackground)
-                        .frame(width: 88, height: 110)
-                        .overlay(
-                            Group {
-                                if let image {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                } else {
-                                    Image(systemName: "rectangle.on.rectangle")
-                                        .font(.loopedCustom(.regular, size: 36))
-                                        .foregroundColor(.loopedTextSecondary)
-                                }
-                            }
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        )
-                }
-                .padding(.horizontal, 20)
-            )
+	                    RoundedRectangle(cornerRadius: 10)
+	                        .fill(Color.loopedBackground)
+	                        .frame(width: 88, height: 110)
+	                        .overlay(
+	                            Group {
+	                                if let image {
+	                                    Image(uiImage: image)
+	                                        .resizable()
+	                                        .scaledToFill()
+	                                } else {
+	                                    Image(systemName: "rectangle.on.rectangle")
+	                                        .font(.loopedCustom(.regular, size: 36))
+	                                        .foregroundColor(.loopedTextSecondary)
+	                                }
+	                            }
+	                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+	                        )
+	                }
+	                .padding(.horizontal, 20)
+	            )
+	    }
+	}
+
+private extension PhotoIdVerificationView {
+    struct WidthPreferenceKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = nextValue()
+        }
+    }
+}
+
+private extension View {
+    func readWidth(_ onChange: @escaping (CGFloat) -> Void) -> some View {
+        background(
+            GeometryReader { geometry in
+                Color.clear.preference(key: PhotoIdVerificationView.WidthPreferenceKey.self, value: geometry.size.width)
+            }
+        )
+        .onPreferenceChange(PhotoIdVerificationView.WidthPreferenceKey.self) { newValue in
+            onChange(newValue)
+        }
     }
 }
 

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct CommunityVerificationsView: View {
     @StateObject private var viewModel = CommunityVerificationsViewModel()
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @State private var selectedVerification: CommunityVerification?
+    @State private var isShowingActions = false
 
     var body: some View {
         List {
@@ -22,7 +25,7 @@ struct CommunityVerificationsView: View {
                 }
             }
 
-            Section("Communities") {
+            Section {
                 if viewModel.isLoading && viewModel.items.isEmpty {
                     HStack {
                         Spacer()
@@ -39,6 +42,13 @@ struct CommunityVerificationsView: View {
                     }
                 }
             }
+            header: {
+                Text("Communities")
+            } footer: {
+                Text("Tap a verified community to unverify and release that email for another account.")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
 
             if let errorMessage = viewModel.errorMessage {
                 Section {
@@ -53,6 +63,32 @@ struct CommunityVerificationsView: View {
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
+        .confirmationDialog(
+            selectedVerification?.communityName ?? "Verification",
+            isPresented: $isShowingActions,
+            titleVisibility: .visible
+        ) {
+            if let selectedVerification, selectedVerification.verified {
+                Button("Unverify", role: .destructive) {
+                    Task {
+                        let didUnverify = await viewModel.unverify(communityId: selectedVerification.communityId)
+                        if didUnverify {
+                            await authViewModel.loadCurrentUser()
+                        }
+                    }
+                }
+                .disabled(viewModel.isUnverifying)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            if let selectedVerification {
+                Text(
+                    selectedVerification.isActive
+                        ? "Unverifying removes your active verification and releases the email lock for this community."
+                        : "Unverifying removes this verification from your account."
+                )
+            }
+        }
     }
 
     private var emptyState: some View {
@@ -77,6 +113,11 @@ struct CommunityVerificationsView: View {
                     .foregroundColor(.loopedTextPrimary)
 
                 Spacer()
+
+                if viewModel.unverifyingCommunityId == verification.communityId {
+                    ProgressView()
+                        .tint(.loopedSecondary)
+                }
 
                 Text(statusText(for: verification))
                     .font(.loopedSubBodyMedium)
@@ -104,6 +145,13 @@ struct CommunityVerificationsView: View {
             }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard verification.verified else { return }
+            selectedVerification = verification
+            isShowingActions = true
+        }
+        .disabled(viewModel.isUnverifying)
     }
 
     private func expiryText(for verification: CommunityVerification) -> String {
@@ -169,4 +217,5 @@ struct CommunityVerificationsView: View {
 
 #Preview {
     CommunityVerificationsView()
+        .environmentObject(AuthViewModel())
 }

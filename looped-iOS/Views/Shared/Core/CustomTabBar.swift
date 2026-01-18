@@ -44,7 +44,16 @@ enum TabItem: String, CaseIterable {
 // MARK: - Custom Tab Bar View
 struct CustomTabBar: View {
     @Binding var selectedTab: TabItem
+    let showsUpdateDot: (TabItem) -> Bool
     @AppStorage("anonymousMode") private var isAnonymous = false
+
+    init(
+        selectedTab: Binding<TabItem>,
+        showsUpdateDot: @escaping (TabItem) -> Bool = { _ in false }
+    ) {
+        _selectedTab = selectedTab
+        self.showsUpdateDot = showsUpdateDot
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -57,7 +66,8 @@ struct CustomTabBar: View {
                 ForEach(visibleTabs, id: \.self) { tab in
                     TabBarButton(
                         tab: tab,
-                        isSelected: selectedTab == tab
+                        isSelected: selectedTab == tab,
+                        showsUpdateDot: showsUpdateDot(tab)
                     ) {
                         selectedTab = tab
                     }
@@ -91,18 +101,31 @@ struct CustomTabBar: View {
 struct TabBarButton: View {
     let tab: TabItem
     let isSelected: Bool
+    let showsUpdateDot: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 0) {
-                Group {
+                ZStack(alignment: .topTrailing) {
                     Image(isSelected ? tab.selectedIconName : tab.iconName)
                         .resizable()
                         .renderingMode(isSelected ? .original : .template)
                         .aspectRatio(contentMode: .fit)
                         .frame(width: TabItem.iconSize.width, height: TabItem.iconSize.height)
                         .foregroundColor(isSelected ? nil : .loopedTextSecondary)
+
+                    if showsUpdateDot {
+                        Circle()
+                            .fill(Color.loopedSecondary)
+                            .frame(width: 8, height: 8)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.loopedBackground, lineWidth: 1)
+                            )
+                            .offset(x: 6, y: -2)
+                            .accessibilityHidden(true)
+                    }
                 }
                 .padding(.top, 4)
             }

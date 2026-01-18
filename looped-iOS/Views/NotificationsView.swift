@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct NotificationsView: View {
-    @StateObject private var viewModel = NotificationsViewModel()
+    @ObservedObject var viewModel: NotificationsViewModel
+
+    init(viewModel: NotificationsViewModel) {
+        self.viewModel = viewModel
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -117,7 +121,9 @@ struct NotificationsView: View {
         }
         .toast($viewModel.toastMessage)
         .task {
-            await viewModel.loadNotifications()
+            if viewModel.notifications.isEmpty {
+                await viewModel.loadNotifications()
+            }
         }
     }
 
@@ -127,5 +133,5 @@ struct NotificationsView: View {
 }
 
 #Preview {
-    NotificationsView()
+    NotificationsView(viewModel: NotificationsViewModel())
 }

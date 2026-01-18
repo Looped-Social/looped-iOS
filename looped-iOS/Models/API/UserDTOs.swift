@@ -54,6 +54,7 @@ struct UserProfileDTO: Codable {
     let followingCount: Int?
     let postsCount: Int?
     let commentsCount: Int?
+    let likesReceivedCount: Int?
     let showFollowerCount: Bool?
     let messagePermission: MessagePermission?
 }
@@ -63,6 +64,7 @@ struct UserStatsDTO: Codable {
     let followingCount: Int?
     let postsCount: Int?
     let commentsCount: Int?
+    let likesReceivedCount: Int?
 }
 
 struct UserFollowRequestDTO: Encodable {

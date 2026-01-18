@@ -177,6 +177,8 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
                 return "Use your \(selectedDomain) email to verify."
             case "verification_not_supported":
                 return "Email verification isn't available for this community."
+            case "email_in_use":
+                return "That email is already verified for this community. Unverify it in Settings → Community verifications, or use a different email."
             default:
                 if let message, !message.isEmpty {
                     return message

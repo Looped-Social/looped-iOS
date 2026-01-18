@@ -7,6 +7,7 @@ struct VerificationNotificationsView: View {
     let onBack: () -> Void
     let onEnableNotifications: (_ wantsRecommendations: Bool) -> Void
     let onSkip: () -> Void
+    let showsHeader: Bool
 
     @State private var wantsRecommendations: Bool
 
@@ -17,7 +18,8 @@ struct VerificationNotificationsView: View {
         wantsRecommendations: Bool = true,
         onBack: @escaping () -> Void,
         onEnableNotifications: @escaping (_ wantsRecommendations: Bool) -> Void,
-        onSkip: @escaping () -> Void
+        onSkip: @escaping () -> Void,
+        showsHeader: Bool = true
     ) {
         self.loopName = loopName
         self.currentStep = currentStep
@@ -25,14 +27,17 @@ struct VerificationNotificationsView: View {
         self.onBack = onBack
         self.onEnableNotifications = onEnableNotifications
         self.onSkip = onSkip
+        self.showsHeader = showsHeader
         _wantsRecommendations = State(initialValue: wantsRecommendations)
     }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.top, 8)
+                if showsHeader {
+                    header
+                        .padding(.top, 8)
+                }
 
                 Spacer()
                     .frame(height: geometry.size.height * 0.06)
@@ -90,6 +95,16 @@ struct VerificationNotificationsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.horizontal, 24)
             .background(Color.loopedBackground.ignoresSafeArea())
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            if !showsHeader {
+                ToolbarItem(placement: .principal) {
+                    VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                }
+            }
         }
     }
 }

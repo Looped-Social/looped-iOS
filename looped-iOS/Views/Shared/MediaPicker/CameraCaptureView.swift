@@ -10,6 +10,8 @@ struct CameraCaptureView: View {
     let onConfirm: (UIImage) -> Void
 
     @StateObject private var controller = CameraCaptureController()
+    @State private var bottomControlsHeight: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
     
     private var isRunningInPreviews: Bool {
         ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -53,13 +55,27 @@ struct CameraCaptureView: View {
                         .resizable()
                         .scaledToFill()
                         .ignoresSafeArea()
-
-                    confirmControls
-                } else {
-                    captureControls
                 }
             } else {
                 Color.loopedBlack.ignoresSafeArea()
+            }
+        }
+        .readWidth { containerWidth = $0 }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if controller.isAuthorized, !isRunningInPreviews, isCameraAvailable {
+                let fallbackWidth = UIScreen.main.bounds.width
+                let availableWidth = max(0, (containerWidth > 0 ? containerWidth : fallbackWidth) - 48)
+                let controlsWidth = min(520, availableWidth)
+                HStack {
+                    Spacer(minLength: 0)
+                    bottomControls
+                        .frame(width: controlsWidth)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 12)
+                .readHeight { bottomControlsHeight = $0 }
             }
         }
         .alert("Camera Error", isPresented: $controller.showErrorAlert) {
@@ -86,6 +102,40 @@ struct CameraCaptureView: View {
 }
 
 private extension CameraCaptureView {
+    struct HeightPreferenceKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
+        }
+    }
+
+    struct WidthPreferenceKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = nextValue()
+        }
+    }
+
+    var bottomControls: some View {
+        VStack(spacing: 16) {
+            if controller.capturedImage == nil {
+                Text(instruction)
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedWhite)
+                    .multilineTextAlignment(.center)
+            }
+
+            if controller.capturedImage == nil {
+                captureButton
+            } else {
+                confirmButtons
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
     var header: some View {
         VStack {
             HStack {
@@ -116,17 +166,11 @@ private extension CameraCaptureView {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(Color.loopedWhite.opacity(0.9), lineWidth: 2)
                         .frame(width: width, height: height)
+                        .position(
+                            x: geometry.size.width / 2,
+                            y: max(0, (geometry.size.height - bottomControlsHeight) / 2)
+                        )
                         .shadow(color: Color.loopedBlack.opacity(0.25), radius: 6, x: 0, y: 4)
-                }
-
-                VStack {
-                    Spacer()
-                    Text(instruction)
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedWhite)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 28)
                 }
             }
         }
@@ -134,51 +178,40 @@ private extension CameraCaptureView {
         .ignoresSafeArea()
     }
 
-    var captureControls: some View {
-        VStack {
-            Spacer()
-
-            Button(action: controller.capture) {
-                ZStack {
-                    Circle()
-                        .stroke(Color.loopedWhite.opacity(0.7), lineWidth: 4)
-                        .frame(width: 74, height: 74)
-                    Circle()
-                        .fill(Color.loopedWhite)
-                        .frame(width: 58, height: 58)
-                }
+    var captureButton: some View {
+        Button(action: controller.capture) {
+            ZStack {
+                Circle()
+                    .stroke(Color.loopedWhite.opacity(0.7), lineWidth: 4)
+                    .frame(width: 74, height: 74)
+                Circle()
+                    .fill(Color.loopedWhite)
+                    .frame(width: 58, height: 58)
             }
-            .padding(.bottom, 28)
         }
     }
 
-    var confirmControls: some View {
-        VStack {
-            Spacer()
-
-            HStack(spacing: 16) {
-                Button(action: controller.retake) {
-                    Text("Retake")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedWhite)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(Color.loopedBlack.opacity(0.55))
-                        .clipShape(Capsule())
-                }
-
-                Button(action: handleConfirm) {
-                    Text("Use Photo")
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedBackground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(Color.loopedWhite)
-                        .clipShape(Capsule())
-                }
+    var confirmButtons: some View {
+        HStack(spacing: 16) {
+            Button(action: controller.retake) {
+                Text("Retake")
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedWhite)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(Color.loopedBlack.opacity(0.55))
+                    .clipShape(Capsule())
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 28)
+
+            Button(action: handleConfirm) {
+                Text("Use Photo")
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedBackground)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(Color.loopedWhite)
+                    .clipShape(Capsule())
+            }
         }
     }
 
@@ -189,6 +222,30 @@ private extension CameraCaptureView {
     func handleConfirm() {
         guard let image = controller.capturedImage else { return }
         onConfirm(image)
+    }
+}
+
+private extension View {
+    func readHeight(_ onChange: @escaping (CGFloat) -> Void) -> some View {
+        background(
+            GeometryReader { geometry in
+                Color.clear.preference(key: CameraCaptureView.HeightPreferenceKey.self, value: geometry.size.height)
+            }
+        )
+        .onPreferenceChange(CameraCaptureView.HeightPreferenceKey.self) { newValue in
+            onChange(newValue)
+        }
+    }
+
+    func readWidth(_ onChange: @escaping (CGFloat) -> Void) -> some View {
+        background(
+            GeometryReader { geometry in
+                Color.clear.preference(key: CameraCaptureView.WidthPreferenceKey.self, value: geometry.size.width)
+            }
+        )
+        .onPreferenceChange(CameraCaptureView.WidthPreferenceKey.self) { newValue in
+            onChange(newValue)
+        }
     }
 }
 
@@ -390,7 +447,7 @@ private struct CameraPreview: UIViewRepresentable {
     CameraCaptureView(
         position: .front,
         overlayStyle: .none,
-        instruction: "Slowly turn your head to the right",
+        instruction: "Position your face clearly in the frame",
         onCancel: {},
         onConfirm: { _ in }
     )

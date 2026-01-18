@@ -24,6 +24,7 @@ class UserService: UserServiceProtocol {
             || baseUser.followingCount == nil
             || baseUser.postsCount == nil
             || baseUser.commentsCount == nil
+            || baseUser.likesReceivedCount == nil
             || baseUser.showFollowerCount == nil {
             let fullDTO: UserDTO = try await apiClient.get("/v1/users/\(userDTO.id)")
             return User(dto: fullDTO, profile: fullDTO.profile)

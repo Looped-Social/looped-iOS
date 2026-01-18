@@ -111,7 +111,11 @@ struct MenuContent: View {
     }
     
     private var totalHeartsText: String {
-        return "Hearts not available"
+        guard let likes = authViewModel.currentUser?.likesReceivedCount else {
+            return "— likes"
+        }
+        guard likes > 0 else { return "No likes yet" }
+        return "\(likes) " + (likes == 1 ? "like" : "likes")
     }
 }
 
@@ -514,7 +518,7 @@ private struct LikedPostsFeedList: View {
                     Image(systemName: "heart")
                         .font(.loopedCustom(size: 48))
                         .foregroundColor(.loopedTextSecondary.opacity(0.5))
-                    Text("No liked posts yet")
+                    Text("No likes yet")
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextSecondary)
                 }
@@ -862,6 +866,7 @@ struct AnalyticsView: View {
 
                     AnalyticsStatRow(label: "Posts", value: authViewModel.currentUser?.postsCount)
                     AnalyticsStatRow(label: "Comments", value: authViewModel.currentUser?.commentsCount)
+                    AnalyticsStatRow(label: "Likes", value: authViewModel.currentUser?.likesReceivedCount)
                     AnalyticsStatRow(label: "Followers", value: authViewModel.currentUser?.followerCount)
                     AnalyticsStatRow(label: "Following", value: authViewModel.currentUser?.followingCount)
                 }
@@ -872,7 +877,7 @@ struct AnalyticsView: View {
                 .padding(.horizontal, 16)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("More analytics (like total hearts) need backend support.")
+                    Text("More analytics coming soon.")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                 }

@@ -7,6 +7,7 @@ struct VerificationConfirmationView: View {
     let onBack: () -> Void
     let onSkip: (() -> Void)?
     let onComplete: () -> Void
+    let showsHeader: Bool
 
     init(
         authViewModel: AuthViewModel,
@@ -14,7 +15,8 @@ struct VerificationConfirmationView: View {
         totalSteps: Int = 5,
         onBack: @escaping () -> Void,
         onSkip: (() -> Void)? = nil,
-        onComplete: @escaping () -> Void
+        onComplete: @escaping () -> Void,
+        showsHeader: Bool = true
     ) {
         self.authViewModel = authViewModel
         self.currentStep = currentStep
@@ -22,14 +24,17 @@ struct VerificationConfirmationView: View {
         self.onBack = onBack
         self.onSkip = onSkip
         self.onComplete = onComplete
+        self.showsHeader = showsHeader
     }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
+                if showsHeader {
+                    header
+                        .padding(.top, 8)
+                        .padding(.horizontal, 16)
+                }
 
                 Image("logo-banner")
                     .resizable()
@@ -70,6 +75,22 @@ struct VerificationConfirmationView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            if !showsHeader {
+                ToolbarItem(placement: .principal) {
+                    VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                }
+
+                if let onSkip {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Skip", action: onSkip)
+                    }
+                }
+            }
         }
     }
 }

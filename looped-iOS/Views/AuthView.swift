@@ -4,7 +4,7 @@ import Foundation
 struct AuthView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @Environment(\.openURL) private var openURL
-    @State private var currentScreen: AuthScreen = .onboarding
+    @State private var path: [AuthScreen] = []
     @State private var selectedLoopName: String = "Looped"
     @State private var selectedCommunityId: Int?
     @State private var companySearchText: String = ""
@@ -24,284 +24,13 @@ struct AuthView: View {
     private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
 
     var body: some View {
-        Group {
-            switch currentScreen {
-            case .onboarding:
-                OnboardingView(authViewModel: authViewModel) { screen in
-                    currentScreen = screen
-                }
-            case .selectCompany:
-                OrganizationSelectionView(
-                    title: "Search for your school or\nplace of work",
-                    scope: .companiesAndSchools,
-                    searchText: $companySearchText,
-                    selectedOrganizationId: authViewModel.selectedOrganization?.id,
-                    onSelect: { organization in
-                        authViewModel.selectedOrganization = organization
-                        selectedLoopName = organization.name
-                        selectedCommunityId = organization.backendId
-                        onboardingStore.saveOrganizationDraft(
-                            OnboardingOrganizationDraft(
-                                backendId: organization.backendId,
-                                name: organization.name,
-                                kind: organization.kind
-                            )
-                        )
-                        if let id = organization.backendId {
-                            UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
-                        } else {
-                            UserDefaults.standard.removeObject(forKey: "lastSelectedCommunityId")
-                        }
-                        followCommunityIfPossible(organization.backendId)
-                    },
-                    onBack: {
-                        currentScreen = .profileSetup
-                    },
-                    onNavigate: { screen in
-                        currentScreen = screen
-                    }
-                )
-            case .selectSchool:
-                OrganizationSelectionView(
-                    title: "Select your school",
-                    scope: .schoolsOnly,
-                    searchText: $schoolSearchText,
-                    selectedOrganizationId: authViewModel.selectedOrganization?.id,
-                    onSelect: { organization in
-                        authViewModel.selectedOrganization = organization
-                        selectedLoopName = organization.name
-                        selectedCommunityId = organization.backendId
-                        onboardingStore.saveOrganizationDraft(
-                            OnboardingOrganizationDraft(
-                                backendId: organization.backendId,
-                                name: organization.name,
-                                kind: organization.kind
-                            )
-                        )
-                        if let id = organization.backendId {
-                            UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
-                        } else {
-                            UserDefaults.standard.removeObject(forKey: "lastSelectedCommunityId")
-                        }
-                        followCommunityIfPossible(organization.backendId)
-                    },
-                    onBack: {
-                        currentScreen = .profileSetup
-                    },
-                    onNavigate: { screen in
-                        currentScreen = screen
-                    }
-                )
-            case .departmentSelection:
-                OrganizationDetailSelectionView(
-                    title: "Department",
-                    kind: .department,
-                    searchText: $departmentSearchText,
-                    selectedItem: $selectedDepartment,
-                    onSelect: { selection in
-                        Task {
-                            let success = await joinSpecializationIfPossible(
-                                selection.id,
-                                label: selection.specializationType.displayName ?? "Department"
-                            )
-                            if success {
-                                currentScreen = .verificationIntro(isStudent: false)
-                            }
-                        }
-                    },
-                    onBack: {
-                        currentScreen = .selectCompany
-                    }
-                )
-	            case .degreeSelection:
-	                OrganizationDetailSelectionView(
-	                    title: "Degree",
-	                    kind: .major,
-	                    searchText: $degreeSearchText,
-	                    selectedItem: $selectedDegree,
-	                    onSelect: { selection in
-	                        Task {
-                                let success = await joinSpecializationIfPossible(
-                                    selection.id,
-                                    label: selection.specializationType.displayName ?? "Major"
-                                )
-                                if success {
-                                    currentScreen = .verificationIntro(isStudent: true)
-                                }
-                            }
-	                    },
-	                    onBack: {
-	                        currentScreen = .selectSchool
-	                    }
-	                )
-	            case .verificationIntro(let isStudent):
-	                VerificationIntroView(
-	                    loopName: selectedLoopName,
-	                    currentStep: verificationStep(for: .verificationIntro(isStudent: isStudent)),
-	                    totalSteps: verificationTotalSteps,
-                    onBack: {
-                        currentScreen = isStudent ? .degreeSelection : .departmentSelection
-                    },
-	                    onContinue: {
-	                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
-	                    },
-	                    onSkip: skipToNotifications,
-	                    onHowItWorks: {
-	                        openURL(verificationInfoURL)
-	                    }
-	                )
-            case .waysToVerifyCompany:
-                WaysToVerifyView(
-                    options: [
-                        VerificationOption(id: "company_email", title: "Company Email"),
-                        VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
-                    ],
-                    currentStep: verificationStep(for: .waysToVerifyCompany),
-                    totalSteps: verificationTotalSteps,
-                    selectedOptionId: $companyVerificationOptionId,
-                    onBack: {
-                        currentScreen = .verificationIntro(isStudent: false)
-                    },
-                    onContinue: { option in
-                        let method = VerificationMethod.from(optionId: option.id)
-                        verificationContext = VerificationContext(isStudent: false, method: method)
-                        if method == .photoId {
-                            currentScreen = .photoIdVerification(isStudent: false)
-                        } else {
-                            currentScreen = .emailVerification(isStudent: false)
-                        }
-                    },
-	                    onSkip: {
-	                        skipToNotifications()
-	                    },
-	                    onLearnMore: {
-	                        openURL(verificationInfoURL)
-	                    }
-	                )
-            case .waysToVerifyStudent:
-                WaysToVerifyView(
-                    options: [
-                        VerificationOption(id: "student_email", title: "Student Email"),
-                        VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
-                    ],
-                    currentStep: verificationStep(for: .waysToVerifyStudent),
-                    totalSteps: verificationTotalSteps,
-                    selectedOptionId: $studentVerificationOptionId,
-                    onBack: {
-                        currentScreen = .verificationIntro(isStudent: true)
-                    },
-                    onContinue: { option in
-                        let method = VerificationMethod.from(optionId: option.id)
-                        verificationContext = VerificationContext(isStudent: true, method: method)
-                        if method == .photoId {
-                            currentScreen = .photoIdVerification(isStudent: true)
-                        } else {
-                            currentScreen = .emailVerification(isStudent: true)
-                        }
-                    },
-	                    onSkip: {
-	                        skipToNotifications()
-	                    },
-	                    onLearnMore: {
-	                        openURL(verificationInfoURL)
-	                    }
-	                )
-            case .verificationConfirmation:
-                VerificationConfirmationView(
-                    authViewModel: authViewModel,
-                    currentStep: verificationStep(for: .verificationConfirmation),
-                    totalSteps: verificationTotalSteps,
-                    onBack: {
-                        guard let context = verificationContext else {
-                            currentScreen = .verificationIntro(isStudent: isStudentOnboardingFlow)
-                            return
-                        }
-                        currentScreen = context.method == .photoId
-                            ? .photoIdVerification(isStudent: context.isStudent)
-                            : .emailVerification(isStudent: context.isStudent)
-                    },
-                    onSkip: skipToNotifications,
-                    onComplete: {
-                        currentScreen = .verificationNotifications
-                    }
-                )
-            case .photoIdVerification(let isStudent):
-                PhotoIdVerificationView(
-                    communityId: selectedCommunityId,
-                    currentStep: verificationStep(for: .photoIdVerification(isStudent: isStudent)),
-                    totalSteps: verificationTotalSteps,
-                    onBack: {
-                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
-                    },
-                    onSkip: skipToNotifications,
-                    onComplete: {
-                        if verificationContext == nil {
-                            verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
-                        }
-                        currentScreen = .verificationConfirmation
-                    }
-                )
-            case .emailVerification(let isStudent):
-                EmailVerificationView(
-                    communityId: selectedCommunityId,
-                    communityName: selectedLoopName,
-                    currentStep: verificationStep(for: .emailVerification(isStudent: isStudent)),
-                    totalSteps: verificationTotalSteps,
-                    onBack: {
-                        currentScreen = isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
-                    },
-                    onSkip: skipToNotifications,
-                    onComplete: {
-                        if verificationContext == nil {
-                            verificationContext = VerificationContext(isStudent: isStudent, method: .email)
-                        }
-                        currentScreen = .verificationConfirmation
-                    }
-                )
-            case .verificationNotifications:
-                VerificationNotificationsView(
-                    loopName: selectedLoopName,
-                    currentStep: verificationStep(for: .verificationNotifications),
-                    totalSteps: verificationTotalSteps,
-                    onBack: {
-                        if verificationFlowMode == .skipped {
-                            currentScreen = .verificationIntro(isStudent: isStudentOnboardingFlow)
-                        } else {
-                            currentScreen = .verificationConfirmation
-                        }
-                    },
-                    onEnableNotifications: { wantsRecommendations in
-                        Task {
-                            await authViewModel.enableNotificationsDuringOnboarding(
-                                wantsRecommendations: wantsRecommendations
-                            )
-                            await authViewModel.reportOnboardingStep(.verificationNotifications)
-                        }
-                    },
-                    onSkip: {
-                        Task {
-                            await authViewModel.reportOnboardingStep(.verificationNotifications)
-                        }
-                    }
-                )
-            case .profileSetup:
-                ProfileSetupView(
-                    authViewModel: authViewModel,
-                    onBack: {
-                        currentScreen = .onboarding
-                    },
-                    onContinue: {
-                        currentScreen = .selectCompany
-                    }
-                )
-            case .login:
-                LoginView(viewModel: authViewModel) {
-                    currentScreen = .onboarding
-                }
-            case .signUp:
-                SignUpView(viewModel: authViewModel) {
-                    currentScreen = .onboarding
-                }
+        NavigationStack(path: $path) {
+            OnboardingView(authViewModel: authViewModel) { screen in
+                navigate(to: screen)
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: AuthScreen.self) { screen in
+                destination(for: screen)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
@@ -326,9 +55,10 @@ struct AuthView: View {
                 restoreOnboardingScreen()
             }
         }
-        .onChange(of: currentScreen) { _, newValue in
-            persistProgress(for: newValue)
-            reportRemoteProgressIfNeeded(for: newValue)
+        .onChange(of: path) { _, newValue in
+            let screen = newValue.last ?? .onboarding
+            persistProgress(for: screen)
+            reportRemoteProgressIfNeeded(for: screen)
         }
         .onChange(of: authViewModel.onboardingStep) { _, _ in
             if authViewModel.isAuthenticated, !authViewModel.onboardingComplete {
@@ -349,6 +79,277 @@ struct AuthView: View {
 }
 
 private extension AuthView {
+    @ViewBuilder
+    func destination(for screen: AuthScreen) -> some View {
+        switch screen {
+        case .onboarding:
+            EmptyView()
+                .onAppear { path.removeAll() }
+        case .profileSetup:
+            ProfileSetupView(
+                authViewModel: authViewModel,
+                onContinue: {
+                    navigate(to: .selectCompany)
+                }
+            )
+        case .selectCompany:
+            OrganizationSelectionView(
+                title: "Search for your school or\nplace of work",
+                scope: .companiesAndSchools,
+                searchText: $companySearchText,
+                selectedOrganizationId: authViewModel.selectedOrganization?.id,
+                onSelect: { organization in
+                    authViewModel.selectedOrganization = organization
+                    selectedLoopName = organization.name
+                    selectedCommunityId = organization.backendId
+                    onboardingStore.saveOrganizationDraft(
+                        OnboardingOrganizationDraft(
+                            backendId: organization.backendId,
+                            name: organization.name,
+                            kind: organization.kind
+                        )
+                    )
+                    if let id = organization.backendId {
+                        UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
+                    } else {
+                        UserDefaults.standard.removeObject(forKey: "lastSelectedCommunityId")
+                    }
+                    followCommunityIfPossible(organization.backendId)
+                },
+                onNavigate: { screen in
+                    navigate(to: screen)
+                }
+            )
+        case .selectSchool:
+            OrganizationSelectionView(
+                title: "Select your school",
+                scope: .schoolsOnly,
+                searchText: $schoolSearchText,
+                selectedOrganizationId: authViewModel.selectedOrganization?.id,
+                onSelect: { organization in
+                    authViewModel.selectedOrganization = organization
+                    selectedLoopName = organization.name
+                    selectedCommunityId = organization.backendId
+                    onboardingStore.saveOrganizationDraft(
+                        OnboardingOrganizationDraft(
+                            backendId: organization.backendId,
+                            name: organization.name,
+                            kind: organization.kind
+                        )
+                    )
+                    if let id = organization.backendId {
+                        UserDefaults.standard.set(id, forKey: "lastSelectedCommunityId")
+                    } else {
+                        UserDefaults.standard.removeObject(forKey: "lastSelectedCommunityId")
+                    }
+                    followCommunityIfPossible(organization.backendId)
+                },
+                onNavigate: { screen in
+                    navigate(to: screen)
+                }
+            )
+        case .departmentSelection:
+            OrganizationDetailSelectionView(
+                title: "Department",
+                kind: .department,
+                searchText: $departmentSearchText,
+                selectedItem: $selectedDepartment,
+                onSelect: { selection in
+                    Task {
+                        let success = await joinSpecializationIfPossible(
+                            selection.id,
+                            label: selection.specializationType.displayName ?? "Department"
+                        )
+                        if success {
+                            navigate(to: .verificationIntro(isStudent: false))
+                        }
+                    }
+                }
+            )
+        case .degreeSelection:
+            OrganizationDetailSelectionView(
+                title: "Degree",
+                kind: .major,
+                searchText: $degreeSearchText,
+                selectedItem: $selectedDegree,
+                onSelect: { selection in
+                    Task {
+                        let success = await joinSpecializationIfPossible(
+                            selection.id,
+                            label: selection.specializationType.displayName ?? "Major"
+                        )
+                        if success {
+                            navigate(to: .verificationIntro(isStudent: true))
+                        }
+                    }
+                }
+            )
+        case .verificationIntro(let isStudent):
+            VerificationIntroView(
+                loopName: selectedLoopName,
+                currentStep: verificationStep(for: .verificationIntro(isStudent: isStudent)),
+                totalSteps: verificationTotalSteps,
+                onBack: {},
+                onContinue: {
+                    navigate(to: isStudent ? .waysToVerifyStudent : .waysToVerifyCompany)
+                },
+                onSkip: {
+                    skipToNotifications()
+                },
+                onHowItWorks: {
+                    openURL(verificationInfoURL)
+                },
+                showsHeader: false
+            )
+        case .waysToVerifyCompany:
+            WaysToVerifyView(
+                options: [
+                    VerificationOption(id: "company_email", title: "Company Email"),
+                    VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
+                ],
+                currentStep: verificationStep(for: .waysToVerifyCompany),
+                totalSteps: verificationTotalSteps,
+                selectedOptionId: $companyVerificationOptionId,
+                onBack: {},
+                onContinue: { option in
+                    let method = VerificationMethod.from(optionId: option.id)
+                    verificationContext = VerificationContext(isStudent: false, method: method)
+                    if method == .photoId {
+                        navigate(to: .photoIdVerification(isStudent: false))
+                    } else {
+                        navigate(to: .emailVerification(isStudent: false))
+                    }
+                },
+                onSkip: {
+                    skipToNotifications()
+                },
+                onLearnMore: {
+                    openURL(verificationInfoURL)
+                },
+                showsHeader: false
+            )
+        case .waysToVerifyStudent:
+            WaysToVerifyView(
+                options: [
+                    VerificationOption(id: "student_email", title: "Student Email"),
+                    VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
+                ],
+                currentStep: verificationStep(for: .waysToVerifyStudent),
+                totalSteps: verificationTotalSteps,
+                selectedOptionId: $studentVerificationOptionId,
+                onBack: {},
+                onContinue: { option in
+                    let method = VerificationMethod.from(optionId: option.id)
+                    verificationContext = VerificationContext(isStudent: true, method: method)
+                    if method == .photoId {
+                        navigate(to: .photoIdVerification(isStudent: true))
+                    } else {
+                        navigate(to: .emailVerification(isStudent: true))
+                    }
+                },
+                onSkip: {
+                    skipToNotifications()
+                },
+                onLearnMore: {
+                    openURL(verificationInfoURL)
+                },
+                showsHeader: false
+            )
+        case .photoIdVerification(let isStudent):
+            PhotoIdVerificationView(
+                communityId: selectedCommunityId,
+                currentStep: verificationStep(for: .photoIdVerification(isStudent: isStudent)),
+                totalSteps: verificationTotalSteps,
+                onBack: {},
+                onSkip: {
+                    skipToNotifications()
+                },
+                onComplete: {
+                    if verificationContext == nil {
+                        verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
+                    }
+                    pushIfNeeded(.verificationConfirmation)
+                },
+                showsHeader: false
+            )
+        case .emailVerification(let isStudent):
+            EmailVerificationView(
+                communityId: selectedCommunityId,
+                communityName: selectedLoopName,
+                currentStep: verificationStep(for: .emailVerification(isStudent: isStudent)),
+                totalSteps: verificationTotalSteps,
+                onBack: {},
+                onSkip: {
+                    skipToNotifications()
+                },
+                onComplete: {
+                    if verificationContext == nil {
+                        verificationContext = VerificationContext(isStudent: isStudent, method: .email)
+                    }
+                    pushIfNeeded(.verificationConfirmation)
+                },
+                showsHeader: false
+            )
+        case .verificationConfirmation:
+            VerificationConfirmationView(
+                authViewModel: authViewModel,
+                currentStep: verificationStep(for: .verificationConfirmation),
+                totalSteps: verificationTotalSteps,
+                onBack: {},
+                onSkip: {
+                    skipToNotifications()
+                },
+                onComplete: {
+                    navigate(to: .verificationNotifications)
+                },
+                showsHeader: false
+            )
+        case .verificationNotifications:
+            VerificationNotificationsView(
+                loopName: selectedLoopName,
+                currentStep: verificationStep(for: .verificationNotifications),
+                totalSteps: verificationTotalSteps,
+                onBack: {},
+                onEnableNotifications: { wantsRecommendations in
+                    Task {
+                        await authViewModel.enableNotificationsDuringOnboarding(
+                            wantsRecommendations: wantsRecommendations
+                        )
+                        await authViewModel.finishOnboardingFromNotificationsStep()
+                    }
+                },
+                onSkip: {
+                    Task {
+                        await authViewModel.finishOnboardingFromNotificationsStep()
+                    }
+                },
+                showsHeader: false
+            )
+        case .login:
+            LoginView(viewModel: authViewModel)
+        case .signUp:
+            SignUpView(viewModel: authViewModel)
+        }
+    }
+
+    func navigate(to screen: AuthScreen) {
+        if screen == .onboarding {
+            path.removeAll()
+            return
+        }
+        pushIfNeeded(screen)
+    }
+
+    func pushIfNeeded(_ screen: AuthScreen) {
+        guard path.last != screen else { return }
+        path.append(screen)
+    }
+
+    func popOne() {
+        guard !path.isEmpty else { return }
+        path.removeLast()
+    }
+
     struct VerificationContext {
         let isStudent: Bool
         let method: VerificationMethod
@@ -393,7 +394,13 @@ private extension AuthView {
     func skipToNotifications() {
         verificationFlowMode = .skipped
         verificationContext = nil
-        currentScreen = .verificationNotifications
+        if let introIndex = path.lastIndex(where: { screen in
+            if case .verificationIntro = screen { return true }
+            return false
+        }) {
+            path = Array(path.prefix(introIndex + 1))
+        }
+        pushIfNeeded(.verificationNotifications)
     }
 
     func followCommunityIfPossible(_ communityId: Int?) {
@@ -433,7 +440,7 @@ private extension AuthView {
     // Intentionally no "pick communities" step in onboarding; users only choose their org + dept/degree.
 }
 
-enum AuthScreen: Equatable {
+enum AuthScreen: Hashable {
     case onboarding
     case profileSetup
     case selectCompany
@@ -456,15 +463,62 @@ private extension AuthView {
         guard !authViewModel.onboardingComplete else { return }
         restoreOrganizationDraftIfNeeded()
         if let step = onboardingStore.loadProgress(), let restored = AuthScreen.fromOnboardingStep(step) {
-            currentScreen = restored
+            setNavigationStack(for: restored)
         } else if let remote = authViewModel.onboardingStep {
             if remote == .selectCompany, let kind = authViewModel.selectedOrganization?.kind {
-                currentScreen = (kind == .school) ? .degreeSelection : .departmentSelection
+                setNavigationStack(for: (kind == .school) ? .degreeSelection : .departmentSelection)
             } else if let restored = AuthScreen.fromRemoteOnboardingStep(remote, isStudent: isStudentOnboardingFlow) {
-                currentScreen = restored
+                setNavigationStack(for: restored)
             }
         } else if authViewModel.shouldEnterOnboardingFlow {
-            currentScreen = .profileSetup
+            setNavigationStack(for: .profileSetup)
+        }
+    }
+
+    func setNavigationStack(for screen: AuthScreen) {
+        path = navigationStack(for: screen)
+    }
+
+    func navigationStack(for screen: AuthScreen) -> [AuthScreen] {
+        switch screen {
+        case .onboarding:
+            return []
+        case .profileSetup:
+            return [.profileSetup]
+        case .selectCompany:
+            return [.profileSetup, .selectCompany]
+        case .selectSchool:
+            return [.profileSetup, .selectSchool]
+        case .departmentSelection:
+            return [.profileSetup, .selectCompany, .departmentSelection]
+        case .degreeSelection:
+            return [.profileSetup, .selectCompany, .degreeSelection]
+        case .verificationIntro(let isStudent):
+            let base: [AuthScreen] = isStudent
+                ? [.profileSetup, .selectCompany, .degreeSelection]
+                : [.profileSetup, .selectCompany, .departmentSelection]
+            return base + [.verificationIntro(isStudent: isStudent)]
+        case .waysToVerifyCompany:
+            return navigationStack(for: .verificationIntro(isStudent: false)) + [.waysToVerifyCompany]
+        case .waysToVerifyStudent:
+            return navigationStack(for: .verificationIntro(isStudent: true)) + [.waysToVerifyStudent]
+        case .photoIdVerification(let isStudent):
+            return navigationStack(for: isStudent ? .waysToVerifyStudent : .waysToVerifyCompany)
+                + [.photoIdVerification(isStudent: isStudent)]
+        case .emailVerification(let isStudent):
+            return navigationStack(for: isStudent ? .waysToVerifyStudent : .waysToVerifyCompany)
+                + [.emailVerification(isStudent: isStudent)]
+        case .verificationConfirmation:
+            let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
+            return navigationStack(for: .verificationIntro(isStudent: isStudent)) + [.verificationConfirmation]
+        case .verificationNotifications:
+            let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
+            return navigationStack(for: .verificationIntro(isStudent: isStudent))
+                + [.verificationConfirmation, .verificationNotifications]
+        case .login:
+            return [.login]
+        case .signUp:
+            return [.signUp]
         }
     }
 

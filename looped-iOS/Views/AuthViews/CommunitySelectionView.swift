@@ -4,7 +4,6 @@ struct CommunitySelectionView: View {
     let recommendedKind: CommunitySearchKind?
     @Binding var searchText: String
     @Binding var selectedIds: Set<UUID>
-    let onBack: () -> Void
     let onContinue: ([SearchResultLoop]) -> Void
 
     @StateObject private var viewModel: OnboardingCommunitySelectionViewModel
@@ -27,25 +26,19 @@ struct CommunitySelectionView: View {
         recommendedKind: CommunitySearchKind? = nil,
         searchText: Binding<String>,
         selectedIds: Binding<Set<UUID>>,
-        onBack: @escaping () -> Void,
         onContinue: @escaping ([SearchResultLoop]) -> Void
     ) {
         self.recommendedKind = recommendedKind
         _searchText = searchText
         _selectedIds = selectedIds
-        self.onBack = onBack
         self.onContinue = onContinue
         _viewModel = StateObject(wrappedValue: OnboardingCommunitySelectionViewModel(recommendedKind: recommendedKind))
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-                .padding(.top, 8)
-                .padding(.horizontal, 16)
-
             Spacer()
-                .frame(height: 16)
+                .frame(height: 12)
 
             Text("Select communities")
                 .font(.loopedHeadingMedium)
@@ -127,6 +120,9 @@ struct CommunitySelectionView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             viewModel.query = searchText
             viewModel.refresh()
@@ -143,15 +139,6 @@ struct CommunitySelectionView: View {
         } else {
             selectedIds.insert(community.id)
             selectedLookup[community.id] = community
-        }
-    }
-}
-
-private extension CommunitySelectionView {
-    var header: some View {
-        HStack {
-            LoopedBackButton(action: onBack)
-            Spacer()
         }
     }
 }
@@ -216,11 +203,12 @@ private struct CommunityRow: View {
 }
 
 #Preview {
-    CommunitySelectionView(
-        recommendedKind: nil,
-        searchText: .constant(""),
-        selectedIds: .constant([]),
-        onBack: { },
-        onContinue: { _ in }
-    )
+    NavigationStack {
+        CommunitySelectionView(
+            recommendedKind: nil,
+            searchText: .constant(""),
+            selectedIds: .constant([]),
+            onContinue: { _ in }
+        )
+    }
 }

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SignUpView: View {
     @ObservedObject var viewModel: AuthViewModel
-    let onBack: () -> Void
     @State private var email = ""
     @State private var password = ""
     @State private var isPasswordVisible = false
@@ -13,15 +12,11 @@ struct SignUpView: View {
             Color.loopedBackground.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack {
-                    LoopedBackButton(action: onBack)
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 56)
-
                 ScrollView {
                     VStack(spacing: 20) {
+                        Spacer()
+                            .frame(height: 12)
+
                         Text("Create your Looped account")
                             .font(.loopedHeading)
                             .foregroundColor(.loopedTextPrimary)
@@ -88,6 +83,9 @@ struct SignUpView: View {
                 }
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .loadingOverlay(isPresented: viewModel.isLoading, title: "Creating your account…")
     }
 
@@ -174,7 +172,9 @@ struct SignUpView: View {
 }
 
 #Preview {
-    SignUpView(viewModel: AuthViewModel()) { }
+    NavigationStack {
+        SignUpView(viewModel: AuthViewModel())
+    }
 }
 
 private struct PasswordRequirement: Identifiable {

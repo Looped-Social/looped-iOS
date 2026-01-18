@@ -2,7 +2,6 @@ import SwiftUI
 
 struct LoginView: View {
     @ObservedObject var viewModel: AuthViewModel
-    let onBack: () -> Void
     @State private var email = ""
     @State private var password = ""
     @State private var isPasswordVisible = false
@@ -13,15 +12,8 @@ struct LoginView: View {
             Color.loopedBackground.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Navigation/header
-                HStack {
-                    LoopedBackButton(action: onBack)
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 56)
-
-                Spacer().frame(height: 12)
+                Spacer()
+                    .frame(height: 12)
 
                 VStack(spacing: 18) {
                     Text("Welcome back")
@@ -82,6 +74,9 @@ struct LoginView: View {
                 Spacer()
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .loadingOverlay(isPresented: viewModel.isLoading, title: "Signing you in…")
         .sheet(isPresented: $isForgotPasswordPresented) {
             ForgotPasswordView(
@@ -160,5 +155,7 @@ struct LoginView: View {
 }
 
 #Preview {
-    LoginView(viewModel: AuthViewModel()) { }
+    NavigationStack {
+        LoginView(viewModel: AuthViewModel())
+    }
 }

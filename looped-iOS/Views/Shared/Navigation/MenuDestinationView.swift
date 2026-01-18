@@ -14,8 +14,6 @@ struct MenuDestinationView: View {
             LikedPostsView()
         case .saved:
             SavedPostsView()
-        case .privacy:
-            PrivacyView()
         case .drafts:
             DraftsView()
         case .analytics:

@@ -1,13 +1,21 @@
 import SwiftUI
 
 struct MessagesView: View {
+    @ObservedObject var viewModel: MessagesViewModel
     let onChatSelected: (Conversation?, Channel?) -> Void
 
-    @StateObject private var viewModel = MessagesViewModel()
     @State private var selectedTab: MessageTab = .messages
     @State private var searchText = ""
     @State private var showNewMessage = false
     @AppStorage("anonymousMode") private var isAnonymousMode = false
+
+    init(
+        viewModel: MessagesViewModel,
+        onChatSelected: @escaping (Conversation?, Channel?) -> Void
+    ) {
+        self.viewModel = viewModel
+        self.onChatSelected = onChatSelected
+    }
 
     // Filter conversations based on tab and search text
     private var filteredConversations: [Conversation] {
@@ -324,7 +332,9 @@ struct MessagesView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .task {
-            await viewModel.loadInbox()
+            if viewModel.conversations.isEmpty && viewModel.messageRequests.isEmpty && viewModel.channels.isEmpty {
+                await viewModel.loadInbox()
+            }
         }
         .onChange(of: selectedTab) { _, newValue in
             if newValue == .requests, viewModel.messageRequests.isEmpty {
@@ -358,5 +368,5 @@ struct MessagesView: View {
 
 
 #Preview {
-    MessagesView(onChatSelected: { _, _ in })
+    MessagesView(viewModel: MessagesViewModel(), onChatSelected: { _, _ in })
 }

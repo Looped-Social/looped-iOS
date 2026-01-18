@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ProfileSetupView: View {
     @ObservedObject var authViewModel: AuthViewModel
-    let onBack: () -> Void
     let onContinue: () -> Void
 
     @State private var username = ""
@@ -21,83 +20,80 @@ struct ProfileSetupView: View {
         ZStack {
             Color.loopedBackground.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                HStack {
-                    LoopedBackButton(action: onBack)
+            ScrollView {
+                VStack(spacing: 20) {
                     Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 56)
+                        .frame(height: 12)
 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        Text("Create your profile")
-                            .font(.loopedHeading)
-                            .foregroundColor(.loopedTextPrimary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Create your profile")
+                        .font(.loopedHeading)
+                        .foregroundColor(.loopedTextPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Text("Choose a username and tell us a little about you.")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Choose a username and tell us a little about you.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                        VStack(spacing: 16) {
-                            inputField(title: "Username", placeholder: "looped handle", text: $username, keyboard: .default)
-                                .onChange(of: username) { _, newValue in
-                                    handleUsernameChange(newValue)
-                                }
-
-                            if let statusText = usernameStatusText {
-                                Text(statusText)
-                                    .font(.loopedSmallText)
-                                    .foregroundColor(usernameStatusColor)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 6)
+                    VStack(spacing: 16) {
+                        inputField(title: "Username", placeholder: "looped handle", text: $username, keyboard: .default)
+                            .onChange(of: username) { _, newValue in
+                                handleUsernameChange(newValue)
                             }
 
-                            inputField(title: "First Name", placeholder: "First name", text: $firstName, keyboard: .default)
-                                .onChange(of: firstName) { _, _ in
-                                    persistDraft()
-                                }
-                            inputField(title: "Last Name", placeholder: "Last name", text: $lastName, keyboard: .default)
-                                .onChange(of: lastName) { _, _ in
-                                    persistDraft()
-                                }
-                            dateField(title: "Date of Birth", date: $dateOfBirth)
-                                .onChange(of: dateOfBirth) { _, _ in
-                                    persistDraft()
-                                }
-                        }
-                        .padding()
-                        .background(Color.loopedBackground)
-                        .cornerRadius(18)
-                        .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
-
-                        PrimaryButton(
-                            title: "Continue",
-                            isEnabled: isFormValid,
-                            isLoading: isSubmitting,
-                            action: handleContinue
-                        )
-
-                        if isCheckingUsername {
-                            ProgressView()
-                                .tint(.loopedPrimary)
+                        if let statusText = usernameStatusText {
+                            Text(statusText)
+                                .font(.loopedSmallText)
+                                .foregroundColor(usernameStatusColor)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 6)
                         }
 
-                        if let submitError {
-                            Text(submitError)
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedError)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 8)
-                        }
+                        inputField(title: "First Name", placeholder: "First name", text: $firstName, keyboard: .default)
+                            .onChange(of: firstName) { _, _ in
+                                persistDraft()
+                            }
+                        inputField(title: "Last Name", placeholder: "Last name", text: $lastName, keyboard: .default)
+                            .onChange(of: lastName) { _, _ in
+                                persistDraft()
+                            }
+                        dateField(title: "Date of Birth", date: $dateOfBirth)
+                            .onChange(of: dateOfBirth) { _, _ in
+                                persistDraft()
+                            }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 32)
+                    .padding()
+                    .background(Color.loopedBackground)
+                    .cornerRadius(18)
+                    .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
+
+                    PrimaryButton(
+                        title: "Continue",
+                        isEnabled: isFormValid,
+                        isLoading: isSubmitting,
+                        action: handleContinue
+                    )
+
+                    if isCheckingUsername {
+                        ProgressView()
+                            .tint(.loopedPrimary)
+                    }
+
+                    if let submitError {
+                        Text(submitError)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedError)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
+                    }
                 }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 32)
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             loadDraftIfNeeded()
         }
@@ -260,7 +256,9 @@ struct ProfileSetupView: View {
 }
 
 #Preview {
-    ProfileSetupView(authViewModel: AuthViewModel(), onBack: { }, onContinue: { })
+    NavigationStack {
+        ProfileSetupView(authViewModel: AuthViewModel(), onContinue: { })
+    }
 }
 
 private extension ProfileSetupView {
