@@ -15,11 +15,7 @@ struct SecurityView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedCustom(.medium, size: 24))
-                        .foregroundColor(.loopedTextSecondary)
-                }
+                LoopedBackButton(action: { dismiss() })
 
                 Spacer()
 
@@ -30,9 +26,9 @@ struct SecurityView: View {
                 Spacer()
 
                 // Invisible button for symmetry
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.medium, size: 24))
+                LoopedBackButton(action: {})
                     .opacity(0)
+                    .disabled(true)
             }
             .padding(.horizontal, 20)
             .padding(.top, 15)

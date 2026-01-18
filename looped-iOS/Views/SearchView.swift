@@ -3,6 +3,7 @@ import SwiftUI
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
     @State private var showSearchResults = false
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
         NavigationView {
@@ -54,7 +55,7 @@ struct SearchView: View {
                                             TrendingPostCard(
                                                 imageName: post.imageURL ?? "",
                                                 title: post.title,
-                                                subtitle: post.subtitle
+                                                subtitle: post.subtitleText(preferShortNames: preferCommunityShortNames)
                                             )
                                             .padding(.horizontal, 16)
                                             .tag(index)
@@ -102,7 +103,11 @@ struct SearchView: View {
                                             )
                                         ) {
                                             LoopCard(
-                                                title: community.name,
+                                                title: CommunityLabelText.preferredName(
+                                                    preferShortNames: preferCommunityShortNames,
+                                                    name: community.name,
+                                                    shortName: community.shortName
+                                                ) ?? community.name,
                                                 description: community.description,
                                                 memberCount: community.memberCount,
                                                 imageURL: community.imageUrl

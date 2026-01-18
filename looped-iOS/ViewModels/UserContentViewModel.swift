@@ -2,6 +2,12 @@ import Foundation
 
 @MainActor
 final class UserContentViewModel: ObservableObject {
+    private enum Target: Equatable {
+        case me(userId: Int?)
+        case user(Int)
+        case anon(Int)
+    }
+
     @Published var items: [UserContentItem] = []
     @Published var isLoading = false
     @Published var isLoadingMore = false
@@ -10,25 +16,31 @@ final class UserContentViewModel: ObservableObject {
 
     private let feedService: FeedServiceProtocol
     private var nextCursor: String?
-    private var userId: Int?
+    private var target: Target?
     private let pageSize = 20
     private var loadingPostIds = Set<Int>()
     private var unavailablePostIds = Set<Int>()
+    private let includePostPreview = true
 
     init(userId: Int? = nil, feedService: FeedServiceProtocol = FeedService()) {
-        self.userId = userId
+        if let userId {
+            self.target = .user(userId)
+        } else {
+            self.target = nil
+        }
         self.feedService = feedService
     }
 
+    func setCurrentUser(userId: Int? = nil) {
+        updateTarget(.me(userId: userId))
+    }
+
     func setUser(id: Int?) {
-        guard userId != id else { return }
-        userId = id
-        items = []
-        nextCursor = nil
-        errorMessage = nil
-        postLookup = [:]
-        loadingPostIds = []
-        unavailablePostIds = []
+        updateTarget(id.map(Target.user))
+    }
+
+    func setAnonProfile(id: Int?) {
+        updateTarget(id.map(Target.anon))
     }
 
     func loadInitial() async {
@@ -47,7 +59,7 @@ final class UserContentViewModel: ObservableObject {
     }
 
     private func load(reset: Bool) async {
-        guard let userId else { return }
+        guard let target else { return }
         if reset {
             guard !isLoading else { return }
             isLoading = true
@@ -66,11 +78,39 @@ final class UserContentViewModel: ObservableObject {
         }
 
         do {
-            let page = try await feedService.fetchUserContent(
-                userId: userId,
-                limit: pageSize,
-                cursor: reset ? nil : nextCursor
-            )
+            let page: UserContentPage
+            switch target {
+            case .me(let fallbackUserId):
+                do {
+                    page = try await feedService.fetchMyContent(
+                        limit: pageSize,
+                        cursor: reset ? nil : nextCursor,
+                        includePostPreview: includePostPreview
+                    )
+                } catch {
+                    guard isNotFound(error), let fallbackUserId else { throw error }
+                    page = try await feedService.fetchUserContent(
+                        userId: fallbackUserId,
+                        limit: pageSize,
+                        cursor: reset ? nil : nextCursor,
+                        includePostPreview: includePostPreview
+                    )
+                }
+            case .user(let userId):
+                page = try await feedService.fetchUserContent(
+                    userId: userId,
+                    limit: pageSize,
+                    cursor: reset ? nil : nextCursor,
+                    includePostPreview: includePostPreview
+                )
+            case .anon(let anonProfileId):
+                page = try await feedService.fetchAnonContent(
+                    anonProfileId: anonProfileId,
+                    limit: pageSize,
+                    cursor: reset ? nil : nextCursor,
+                    includePostPreview: includePostPreview
+                )
+            }
             if reset {
                 items = page.items
             } else {
@@ -79,8 +119,15 @@ final class UserContentViewModel: ObservableObject {
             nextCursor = page.nextCursor
 
             for item in page.items {
-                if case .post(let post) = item.payload, let backendId = post.backendId {
-                    postLookup[backendId] = post
+                switch item.payload {
+                case .post(let post):
+                    if let backendId = post.backendId {
+                        postLookup[backendId] = post
+                    }
+                case .reply(_, let postPreview):
+                    if let postPreview, let backendId = postPreview.backendId {
+                        postLookup[backendId] = postPreview
+                    }
                 }
             }
         } catch {
@@ -111,6 +158,17 @@ final class UserContentViewModel: ObservableObject {
             return false
         }
         postLookup.removeValue(forKey: backendId)
+    }
+
+    private func updateTarget(_ newTarget: Target?) {
+        guard target != newTarget else { return }
+        target = newTarget
+        items = []
+        nextCursor = nil
+        errorMessage = nil
+        postLookup = [:]
+        loadingPostIds = []
+        unavailablePostIds = []
     }
 
     func loadPostPreview(for reply: UserContentReply) async {
@@ -152,4 +210,3 @@ final class UserContentViewModel: ObservableObject {
         return false
     }
 }
-

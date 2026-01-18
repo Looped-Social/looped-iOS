@@ -77,6 +77,7 @@ enum CommunitySearchKind: String {
 struct CommunitySummary: Identifiable, Equatable {
     let id: Int
     let name: String
+    let shortName: String?
     let kind: CommunityKind
     /// Number of active verified members for this community (backend `member_count`).
     let memberCount: Int
@@ -88,6 +89,7 @@ struct CommunitySummary: Identifiable, Equatable {
 struct CommunitySearchResult: Identifiable, Equatable {
     let id: Int
     let name: String
+    let shortName: String?
     let description: String
     let kind: CommunityKind
     let specializationType: CommunitySpecializationType
@@ -100,6 +102,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
     init(
         id: Int,
         name: String,
+        shortName: String? = nil,
         description: String,
         kind: CommunityKind,
         specializationType: CommunitySpecializationType = .unknown,
@@ -110,6 +113,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
     ) {
         self.id = id
         self.name = name
+        self.shortName = shortName
         self.description = description
         self.kind = kind
         self.specializationType = specializationType
@@ -129,6 +133,7 @@ extension CommunitySummary {
     init(dto: CommunityFollowDTO) {
         id = dto.id
         name = dto.name
+        shortName = dto.shortName
         kind = CommunityKind.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
         isPinned = dto.isPinned ?? false
@@ -141,6 +146,7 @@ extension CommunitySearchResult {
     init(dto: CommunitySearchDTO) {
         id = dto.id
         name = dto.name
+        shortName = dto.shortName
         description = dto.description ?? ""
         kind = CommunityKind.fromApi(dto.kind)
         let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
@@ -156,6 +162,7 @@ extension CommunitySearchResult {
     init(dto: CommunityRecommendedDTO) {
         id = dto.id
         name = dto.name
+        shortName = dto.shortName
         description = dto.description ?? ""
         kind = CommunityKind.fromApi(dto.kind)
         let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown

@@ -74,11 +74,7 @@ struct ViolationsView: View {
 
     private var header: some View {
         HStack {
-            Button(action: { dismiss() }) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.medium, size: 24))
-                    .foregroundColor(.loopedTextSecondary)
-            }
+            LoopedBackButton(action: { dismiss() })
 
             Spacer()
 
@@ -88,9 +84,9 @@ struct ViolationsView: View {
 
             Spacer()
 
-            Image(systemName: "chevron.left")
-                .font(.loopedCustom(.medium, size: 24))
+            LoopedBackButton(action: {})
                 .opacity(0)
+                .disabled(true)
         }
         .padding(.horizontal, 20)
         .padding(.top, 15)

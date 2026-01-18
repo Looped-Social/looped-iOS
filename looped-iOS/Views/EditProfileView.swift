@@ -284,11 +284,7 @@ struct EditProfileHeader: View {
 
     var body: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.medium, size: 24))
-                    .foregroundColor(.loopedTextSecondary)
-            }
+            LoopedBackButton(action: onBack)
 
             HStack(spacing: 2) {
                 Image("logo")

@@ -23,14 +23,7 @@ struct ProfileSetupView: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Button(action: onBack) {
-                        Image(systemName: "chevron.left")
-                            .font(.loopedCustom(.medium, size: 18))
-                            .foregroundColor(.loopedTextPrimary)
-                            .padding(10)
-                            .background(Color.loopedMutedBackground)
-                            .clipShape(Circle())
-                    }
+                    LoopedBackButton(action: onBack)
                     Spacer()
                 }
                 .padding(.horizontal, 20)

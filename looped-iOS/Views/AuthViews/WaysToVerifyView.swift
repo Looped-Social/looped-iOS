@@ -12,8 +12,8 @@ struct WaysToVerifyView: View {
 
     init(
         options: [VerificationOption] = [
-            VerificationOption(id: "photo_id", title: "Photo With Gov. ID"),
-            VerificationOption(id: "company_email", title: "Company Email")
+            VerificationOption(id: "company_email", title: "Company Email"),
+            VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
         ],
         currentStep: Int = 2,
         totalSteps: Int = 5,
@@ -106,12 +106,7 @@ private extension WaysToVerifyView {
     var header: some View {
         ZStack {
             HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedCustom(.semibold, size: 20))
-                        .foregroundColor(.loopedTextPrimary)
-                        .frame(width: 40, height: 40)
-                }
+                LoopedBackButton(action: onBack)
 
                 Spacer()
             }
@@ -146,7 +141,6 @@ private struct VerificationOptionButton: View {
                 .foregroundColor(.loopedContrast)
                 .frame(maxWidth: 260)
                 .frame(height: 44)
-                .background(Color.loopedWhite)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22)
                         .stroke(
@@ -154,6 +148,7 @@ private struct VerificationOptionButton: View {
                             lineWidth: 1.5
                         )
                 )
+                .contentShape(RoundedRectangle(cornerRadius: 22))
         }
         .buttonStyle(PlainButtonStyle())
     }

@@ -29,15 +29,7 @@ struct ForgotPasswordView: View {
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark")
-                            .font(.loopedCustom(.semibold, size: 14))
-                            .foregroundColor(.loopedTextPrimary)
-                            .padding(10)
-                            .background(Color.loopedWhite.opacity(0.85))
-                            .clipShape(Circle())
-                    }
-                    .accessibilityLabel("Close")
+                    LoopedCloseButton(action: onDismiss)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)

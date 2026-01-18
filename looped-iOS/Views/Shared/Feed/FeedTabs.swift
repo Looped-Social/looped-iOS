@@ -10,6 +10,7 @@ struct FeedTabs: View {
     @Binding var isSearching: Bool
     @Binding var searchQuery: String
     @FocusState private var isSearchFocused: Bool
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     let communities: [CommunitySummary]
     let selectedCommunityId: Int?
@@ -128,7 +129,7 @@ private extension FeedTabs {
                         impact.impactOccurred()
                         onSelectCommunity(community)
                     }) {
-                        Text(community.name)
+                        Text(communityLabel(for: community))
                             .font(selectedCommunityId == community.id ? .loopedSubBodyBold : .loopedSubBodyMedium)
                             .foregroundColor(selectedCommunityId == community.id ? .loopedWhite : .loopedTextSecondary)
                             .padding(.horizontal, 8)
@@ -191,13 +192,8 @@ private extension FeedTabs {
                 )
                 .cornerRadius(22)
 
-                Button(action: dismissSearch) {
-                    Text("Cancel")
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedPrimary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Cancel community search")
+                LoopedCancelTextButton(action: dismissSearch)
+                    .accessibilityLabel("Cancel community search")
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -235,7 +231,7 @@ private extension FeedTabs {
                             ForEach(searchResults) { result in
                                 Button(action: { selectSearchResult(result) }) {
                                     HStack(spacing: 10) {
-                                        Text(result.name)
+                                        Text(searchResultLabel(for: result))
                                             .font(.loopedBody)
                                             .foregroundColor(.loopedTextPrimary)
                                             .lineLimit(1)
@@ -284,6 +280,22 @@ private extension FeedTabs {
         impact.impactOccurred()
         onSelectSearchResult(result)
         dismissSearch()
+    }
+
+    func communityLabel(for community: CommunitySummary) -> String {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: community.name,
+            shortName: community.shortName
+        ) ?? community.name
+    }
+
+    func searchResultLabel(for result: CommunitySearchResult) -> String {
+        CommunityLabelText.preferredName(
+            preferShortNames: false,
+            name: result.name,
+            shortName: result.shortName
+        ) ?? result.name
     }
 
     func kindLabel(for kind: CommunityKind) -> String {

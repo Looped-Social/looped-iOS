@@ -51,7 +51,11 @@ protocol FeedServiceProtocol {
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchRepostedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchUserReposts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
-    func fetchUserContent(userId: Int, limit: Int, cursor: String?) async throws -> UserContentPage
+    func fetchMyReposts(limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchAnonReposts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchMyContent(limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage
+    func fetchUserContent(userId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage
+    func fetchAnonContent(anonProfileId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage
     func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func savePost(postId: Int, communityId: Int?) async throws -> Bool
     func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool

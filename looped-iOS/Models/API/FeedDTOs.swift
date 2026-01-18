@@ -26,6 +26,7 @@ struct TrendingPostDTO: Codable {
     let isSaved: Bool?
     let isAnonymous: Bool?
     let communityName: String?
+    let communityShortName: String?
     let communityKind: String?
     let title: String?
     let mediaUrl: String?
@@ -48,6 +49,7 @@ struct PostDTO: Codable {
     let companyId: Int?
     let communityId: Int?
     let communityName: String?
+    let communityShortName: String?
     let communityKind: String?
     let content: String
     let mediaAssetId: Int?

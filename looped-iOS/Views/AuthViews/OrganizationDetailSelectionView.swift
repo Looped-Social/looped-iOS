@@ -105,7 +105,11 @@ struct OrganizationDetailSelectionView: View {
 
                         ForEach(viewModel.results) { result in
                             OrganizationDetailRow(
-                                title: result.name,
+                                title: CommunityLabelText.preferredName(
+                                    preferShortNames: false,
+                                    name: result.name,
+                                    shortName: result.shortName
+                                ) ?? result.name,
                                 isSelected: result.id == selectedItem?.id
                             ) {
                                 selectedItem = result
@@ -141,12 +145,7 @@ struct OrganizationDetailSelectionView: View {
 private extension OrganizationDetailSelectionView {
     var header: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.semibold, size: 20))
-                    .foregroundColor(.loopedTextPrimary)
-                    .frame(width: 40, height: 40)
-            }
+            LoopedBackButton(action: onBack)
             Spacer()
         }
     }

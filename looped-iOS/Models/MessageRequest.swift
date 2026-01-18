@@ -87,10 +87,10 @@ extension MessageRequest {
             formatter.dateFormat = "H:mm"
             return formatter.string(from: previewCreatedAt)
         } else if calendar.isDate(previewCreatedAt, equalTo: Date(), toGranularity: .year) {
-            formatter.dateFormat = "d/M"
+            formatter.dateFormat = "M/d"
             return formatter.string(from: previewCreatedAt)
         } else {
-            formatter.dateFormat = "d/M/yy"
+            formatter.dateFormat = "M/d/yy"
             return formatter.string(from: previewCreatedAt)
         }
     }

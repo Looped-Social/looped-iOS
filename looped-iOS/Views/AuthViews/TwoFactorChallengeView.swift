@@ -101,11 +101,11 @@ struct TwoFactorChallengeView: View {
 private extension TwoFactorChallengeView {
     var header: some View {
         HStack {
-            Button(action: handleCancel) {
-                Image(systemName: "xmark")
-                    .font(.loopedCustom(.semibold, size: 18))
-                    .foregroundColor(.loopedTextSecondary)
-            }
+            LoopedCloseButton(
+                action: handleCancel,
+                iconSize: 18,
+                showsBackground: false
+            )
 
             Spacer()
 
@@ -115,9 +115,13 @@ private extension TwoFactorChallengeView {
 
             Spacer()
 
-            Image(systemName: "xmark")
-                .font(.loopedCustom(.semibold, size: 18))
-                .opacity(0)
+            LoopedCloseButton(
+                action: {},
+                iconSize: 18,
+                showsBackground: false
+            )
+            .opacity(0)
+            .disabled(true)
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)

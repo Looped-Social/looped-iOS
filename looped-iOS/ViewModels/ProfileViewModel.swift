@@ -132,6 +132,7 @@ class ProfileViewModel: ObservableObject {
             followerCount: nil,
             followingCount: nil,
             postsCount: nil,
+            showFollowerCount: nil,
             createdAt: nil,
             updatedAt: nil,
             displayCommunity: nil,

@@ -3,6 +3,7 @@ import Foundation
 struct DisplayCommunity: Codable, Equatable {
     let id: Int
     let name: String
+    let shortName: String?
     let kind: CommunityKind
     let specializationType: CommunitySpecializationType?
 
@@ -23,6 +24,7 @@ extension DisplayCommunity {
     init(dto: DisplayCommunityDTO) {
         id = dto.id
         name = dto.name
+        shortName = dto.shortName
         kind = CommunityKind.fromApi(dto.kind)
         let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
         if parsedType == .unknown {
@@ -35,6 +37,7 @@ extension DisplayCommunity {
     init(verification: CommunityVerification) {
         id = verification.communityId
         name = verification.communityName
+        shortName = nil
         kind = verification.communityKind
         specializationType = nil
     }

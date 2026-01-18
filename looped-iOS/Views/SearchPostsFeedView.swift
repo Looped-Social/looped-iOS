@@ -71,6 +71,9 @@ struct SearchPostsFeedView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .edgeSwipeToDismiss {
+            dismiss()
+        }
         .task {
             await viewModel.loadInitial()
         }
@@ -78,15 +81,7 @@ struct SearchPostsFeedView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button(action: {
-                let impact = UIImpactFeedbackGenerator(style: .light)
-                impact.impactOccurred()
-                dismiss()
-            }) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.medium, size: 24))
-                    .foregroundColor(.loopedTextSecondary)
-            }
+            LoopedBackButton(action: { dismiss() }, usesHaptics: true)
 
             Text(displayQuery)
                 .font(.loopedCustom(.bold, size: 32))
@@ -108,4 +103,3 @@ struct SearchPostsFeedView: View {
         .environmentObject(CommentsModalManager())
         .environmentObject(AuthViewModel())
 }
-

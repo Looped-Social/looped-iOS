@@ -32,6 +32,7 @@ struct AnonProfileDTO: Decodable {
     let createdAt: Date?
     let updatedAt: Date?
     let stats: AnonProfileStatsDTO?
+    let showFollowerCount: Bool?
     let displayCommunity: DisplayCommunityDTO?
     let displaySpecialization: DisplayCommunityDTO?
 }

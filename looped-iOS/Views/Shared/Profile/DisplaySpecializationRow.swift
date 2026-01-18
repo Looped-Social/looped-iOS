@@ -10,6 +10,7 @@ struct DisplaySpecializationRow: View {
     var showsIcon: Bool = true
     var showsDisclosure: Bool = false
     var showsCommunityFallback: Bool = true
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
         HStack(spacing: 8) {
@@ -34,27 +35,30 @@ struct DisplaySpecializationRow: View {
     }
 
     private var displayText: String {
-        let baseText = specializationName ?? fallbackText
-        if let communityName, specializationName != nil || showsCommunityFallback {
-            return "\(baseText) @ \(communityName)"
+        let baseText = specializationLabel ?? fallbackText
+        if let communityLabel, specializationLabel != nil || showsCommunityFallback {
+            return "\(baseText) @ \(communityLabel)"
         }
         return baseText
     }
 
     private var isSelected: Bool {
-        specializationName != nil
+        specializationLabel != nil
     }
 
-    private var specializationName: String? {
-        trimmed(specialization?.name)
+    private var specializationLabel: String? {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: specialization?.name,
+            shortName: specialization?.shortName
+        )
     }
 
-    private var communityName: String? {
-        trimmed(displayCommunity?.name)
-    }
-
-    private func trimmed(_ value: String?) -> String? {
-        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+    private var communityLabel: String? {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: displayCommunity?.name,
+            shortName: displayCommunity?.shortName
+        )
     }
 }

@@ -1,19 +1,18 @@
 import SwiftUI
 
 enum ProfileTab: String, CaseIterable {
-    case posts = "Posts"
-    case replies = "Replies"
+    case content = "Content"
     case saved = "Saved"
     case reposts = "Reposts"
 }
 
 struct ProfileView: View {
-    @State private var selectedTab: ProfileTab = .posts
+    @State private var selectedTab: ProfileTab = .content
     @StateObject private var viewModel = ProfileViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
-    @StateObject private var repliesViewModel = UserRepliesViewModel()
+    @StateObject private var contentViewModel = UserContentViewModel()
     @StateObject private var savedViewModel = CollectionPostsViewModel(collection: .saved)
-    @StateObject private var repostsViewModel = CollectionPostsViewModel(collection: .reposted)
+    @StateObject private var repostsViewModel = CollectionPostsViewModel(collection: .myReposts)
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
     @AppStorage("anonymousMode") private var isAnonymous = false
@@ -30,6 +29,7 @@ struct ProfileView: View {
 	@State private var headerHeight: CGFloat = 300
 	@State private var hasActiveVerifications: Bool?
 	private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+    private let anonService: AnonService = .shared
 
 	private var isShowingDiscoveryOverlay: Bool {
 		profileDiscoveryStep != nil || anonymousDiscoveryStep != nil
@@ -42,21 +42,16 @@ struct ProfileView: View {
 	                LazyVStack(spacing: 0) {
 	                    // Content based on selected tab
 	                    switch selectedTab {
-	                    case .posts:
-	                        PostsList(
-	                            posts: viewModel.userPosts,
-	                            isLoading: viewModel.isLoadingPosts,
-	                            onUpdate: { updated in
-	                                viewModel.updatePost(updated)
-	                            },
-	                            onDelete: { deleted in
-	                                viewModel.removePost(backendId: deleted.backendId)
-	                            }
-	                        )
-	                    case .replies:
-	                        UserRepliesList(viewModel: repliesViewModel)
-	                            .padding(.top, 20)
-
+                        case .content:
+                            if let profile = displayProfile {
+                                UserContentList(userProfile: profile, viewModel: contentViewModel)
+                            } else if viewModel.isLoading {
+                                ProgressView()
+                                    .padding(.top, 60)
+                            } else {
+                                EmptyPostsListView(message: "No content yet")
+                                    .padding(.top, 60)
+                            }
 	                    case .saved:
 	                        SavedPostsList(viewModel: savedViewModel)
 	                            .padding(.top, 20)
@@ -160,17 +155,15 @@ struct ProfileView: View {
 	                await viewModel.loadAnonymousProfile()
 	            }
 	            await loadVerificationStatus()
-	            if let userId = viewModel.user?.backendId {
-	                repliesViewModel.setUser(id: userId)
-	                if selectedTab == .replies {
-	                    await repliesViewModel.loadInitial()
-	                }
-	                if selectedTab == .saved {
-	                    await savedViewModel.loadInitial()
-	                }
-	                if selectedTab == .reposts {
-	                    await repostsViewModel.loadInitial()
-	                }
+                await updateContentTarget()
+                if selectedTab == .content {
+                    await contentViewModel.loadInitial()
+                }
+	            if selectedTab == .saved {
+	                await savedViewModel.loadInitial()
+	            }
+	            if selectedTab == .reposts {
+	                await repostsViewModel.loadInitial()
 	            }
 	        }
 	        .refreshable {
@@ -179,17 +172,15 @@ struct ProfileView: View {
 	                await viewModel.loadAnonymousProfile()
 	            }
 	            await loadVerificationStatus()
-	            if let userId = viewModel.user?.backendId {
-	                repliesViewModel.setUser(id: userId)
-	                if selectedTab == .replies {
-	                    await repliesViewModel.loadInitial()
-	                }
-	                if selectedTab == .saved {
-	                    await savedViewModel.loadInitial()
-	                }
-	                if selectedTab == .reposts {
-	                    await repostsViewModel.loadInitial()
-	                }
+                await updateContentTarget()
+                if selectedTab == .content {
+                    await contentViewModel.loadInitial()
+                }
+	            if selectedTab == .saved {
+	                await savedViewModel.loadInitial()
+	            }
+	            if selectedTab == .reposts {
+	                await repostsViewModel.loadInitial()
 	            }
 	        }
         .onAppear {
@@ -202,10 +193,10 @@ struct ProfileView: View {
             syncCoachMarkOverlay()
         }
 	        .onChange(of: selectedTab) { _, newValue in
-	            if newValue == .replies {
-	                guard repliesViewModel.replies.isEmpty else { return }
-	                Task { await repliesViewModel.loadInitial() }
-	            }
+                if newValue == .content {
+                    guard contentViewModel.items.isEmpty else { return }
+                    Task { await contentViewModel.loadInitial() }
+                }
 	            if newValue == .saved {
 	                guard savedViewModel.posts.isEmpty else { return }
 	                Task { await savedViewModel.loadInitial() }
@@ -215,9 +206,6 @@ struct ProfileView: View {
 	                Task { await repostsViewModel.loadInitial() }
 	            }
 	        }
-        .onChange(of: viewModel.user?.backendId) { _, newValue in
-            repliesViewModel.setUser(id: newValue)
-        }
 	        .onChange(of: isAnonymous) { _, newValue in
 	            Task {
 	                await viewModel.handleAnonymousModeChange(isEnabled: newValue)
@@ -228,9 +216,10 @@ struct ProfileView: View {
 	                }
 	                await loadVerificationStatus()
 	                await viewModel.loadUserPosts()
-	                if selectedTab == .replies {
-	                    await repliesViewModel.loadInitial()
-	                }
+                    await updateContentTarget()
+                    if selectedTab == .content {
+                        await contentViewModel.loadInitial()
+                    }
 	                if selectedTab == .saved {
 	                    await savedViewModel.loadInitial()
 	                }
@@ -327,6 +316,15 @@ private extension ProfileView {
             return anonProfile.asUserProfile(companyName: companyName)
         }
         return viewModel.userProfile
+    }
+
+    func updateContentTarget() async {
+        if isAnonymous {
+            let identity = await anonService.currentIdentity()
+            contentViewModel.setAnonProfile(id: identity?.profileId)
+        } else {
+            contentViewModel.setCurrentUser(userId: viewModel.user?.backendId)
+        }
     }
 
 	func startProfileDiscoveryIfNeeded() {
@@ -1061,10 +1059,8 @@ struct ProfileContentView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 switch selectedTab {
-                case .posts:
+                case .content:
                     PostsList(posts: viewModel.userPosts, isLoading: viewModel.isLoadingPosts)
-                case .replies:
-                    RepliesPlaceholderView()
                 case .saved:
                     SavedPlaceholderView()
                 case .reposts:
@@ -1271,6 +1267,167 @@ struct RepliesPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loopedBackground)
+    }
+}
+
+private struct ProfileCombinedContentList: View {
+    enum Payload {
+        case post(Post)
+        case reply(Comment)
+    }
+
+    struct Item: Identifiable {
+        let id: String
+        let createdAt: Date
+        let payload: Payload
+        let sortPriority: Int
+    }
+
+    let posts: [Post]
+    let isLoadingPosts: Bool
+    @ObservedObject var repliesViewModel: UserRepliesViewModel
+    let onUpdatePost: (Post) -> Void
+    let onDeletePost: (Post) -> Void
+
+    @EnvironmentObject var commentsManager: CommentsModalManager
+    @State private var showPostUnavailableAlert = false
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if isInitialLoading {
+                ProgressView()
+                    .scaleEffect(1.1)
+                    .padding(.top, 32)
+            } else if let errorMessage, items.isEmpty {
+                VStack(spacing: 8) {
+                    Text(errorMessage)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Retry") {
+                        Task { await repliesViewModel.loadInitial() }
+                    }
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedPrimary)
+                }
+                .padding(.top, 32)
+                .padding(.horizontal, 24)
+            } else if items.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "text.bubble")
+                        .font(.loopedCustom(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+                    Text("No content yet")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.top, 60)
+            } else {
+                ForEach(items) { item in
+                    Group {
+                        switch item.payload {
+                        case .post(let post):
+                            PostCard(
+                                post: post,
+                                showsCommunityLabel: true,
+                                onUpdate: onUpdatePost,
+                                onDelete: onDeletePost
+                            )
+                        case .reply(let reply):
+                            UserContentReplyRow(
+                                reply: UserContentReply(comment: reply),
+                                previewText: previewText(for: reply),
+                                onTap: { Task { await openReply(reply) } }
+                            )
+                            .task {
+                                await repliesViewModel.loadPostPreview(for: reply)
+                                await repliesViewModel.loadMoreIfNeeded(current: reply)
+                            }
+                        }
+
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    }
+                }
+
+                if repliesViewModel.isLoadingMore {
+                    ProgressView()
+                        .padding(.vertical, 16)
+                }
+            }
+        }
+        .padding(.bottom, 80)
+        .alert("Post unavailable", isPresented: $showPostUnavailableAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This post may be hidden or no longer available.")
+        }
+    }
+
+    private var isInitialLoading: Bool {
+        items.isEmpty && (isLoadingPosts || repliesViewModel.isLoading)
+    }
+
+    private var errorMessage: String? {
+        if let message = repliesViewModel.errorMessage, !message.isEmpty {
+            return message
+        }
+        return nil
+    }
+
+    private var items: [Item] {
+        let postItems: [Item] = posts.map { post in
+            let stableId = post.backendId.map(String.init) ?? post.id.uuidString
+            return Item(
+                id: "post-\(stableId)",
+                createdAt: post.createdAt,
+                payload: .post(post),
+                sortPriority: 0
+            )
+        }
+        let replyItems: [Item] = repliesViewModel.replies.map { reply in
+            let stableId = reply.backendId.map(String.init) ?? reply.id.uuidString
+            return Item(
+                id: "reply-\(stableId)",
+                createdAt: reply.createdAt,
+                payload: .reply(reply),
+                sortPriority: 1
+            )
+        }
+        return (postItems + replyItems).sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
+            if lhs.sortPriority != rhs.sortPriority { return lhs.sortPriority < rhs.sortPriority }
+            return lhs.id < rhs.id
+        }
+    }
+
+    private func previewText(for reply: Comment) -> String? {
+        if let post = repliesViewModel.postPreview(for: reply) {
+            let preview = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return preview.isEmpty ? "Post unavailable" : preview
+        }
+        if repliesViewModel.isPostUnavailable(postId: reply.postBackendId) {
+            return "Post unavailable"
+        }
+        return nil
+    }
+
+    private func openReply(_ reply: Comment) async {
+        if let post = await repliesViewModel.fetchPostForReply(reply) {
+            commentsManager.showComments(
+                for: post,
+                focusCommentId: reply.backendId,
+                focusParentId: reply.replyToBackendId
+            )
+            return
+        }
+        guard repliesViewModel.isPostUnavailable(postId: reply.postBackendId) else { return }
+        await MainActor.run {
+            showPostUnavailableAlert = true
+        }
     }
 }
 

@@ -5,6 +5,7 @@ struct CommunityFilterTabs: View {
     let selectedCommunityId: Int?
     let onSelectCommunity: (CommunitySummary) -> Void
     let onSelectAll: () -> Void
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -34,7 +35,7 @@ struct CommunityFilterTabs: View {
                         impact.impactOccurred()
                         onSelectCommunity(community)
                     }) {
-                        Text(community.name)
+                        Text(communityLabel(for: community))
                             .font(selectedCommunityId == community.id ? .loopedSubBodyBold : .loopedSubBodyMedium)
                             .foregroundColor(selectedCommunityId == community.id ? .loopedWhite : .loopedTextSecondary)
                             .padding(.horizontal, 8)
@@ -52,13 +53,21 @@ struct CommunityFilterTabs: View {
             .padding(.horizontal, 16)
         }
     }
+
+    private func communityLabel(for community: CommunitySummary) -> String {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: community.name,
+            shortName: community.shortName
+        ) ?? community.name
+    }
 }
 
 #Preview {
     CommunityFilterTabs(
         communities: [
-            CommunitySummary(id: 1, name: "Design", kind: .company, memberCount: 12, isPinned: false, sortOrder: nil, canPost: true),
-            CommunitySummary(id: 2, name: "Engineering", kind: .company, memberCount: 40, isPinned: false, sortOrder: nil, canPost: true)
+            CommunitySummary(id: 1, name: "Design", shortName: nil, kind: .company, memberCount: 12, isPinned: false, sortOrder: nil, canPost: true),
+            CommunitySummary(id: 2, name: "Engineering", shortName: nil, kind: .company, memberCount: 40, isPinned: false, sortOrder: nil, canPost: true)
         ],
         selectedCommunityId: nil,
         onSelectCommunity: { _ in },

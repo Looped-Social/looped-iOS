@@ -112,7 +112,9 @@ private struct RequestActionButton: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(style == .primary ? Color.loopedClear : Color.loopedPrimary, lineWidth: 1)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        .buttonStyle(.plain)
         .disabled(isLoading)
     }
 }

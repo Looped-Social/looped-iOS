@@ -3,6 +3,7 @@ import Foundation
 struct CommunityProfileData: Identifiable, Equatable {
     let id: Int
     var name: String
+    var shortName: String?
     var description: String
     var kind: CommunityKind
     var specializationType: CommunitySpecializationType
@@ -19,6 +20,7 @@ extension CommunityProfileData {
     init(community: CommunitySearchResult) {
         self.id = community.id
         self.name = community.name
+        self.shortName = community.shortName
         self.description = community.description
         self.kind = community.kind
         self.specializationType = community.specializationType
@@ -32,6 +34,7 @@ extension CommunityProfileData {
     init(details: CommunityDetailsDTO) {
         self.id = details.id
         self.name = details.name
+        self.shortName = details.shortName
         self.description = details.description ?? ""
         self.kind = CommunityKind.fromApi(details.kind)
         let parsedType = CommunitySpecializationType(rawValue: details.specializationType ?? "") ?? .unknown
@@ -50,6 +53,7 @@ extension CommunityProfileData {
     init(summary: CommunitySummary, description: String = "", imageUrl: String? = nil) {
         self.id = summary.id
         self.name = summary.name
+        self.shortName = summary.shortName
         self.description = description
         self.kind = summary.kind
         self.specializationType = .unknown
@@ -64,6 +68,7 @@ extension CommunityProfileData {
         guard let backendId = loop.backendId else { return nil }
         self.id = backendId
         self.name = loop.name
+        self.shortName = loop.shortName
         self.description = loop.description
         self.kind = loop.kind
         self.specializationType = loop.specializationType

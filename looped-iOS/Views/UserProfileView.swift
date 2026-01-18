@@ -70,16 +70,19 @@ struct UserProfileView: View {
         _contentViewModel = StateObject(wrappedValue: UserContentViewModel(userId: nil))
         _repostsViewModel = StateObject(
             wrappedValue: CollectionPostsViewModel(
-                collection: .empty
+                collection: .anonReposts(profileId: anonProfileId)
             )
         )
-        _selectedTab = State(initialValue: .posts)
+        _selectedTab = State(initialValue: .content)
     }
 
 	    var body: some View {
 	        profileLayout
 	            .background(Color.loopedBackground.ignoresSafeArea())
 	            .navigationBarHidden(true)
+                .edgeSwipeToDismiss {
+                    dismiss()
+                }
 	            .environmentObject(commentsManager)
             .modifier(
                 ProfileActionsModifier(
@@ -128,13 +131,10 @@ struct UserProfileView: View {
                 Text(viewModel.followErrorMessage ?? "")
             }
             .onChange(of: selectedTab) { newValue in
-                if newValue == .replies, viewModel.isAnonymousProfile {
-                    Task { await loadCommentsIfNeeded() }
-                }
-                if newValue == .content, !viewModel.isAnonymousProfile, contentViewModel.items.isEmpty {
+                if newValue == .content, contentViewModel.items.isEmpty {
                     Task { await contentViewModel.loadInitial() }
                 }
-                if newValue == .reposts, !viewModel.isAnonymousProfile, repostsViewModel.posts.isEmpty {
+                if newValue == .reposts, repostsViewModel.posts.isEmpty {
                     Task { await repostsViewModel.loadInitial() }
                 }
             }
@@ -146,7 +146,7 @@ struct UserProfileView: View {
     }
 
     private var tabs: [UserProfileTab] {
-        viewModel.isAnonymousProfile ? [.posts, .replies] : [.content, .reposts]
+        [.content, .reposts]
     }
 
 	    private var followConfig: ProfileActionButtons.FollowConfig? {
@@ -280,22 +280,15 @@ struct UserProfileView: View {
         if let backendId = viewModel.profile?.backendId {
             if viewModel.isAnonymousProfile {
                 commentsViewModel.setAnonProfile(id: backendId)
-                contentViewModel.setUser(id: nil)
+                contentViewModel.setAnonProfile(id: backendId)
             } else {
                 commentsViewModel.setUser(id: backendId)
                 contentViewModel.setUser(id: backendId)
             }
         }
-        if viewModel.isAnonymousProfile {
-            await postsViewModel.loadInitial()
-            if selectedTab == .replies {
-                await loadCommentsIfNeeded()
-            }
-        } else {
-            await contentViewModel.loadInitial()
-            if selectedTab == .reposts {
-                await repostsViewModel.loadInitial()
-            }
+        await contentViewModel.loadInitial()
+        if selectedTab == .reposts {
+            await repostsViewModel.loadInitial()
         }
     }
 
@@ -415,25 +408,13 @@ struct UserProfileHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: onBack) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedCustom(.medium, size: 18))
-                        .foregroundColor(.loopedPrimary)
-
-                    Text("Back")
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedPrimary)
-                }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 10)
+            LoopedBackButton(action: onBack)
                 .background(Color.loopedBackground)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(Color.loopedTextSecondary, lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
 
             Spacer()
 
@@ -584,7 +565,7 @@ struct UserProfileInfoSection: View {
                         textColor: .loopedTextSecondary,
                         iconSize: 16
                     )
-                } else if !userProfile.isAnonymous || userProfile.displayCommunity != nil {
+                } else {
                     DisplayCommunityRow(
                         displayCommunity: userProfile.displayCommunity,
                         fallbackText: "No primary community selected",
@@ -725,7 +706,7 @@ struct UserContentList: View {
                                         viewModel.removePost(backendId: deleted.backendId)
                                     }
                                 )
-                            case .reply(let reply):
+                            case .reply(let reply, _):
                                 UserContentReplyRow(
                                     reply: reply,
                                     previewText: previewText(for: reply),

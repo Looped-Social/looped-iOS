@@ -20,15 +20,7 @@ struct HashtagFeedView: View {
         VStack(spacing: 0) {
             // Simple header with back button and hashtag
             HStack(spacing: 12) {
-                Button(action: {
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
-                    dismiss()
-                }) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedCustom(.medium, size: 24))
-                        .foregroundColor(.loopedTextSecondary)
-                }
+                LoopedBackButton(action: { dismiss() }, usesHaptics: true)
 
                 Text(displayHashtag)
                     .font(.loopedCustom(.bold, size: 32))
@@ -94,6 +86,9 @@ struct HashtagFeedView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .edgeSwipeToDismiss {
+            dismiss()
+        }
         .task {
             await viewModel.loadInitial()
         }

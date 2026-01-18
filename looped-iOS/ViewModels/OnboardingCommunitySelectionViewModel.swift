@@ -77,6 +77,7 @@ final class OnboardingCommunitySelectionViewModel: ObservableObject {
                         id: UUID.fromBackendId(result.id),
                         backendId: result.id,
                         name: result.name,
+                        shortName: result.shortName,
                         description: result.description,
                         kind: result.kind,
                         specializationType: result.specializationType,

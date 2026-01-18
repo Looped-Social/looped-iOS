@@ -207,10 +207,28 @@ class FeedService: FeedServiceProtocol {
     }
 
     func repostPost(postId: Int) async throws -> PostRepostResponse {
-        let response: PostRepostResponseDTO = try await apiClient.put(
-            "/v1/posts/\(postId)/repost",
-            body: EmptyBody()
-        )
+        let response: PostRepostResponseDTO
+        if anonService.isAnonymousEnabled {
+            let anonContext = try await anonService.actionContext(for: .repost(postId: postId), communityId: nil)
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            response = try await apiClient.put(
+                "/v1/posts/\(postId)/repost",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+        } else {
+            response = try await apiClient.put(
+                "/v1/posts/\(postId)/repost",
+                body: EmptyBody()
+            )
+        }
         return PostRepostResponse(
             postId: response.postId,
             repostCount: response.repostCount,
@@ -219,10 +237,28 @@ class FeedService: FeedServiceProtocol {
     }
 
     func unrepostPost(postId: Int) async throws -> PostRepostResponse {
-        let response: PostRepostResponseDTO = try await apiClient.delete(
-            "/v1/posts/\(postId)/repost",
-            expecting: PostRepostResponseDTO.self
-        )
+        let response: PostRepostResponseDTO
+        if anonService.isAnonymousEnabled {
+            let anonContext = try await anonService.actionContext(for: .unrepost(postId: postId), communityId: nil)
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            response = try await apiClient.delete(
+                "/v1/posts/\(postId)/repost",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+        } else {
+            response = try await apiClient.delete(
+                "/v1/posts/\(postId)/repost",
+                expecting: PostRepostResponseDTO.self
+            )
+        }
         return PostRepostResponse(
             postId: response.postId,
             repostCount: response.repostCount,
@@ -270,16 +306,78 @@ class FeedService: FeedServiceProtocol {
         try await fetchPosts(from: "/v1/users/\(userId)/reposts", limit: limit, cursor: cursor, communityId: nil)
     }
 
-    func fetchUserContent(userId: Int, limit: Int, cursor: String?) async throws -> UserContentPage {
-        var endpoint = "/v1/users/\(userId)/content?limit=\(limit > 0 ? limit : defaultLimit)"
+    func fetchMyReposts(limit: Int, cursor: String?) async throws -> FeedPage {
+        do {
+            return try await fetchPosts(from: "/v1/users/me/reposts", limit: limit, cursor: cursor, communityId: nil)
+        } catch {
+            guard isNotFound(error) else { throw error }
+            return try await fetchRepostedPosts(limit: limit, cursor: cursor)
+        }
+    }
+
+    func fetchAnonReposts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try await fetchPosts(from: "/v1/anon/\(anonProfileId)/reposts", limit: limit, cursor: cursor, communityId: nil)
+    }
+
+    func fetchMyContent(limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
+        try await fetchContentPage(
+            endpoint: "/v1/users/me/content",
+            limit: limit,
+            cursor: cursor,
+            includePostPreview: includePostPreview
+        )
+    }
+
+    func fetchUserContent(userId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
+        try await fetchContentPage(
+            endpoint: "/v1/users/\(userId)/content",
+            limit: limit,
+            cursor: cursor,
+            includePostPreview: includePostPreview
+        )
+    }
+
+    func fetchAnonContent(anonProfileId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
+        try await fetchContentPage(
+            endpoint: "/v1/anon/\(anonProfileId)/content",
+            limit: limit,
+            cursor: cursor,
+            includePostPreview: includePostPreview
+        )
+    }
+
+    private func fetchContentPage(
+        endpoint: String,
+        limit: Int,
+        cursor: String?,
+        includePostPreview: Bool
+    ) async throws -> UserContentPage {
+        var resolved = "\(endpoint)?limit=\(limit > 0 ? limit : defaultLimit)"
+        if includePostPreview {
+            resolved += "&include_post_preview=true"
+        }
         if let cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
-            endpoint += "&cursor=\(encoded)"
+            resolved += "&cursor=\(encoded)"
         }
-        let data = try await apiClient.getData(endpoint)
+        let data = try await apiClient.getData(resolved)
         let response = try decode(UserContentResponseDTO.self, from: data)
         let items = response.items.compactMap(UserContentItem.init(dto:))
         return UserContentPage(items: items, nextCursor: response.nextCursor)
+    }
+
+    private func isNotFound(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let code):
+                return code == 404
+            case .apiError(let code, _, _):
+                return code == 404
+            default:
+                return false
+            }
+        }
+        return false
     }
 
     func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage {

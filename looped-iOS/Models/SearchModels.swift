@@ -5,12 +5,40 @@ struct TrendingPost: Identifiable {
     let imageURL: String?
     let title: String
     let subtitle: String
+    let communityName: String?
+    let communityShortName: String?
+    let communityKind: String?
 
-    init(id: Int, imageURL: String?, title: String, subtitle: String) {
+    init(
+        id: Int,
+        imageURL: String?,
+        title: String,
+        subtitle: String,
+        communityName: String? = nil,
+        communityShortName: String? = nil,
+        communityKind: String? = nil
+    ) {
         self.id = id
         self.imageURL = imageURL
         self.title = title
         self.subtitle = subtitle
+        self.communityName = communityName
+        self.communityShortName = communityShortName
+        self.communityKind = communityKind
+    }
+
+    func subtitleText(preferShortNames: Bool) -> String {
+        if let label = CommunityLabelText.preferredName(
+            preferShortNames: preferShortNames,
+            name: communityName,
+            shortName: communityShortName
+        ) {
+            return "Trending in \(label)"
+        }
+        if let kind = communityKind?.trimmedNonEmpty {
+            return "Trending in \(kind.capitalized)"
+        }
+        return subtitle
     }
 }
 
@@ -19,22 +47,28 @@ extension TrendingPost {
         let trimmedTitle = dto.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let fallbackTitle = TrendingPost.snippet(from: dto.content)
         let title = trimmedTitle.isEmpty ? fallbackTitle : trimmedTitle
-        let subtitle: String
-        if let communityName = dto.communityName?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !communityName.isEmpty {
-            subtitle = "Trending in \(communityName)"
-        } else if let communityKind = dto.communityKind?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !communityKind.isEmpty {
-            subtitle = "Trending in \(communityKind.capitalized)"
-        } else {
-            subtitle = "Trending on Looped"
-        }
+        let subtitle: String = {
+            if let label = CommunityLabelText.preferredName(
+                preferShortNames: false,
+                name: dto.communityName,
+                shortName: dto.communityShortName
+            ) {
+                return "Trending in \(label)"
+            }
+            if let kind = dto.communityKind?.trimmedNonEmpty {
+                return "Trending in \(kind.capitalized)"
+            }
+            return "Trending on Looped"
+        }()
 
         self.init(
             id: dto.id,
             imageURL: dto.cdnUrl ?? dto.mediaUrl,
             title: title,
-            subtitle: subtitle
+            subtitle: subtitle,
+            communityName: dto.communityName,
+            communityShortName: dto.communityShortName,
+            communityKind: dto.communityKind
         )
     }
 
@@ -145,6 +179,7 @@ struct SearchResultLoop: Identifiable {
     let id: UUID
     let backendId: Int?
     let name: String
+    let shortName: String?
     let description: String
     let kind: CommunityKind
     let specializationType: CommunitySpecializationType
@@ -155,6 +190,7 @@ struct SearchResultLoop: Identifiable {
         id: UUID = UUID(),
         backendId: Int? = nil,
         name: String,
+        shortName: String? = nil,
         description: String,
         kind: CommunityKind = .unknown,
         specializationType: CommunitySpecializationType = .unknown,
@@ -164,6 +200,7 @@ struct SearchResultLoop: Identifiable {
         self.id = id
         self.backendId = backendId
         self.name = name
+        self.shortName = shortName
         self.description = description
         self.kind = kind
         self.specializationType = specializationType

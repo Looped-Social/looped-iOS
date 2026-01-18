@@ -36,6 +36,7 @@ class FeedViewModel: ObservableObject {
     private let feedActiveCommunityKey = "feedActiveCommunityId"
     private let feedRecentCommunityIdKey = "feedRecentCommunityId"
     private let feedRecentCommunityNameKey = "feedRecentCommunityName"
+    private let feedRecentCommunityShortNameKey = "feedRecentCommunityShortName"
     private let feedRecentCommunityKindKey = "feedRecentCommunityKind"
     private let feedRecentCommunityMemberCountKey = "feedRecentCommunityMemberCount"
     private var lastToastAt: Date?
@@ -196,6 +197,7 @@ class FeedViewModel: ObservableObject {
             ?? CommunitySummary(
                 id: result.id,
                 name: result.name,
+                shortName: result.shortName,
                 kind: result.kind,
                 memberCount: result.memberCount,
                 isPinned: false,
@@ -614,12 +616,14 @@ private extension FeedViewModel {
         let recentId = UserDefaults.standard.integer(forKey: feedRecentCommunityIdKey)
         if recentId > 0 {
             let name = UserDefaults.standard.string(forKey: feedRecentCommunityNameKey) ?? "Community"
+            let shortName = UserDefaults.standard.string(forKey: feedRecentCommunityShortNameKey)
             let kindRaw = UserDefaults.standard.string(forKey: feedRecentCommunityKindKey) ?? ""
             let kind = CommunityKind(rawValue: kindRaw) ?? .unknown
             let memberCount = UserDefaults.standard.integer(forKey: feedRecentCommunityMemberCountKey)
             recentFeedCommunity = CommunitySummary(
                 id: recentId,
                 name: name,
+                shortName: shortName,
                 kind: kind,
                 memberCount: memberCount,
                 isPinned: false,
@@ -643,6 +647,11 @@ private extension FeedViewModel {
     func persistRecentFeedCommunity(_ community: CommunitySummary) {
         UserDefaults.standard.set(community.id, forKey: feedRecentCommunityIdKey)
         UserDefaults.standard.set(community.name, forKey: feedRecentCommunityNameKey)
+        if let shortName = community.shortName?.trimmingCharacters(in: .whitespacesAndNewlines), !shortName.isEmpty {
+            UserDefaults.standard.set(shortName, forKey: feedRecentCommunityShortNameKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: feedRecentCommunityShortNameKey)
+        }
         UserDefaults.standard.set(community.kind.rawValue, forKey: feedRecentCommunityKindKey)
         UserDefaults.standard.set(community.memberCount, forKey: feedRecentCommunityMemberCountKey)
     }

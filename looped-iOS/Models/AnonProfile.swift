@@ -7,6 +7,7 @@ struct AnonProfile: Codable, Identifiable {
     let followerCount: Int?
     let followingCount: Int?
     let postsCount: Int?
+    let showFollowerCount: Bool?
     let createdAt: Date?
     let updatedAt: Date?
     let displayCommunity: DisplayCommunity?
@@ -26,6 +27,7 @@ extension AnonProfile {
         followerCount = dto.stats?.followerCount
         followingCount = dto.stats?.followingCount
         postsCount = dto.stats?.postsCount
+        showFollowerCount = dto.showFollowerCount
         createdAt = dto.createdAt
         updatedAt = dto.updatedAt
         displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
@@ -55,7 +57,7 @@ extension AnonProfile {
             followersCount: followerCount ?? 0,
             postsCount: postsCount ?? 0,
             commentsCount: 0,
-            showFollowerCount: false,
+            showFollowerCount: showFollowerCount ?? true,
             isCurrentUser: isCurrentUser,
             displayCommunity: displayCommunity,
             displaySpecialization: displaySpecialization,

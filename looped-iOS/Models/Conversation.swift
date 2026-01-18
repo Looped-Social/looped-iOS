@@ -59,10 +59,10 @@ extension Conversation {
             formatter.dateFormat = "H:mm"
             return formatter.string(from: lastMessageTimestamp)
         } else if calendar.isDate(lastMessageTimestamp, equalTo: Date(), toGranularity: .year) {
-            formatter.dateFormat = "d/M"
+            formatter.dateFormat = "M/d"
             return formatter.string(from: lastMessageTimestamp)
         } else {
-            formatter.dateFormat = "d/M/yy"
+            formatter.dateFormat = "M/d/yy"
             return formatter.string(from: lastMessageTimestamp)
         }
     }

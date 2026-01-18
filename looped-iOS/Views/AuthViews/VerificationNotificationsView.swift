@@ -98,12 +98,7 @@ private extension VerificationNotificationsView {
     var header: some View {
         ZStack {
             HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedCustom(.semibold, size: 20))
-                        .foregroundColor(.loopedTextPrimary)
-                        .frame(width: 40, height: 40)
-                }
+                LoopedBackButton(action: onBack)
                 Spacer()
             }
 

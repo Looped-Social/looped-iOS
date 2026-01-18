@@ -194,8 +194,7 @@ private struct CommunityRequestStepOneView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", action: onCancel)
-                    .foregroundColor(.loopedSecondary)
+                LoopedCancelTextButton(action: onCancel)
             }
         }
         .onChange(of: selectedImage) { _, newValue in
@@ -319,8 +318,7 @@ private struct CommunityRequestStepTwoView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", action: onCancel)
-                    .foregroundColor(.loopedSecondary)
+                LoopedCancelTextButton(action: onCancel)
             }
         }
     }

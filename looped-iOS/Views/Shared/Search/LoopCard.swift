@@ -48,7 +48,7 @@ struct LoopCard: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .scaledToFill()
+                            .scaledToFit()
                     case .failure:
                         placeholderImage
                     case .empty:
@@ -60,13 +60,13 @@ struct LoopCard: View {
             } else if let imageURL, let localImage = UIImage(named: imageURL) {
                 Image(uiImage: localImage)
                     .resizable()
-                    .scaledToFill()
+                    .scaledToFit()
             } else {
                 placeholderImage
             }
         }
-        .frame(maxWidth: .infinity)
-        .clipped()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.loopedBackground)
     }
 
     private var placeholderImage: some View {

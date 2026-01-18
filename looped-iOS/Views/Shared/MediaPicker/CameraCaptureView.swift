@@ -89,14 +89,15 @@ private extension CameraCaptureView {
     var header: some View {
         VStack {
             HStack {
-                Button(action: handleCancel) {
-                    Image(systemName: "xmark")
-                        .font(.loopedCustom(.semibold, size: 18))
-                        .foregroundColor(.loopedWhite)
-                        .padding(12)
-                        .background(Color.loopedBlack.opacity(0.5))
-                        .clipShape(Circle())
-                }
+                LoopedCloseButton(
+                    action: handleCancel,
+                    foregroundColor: .loopedWhite,
+                    iconSize: 18,
+                    hitArea: 44,
+                    showsBackground: true,
+                    backgroundColor: .loopedBlack,
+                    backgroundOpacity: 0.5
+                )
                 Spacer()
             }
             .padding(.horizontal, 20)

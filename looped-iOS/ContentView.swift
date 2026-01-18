@@ -12,6 +12,8 @@ import FirebaseAuth
 
 
 enum MenuDestination: Identifiable {
+    case posts
+    case replies
     case liked
     case saved
     case privacy
@@ -22,6 +24,8 @@ enum MenuDestination: Identifiable {
 
     var id: String {
         switch self {
+        case .posts: return "posts"
+        case .replies: return "replies"
         case .liked: return "liked"
         case .saved: return "saved"
         case .privacy: return "privacy"
@@ -39,6 +43,7 @@ struct ContentView: View {
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
+    @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
 
     var body: some View {
         Group {
@@ -68,7 +73,11 @@ struct ContentView: View {
         }
         .environmentObject(authViewModel)
         .environmentObject(feedViewModel)
+        .environment(\.preferCommunityShortNames, preferCommunityShortNames)
         .preferredColorScheme(preferredColorScheme)
+        .onChange(of: preferCommunityShortNames) { _, _ in
+            Task { await feedViewModel.loadFollowedCommunities(reset: true) }
+        }
     }
 
     private var preferredColorScheme: ColorScheme? {
@@ -419,22 +428,7 @@ struct MainTabView: View {
 
     @ViewBuilder
     private func destinationView(for destination: MenuDestination) -> some View {
-        switch destination {
-        case .liked:
-            LikedPostsView()
-        case .saved:
-            SavedPostsView()
-        case .privacy:
-            PrivacyView()
-        case .drafts:
-            DraftsView()
-        case .analytics:
-            AnalyticsView()
-        case .faq:
-            FAQView()
-        case .settings:
-            SettingsView()
-        }
+        MenuDestinationView(destination: destination)
     }
     
     private var preferredColorScheme: ColorScheme? {

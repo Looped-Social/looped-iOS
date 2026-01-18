@@ -46,8 +46,7 @@ struct DisplaySpecializationPickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(.loopedSecondary)
+                    LoopedCancelTextButton(action: { dismiss() })
                 }
                 if selectedSpecialization != nil {
                     ToolbarItem(placement: .confirmationAction) {
@@ -195,6 +194,7 @@ struct DisplaySpecializationPickerView: View {
         selectedSpecialization = DisplayCommunity(
             id: result.id,
             name: result.name,
+            shortName: result.shortName,
             kind: result.kind,
             specializationType: result.specializationType == .unknown ? nil : result.specializationType
         )
@@ -248,13 +248,13 @@ private struct SpecializationResultRow: View {
                     .fill(Color.loopedMutedBackground)
                     .frame(width: 40, height: 40)
                     .overlay(
-                        Text(initials(for: result.name))
+                        Text(initials(for: specializationLabel))
                             .font(.loopedSubBodyMedium)
                             .foregroundColor(.loopedTextPrimary)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(result.name)
+                    Text(specializationLabel)
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
 
@@ -286,6 +286,14 @@ private struct SpecializationResultRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var specializationLabel: String {
+        CommunityLabelText.preferredName(
+            preferShortNames: false,
+            name: result.name,
+            shortName: result.shortName
+        ) ?? result.name
     }
 
     private func initials(for name: String) -> String {

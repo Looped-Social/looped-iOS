@@ -21,11 +21,26 @@ struct UserContentReply: Identifiable {
         self.isDeleted = dto.isDeleted ?? false
         self.parentId = dto.parentId
     }
+
+    init(comment: Comment) {
+        if let backendId = comment.backendId {
+            self.id = backendId
+        } else {
+            let hashed = comment.id.uuidString.hashValue
+            self.id = hashed == Int.min ? 0 : abs(hashed)
+        }
+
+        self.postId = comment.postBackendId ?? -1
+        self.content = comment.content
+        self.createdAt = comment.createdAt
+        self.isDeleted = comment.isDeleted
+        self.parentId = comment.replyToBackendId
+    }
 }
 
 enum UserContentItemPayload {
     case post(Post)
-    case reply(UserContentReply)
+    case reply(UserContentReply, postPreview: Post?)
 }
 
 struct UserContentItem: Identifiable {
@@ -49,7 +64,8 @@ struct UserContentItem: Identifiable {
         case "reply":
             guard let replyDTO = dto.reply else { return nil }
             let reply = UserContentReply(dto: replyDTO)
-            self.init(id: "reply-\(reply.id)", createdAt: dto.createdAt, payload: .reply(reply))
+            let preview = dto.post.map { Post(dto: $0) }
+            self.init(id: "reply-\(reply.id)", createdAt: dto.createdAt, payload: .reply(reply, postPreview: preview))
         default:
             return nil
         }

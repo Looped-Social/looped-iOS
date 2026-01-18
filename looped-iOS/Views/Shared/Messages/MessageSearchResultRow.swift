@@ -44,9 +44,9 @@ struct MessageSearchResultRow: View {
         if calendar.isDate(date, inSameDayAs: Date()) {
             formatter.dateFormat = "H:mm"
         } else if calendar.isDate(date, equalTo: Date(), toGranularity: .year) {
-            formatter.dateFormat = "d/M"
+            formatter.dateFormat = "M/d"
         } else {
-            formatter.dateFormat = "d/M/yy"
+            formatter.dateFormat = "M/d/yy"
         }
         return formatter.string(from: date)
     }
@@ -106,4 +106,3 @@ struct MessageSearchResultRow: View {
         )
     )
 }
-

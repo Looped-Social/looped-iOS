@@ -104,9 +104,8 @@ struct ReportReasonSheet: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(.loopedSecondary)
+                ToolbarItem(placement: .cancellationAction) {
+                    LoopedCancelTextButton(action: { dismiss() })
                 }
             }
         }

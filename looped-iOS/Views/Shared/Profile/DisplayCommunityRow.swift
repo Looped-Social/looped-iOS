@@ -8,6 +8,7 @@ struct DisplayCommunityRow: View {
     var iconSize: CGFloat = 16
     var showsIcon: Bool = true
     var showsDisclosure: Bool = false
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
         HStack(spacing: 8) {
@@ -19,7 +20,7 @@ struct DisplayCommunityRow: View {
                 )
             }
 
-            Text(displayCommunity?.displayText ?? fallbackText)
+            Text(displayText)
                 .font(font)
                 .foregroundColor(textColor)
 
@@ -31,6 +32,15 @@ struct DisplayCommunityRow: View {
                     .foregroundColor(.loopedTextSecondary)
             }
         }
+    }
+
+    private var displayText: String {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: displayCommunity?.name,
+            shortName: displayCommunity?.shortName,
+            fallback: fallbackText
+        ) ?? fallbackText
     }
 }
 

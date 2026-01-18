@@ -37,6 +37,7 @@ struct PostCard: View {
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @AppStorage("anonymousMode") private var isAnonymousMode = false
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var showActionMenu = false
     @State private var showBlockConfirm = false
     @State private var activeModerationSheet: ModerationSheet?
@@ -151,13 +152,12 @@ struct PostCard: View {
     }
 
     private var authorDisplayLine: String? {
-        post.authorDisplaySpecializationLine
+        post.authorDisplaySpecializationLine(preferShortNames: preferCommunityShortNames)
     }
 
     private var communityContextText: String? {
         guard showsCommunityLabel else { return nil }
-        if let name = post.communityName?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !name.isEmpty {
+        if let name = post.communityDisplayName(preferShortNames: preferCommunityShortNames) {
             return "in \(name)"
         }
         if let kind = post.communityKind, kind != .unknown {
@@ -175,6 +175,7 @@ struct PostCard: View {
         return CommunityProfileData(
             id: communityId,
             name: resolvedName,
+            shortName: post.communityShortName?.trimmedNonEmpty,
             description: "",
             kind: post.communityKind ?? .unknown,
             specializationType: .unknown,
@@ -1271,9 +1272,8 @@ struct EditPostSheet: View {
             .navigationTitle("Edit Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { onCancel() }
-                        .foregroundColor(.loopedSecondary)
+                ToolbarItem(placement: .cancellationAction) {
+                    LoopedCancelTextButton(action: onCancel)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { onSave() }

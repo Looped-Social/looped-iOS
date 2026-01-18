@@ -41,11 +41,13 @@ struct SettingsView: View {
     @State private var isUnlinkingGoogle = false
     @State private var isUnlinkingApple = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
+    @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
     @State private var showFeedback = false
     @State private var showContentPolicy = false
     @State private var showPrivacyPolicy = false
     @State private var showUserAgreement = false
     @State private var pendingDisconnectProvider: LinkedProvider?
+    @State private var contentDestination: MenuDestination?
 
     private let feedbackUrl = URL(string: "https://www.mylooped.app/contact")!
     private let contentPolicyUrl = URL(string: "https://www.mylooped.app/community-rules")!
@@ -103,6 +105,11 @@ struct SettingsView: View {
                     // Appearance Section
                     SettingsSection(title: "Appearance") {
                         AppearanceModeRow(selection: $appearanceMode)
+                        SettingsToggleRow(
+                            icon: .system("textformat.size.smaller"),
+                            title: "Prefer Community Short Names",
+                            isOn: $preferCommunityShortNames
+                        )
                     }
 
                     // Verification Section
@@ -214,12 +221,45 @@ struct SettingsView: View {
                         }
                     }
 
+                    SettingsSection(title: "Content") {
+                        Button {
+                            contentDestination = .posts
+                        } label: {
+                            SettingsNavigationRow(icon: .system("text.bubble"), title: "Posts")
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Button {
+                            contentDestination = .replies
+                        } label: {
+                            SettingsNavigationRow(icon: .system("bubble.left.and.bubble.right"), title: "Replies")
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Button {
+                            contentDestination = .liked
+                        } label: {
+                            SettingsNavigationRow(icon: .system("heart"), title: "Liked")
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Button {
+                            contentDestination = .saved
+                        } label: {
+                            SettingsNavigationRow(icon: .system("bookmark"), title: "Saved")
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+
                 }
                 .padding(.bottom, 100)
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .edgeSwipeToDismiss {
+            dismiss()
+        }
         .fullScreenCover(isPresented: $showCommunityRequest) {
             CommunityRequestFlowView()
         }
@@ -234,6 +274,12 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showUserAgreement) {
             SafariView(url: userAgreementUrl)
+        }
+        .fullScreenCover(item: $contentDestination) { destination in
+            NavigationView {
+                MenuDestinationView(destination: destination)
+            }
+            .navigationViewStyle(.stack)
         }
         .onChange(of: anonymousMode) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }
@@ -470,11 +516,7 @@ struct SettingsHeader: View {
 
     var body: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.medium, size: 24))
-                    .foregroundColor(.loopedTextSecondary)
-            }
+            LoopedBackButton(action: onBack)
 
             Image("logo-banner")
                 .resizable()

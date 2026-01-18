@@ -17,6 +17,7 @@ struct Post: Codable, Identifiable {
     let company: String
     let communityId: Int?
     let communityName: String?
+    let communityShortName: String?
     let communityKind: CommunityKind?
     let isAnonymous: Bool
     let reactionCount: Int
@@ -53,6 +54,7 @@ struct Post: Codable, Identifiable {
         company: String,
         communityId: Int? = nil,
         communityName: String? = nil,
+        communityShortName: String? = nil,
         communityKind: CommunityKind? = nil,
         isAnonymous: Bool,
         reactionCount: Int,
@@ -88,6 +90,7 @@ struct Post: Codable, Identifiable {
         self.company = company
         self.communityId = communityId
         self.communityName = communityName
+        self.communityShortName = communityShortName
         self.communityKind = communityKind
         self.isAnonymous = isAnonymous
         self.reactionCount = reactionCount
@@ -155,6 +158,10 @@ extension Post {
         }()
         let bannerUsers = dto.repostedByFollowedUsers?.map(RepostBannerUser.init(dto:))
         let bannerCount = dto.repostedByFollowedUsersCount ?? bannerUsers?.count
+        let resolvedPoll = dto.poll.map(Poll.init(dto:))
+        let resolvedCommunityKind = CommunityKind(rawValue: dto.communityKind ?? "")
+        let resolvedAuthorDisplayCommunity = dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:))
+        let resolvedAuthorDisplaySpecialization = dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:))
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
@@ -162,7 +169,7 @@ extension Post {
             authorPrincipalId: dto.authorPrincipalId,
             anonProfileId: dto.anonProfileId,
             content: dto.content,
-            poll: dto.poll.map(Poll.init(dto:)),
+            poll: resolvedPoll,
             authorId: resolvedAuthorId,
             authorDisplayName: resolvedDisplayName,
             authorHandle: resolvedHandle,
@@ -172,7 +179,8 @@ extension Post {
             company: "",
             communityId: dto.communityId,
             communityName: dto.communityName,
-            communityKind: CommunityKind(rawValue: dto.communityKind ?? ""),
+            communityShortName: dto.communityShortName,
+            communityKind: resolvedCommunityKind,
             isAnonymous: resolvedIsAnonymous,
             reactionCount: dto.likesCount ?? 0,
             commentsCount: dto.commentsCount ?? 0,
@@ -186,8 +194,8 @@ extension Post {
             mediaAssetIds: resolvedMediaAssetIds,
             attachments: resolvedAttachments,
             isSaved: dto.isSaved ?? false,
-            authorDisplayCommunity: dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:)),
-            authorDisplaySpecialization: dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:)),
+            authorDisplayCommunity: resolvedAuthorDisplayCommunity,
+            authorDisplaySpecialization: resolvedAuthorDisplaySpecialization,
             createdAt: dto.createdAt,
             updatedAt: dto.createdAt
         )
@@ -206,20 +214,40 @@ extension Post {
         attachments: [MediaAttachment]?? = nil,
         isSaved: Bool? = nil,
         communityName: String? = nil,
+        communityShortName: String? = nil,
         communityKind: CommunityKind? = nil,
         authorDisplayCommunity: DisplayCommunity? = nil,
         authorDisplaySpecialization: DisplayCommunity? = nil,
         poll: Poll?? = nil,
         updatedAt: Date? = nil
     ) -> Post {
-        Post(
+        let resolvedBackendId = backendId ?? self.backendId
+        let resolvedPoll: Poll? = poll ?? self.poll
+        let resolvedCommunityName = communityName ?? self.communityName
+        let resolvedCommunityShortName = communityShortName ?? self.communityShortName
+        let resolvedCommunityKind = communityKind ?? self.communityKind
+        let resolvedReactionCount = reactionCount ?? self.reactionCount
+        let resolvedCommentsCount = commentsCount ?? self.commentsCount
+        let resolvedShareCount = shareCount ?? self.shareCount
+        let resolvedRepostCount = repostCount ?? self.repostCount
+        let resolvedViewerHasReposted = viewerHasReposted ?? self.viewerHasReposted
+        let resolvedRepostedByFollowedUsers: [RepostBannerUser]? = repostedByFollowedUsers ?? self.repostedByFollowedUsers
+        let resolvedRepostedByFollowedUsersCount: Int? = repostedByFollowedUsersCount ?? self.repostedByFollowedUsersCount
+        let resolvedUserReaction: ReactionType? = userReaction ?? self.userReaction
+        let resolvedAttachments: [MediaAttachment]? = attachments ?? self.attachments
+        let resolvedIsSaved = isSaved ?? self.isSaved
+        let resolvedAuthorDisplayCommunity = authorDisplayCommunity ?? self.authorDisplayCommunity
+        let resolvedAuthorDisplaySpecialization = authorDisplaySpecialization ?? self.authorDisplaySpecialization
+        let resolvedUpdatedAt = updatedAt ?? self.updatedAt
+
+        return Post(
             id: id,
-            backendId: backendId ?? self.backendId,
+            backendId: resolvedBackendId,
             authorBackendId: authorBackendId,
             authorPrincipalId: authorPrincipalId,
             anonProfileId: anonProfileId,
             content: content,
-            poll: poll ?? self.poll,
+            poll: resolvedPoll,
             authorId: authorId,
             authorDisplayName: authorDisplayName,
             authorHandle: authorHandle,
@@ -228,25 +256,26 @@ extension Post {
             authorProfileImageURL: authorProfileImageURL,
             company: company,
             communityId: communityId,
-            communityName: communityName ?? self.communityName,
-            communityKind: communityKind ?? self.communityKind,
+            communityName: resolvedCommunityName,
+            communityShortName: resolvedCommunityShortName,
+            communityKind: resolvedCommunityKind,
             isAnonymous: isAnonymous,
-            reactionCount: reactionCount ?? self.reactionCount,
-            commentsCount: commentsCount ?? self.commentsCount,
-            shareCount: shareCount ?? self.shareCount,
-            repostCount: repostCount ?? self.repostCount,
-            viewerHasReposted: viewerHasReposted ?? self.viewerHasReposted,
-            repostedByFollowedUsers: repostedByFollowedUsers ?? self.repostedByFollowedUsers,
-            repostedByFollowedUsersCount: repostedByFollowedUsersCount ?? self.repostedByFollowedUsersCount,
-            userReaction: userReaction ?? self.userReaction,
+            reactionCount: resolvedReactionCount,
+            commentsCount: resolvedCommentsCount,
+            shareCount: resolvedShareCount,
+            repostCount: resolvedRepostCount,
+            viewerHasReposted: resolvedViewerHasReposted,
+            repostedByFollowedUsers: resolvedRepostedByFollowedUsers,
+            repostedByFollowedUsersCount: resolvedRepostedByFollowedUsersCount,
+            userReaction: resolvedUserReaction,
             mediaAssetId: mediaAssetId,
             mediaAssetIds: mediaAssetIds,
-            attachments: attachments ?? self.attachments,
-            isSaved: isSaved ?? self.isSaved,
-            authorDisplayCommunity: authorDisplayCommunity ?? self.authorDisplayCommunity,
-            authorDisplaySpecialization: authorDisplaySpecialization ?? self.authorDisplaySpecialization,
+            attachments: resolvedAttachments,
+            isSaved: resolvedIsSaved,
+            authorDisplayCommunity: resolvedAuthorDisplayCommunity,
+            authorDisplaySpecialization: resolvedAuthorDisplaySpecialization,
             createdAt: createdAt,
-            updatedAt: updatedAt ?? self.updatedAt
+            updatedAt: resolvedUpdatedAt
         )
     }
 }
@@ -286,6 +315,35 @@ extension Post {
 }
 
 extension Post {
+    func communityDisplayName(preferShortNames: Bool) -> String? {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferShortNames,
+            name: communityName,
+            shortName: communityShortName
+        )
+    }
+
+    func authorDisplaySpecializationLine(preferShortNames: Bool) -> String? {
+        guard !isAnonymous else { return nil }
+        let specializationName = CommunityLabelText.preferredName(
+            preferShortNames: preferShortNames,
+            name: authorDisplaySpecialization?.name,
+            shortName: authorDisplaySpecialization?.shortName
+        )
+        let communityName = CommunityLabelText.preferredName(
+            preferShortNames: preferShortNames,
+            name: authorDisplayCommunity?.name,
+            shortName: authorDisplayCommunity?.shortName
+        )
+        if let communityName {
+            return "\(specializationName ?? "Member") @ \(communityName)"
+        }
+        if let specializationName {
+            return specializationName
+        }
+        return nil
+    }
+
     var authorDisplaySpecializationLine: String? {
         guard !isAnonymous else { return nil }
         let specializationName = normalizedOptional(authorDisplaySpecialization?.name)

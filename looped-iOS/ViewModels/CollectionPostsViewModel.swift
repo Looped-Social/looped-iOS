@@ -7,8 +7,10 @@ final class CollectionPostsViewModel: ObservableObject {
         case liked
         case saved
         case reposted
+        case myReposts
         case user(userId: Int)
         case userReposts(userId: Int)
+        case anonReposts(profileId: Int)
         case anon(profileId: Int)
         case empty
     }
@@ -102,10 +104,14 @@ final class CollectionPostsViewModel: ObservableObject {
             return try await feedService.fetchSavedPosts(limit: pageSize, cursor: cursor)
         case .reposted:
             return try await feedService.fetchRepostedPosts(limit: pageSize, cursor: cursor)
+        case .myReposts:
+            return try await feedService.fetchMyReposts(limit: pageSize, cursor: cursor)
         case .user(let userId):
             return try await feedService.fetchUserPosts(userId: userId, limit: pageSize, cursor: cursor)
         case .userReposts(let userId):
             return try await feedService.fetchUserReposts(userId: userId, limit: pageSize, cursor: cursor)
+        case .anonReposts(let profileId):
+            return try await feedService.fetchAnonReposts(anonProfileId: profileId, limit: pageSize, cursor: cursor)
         case .anon(let profileId):
             return try await feedService.fetchAnonPosts(anonProfileId: profileId, limit: pageSize, cursor: cursor)
         case .empty:

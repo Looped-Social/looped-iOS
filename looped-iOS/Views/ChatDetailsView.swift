@@ -512,6 +512,7 @@ struct GroupMemberDetailsView: View {
     let profile: UserProfile
     let onRemove: ((UUID) -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     @State private var customNickname: String
     @State private var showImagePicker = false
@@ -584,7 +585,7 @@ struct GroupMemberDetailsView: View {
                             .font(.loopedBody)
                             .foregroundColor(.loopedTextSecondary)
 
-                        Text(profile.formattedJobTitle)
+                        Text(profile.formattedJobTitle(preferShortNames: preferCommunityShortNames))
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedTextSecondary)
                     }
@@ -716,6 +717,7 @@ struct ChatDetailsMemberRow: View {
     let isCurrentUser: Bool
     let onTap: () -> Void
     let onRemove: () -> Void
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
         Button(action: {
@@ -740,7 +742,7 @@ struct ChatDetailsMemberRow: View {
                         }
                     }
 
-                    Text(profile.formattedJobTitle)
+                    Text(profile.formattedJobTitle(preferShortNames: preferCommunityShortNames))
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                 }

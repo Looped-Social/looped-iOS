@@ -55,6 +55,9 @@ struct SearchResultsView: View {
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationBarHidden(true)
+            .edgeSwipeToDismiss {
+                dismiss()
+            }
             .background(
                 Group {
                     NavigationLink(

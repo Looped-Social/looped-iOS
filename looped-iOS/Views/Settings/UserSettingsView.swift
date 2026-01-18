@@ -6,6 +6,7 @@ struct UserSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     @AppStorage("anonymousMode") private var isAnonymousMode = false
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     private let userService: UserServiceProtocol = UserService()
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
@@ -54,11 +55,7 @@ struct UserSettingsView: View {
             VStack(spacing: 0) {
             // Header
             HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedCustom(.medium, size: 24))
-                        .foregroundColor(.loopedTextSecondary)
-                }
+                LoopedBackButton(action: { dismiss() })
 
                 Spacer()
 
@@ -69,9 +66,9 @@ struct UserSettingsView: View {
                 Spacer()
 
                 // Invisible button for symmetry
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.medium, size: 24))
+                LoopedBackButton(action: {})
                     .opacity(0)
+                    .disabled(true)
             }
             .padding(.horizontal, 20)
             .padding(.top, 15)
@@ -156,7 +153,11 @@ struct UserSettingsView: View {
                                 ) {
                                     Text("None").tag(Int?.none)
                                     ForEach(anonDisplayCommunities, id: \.id) { community in
-                                        Text(community.displayText)
+                                        Text(CommunityLabelText.preferredName(
+                                            preferShortNames: preferCommunityShortNames,
+                                            name: community.name,
+                                            shortName: community.shortName
+                                        ) ?? community.displayText)
                                             .tag(Optional(community.id))
                                     }
                                 }
@@ -313,7 +314,11 @@ struct UserSettingsView: View {
                                     Text("None").tag(Int?.none)
                                     ForEach(verifiedCommunities) { verification in
                                         let option = DisplayCommunity(verification: verification)
-                                        Text(option.displayText)
+                                        Text(CommunityLabelText.preferredName(
+                                            preferShortNames: preferCommunityShortNames,
+                                            name: option.name,
+                                            shortName: option.shortName
+                                        ) ?? option.displayText)
                                             .tag(Optional(verification.communityId))
                                     }
                                 }
@@ -651,6 +656,7 @@ private extension UserSettingsView {
                 return DisplayCommunity(
                     id: communityId,
                     name: "Community \(communityId)",
+                    shortName: nil,
                     kind: .unknown,
                     specializationType: nil
                 )

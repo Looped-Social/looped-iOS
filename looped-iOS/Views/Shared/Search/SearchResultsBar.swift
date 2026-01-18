@@ -52,11 +52,7 @@ struct SearchResultsBar: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             // Cancel Button
-            Button("Cancel") {
-                onCancel()
-            }
-            .font(.loopedBody)
-            .foregroundColor(.loopedSecondary)
+            LoopedCancelTextButton(action: onCancel)
         }
         .padding(.horizontal, 16)
     }

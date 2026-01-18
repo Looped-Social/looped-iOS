@@ -49,6 +49,9 @@ struct CommunityProfileView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .edgeSwipeToDismiss {
+            dismiss()
+        }
         .environmentObject(commentsManager)
         .overlay(
             Group {
@@ -93,7 +96,7 @@ struct CommunityProfileView: View {
                 imageUrl: viewModel.community.imageUrl
             )
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center) {
                     Text("\(formattedMemberCount(viewModel.community.memberCount)) Members")
                         .font(.loopedSubBodyMedium)
@@ -144,10 +147,11 @@ struct CommunityProfileView: View {
             Task { await viewModel.toggleFollow() }
         }) {
             Text(viewModel.community.isFollowing ? "Following" : "Follow")
-                .font(.loopedBodyMedium)
+                .font(.loopedBodyStrong)
                 .foregroundColor(viewModel.community.isFollowing ? .loopedTextPrimary : .loopedWhite)
-                .padding(.horizontal, 28)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 12)
+                .frame(minHeight: 44)
                 .background(
                     viewModel.community.isFollowing ? Color.loopedMutedBackground : Color.loopedPrimary
                 )
@@ -184,7 +188,7 @@ struct CommunityProfileView: View {
                 Spacer()
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
@@ -231,7 +235,7 @@ struct CommunityProfileView: View {
             .accessibilityLabel("About specialization joining")
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .opacity((viewModel.isJoinActionInFlight || viewModel.isFollowActionInFlight) ? 0.7 : 1)
         .alert("About \(specializationJoinDisplay.label)", isPresented: $showSpecializationJoinInfo) {
@@ -533,17 +537,7 @@ struct CommunityProfileHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: onBack) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedCustom(.medium, size: 18))
-                        .foregroundColor(.loopedPrimary)
-
-                    Text("Back")
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedPrimary)
-                }
-            }
+            LoopedBackButton(action: onBack)
 
             Spacer()
         }
@@ -565,14 +559,14 @@ struct CommunityProfileBanner: View {
             }
 
             Text(name)
-                .font(.loopedBody24)
+                .font(hasBannerImage ? .loopedBody24 : .loopedHeaderStrong)
                 .foregroundColor(bannerTextColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
                 .frame(maxWidth: .infinity, minHeight: hasBannerImage ? 0 : 120)
                 .padding(.horizontal, hasBannerImage ? 0 : 16)
-                .background(hasBannerImage ? Color.loopedClear : Color.loopedMutedBackground)
+                .background(hasBannerImage ? Color.loopedClear : Color.loopedBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .padding(.horizontal, 20)
@@ -594,28 +588,28 @@ struct CommunityProfileBanner: View {
             if let localBannerImage {
                 Image(uiImage: localBannerImage)
                     .resizable()
-                    .scaledToFill()
+                    .scaledToFit()
             } else if let remoteBannerURL {
                 AsyncImage(url: remoteBannerURL) { phase in
                     switch phase {
                     case .success(let image):
                         image
                             .resizable()
-                            .scaledToFill()
+                            .scaledToFit()
                     case .failure:
-                        Color.loopedMutedBackground
+                        Color.loopedBackground
                     case .empty:
-                        Color.loopedMutedBackground
+                        Color.loopedBackground
                     @unknown default:
-                        Color.loopedMutedBackground
+                        Color.loopedBackground
                     }
                 }
             } else {
                 Color.loopedBackground
             }
         }
-        .frame(maxWidth: .infinity)
-        .clipped()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.loopedBackground)
     }
 
     private var localBannerImage: UIImage? {
@@ -634,6 +628,7 @@ struct CommunityProfileBanner: View {
         community: CommunityProfileData(
             id: 1,
             name: "Finance",
+            shortName: nil,
             description: "Talk markets, careers, and everything in finance.",
             kind: .profession,
             specializationType: .unknown,

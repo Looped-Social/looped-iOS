@@ -21,6 +21,8 @@ enum AnonAction {
     case unlike(postId: Int)
     case save(postId: Int)
     case unsave(postId: Int)
+    case repost(postId: Int)
+    case unrepost(postId: Int)
     case postDelete(postId: Int)
     case postEdit(postId: Int)
     case comment(postId: Int)
@@ -206,6 +208,17 @@ actor AnonService {
     }
 
     func actionContext(for action: AnonAction, communityId: Int? = nil) async throws -> AnonActionContext {
+        if communityId == nil {
+            switch action {
+            case .repost(let postId):
+                return try await profileActionContext(canonical: "repost|v1|\(postId)")
+            case .unrepost(let postId):
+                return try await profileActionContext(canonical: "unrepost|v1|\(postId)")
+            default:
+                break
+            }
+        }
+
         guard let resolvedCommunityId = resolveCommunityId(explicit: communityId) else {
             throw AnonServiceError.missingCommunityContext
         }
@@ -225,6 +238,10 @@ actor AnonService {
             canonical = "save|v1|\(postId)"
         case .unsave(let postId):
             canonical = "unsave|v1|\(postId)"
+        case .repost(let postId):
+            canonical = "repost|v1|\(postId)"
+        case .unrepost(let postId):
+            canonical = "unrepost|v1|\(postId)"
         case .postDelete(let postId):
             canonical = "post_delete|v1|\(postId)"
         case .postEdit(let postId):
@@ -259,6 +276,22 @@ actor AnonService {
             canonical = "unfollow|v1|\(userId)"
         }
 
+        let signature = try sign(message: canonical, privateKey: privateKey)
+        return AnonActionContext(
+            profileId: identity.profileId,
+            cert: membership.cert,
+            certKid: membership.certKid,
+            signature: signature
+        )
+    }
+
+    private func profileActionContext(canonical: String) async throws -> AnonActionContext {
+        let identity = try await ensureIdentityForProfileAction()
+        guard let membership = identity.memberships.values.first(where: { !$0.isExpired })
+            ?? identity.memberships.values.first else {
+            throw AnonServiceError.missingIdentity
+        }
+        let privateKey = try loadOrCreatePrivateKey()
         let signature = try sign(message: canonical, privateKey: privateKey)
         return AnonActionContext(
             profileId: identity.profileId,

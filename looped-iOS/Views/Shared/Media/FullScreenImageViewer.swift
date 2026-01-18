@@ -59,15 +59,15 @@ struct FullScreenImageViewer: View {
                 VStack {
                     // Top bar with close and share buttons
                     HStack {
-                        Button(action: {
-                            isPresented = false
-                        }) {
-                            Image(systemName: "xmark")
-                                .font(.loopedCustom(.semibold, size: 20))
-                                .foregroundColor(.loopedWhite)
-                                .frame(width: 44, height: 44)
-                                .background(Circle().fill(Color.loopedBlack.opacity(0.5)))
-                        }
+                        LoopedCloseButton(
+                            action: { isPresented = false },
+                            foregroundColor: .loopedWhite,
+                            iconSize: 20,
+                            hitArea: 44,
+                            showsBackground: true,
+                            backgroundColor: .loopedBlack,
+                            backgroundOpacity: 0.5
+                        )
 
                         Spacer()
 

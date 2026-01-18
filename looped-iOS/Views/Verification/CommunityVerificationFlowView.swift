@@ -19,14 +19,7 @@ struct CommunityVerificationFlowView: View {
         ZStack(alignment: .topTrailing) {
             content
 
-            Button(action: { dismiss() }) {
-                Image(systemName: "xmark")
-                    .font(.loopedCustom(.semibold, size: 16))
-                    .foregroundColor(.loopedTextSecondary)
-                    .frame(width: 36, height: 36)
-                    .background(Color.loopedMutedBackground)
-                    .clipShape(Circle())
-            }
+            LoopedCloseButton(action: { dismiss() })
             .padding(.top, 12)
             .padding(.trailing, 16)
         }
@@ -53,6 +46,7 @@ struct CommunityVerificationFlowView: View {
                 selectedOptionId: $selectedOptionId,
                 onBack: { step = .intro },
                 onContinue: { option in
+                    selectedOptionId = option.id
                     if option.id == "email" {
                         step = .email
                     } else {
@@ -92,8 +86,8 @@ struct CommunityVerificationFlowView: View {
     private var verificationOptions: [VerificationOption] {
         let emailTitle = community.kind == .school ? "Student Email" : "Company Email"
         return [
-            VerificationOption(id: "photo_id", title: "Photo With Gov. ID"),
-            VerificationOption(id: "email", title: emailTitle)
+            VerificationOption(id: "email", title: emailTitle),
+            VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
         ]
     }
 
@@ -116,6 +110,7 @@ struct CommunityVerificationFlowView: View {
         community: CommunityProfileData(
             id: 1,
             name: "Finance",
+            shortName: nil,
             description: "Talk markets, careers, and everything in finance.",
             kind: .company,
             specializationType: .unknown,

@@ -153,8 +153,8 @@ struct AuthView: View {
             case .waysToVerifyCompany:
                 WaysToVerifyView(
                     options: [
-                        VerificationOption(id: "photo_id", title: "Photo With Gov. ID"),
-                        VerificationOption(id: "company_email", title: "Company Email")
+                        VerificationOption(id: "company_email", title: "Company Email"),
+                        VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
                     ],
                     currentStep: verificationStep(for: .waysToVerifyCompany),
                     totalSteps: verificationTotalSteps,
@@ -181,8 +181,8 @@ struct AuthView: View {
             case .waysToVerifyStudent:
                 WaysToVerifyView(
                     options: [
-                        VerificationOption(id: "photo_id", title: "Photo With Gov. ID"),
-                        VerificationOption(id: "student_email", title: "Student Email")
+                        VerificationOption(id: "student_email", title: "Student Email"),
+                        VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
                     ],
                     currentStep: verificationStep(for: .waysToVerifyStudent),
                     totalSteps: verificationTotalSteps,

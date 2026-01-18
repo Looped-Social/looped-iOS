@@ -8,6 +8,7 @@ struct CommunityFollowResponseDTO: Codable {
 struct CommunityFollowDTO: Codable {
     let id: Int
     let name: String
+    let shortName: String?
     let kind: String?
     let memberCount: Int?
     let isPinned: Bool?
@@ -24,6 +25,7 @@ struct CommunitySearchResponseDTO: Codable {
 struct CommunitySearchDTO: Codable {
     let id: Int
     let name: String
+    let shortName: String?
     let description: String?
     let kind: String?
     let specializationType: String?
@@ -40,6 +42,7 @@ struct CommunityRecommendedResponseDTO: Codable {
 struct CommunityRecommendedDTO: Codable {
     let id: Int
     let name: String
+    let shortName: String?
     let description: String?
     let kind: String?
     let specializationType: String?
@@ -75,6 +78,7 @@ struct CommunityPermissionsDTO: Codable {
 struct DisplayCommunityDTO: Codable {
     let id: Int
     let name: String
+    let shortName: String?
     let kind: String?
     let specializationType: String?
 }

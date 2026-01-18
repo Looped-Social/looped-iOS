@@ -6,6 +6,7 @@ struct CreatePostView: View {
     @State private var postText: String = ""
     @FocusState private var isPostTextFocused: Bool
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var selectedCommunityId: Int?
     @State private var isSubmitting: Bool = false
     @State private var isEnrollingAnon: Bool = false
@@ -59,6 +60,7 @@ struct CreatePostView: View {
                 CommunitySummary(
                     id: verification.communityId,
                     name: verification.communityName,
+                    shortName: nil,
                     kind: verification.communityKind,
                     memberCount: 0,
                     isPinned: false,
@@ -81,7 +83,12 @@ struct CreatePostView: View {
     }
 
     private var selectedCommunityName: String {
-        selectedCommunity?.name ?? "Select community"
+        guard let selectedCommunity else { return "Select community" }
+        return CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: selectedCommunity.name,
+            shortName: selectedCommunity.shortName
+        ) ?? selectedCommunity.name
     }
 
     private var canPost: Bool {
@@ -152,7 +159,11 @@ struct CreatePostView: View {
                         } else {
                             Menu {
                                 ForEach(verifiedCommunities) { community in
-                                    Button(community.name) {
+                                    Button(CommunityLabelText.preferredName(
+                                        preferShortNames: preferCommunityShortNames,
+                                        name: community.name,
+                                        shortName: community.shortName
+                                    ) ?? community.name) {
                                         selectedCommunityId = community.id
                                     }
                                 }
@@ -328,11 +339,8 @@ struct CreatePostView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        handleCancel()
-                    }
-                    .foregroundColor(.loopedSecondary)
+                ToolbarItem(placement: .cancellationAction) {
+                    LoopedCancelTextButton(action: handleCancel)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {

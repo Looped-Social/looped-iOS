@@ -150,12 +150,7 @@ struct CommunitySelectionView: View {
 private extension CommunitySelectionView {
     var header: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.semibold, size: 20))
-                    .foregroundColor(.loopedTextPrimary)
-                    .frame(width: 40, height: 40)
-            }
+            LoopedBackButton(action: onBack)
             Spacer()
         }
     }
@@ -173,13 +168,13 @@ private struct CommunityRow: View {
                     .fill(Color.loopedMutedBackground)
                     .frame(width: 44, height: 44)
                     .overlay(
-                        Text(initials(for: community.name))
+                        Text(initials(for: communityLabel))
                             .font(.loopedSubBodyMedium)
                             .foregroundColor(.loopedContrast)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(community.name)
+                    Text(communityLabel)
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
                 }
@@ -203,6 +198,14 @@ private struct CommunityRow: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var communityLabel: String {
+        CommunityLabelText.preferredName(
+            preferShortNames: false,
+            name: community.name,
+            shortName: community.shortName
+        ) ?? community.name
     }
 
     private func initials(for name: String) -> String {

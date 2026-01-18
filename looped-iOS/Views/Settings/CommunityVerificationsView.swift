@@ -63,11 +63,7 @@ struct CommunityVerificationsView: View {
 
     private var header: some View {
         HStack {
-            Button(action: { dismiss() }) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.medium, size: 22))
-                    .foregroundColor(.loopedTextSecondary)
-            }
+            LoopedBackButton(action: { dismiss() })
 
             Image("logo-banner")
                 .resizable()

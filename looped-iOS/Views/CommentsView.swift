@@ -69,6 +69,9 @@ struct CommentsView: View {
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationBarHidden(true)
+            .edgeSwipeToDismiss {
+                onDismiss()
+            }
             .onAppear {
                 pendingFocusCommentId = commentsManager.focusCommentId
                 setupKeyboardObservers()
@@ -127,11 +130,7 @@ struct CommentsView: View {
 private extension CommentsView {
     var headerBar: some View {
         HStack(alignment: .center, spacing: 12) {
-            Button(action: { onDismiss() }) {
-                Image(systemName: "chevron.left")
-                    .font(.loopedCustom(.semibold, size: 18))
-                    .foregroundColor(.loopedTextPrimary)
-            }
+            LoopedBackButton(action: onDismiss)
 
             Text("\(comments.count) comment\(comments.count == 1 ? "" : "s")")
                 .font(.loopedSubheadMedium)

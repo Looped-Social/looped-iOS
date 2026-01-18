@@ -72,11 +72,7 @@ struct ChatView: View {
             // Custom Header
             HStack(spacing: 12) {
                 // Back Button
-                Button(action: onBackTapped) {
-                    Image(systemName: "chevron.left")
-                        .font(.loopedTitle2Scaled)
-                        .foregroundColor(.loopedSecondary)
-                }
+                LoopedBackButton(action: onBackTapped)
 
                 Image("logo-banner")
                     .resizable()
@@ -206,6 +202,9 @@ struct ChatView: View {
             for item in selectedMedia {
                 TemporaryMediaFile.deleteIfOwned(item.videoURL)
             }
+        }
+        .edgeSwipeToDismiss {
+            onBackTapped()
         }
     }
 

@@ -31,11 +31,8 @@ struct NewMessageView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(.loopedSecondary)
+                ToolbarItem(placement: .cancellationAction) {
+                    LoopedCancelTextButton(action: { dismiss() })
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -267,6 +264,7 @@ struct ContactRow: View {
     let contact: UserProfile
     let isSelected: Bool
     let onTap: () -> Void
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
         Button(action: onTap) {
@@ -294,7 +292,7 @@ struct ContactRow: View {
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
 
-                    Text(contact.formattedJobTitle)
+                    Text(contact.formattedJobTitle(preferShortNames: preferCommunityShortNames))
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                 }

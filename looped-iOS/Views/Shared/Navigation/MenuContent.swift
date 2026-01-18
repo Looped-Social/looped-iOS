@@ -50,14 +50,17 @@ struct MenuContent: View {
 
                 // Menu Items
                 VStack(alignment: .leading, spacing: 0) {
+                    MenuItemButton(icon: "text.bubble", title: "Posts") {
+                        onMenuItemTap(.posts)
+                    }
+                    MenuItemButton(icon: "bubble.left.and.bubble.right", title: "Replies") {
+                        onMenuItemTap(.replies)
+                    }
                     MenuItemButton(icon: "heart", title: "Liked") {
                         onMenuItemTap(.liked)
                     }
                     MenuItemButton(icon: "bookmark", title: "Saved") {
                         onMenuItemTap(.saved)
-                    }
-                    MenuItemButton(icon: "lock", title: "Privacy") {
-                        onMenuItemTap(.privacy)
                     }
                     MenuItemButton(icon: "doc.text", title: "Drafts") {
                         onMenuItemTap(.drafts)
@@ -208,6 +211,144 @@ private struct SideDrawerShape: Shape {
 }
 
 // MARK: - Liked Posts View
+struct MyPostsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymous = false
+    @StateObject private var commentsManager = CommentsModalManager()
+    @StateObject private var loader = CurrentUserPostsLoader()
+
+    var body: some View {
+        ScrollView {
+            if loader.isLoading && loader.viewModel == nil {
+                ProgressView()
+                    .padding(.top, 60)
+            } else if let viewModel = loader.viewModel {
+                CollectionPostsContent(
+                    viewModel: viewModel,
+                    emptyMessage: "No posts yet",
+                    emptyIcon: "text.bubble"
+                )
+            } else if let error = loader.errorMessage {
+                VStack(spacing: 12) {
+                    Text(error)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedError)
+                        .multilineTextAlignment(.center)
+                    Button("Retry") {
+                        Task { await loadPosts() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
+            } else {
+                ProgressView()
+                    .padding(.top, 60)
+            }
+        }
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Posts")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    dismiss()
+                }
+                .foregroundColor(.loopedSecondary)
+            }
+        }
+        .environmentObject(commentsManager)
+        .task { await loadPosts() }
+        .refreshable {
+            if let viewModel = loader.viewModel {
+                await viewModel.loadInitial()
+            } else {
+                await loadPosts()
+            }
+        }
+        .onChange(of: isAnonymous) { _, _ in
+            Task { await loadPosts() }
+        }
+    }
+
+    private func loadPosts() async {
+        await loader.load(userId: authViewModel.currentUser?.backendId)
+    }
+}
+
+@MainActor
+private final class CurrentUserPostsLoader: ObservableObject {
+    @Published var viewModel: CollectionPostsViewModel?
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+
+    private let anonService: AnonService
+
+    init(anonService: AnonService = .shared) {
+        self.anonService = anonService
+    }
+
+    func load(userId: Int?) async {
+        guard !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            if anonService.isAnonymousEnabled {
+                let identity = try await anonService.ensureIdentity()
+                viewModel = CollectionPostsViewModel(collection: .anon(profileId: identity.profileId))
+            } else if let userId, userId > 0 {
+                viewModel = CollectionPostsViewModel(collection: .user(userId: userId))
+            } else {
+                viewModel = nil
+                errorMessage = "Couldn't load posts."
+                return
+            }
+
+            await viewModel?.loadInitial()
+        } catch {
+            viewModel = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+struct MyRepliesView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @StateObject private var commentsManager = CommentsModalManager()
+    @StateObject private var repliesViewModel = UserRepliesViewModel()
+
+    var body: some View {
+        ScrollView {
+            UserRepliesList(viewModel: repliesViewModel)
+                .padding(.top, 20)
+        }
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Replies")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    dismiss()
+                }
+                .foregroundColor(.loopedSecondary)
+            }
+        }
+        .environmentObject(commentsManager)
+        .task {
+            repliesViewModel.setUser(id: authViewModel.currentUser?.backendId)
+            await repliesViewModel.loadInitial()
+        }
+        .refreshable {
+            repliesViewModel.setUser(id: authViewModel.currentUser?.backendId)
+            await repliesViewModel.loadInitial()
+        }
+    }
+}
+
 struct LikedPostsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var commentsManager = CommentsModalManager()

@@ -42,6 +42,13 @@ struct UserProfile: Codable, Identifiable {
         return resolvedJobTitle + " @ " + resolvedCompany
     }
 
+    func formattedJobTitle(preferShortNames: Bool) -> String {
+        if let specializationLine = displaySpecializationLine(preferShortNames: preferShortNames) {
+            return specializationLine
+        }
+        return resolvedJobTitle + " @ " + resolvedCompany
+    }
+
     var displaySpecializationLine: String? {
         let rawSpecialization = displaySpecialization?.name ?? ""
         let specialization = rawSpecialization.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -53,6 +60,27 @@ struct UserProfile: Codable, Identifiable {
             return resolvedSpecialization + " @ " + community
         }
         if !specialization.isEmpty {
+            return specialization
+        }
+        return nil
+    }
+
+    func displaySpecializationLine(preferShortNames: Bool) -> String? {
+        let specialization = CommunityLabelText.preferredName(
+            preferShortNames: preferShortNames,
+            name: displaySpecialization?.name,
+            shortName: displaySpecialization?.shortName
+        )
+        let community = CommunityLabelText.preferredName(
+            preferShortNames: preferShortNames,
+            name: displayCommunity?.name,
+            shortName: displayCommunity?.shortName
+        )
+
+        if let community {
+            return "\(specialization ?? "Member") @ \(community)"
+        }
+        if let specialization {
             return specialization
         }
         return nil

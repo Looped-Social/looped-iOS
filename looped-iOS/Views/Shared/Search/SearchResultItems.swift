@@ -114,7 +114,7 @@ struct LoopSearchResultItem: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(loop.name)
+                    Text(loopLabel)
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
 
@@ -147,6 +147,14 @@ struct LoopSearchResultItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var loopLabel: String {
+        CommunityLabelText.preferredName(
+            preferShortNames: false,
+            name: loop.name,
+            shortName: loop.shortName
+        ) ?? loop.name
     }
 
     private var loopSubtitle: String {
