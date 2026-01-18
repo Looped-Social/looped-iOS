@@ -77,7 +77,7 @@ struct SearchResultsView: View {
                     NavigationLink(
                         destination: Group {
                             if let hashtag = selectedHashtag {
-                                HashtagFeedView(hashtag: hashtag)
+                                HashtagFeedView(hashtag: hashtag, presentationStyle: .navigation)
                                     .environmentObject(commentsManager)
                             }
                         },
@@ -88,7 +88,7 @@ struct SearchResultsView: View {
                     NavigationLink(
                         destination: Group {
                             if let query = submittedQuery {
-                                SearchPostsFeedView(query: query)
+                                SearchPostsFeedView(query: query, presentationStyle: .navigation)
                                     .environmentObject(commentsManager)
                             }
                         },

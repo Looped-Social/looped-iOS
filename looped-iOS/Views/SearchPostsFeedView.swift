@@ -1,17 +1,24 @@
 import SwiftUI
 
 struct SearchPostsFeedView: View {
+    enum PresentationStyle {
+        case overlay
+        case navigation
+    }
+
     let query: String
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var commentsManager: CommentsModalManager
     @StateObject private var viewModel: SearchPostsFeedViewModel
+    let presentationStyle: PresentationStyle
 
     private var displayQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    init(query: String) {
+    init(query: String, presentationStyle: PresentationStyle = .navigation) {
         self.query = query
+        self.presentationStyle = presentationStyle
         _viewModel = StateObject(wrappedValue: SearchPostsFeedViewModel(query: query))
     }
 
@@ -70,10 +77,11 @@ struct SearchPostsFeedView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .edgeSwipeToDismiss {
-            dismiss()
-        }
+        .navigationBarHidden(presentationStyle == .overlay)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .modifier(SearchPostsPresentationModifier(style: presentationStyle, onDismiss: { dismiss() }))
         .task {
             await viewModel.loadInitial()
         }
@@ -81,7 +89,9 @@ struct SearchPostsFeedView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            LoopedBackButton(action: { dismiss() }, usesHaptics: true)
+            if presentationStyle == .overlay {
+                LoopedBackButton(action: { dismiss() }, usesHaptics: true)
+            }
 
             Text(displayQuery)
                 .font(.loopedCustom(.bold, size: 32))
@@ -92,9 +102,23 @@ struct SearchPostsFeedView: View {
             Spacer()
         }
         .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 16)
+        .padding(.top, presentationStyle == .overlay ? 12 : 6)
+        .padding(.bottom, presentationStyle == .overlay ? 16 : 14)
         .background(Color.loopedBackground)
+    }
+}
+
+private struct SearchPostsPresentationModifier: ViewModifier {
+    let style: SearchPostsFeedView.PresentationStyle
+    let onDismiss: () -> Void
+
+    func body(content: Content) -> some View {
+        switch style {
+        case .overlay:
+            content.edgeSwipeToDismiss { onDismiss() }
+        case .navigation:
+            content
+        }
     }
 }
 

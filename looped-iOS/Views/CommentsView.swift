@@ -142,7 +142,7 @@ struct CommentsView: View {
                 selectedHashtag = nil
             }) {
                 if let hashtag = selectedHashtag {
-                    HashtagFeedView(hashtag: hashtag)
+                    HashtagFeedView(hashtag: hashtag, presentationStyle: .overlay)
                         .environmentObject(commentsManager)
                 }
             }

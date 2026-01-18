@@ -127,14 +127,10 @@ struct UserProfileView: View {
 	            .onDisappear { fabState.isHidden = false }
 	            .overlay(commentsOverlay)
 	            .fullScreenCover(isPresented: $showChat) {
-	                ChatView(
-	                    conversation: startedConversation,
-	                    channel: nil,
-	                    onBackTapped: {
-	                        showChat = false
-	                        startedConversation = nil
-	                    }
-	                )
+	                ChatNavigationHost(conversation: startedConversation, channel: nil) {
+	                    showChat = false
+	                    startedConversation = nil
+	                }
 	            }
 	            .alert(
 	                "Couldn't start chat",

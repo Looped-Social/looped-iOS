@@ -389,21 +389,20 @@ struct MainTabView: View {
     @ViewBuilder
     private var chatOverlay: some View {
         if showingChat {
-            ChatView(
+            ChatNavigationHost(
                 conversation: selectedConversation,
                 channel: selectedChannel,
                 conversationId: deepLinkConversationId,
-                channelId: deepLinkChannelId,
-                onBackTapped: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showingChat = false
-                        selectedConversation = nil
-                        selectedChannel = nil
-                        deepLinkConversationId = nil
-                        deepLinkChannelId = nil
-                    }
+                channelId: deepLinkChannelId
+            ) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showingChat = false
+                    selectedConversation = nil
+                    selectedChannel = nil
+                    deepLinkConversationId = nil
+                    deepLinkChannelId = nil
                 }
-            )
+            }
             .transition(.move(edge: .trailing))
         }
     }

@@ -2,10 +2,16 @@ import SwiftUI
 import Foundation
 
 struct ChatView: View {
+    enum PresentationStyle {
+        case overlay
+        case navigation
+    }
+
     let conversation: Conversation?
     let channel: Channel?
     let conversationId: Int?
     let channelId: Int?
+    let presentationStyle: PresentationStyle
     let onBackTapped: () -> Void
 
     @EnvironmentObject private var authViewModel: AuthViewModel
@@ -15,18 +21,22 @@ struct ChatView: View {
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var showChatDetails = false
     @State private var conversationBackendId: Int?
+    @State private var participantHandle: String?
+    @State private var participantDisplayName: String?
 
     init(
         conversation: Conversation?,
         channel: Channel?,
         conversationId: Int? = nil,
         channelId: Int? = nil,
+        presentationStyle: PresentationStyle = .overlay,
         onBackTapped: @escaping () -> Void
     ) {
         self.conversation = conversation
         self.channel = channel
         self.conversationId = conversationId
         self.channelId = channelId
+        self.presentationStyle = presentationStyle
         self.onBackTapped = onBackTapped
     }
 
@@ -69,50 +79,9 @@ struct ChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Custom Header
-            HStack(spacing: 12) {
-                // Back Button
-                LoopedBackButton(action: onBackTapped)
-
-                Image("logo-banner")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: bannerHeight)
-                    .layoutPriority(1)
-
-                Spacer(minLength: 8)
-
-                // Chat Title and Profile - Tappable
-                Button(action: {
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
-                    showChatDetails = true
-                }) {
-                    HStack(spacing: 8) {
-                        Text(chatTitle)
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-
-                        if !isGroupChat {
-                            ProfileAvatarView(imageURL: profileImageUrl, size: 32)
-                        } else if isGroupChat {
-                            Circle()
-                                .fill(Color.loopedSecondary)
-                                .frame(width: 32, height: 32)
-                                .overlay(
-                                    Text(groupInitials)
-                                        .font(.loopedCustom(.medium, size: 12, relativeTo: .caption))
-                                        .foregroundColor(.loopedWhite)
-                                )
-                        }
-                    }
-                }
-                .buttonStyle(PlainButtonStyle())
+            if presentationStyle == .overlay {
+                headerBar
             }
-            .padding(.horizontal, 16)
-            .background(Color.loopedBackground)
 
             // Messages List
             ScrollViewReader { proxy in
@@ -194,6 +163,7 @@ struct ChatView: View {
         }
         .task {
             configureIds()
+            await loadParticipantInfoIfNeeded()
             await loadMessages()
             viewModel.startPolling()
         }
@@ -203,13 +173,128 @@ struct ChatView: View {
                 TemporaryMediaFile.deleteIfOwned(item.videoURL)
             }
         }
-        .edgeSwipeToDismiss {
-            onBackTapped()
-        }
+        .modifier(ChatPresentationModifier(style: presentationStyle, titleView: chatToolbarTitle, onBackTapped: onBackTapped))
     }
 
     private var bannerHeight: CGFloat {
         horizontalSizeClass == .regular ? 80 : 60
+    }
+
+    private var headerBar: some View {
+        HStack(spacing: 12) {
+            LoopedBackButton(action: onBackTapped)
+
+            Image("logo-banner")
+                .resizable()
+                .scaledToFit()
+                .frame(height: bannerHeight)
+                .layoutPriority(1)
+
+            Spacer(minLength: 8)
+
+            Button(action: {
+                let impact = UIImpactFeedbackGenerator(style: .light)
+                impact.impactOccurred()
+                showChatDetails = true
+            }) {
+                HStack(spacing: 8) {
+                    Text(chatTitle)
+                        .font(.loopedBodyStrong)
+                        .foregroundColor(.loopedTextPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    if !isGroupChat {
+                        ProfileAvatarView(imageURL: profileImageUrl, size: 32)
+                    } else {
+                        Circle()
+                            .fill(Color.loopedSecondary)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text(groupInitials)
+                                    .font(.loopedCustom(.medium, size: 12, relativeTo: .caption))
+                                    .foregroundColor(.loopedWhite)
+                            )
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .background(Color.loopedBackground)
+    }
+
+    private var chatSubtitle: String? {
+        if isGroupChat {
+            let count = channel?.memberCount ?? 0
+            if count > 0 {
+                return "\(count) members"
+            }
+            return "Group chat"
+        }
+
+        if let participantHandle, !participantHandle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let trimmed = participantHandle.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("@") { return trimmed }
+            return "@\(trimmed)"
+        }
+        return nil
+    }
+
+    private var chatToolbarTitle: some View {
+        Button(action: {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+            showChatDetails = true
+        }) {
+            HStack(spacing: 8) {
+                if isGroupChat {
+                    Circle()
+                        .fill(Color.loopedSecondary)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Text(groupInitials)
+                                .font(.loopedCustom(.semibold, size: 11, relativeTo: .caption))
+                                .foregroundColor(.loopedWhite)
+                        )
+                } else {
+                    ProfileAvatarView(imageURL: profileImageUrl, size: 28)
+                }
+
+                Text(participantDisplayName ?? chatTitle)
+                    .font(.loopedBodyStrong)
+                    .foregroundColor(.loopedTextPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.loopedMutedBackground.opacity(0.7), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Chat details")
+    }
+
+    private func loadParticipantInfoIfNeeded() async {
+        guard !isGroupChat else { return }
+        guard participantHandle == nil && participantDisplayName == nil else { return }
+        let backendUserId = conversation?.backendUserId ?? conversation?.userId.backendInt
+        guard let backendUserId else { return }
+
+        let userService: UserServiceProtocol = UserService()
+        do {
+            let user = try await userService.getUser(by: backendUserId)
+            await MainActor.run {
+                participantDisplayName = user.displayName ?? user.username
+                participantHandle = user.handle
+            }
+        } catch {
+            // Best-effort only; keep existing title if this fails.
+        }
     }
 
     private func isMessageFromCurrentUser(_ message: Message) -> Bool {
@@ -318,6 +403,29 @@ struct ChatView: View {
         }
 
         return 1
+    }
+}
+
+private struct ChatPresentationModifier<TitleView: View>: ViewModifier {
+    let style: ChatView.PresentationStyle
+    let titleView: TitleView
+    let onBackTapped: () -> Void
+
+    func body(content: Content) -> some View {
+        switch style {
+        case .overlay:
+            content
+                .edgeSwipeToDismiss { onBackTapped() }
+        case .navigation:
+            content
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        titleView
+                    }
+                }
+        }
     }
 }
 
