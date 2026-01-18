@@ -48,8 +48,6 @@ struct CommunityVerificationsView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Verifications")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)

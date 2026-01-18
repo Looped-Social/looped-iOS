@@ -44,8 +44,6 @@ struct SecurityView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Security")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)

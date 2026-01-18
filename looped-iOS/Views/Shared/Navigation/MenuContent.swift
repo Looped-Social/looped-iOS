@@ -653,8 +653,6 @@ struct PrivacyView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Privacy")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)

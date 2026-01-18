@@ -50,8 +50,6 @@ struct BlockedUsersView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Blocked")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)

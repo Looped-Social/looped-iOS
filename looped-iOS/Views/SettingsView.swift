@@ -235,8 +235,6 @@ private struct SettingsListContent: View {
             contentSection
         }
         .buttonStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
         .toolbar(.visible, for: .navigationBar)
