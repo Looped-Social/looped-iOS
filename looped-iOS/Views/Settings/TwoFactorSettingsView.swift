@@ -4,7 +4,6 @@ import FirebaseAuth
 #endif
 
 struct TwoFactorSettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = TwoFactorSettingsViewModel()
     @State private var showEnrollSheet = false
     @State private var showRemovalConfirm = false
@@ -14,37 +13,36 @@ struct TwoFactorSettingsView: View {
     @State private var showReauthHint = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                statusCard
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    statusCard
-
-                    if viewModel.phoneFactors.isEmpty {
-                        emptyState
-                    } else {
-                        factorsList
-                    }
-
-                    Button(action: { showEnrollSheet = true }) {
-                        Text("Add Phone")
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedWhite)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Color.loopedPrimary)
-                            .clipShape(Capsule())
-                    }
-                    .padding(.top, 8)
+                if viewModel.phoneFactors.isEmpty {
+                    emptyState
+                } else {
+                    factorsList
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 32)
+
+                Button(action: { showEnrollSheet = true }) {
+                    Text("Add Phone")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedWhite)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.loopedPrimary)
+                        .clipShape(Capsule())
+                }
+                .padding(.top, 8)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 32)
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Two-Factor Authentication")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await viewModel.loadFactors()
         }
@@ -99,27 +97,6 @@ struct TwoFactorSettingsView: View {
 }
 
 private extension TwoFactorSettingsView {
-    var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Spacer()
-
-            Text("Two-Factor Authentication")
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            LoopedBackButton(action: {})
-                .opacity(0)
-                .disabled(true)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
-    }
-
     var statusCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Status")

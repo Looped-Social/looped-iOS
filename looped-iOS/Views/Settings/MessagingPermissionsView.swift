@@ -1,41 +1,59 @@
 import SwiftUI
 
 struct MessagingPermissionsView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel = MessagingPermissionsViewModel()
     @State private var toastMessage: ToastMessage?
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        List {
+            Section {
+                Text("Choose who can send you new message requests.")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    Text("Choose who can send you new message requests.")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if authViewModel.currentUser == nil && viewModel.errorMessage == nil {
+            Section {
+                if authViewModel.currentUser == nil && viewModel.errorMessage == nil {
+                    HStack {
+                        Spacer()
                         ProgressView()
-                            .padding(.top, 8)
+                        Spacer()
                     }
-
-                    permissionCard
-
-                    Text("Existing conversations are unaffected.")
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    .listRowBackground(Color.loopedBackground)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 100)
+
+                ForEach(MessagePermission.allCases, id: \.self) { permission in
+                    MessagingPermissionRow(
+                        permission: permission,
+                        isSelected: permission == viewModel.selectedPermission,
+                        isUpdating: viewModel.updatingPermission == permission,
+                        isDisabled: viewModel.isSaving || authViewModel.currentUser == nil
+                    ) {
+                        Task {
+                            if let updatedUser = await viewModel.updatePermission(
+                                permission,
+                                currentUser: authViewModel.currentUser
+                            ) {
+                                authViewModel.currentUser = updatedUser
+                                toastMessage = ToastMessage(text: "Messaging permissions updated.", kind: .success)
+                            }
+                        }
+                    }
+                }
+            } footer: {
+                Text("Existing conversations are unaffected.")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Messaging Permissions")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toast($toastMessage)
         .task {
             if authViewModel.currentUser == nil {
@@ -50,60 +68,6 @@ struct MessagingPermissionsView: View {
             guard let newValue else { return }
             toastMessage = ToastMessage(text: newValue, kind: .error)
         }
-    }
-
-    private var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Spacer()
-
-            Text("Messaging Permissions")
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            LoopedBackButton(action: {})
-                .opacity(0)
-                .disabled(true)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
-    }
-
-    private var permissionCard: some View {
-        let permissions = MessagePermission.allCases
-        let lastIndex = max(permissions.count - 1, 0)
-        return VStack(spacing: 0) {
-            ForEach(permissions.indices, id: \.self) { index in
-                let permission = permissions[index]
-                MessagingPermissionRow(
-                    permission: permission,
-                    isSelected: permission == viewModel.selectedPermission,
-                    isUpdating: viewModel.updatingPermission == permission,
-                    isDisabled: viewModel.isSaving || authViewModel.currentUser == nil
-                ) {
-                    Task {
-                        if let updatedUser = await viewModel.updatePermission(
-                            permission,
-                            currentUser: authViewModel.currentUser
-                        ) {
-                            authViewModel.currentUser = updatedUser
-                            toastMessage = ToastMessage(text: "Messaging permissions updated.", kind: .success)
-                        }
-                    }
-                }
-
-                if index < lastIndex {
-                    Divider()
-                        .padding(.leading, 16)
-                }
-            }
-        }
-        .background(Color.loopedTextSecondary.opacity(0.05))
-        .cornerRadius(12)
     }
 }
 
@@ -143,8 +107,6 @@ private struct MessagingPermissionRow: View {
                 }
                 .frame(width: 24, height: 24)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(isDisabled)

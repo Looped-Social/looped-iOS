@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct ViolationsView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = ViolationsViewModel()
     @StateObject private var appealsViewModel = AppealsViewModel()
     @State private var activeAppeal: Violation?
@@ -11,31 +10,30 @@ struct ViolationsView: View {
     private let moderationService: ModerationServiceProtocol = ModerationService()
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(spacing: 16) {
+                tabPicker
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    tabPicker
-
-                    if selectedTab == .violations {
-                        violationsContent
-                    } else {
-                        appealsContent
-                    }
-
-                    if viewModel.isLoadingMore && selectedTab == .violations {
-                        ProgressView()
-                            .padding(.vertical, 16)
-                    }
+                if selectedTab == .violations {
+                    violationsContent
+                } else {
+                    appealsContent
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 100)
+
+                if viewModel.isLoadingMore && selectedTab == .violations {
+                    ProgressView()
+                        .padding(.vertical, 16)
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 100)
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Appeals & Violations")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await viewModel.loadViolations()
             await appealsViewModel.loadAppeals()
@@ -70,27 +68,6 @@ struct ViolationsView: View {
         } message: {
             Text(alertMessage ?? "")
         }
-    }
-
-    private var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Spacer()
-
-            Text("Appeals & Violations")
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            LoopedBackButton(action: {})
-                .opacity(0)
-                .disabled(true)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
     }
 
     private var tabPicker: some View {

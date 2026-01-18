@@ -4,7 +4,6 @@ import FirebaseAuth
 #endif
 
 struct SecurityView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     @State private var biometricLoginEnabled = true
@@ -12,58 +11,45 @@ struct SecurityView: View {
     @State private var showResetPasswordSheet = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                LoopedBackButton(action: { dismiss() })
-
-                Spacer()
-
-                Text("Security")
-                    .font(.loopedSubheadMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                // Invisible button for symmetry
-                LoopedBackButton(action: {})
-                    .opacity(0)
-                    .disabled(true)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 15)
-            .padding(.bottom, 12)
-
-            // Scrollable content
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Authentication Section
-                    SecuritySection(title: "Authentication") {
-                        SecurityActionRow(
-                            icon: "key",
+        List {
+            Section("Authentication") {
+                Button {
+                    let impact = UIImpactFeedbackGenerator(style: .light)
+                    impact.impactOccurred()
+                    showResetPasswordSheet = true
+                } label: {
+                    HStack(spacing: 12) {
+                        SettingsRowLabel(
+                            icon: .system("key"),
                             title: "Reset Password",
                             subtitle: "Send a reset link to your email"
-                        ) {
-                            showResetPasswordSheet = true
-                        }
-                    }
-
-                    // Login Activity Section
-                    SecuritySection(title: "Login Activity") {
-                        SecurityToggleRow(
-                            icon: "bell.badge",
-                            title: "Login Notifications",
-                            subtitle: "Get notified of new logins",
-                            isOn: $loginNotifications
                         )
+                        Image(systemName: "chevron.right")
+                            .font(.loopedCustom(.semibold, size: 14))
+                            .foregroundColor(.loopedTextSecondary)
                     }
-
                 }
-                .padding(.bottom, 100)
+                .buttonStyle(.plain)
+            }
+
+            Section("Login Activity") {
+                Toggle(isOn: $loginNotifications) {
+                    SettingsRowLabel(
+                        icon: .system("bell.badge"),
+                        title: "Login Notifications",
+                        subtitle: "Get notified of new logins"
+                    )
+                }
+                .tint(.loopedSecondary)
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Security")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .sheet(isPresented: $showResetPasswordSheet) {
             ForgotPasswordView(
                 initialEmail: currentEmail,
@@ -73,147 +59,6 @@ struct SecurityView: View {
                 }
             )
         }
-    }
-}
-
-// MARK: - Security Section
-
-struct SecuritySection<Content: View>: View {
-    let title: String
-    let content: Content
-
-    init(title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.loopedBodyStrong)
-                .foregroundColor(.loopedTextPrimary)
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 8)
-
-            VStack(spacing: 0) {
-                content
-            }
-            .background(Color.loopedTextSecondary.opacity(0.05))
-            .cornerRadius(12)
-            .padding(.horizontal, 20)
-        }
-    }
-}
-
-// MARK: - Security Toggle Row
-
-struct SecurityToggleRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    @Binding var isOn: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.loopedCustom(.medium, size: 20))
-                .foregroundColor(.loopedSecondary)
-                .frame(width: 28, height: 28)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Text(subtitle)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-    }
-}
-
-// MARK: - Security Action Row
-
-struct SecurityActionRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: {
-            let impact = UIImpactFeedbackGenerator(style: .light)
-            impact.impactOccurred()
-            action()
-        }) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.loopedCustom(.medium, size: 20))
-                    .foregroundColor(.loopedSecondary)
-                    .frame(width: 28, height: 28)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    Text(subtitle)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.loopedCustom(.semibold, size: 14))
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-struct SecurityNavigationRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.loopedCustom(.medium, size: 20))
-                .foregroundColor(.loopedSecondary)
-                .frame(width: 28, height: 28)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Text(subtitle)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.loopedCustom(.semibold, size: 14))
-                .foregroundColor(.loopedTextSecondary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
     }
 }
 

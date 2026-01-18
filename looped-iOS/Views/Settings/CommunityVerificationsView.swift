@@ -1,84 +1,60 @@
 import SwiftUI
 
 struct CommunityVerificationsView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = CommunityVerificationsViewModel()
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        List {
+            if !viewModel.joinLimits.isEmpty {
+                Section("Specializations") {
+                    ForEach(viewModel.joinLimits, id: \.specializationType) { limit in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(limit.pluralLabel)
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    if !viewModel.joinLimits.isEmpty {
-                        joinLimitsCard
-                    }
-
-                    if viewModel.isLoading && viewModel.items.isEmpty {
-                        ProgressView()
-                            .padding(.top, 40)
-                    } else if viewModel.items.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(viewModel.items) { verification in
-                            verificationRow(verification)
+                            Text(joinLimitSubtitle(limit))
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
                         }
-                    }
-
-                    if let errorMessage = viewModel.errorMessage {
-                        statusBanner(text: errorMessage, color: .loopedError)
+                        .padding(.vertical, 4)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+            }
+
+            Section("Communities") {
+                if viewModel.isLoading && viewModel.items.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    }
+                    .listRowBackground(Color.loopedBackground)
+                } else if viewModel.items.isEmpty {
+                    emptyState
+                        .listRowBackground(Color.loopedBackground)
+                } else {
+                    ForEach(viewModel.items) { verification in
+                        verificationRow(verification)
+                    }
+                }
+            }
+
+            if let errorMessage = viewModel.errorMessage {
+                Section {
+                    statusBanner(text: errorMessage, color: .loopedError)
+                        .listRowBackground(Color.loopedBackground)
+                }
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Verifications")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
-    }
-
-    private var joinLimitsCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Specializations")
-                .font(.loopedBodyMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            ForEach(viewModel.joinLimits, id: \.specializationType) { limit in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(limit.pluralLabel)
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    Text(joinLimitSubtitle(limit))
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                }
-            }
-        }
-        .padding(14)
-        .background(Color.loopedMutedBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Image("logo-banner")
-                .resizable()
-                .scaledToFit()
-                .frame(height: 36)
-
-            Spacer()
-
-            Text("Verifications")
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextSecondary)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
     }
 
     private var emptyState: some View {
@@ -129,9 +105,7 @@ struct CommunityVerificationsView: View {
                     .foregroundColor(.loopedTextSecondary)
             }
         }
-        .padding(14)
-        .background(Color.loopedMutedBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.vertical, 4)
     }
 
     private func expiryText(for verification: CommunityVerification) -> String {

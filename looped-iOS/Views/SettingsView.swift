@@ -1,13 +1,6 @@
 import SafariServices
 import SwiftUI
 
-// MARK: - Icon Source Enum
-
-enum IconSource {
-    case system(String)  // SF Symbol
-    case asset(String)   // Asset from Assets.xcassets
-}
-
 enum LinkedProvider: String, Identifiable {
     case google
     case apple
@@ -23,7 +16,6 @@ enum LinkedProvider: String, Identifiable {
 }
 
 struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     private let userService: UserServiceProtocol = UserService()
     private let contentPreferencesService: ContentPreferencesServiceProtocol = ContentPreferencesService()
@@ -70,196 +62,50 @@ struct SettingsView: View {
     @State private var skipContentPreferencesToggleUpdate = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            SettingsHeader {
-                dismiss()
-            }
-
-            // Scrollable content
-            ScrollView {
-                    VStack(spacing: 0) {
-                    // Account Section
-                    SettingsSection(title: "Account") {
-                        NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
-                            SettingsNavigationRow(icon: .asset("user-settings-icon"), title: "Edit profile")
-                        }
-                            .buttonStyle(PlainButtonStyle())
-
-                            NavigationLink(destination: SecurityView().environmentObject(authViewModel)) {
-                                SettingsNavigationRow(icon: .asset("shield-icon"), title: "Security")
-                            }
-                            .buttonStyle(PlainButtonStyle())
-
-                        NavigationLink(destination: NotificationSettingsView()) {
-                            SettingsNavigationRow(icon: .asset("bell-icon"), title: "Notifications")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
-                        NavigationLink(destination: PrivacyView()) {
-                            SettingsNavigationRow(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-
-                    // Appearance Section
-                    SettingsSection(title: "Appearance") {
-                        AppearanceModeRow(selection: $appearanceMode)
-                        SettingsToggleRow(
-                            icon: .system("textformat.size.smaller"),
-                            title: "Prefer Community Short Names",
-                            isOn: $preferCommunityShortNames
-                        )
-                    }
-
-                    // Verification Section
-                    SettingsSection(title: "Verification") {
-                        NavigationLink(destination: CommunityVerificationsView()) {
-                            SettingsNavigationRow(icon: .system("checkmark.seal"), title: "Community verifications")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-
-                    // Support & About Section
-                    SettingsSection(title: "Support & About") {
-                        SettingsRow(icon: .asset("help-icon"), title: "Feedback") {
-                            showFeedback = true
-                        }
-                        SettingsRow(icon: .asset("rules-icon"), title: "Content Policy") {
-                            showContentPolicy = true
-                        }
-                        SettingsRow(icon: .asset("terms-and-policies-icon"), title: "Privacy Policy") {
-                            showPrivacyPolicy = true
-                        }
-                        SettingsRow(icon: .asset("user-agreement-icon"), title: "User Agreement") {
-                            showUserAgreement = true
-                        }
-                    }
-
-                    // Community Section
-                    SettingsSection(title: "Community") {
-                        SettingsRow(icon: .system("person.3"), title: "Request new community") {
-                            showCommunityRequest = true
-                        }
-                    }
-
-                    // Connected Accounts Section
-                    SettingsSection(title: "Connected Accounts") {
-                        ConnectedAccountRow(
-                            icon: .asset("google-logo"),
-                            title: "Google",
-                            isConnected: authViewModel.isGoogleLinked
-                        ) {
-                            if authViewModel.isGoogleLinked {
-                                pendingDisconnectProvider = .google
-                            } else {
-                                connectGoogle()
-                            }
-                        }
-                        ConnectedAccountRow(
-                            icon: .asset("apple-logo"),
-                            title: "Apple",
-                            isConnected: authViewModel.isAppleLinked
-                        ) {
-                            if authViewModel.isAppleLinked {
-                                pendingDisconnectProvider = .apple
-                            } else {
-                                connectApple()
-                            }
-                        }
-                    }
-
-                    // Safety Section
-                    SettingsSection(title: "Safety") {
-                        SettingsToggleRow(
-                            icon: .system("eye.slash"),
-                            title: "Hide Anonymous Posts",
-                            isOn: $hideAnonymousPosts
-                        )
-                        SettingsToggleRow(
-                            icon: .asset("follower-count-icon"),
-                            title: "Show Follower Count",
-                            isOn: $showFollowerCount
-                        )
-                        NavigationLink(destination: MessagingPermissionsView().environmentObject(authViewModel)) {
-                            SettingsNavigationRow(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        NavigationLink(destination: BlockedUsersView()) {
-                            SettingsNavigationRow(icon: .asset("blocked-icon"), title: "Blocked")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        NavigationLink(destination: ViolationsView()) {
-                            SettingsNavigationRow(icon: .system("exclamationmark.triangle"), title: "Appeals & Violations")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        NavigationLink(destination: AnonymousRecoveryView()) {
-                            SettingsNavigationRow(icon: .system("key.fill"), title: "Anonymous Recovery")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        SettingsToggleRow(
-                            icon: .system("theatermasks"),
-                            title: "Anonymous Mode",
-                            isOn: $anonymousMode
-                        )
-                    }
-
-                    // Actions Section
-                    SettingsSection(title: "Actions") {
-                        NavigationLink(destination: DeactivateAccountIntroView()) {
-                            SettingsNavigationRow(icon: .system("pause.circle"), title: "Deactivate Account")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        NavigationLink(destination: DeleteAccountIntroView()) {
-                            SettingsNavigationRow(icon: .system("trash"), title: "Delete Account")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        SettingsRow(icon: .asset("log-out-icon"), title: "Log out") {
-                            let impact = UIImpactFeedbackGenerator(style: .light)
-                            impact.impactOccurred()
-                            showLogoutAlert = true
-                        }
-                    }
-
-                    SettingsSection(title: "Content") {
-                        Button {
-                            contentDestination = .posts
-                        } label: {
-                            SettingsNavigationRow(icon: .system("text.bubble"), title: "Posts")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
-                        Button {
-                            contentDestination = .replies
-                        } label: {
-                            SettingsNavigationRow(icon: .system("bubble.left.and.bubble.right"), title: "Replies")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
-                        Button {
-                            contentDestination = .liked
-                        } label: {
-                            SettingsNavigationRow(icon: .system("heart"), title: "Liked")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-
-                        Button {
-                            contentDestination = .saved
-                        } label: {
-                            SettingsNavigationRow(icon: .system("bookmark"), title: "Saved")
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-
-                }
-                .padding(.bottom, 100)
+        let onOpenFeedback = { showFeedback = true }
+        let onOpenContentPolicy = { showContentPolicy = true }
+        let onOpenPrivacyPolicy = { showPrivacyPolicy = true }
+        let onOpenUserAgreement = { showUserAgreement = true }
+        let onRequestCommunity = { showCommunityRequest = true }
+        let onSelectContent: (MenuDestination) -> Void = { destination in contentDestination = destination }
+        let onConfirmLogout = {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+            showLogoutAlert = true
+        }
+        let onTapGoogle = {
+            if authViewModel.isGoogleLinked {
+                pendingDisconnectProvider = .google
+            } else {
+                connectGoogle()
             }
         }
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .edgeSwipeToDismiss {
-            dismiss()
+        let onTapApple = {
+            if authViewModel.isAppleLinked {
+                pendingDisconnectProvider = .apple
+            } else {
+                connectApple()
+            }
         }
+
+        return AnyView(
+            SettingsListContent(
+                appearanceMode: $appearanceMode,
+                preferCommunityShortNames: $preferCommunityShortNames,
+                hideAnonymousPosts: $hideAnonymousPosts,
+                showFollowerCount: $showFollowerCount,
+                anonymousMode: $anonymousMode,
+                onOpenFeedback: onOpenFeedback,
+                onOpenContentPolicy: onOpenContentPolicy,
+                onOpenPrivacyPolicy: onOpenPrivacyPolicy,
+                onOpenUserAgreement: onOpenUserAgreement,
+                onRequestCommunity: onRequestCommunity,
+                onSelectContent: onSelectContent,
+                onConfirmLogout: onConfirmLogout,
+                onTapGoogle: onTapGoogle,
+                onTapApple: onTapApple
+            )
+        )
         .fullScreenCover(isPresented: $showCommunityRequest) {
             CommunityRequestFlowView()
         }
@@ -352,6 +198,219 @@ struct SettingsView: View {
                 },
                 secondaryButton: .cancel()
             )
+        }
+    }
+
+}
+
+private struct SettingsListContent: View {
+    @EnvironmentObject private var authViewModel: AuthViewModel
+
+    @Binding var appearanceMode: String
+    @Binding var preferCommunityShortNames: Bool
+    @Binding var hideAnonymousPosts: Bool
+    @Binding var showFollowerCount: Bool
+    @Binding var anonymousMode: Bool
+
+    let onOpenFeedback: () -> Void
+    let onOpenContentPolicy: () -> Void
+    let onOpenPrivacyPolicy: () -> Void
+    let onOpenUserAgreement: () -> Void
+    let onRequestCommunity: () -> Void
+    let onSelectContent: (MenuDestination) -> Void
+    let onConfirmLogout: () -> Void
+    let onTapGoogle: () -> Void
+    let onTapApple: () -> Void
+
+    var body: some View {
+        List {
+            accountSection
+            appearanceSection
+            verificationSection
+            supportSection
+            communitySection
+            connectedAccountsSection
+            safetySection
+            actionsSection
+            contentSection
+        }
+        .buttonStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+    }
+
+    @ViewBuilder
+    private var accountSection: some View {
+        Section("Account") {
+            NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
+                SettingsRowLabel(icon: .asset("user-settings-icon"), title: "Edit profile")
+            }
+
+            NavigationLink(destination: SecurityView().environmentObject(authViewModel)) {
+                SettingsRowLabel(icon: .asset("shield-icon"), title: "Security")
+            }
+
+            NavigationLink(destination: NotificationSettingsView()) {
+                SettingsRowLabel(icon: .asset("bell-icon"), title: "Notifications")
+            }
+
+            NavigationLink(destination: PrivacyView().environmentObject(authViewModel)) {
+                SettingsRowLabel(icon: .asset("lock-icon"), title: "Privacy and Data Protection")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var appearanceSection: some View {
+        Section("Appearance") {
+            themePickerRow
+
+            Toggle(isOn: $preferCommunityShortNames) {
+                SettingsRowLabel(icon: .system("textformat.size.smaller"), title: "Prefer Community Short Names")
+            }
+            .tint(.loopedSecondary)
+        }
+    }
+
+    private var themePickerRow: some View {
+        HStack(spacing: 12) {
+            SettingsIconView(icon: .system("circle.lefthalf.filled"))
+            Text("Theme")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+            Spacer()
+            Picker("", selection: $appearanceMode) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 220)
+        }
+    }
+
+    @ViewBuilder
+    private var verificationSection: some View {
+        Section("Verification") {
+            NavigationLink(destination: CommunityVerificationsView()) {
+                SettingsRowLabel(icon: .system("checkmark.seal"), title: "Community verifications")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var supportSection: some View {
+        Section("Support & About") {
+            Button(action: onOpenFeedback) {
+                SettingsRowLabel(icon: .asset("help-icon"), title: "Feedback")
+            }
+            Button(action: onOpenContentPolicy) {
+                SettingsRowLabel(icon: .asset("rules-icon"), title: "Content Policy")
+            }
+            Button(action: onOpenPrivacyPolicy) {
+                SettingsRowLabel(icon: .asset("terms-and-policies-icon"), title: "Privacy Policy")
+            }
+            Button(action: onOpenUserAgreement) {
+                SettingsRowLabel(icon: .asset("user-agreement-icon"), title: "User Agreement")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var communitySection: some View {
+        Section("Community") {
+            Button(action: onRequestCommunity) {
+                SettingsRowLabel(icon: .system("person.3"), title: "Request new community")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var connectedAccountsSection: some View {
+        Section("Connected Accounts") {
+            ConnectedAccountRow(
+                icon: .asset("google-logo"),
+                title: "Google",
+                isConnected: authViewModel.isGoogleLinked,
+                action: onTapGoogle
+            )
+
+            ConnectedAccountRow(
+                icon: .asset("apple-logo"),
+                title: "Apple",
+                isConnected: authViewModel.isAppleLinked,
+                action: onTapApple
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var safetySection: some View {
+        Section("Safety") {
+            Toggle(isOn: $hideAnonymousPosts) {
+                SettingsRowLabel(icon: .system("eye.slash"), title: "Hide Anonymous Posts")
+            }
+            .tint(.loopedSecondary)
+
+            Toggle(isOn: $showFollowerCount) {
+                SettingsRowLabel(icon: .asset("follower-count-icon"), title: "Show Follower Count")
+            }
+            .tint(.loopedSecondary)
+
+            NavigationLink(destination: MessagingPermissionsView().environmentObject(authViewModel)) {
+                SettingsRowLabel(icon: .asset("message-permisions-icon"), title: "Messaging Permissions")
+            }
+            NavigationLink(destination: BlockedUsersView()) {
+                SettingsRowLabel(icon: .asset("blocked-icon"), title: "Blocked")
+            }
+            NavigationLink(destination: ViolationsView()) {
+                SettingsRowLabel(icon: .system("exclamationmark.triangle"), title: "Appeals & Violations")
+            }
+            NavigationLink(destination: AnonymousRecoveryView()) {
+                SettingsRowLabel(icon: .system("key.fill"), title: "Anonymous Recovery")
+            }
+
+            Toggle(isOn: $anonymousMode) {
+                SettingsRowLabel(icon: .system("theatermasks"), title: "Anonymous Mode")
+            }
+            .tint(.loopedSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var actionsSection: some View {
+        Section("Actions") {
+            NavigationLink(destination: DeactivateAccountIntroView()) {
+                SettingsRowLabel(icon: .system("pause.circle"), title: "Deactivate Account")
+            }
+            NavigationLink(destination: DeleteAccountIntroView()) {
+                SettingsRowLabel(icon: .system("trash"), title: "Delete Account")
+            }
+            Button(action: onConfirmLogout) {
+                SettingsRowLabel(icon: .asset("log-out-icon"), title: "Log out")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var contentSection: some View {
+        Section("Content") {
+            Button { onSelectContent(.posts) } label: {
+                SettingsRowLabel(icon: .system("text.bubble"), title: "Posts")
+            }
+            Button { onSelectContent(.replies) } label: {
+                SettingsRowLabel(icon: .system("bubble.left.and.bubble.right"), title: "Replies")
+            }
+            Button { onSelectContent(.liked) } label: {
+                SettingsRowLabel(icon: .system("heart"), title: "Liked")
+            }
+            Button { onSelectContent(.saved) } label: {
+                SettingsRowLabel(icon: .system("bookmark"), title: "Saved")
+            }
         }
     }
 }
@@ -505,235 +564,6 @@ private extension SettingsView {
                 hideAnonymousPosts = oldValue
             }
         }
-    }
-}
-
-// MARK: - Settings Header
-
-struct SettingsHeader: View {
-    let onBack: () -> Void
-
-    var body: some View {
-        HStack {
-            LoopedBackButton(action: onBack)
-
-            Image("logo-banner")
-                .resizable()
-                .scaledToFit()
-                .frame(height: 36)
-
-            Spacer()
-
-            Text("Settings")
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextSecondary)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
-    }
-}
-
-// MARK: - Settings Section
-
-struct SettingsSection<Content: View>: View {
-    let title: String
-    let content: Content
-
-    init(title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.loopedBodyStrong)
-                .foregroundColor(.loopedTextPrimary)
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 4)
-
-            VStack(spacing: 0) {
-                content
-            }
-        }
-    }
-}
-
-// MARK: - Settings Row
-
-struct SettingsRow: View {
-    let icon: IconSource?
-    let title: String
-    let textColor: Color
-    let isIndented: Bool
-    let action: (() -> Void)?
-
-    init(
-        icon: IconSource? = nil,
-        title: String,
-        textColor: Color = .loopedTextPrimary,
-        isIndented: Bool = false,
-        action: (() -> Void)? = nil
-    ) {
-        self.icon = icon
-        self.title = title
-        self.textColor = textColor
-        self.isIndented = isIndented
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: { action?() }) {
-            HStack(spacing: 4) {
-                if !isIndented {
-                    if let icon = icon {
-                        switch icon {
-                        case .system(let name):
-                            Image(systemName: name)
-                                .font(.loopedCustom(.medium, size: 16))
-                                .foregroundColor(.loopedTextSecondary)
-                                .frame(width: 20, height: 10)
-                        case .asset(let name):
-                            Image(name)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .foregroundColor(.loopedTextSecondary)
-                                .frame(width: 20, height: 20)
-                        }
-                    }
-                }
-
-                Text(title)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(textColor)
-                    .multilineTextAlignment(.leading)
-
-                Spacer()
-            }
-            .padding(.horizontal, isIndented ? 52 : 28)
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// MARK: - Appearance Mode Row
-struct AppearanceModeRow: View {
-    @Binding var selection: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "circle.lefthalf.filled")
-                .font(.loopedCustom(.medium, size: 16))
-                .foregroundColor(.loopedTextSecondary)
-                .frame(width: 20, height: 20)
-
-            Text("Theme")
-                .font(.loopedBodyMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            Picker("", selection: $selection) {
-                ForEach(AppearanceMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 220)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-    }
-}
-
-// MARK: - Settings Toggle Row
-
-struct SettingsToggleRow: View {
-    let icon: IconSource
-    let title: String
-    @Binding var isOn: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            switch icon {
-            case .system(let name):
-                Image(systemName: name)
-                    .font(.loopedCustom(.medium, size: 16))
-                    .foregroundColor(.loopedTextSecondary)
-                    .frame(width: 20, height: 20)
-            case .asset(let name):
-                Image(name)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .foregroundColor(.loopedTextSecondary)
-                    .frame(width: 20, height: 20)
-            }
-
-            Text(title)
-                .font(.loopedBodyMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-    }
-}
-
-// MARK: - Settings Navigation Row
-
-struct SettingsNavigationRow: View {
-    let icon: IconSource?
-    let title: String
-    let textColor: Color
-
-    init(
-        icon: IconSource? = nil,
-        title: String,
-        textColor: Color = .loopedTextPrimary
-    ) {
-        self.icon = icon
-        self.title = title
-        self.textColor = textColor
-    }
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if let icon = icon {
-                switch icon {
-                case .system(let name):
-                    Image(systemName: name)
-                        .font(.loopedCustom(.medium, size: 16))
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(width: 20, height: 10)
-                case .asset(let name):
-                    Image(name)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(width: 20, height: 20)
-                }
-            }
-
-            Text(title)
-                .font(.loopedBodyMedium)
-                .foregroundColor(textColor)
-                .multilineTextAlignment(.leading)
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.loopedCustom(.semibold, size: 13))
-                .foregroundColor(.loopedTextSecondary)
-        }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 8)
     }
 }
 

@@ -559,189 +559,106 @@ struct PrivacyView: View {
     @State private var isUpdating = false
     @State private var skipToggleUpdate = false
     @State private var toastMessage: ToastMessage?
-	    @State private var showClearCacheAlert = false
-	    @State private var isClearingCache = false
-	    @State private var storageSnapshot: StorageSnapshot?
-	    @State private var isLoadingStorage = false
-	    @State private var showStorageDetails = false
+    @State private var showClearCacheAlert = false
+    @State private var isClearingCache = false
+    @State private var storageSnapshot: StorageSnapshot?
+    @State private var isLoadingStorage = false
+    @State private var showStorageDetails = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Content")
-                        .font(.loopedSubheadMedium)
-                        .foregroundColor(.loopedTextPrimary)
+        List {
+            Section("Content") {
+                HStack(spacing: 12) {
+                    SettingsRowLabel(
+                        icon: .system("eye.slash"),
+                        title: "Hide anonymous posts",
+                        subtitle: "Removes anonymous posts from your feed."
+                    )
 
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Hide anonymous posts")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                            Text("Removes anonymous posts from your feed.")
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedTextSecondary)
+                    if isUpdating {
+                        ProgressView()
+                            .tint(.loopedSecondary)
+                    } else {
+                        Toggle("", isOn: $hideAnonymousPosts)
+                            .labelsHidden()
+                            .tint(.loopedSecondary)
+                    }
+                }
+            }
+
+            Section("Safety") {
+                NavigationLink(destination: BlockedUsersView()) {
+                    SettingsRowLabel(icon: .system("hand.raised.fill"), title: "Blocked users")
+                }
+            }
+
+            Section("Storage") {
+                Button {
+                    Task {
+                        await refreshStorageSnapshot()
+                        if storageSnapshot != nil {
+                            showStorageDetails = true
                         }
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        SettingsRowLabel(
+                            icon: .system("internaldrive"),
+                            title: "Storage used",
+                            subtitle: storageSnapshot == nil ? "Tap to estimate storage usage." : "Tap for details."
+                        )
 
-                        Spacer()
+                        Spacer(minLength: 0)
 
-                        if isUpdating {
+                        if isLoadingStorage {
                             ProgressView()
                                 .tint(.loopedSecondary)
+                        } else if let snapshot = storageSnapshot {
+                            let total = snapshot.documentsBytes + snapshot.cachesBytes + snapshot.tmpBytes
+                            Text(StorageDiagnostics.formatBytes(total))
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
                         } else {
-                            Toggle("", isOn: $hideAnonymousPosts)
-                                .labelsHidden()
-                                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
+                            Image(systemName: "arrow.clockwise")
+                                .font(.loopedCustom(.semibold, size: 14))
+                                .foregroundColor(.loopedTextSecondary)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-                .background(Color.loopedTextSecondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal, 16)
+                .buttonStyle(.plain)
+                .disabled(isLoadingStorage)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Safety")
-                        .font(.loopedSubheadMedium)
-                        .foregroundColor(.loopedTextPrimary)
+                Button {
+                    showClearCacheAlert = true
+                } label: {
+                    HStack(spacing: 12) {
+                        SettingsRowLabel(
+                            icon: .system("trash"),
+                            title: "Clear cached media",
+                            subtitle: "Frees up storage used by downloaded media."
+                        )
 
-                    NavigationLink(destination: BlockedUsersView()) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "hand.raised.fill")
-                                .font(.loopedCustom(.medium, size: 18))
-                                .foregroundColor(.loopedPrimary)
-                                .frame(width: 26, height: 26)
-
-                            Text("Blocked users")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-
-                            Spacer()
-
+                        if isClearingCache {
+                            ProgressView()
+                                .tint(.loopedSecondary)
+                        } else {
                             Image(systemName: "chevron.right")
                                 .font(.loopedCustom(.semibold, size: 14))
                                 .foregroundColor(.loopedTextSecondary)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
                     }
-                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-                .background(Color.loopedTextSecondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal, 16)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Storage")
-                        .font(.loopedSubheadMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-	                    Button {
-	                        Task {
-	                            await refreshStorageSnapshot()
-	                            if storageSnapshot != nil {
-	                                showStorageDetails = true
-	                            }
-	                        }
-	                    } label: {
-	                        HStack(spacing: 12) {
-	                            Image(systemName: "internaldrive")
-	                                .font(.loopedCustom(.medium, size: 18))
-	                                .foregroundColor(.loopedPrimary)
-                                .frame(width: 26, height: 26)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Storage used")
-                                    .font(.loopedBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-
-	                                if let snapshot = storageSnapshot {
-	                                    let total = snapshot.documentsBytes + snapshot.cachesBytes + snapshot.tmpBytes
-	                                    Text("Documents \(StorageDiagnostics.formatBytes(snapshot.documentsBytes))\nCaches \(StorageDiagnostics.formatBytes(snapshot.cachesBytes))\nTemp \(StorageDiagnostics.formatBytes(snapshot.tmpBytes))")
-	                                        .font(.loopedSubBodyRegular)
-	                                        .foregroundColor(.loopedTextSecondary)
-	                                        .fixedSize(horizontal: false, vertical: true)
-	                                        .accessibilityLabel("Storage used \(StorageDiagnostics.formatBytes(total))")
-	                                } else {
-	                                    Text("Tap to estimate storage usage.")
-	                                        .font(.loopedSubBodyRegular)
-	                                        .foregroundColor(.loopedTextSecondary)
-                                }
-                            }
-
-                            Spacer()
-
-                            if isLoadingStorage {
-                                ProgressView()
-                                    .tint(.loopedSecondary)
-                            } else if let snapshot = storageSnapshot {
-                                let total = snapshot.documentsBytes + snapshot.cachesBytes + snapshot.tmpBytes
-                                Text(StorageDiagnostics.formatBytes(total))
-                                    .font(.loopedSubBodyMedium)
-                                    .foregroundColor(.loopedTextSecondary)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.loopedCustom(.semibold, size: 14))
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isLoadingStorage)
-
-                    Button {
-                        showClearCacheAlert = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "trash")
-                                .font(.loopedCustom(.medium, size: 18))
-                                .foregroundColor(.loopedPrimary)
-                                .frame(width: 26, height: 26)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Clear cached media")
-                                    .font(.loopedBodyMedium)
-                                    .foregroundColor(.loopedTextPrimary)
-                                Text("Frees up storage used by downloaded media.")
-                                    .font(.loopedSubBodyRegular)
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-
-                            Spacer()
-
-                            if isClearingCache {
-                                ProgressView()
-                                    .tint(.loopedSecondary)
-                            } else {
-                                Image(systemName: "chevron.right")
-                                    .font(.loopedCustom(.semibold, size: 14))
-                                    .foregroundColor(.loopedTextSecondary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isClearingCache)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-                .background(Color.loopedTextSecondary.opacity(0.05))
-                .cornerRadius(12)
-                .padding(.horizontal, 16)
-
-                Spacer(minLength: 20)
+                .buttonStyle(.plain)
+                .disabled(isClearingCache)
             }
-            .padding(.top, 16)
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Privacy")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toast($toastMessage)
         .task {
             await loadPreferences()
@@ -752,18 +669,18 @@ struct PrivacyView: View {
             Button("Clear", role: .destructive) {
                 Task { await clearCachedMedia() }
             }
-	        } message: {
-	            Text("This removes downloaded media and temporary upload files. It won’t delete any posts or messages.")
-	        }
-	        .alert("Storage used", isPresented: $showStorageDetails) {
-	            Button("OK", role: .cancel) {}
-	        } message: {
-	            Text(storageDetailsMessage)
-	        }
-	        .onChange(of: hideAnonymousPosts) { oldValue, newValue in
-	            guard !skipToggleUpdate else { return }
-	            Task { await updateHideAnonymousPosts(from: oldValue, to: newValue) }
-	        }
+        } message: {
+            Text("This removes downloaded media and temporary upload files. It won’t delete any posts or messages.")
+        }
+        .alert("Storage used", isPresented: $showStorageDetails) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(storageDetailsMessage)
+        }
+        .onChange(of: hideAnonymousPosts) { oldValue, newValue in
+            guard !skipToggleUpdate else { return }
+            Task { await updateHideAnonymousPosts(from: oldValue, to: newValue) }
+        }
     }
 
     private func clearCachedMedia() async {
@@ -771,46 +688,45 @@ struct PrivacyView: View {
         isClearingCache = true
         defer { isClearingCache = false }
 
-	        await Task.detached(priority: .background) {
-	            URLCache.shared.removeAllCachedResponses()
-	            TemporaryMediaFile.cleanupOrphanedFiles(olderThan: 0)
-	            // Also prune large temp files left by pickers/transcoders; keep a safety window to avoid in-flight deletions.
-	            TemporaryMediaFile.enforceTemporaryDirectoryBudget(
-	                maxBytes: CacheHousekeeper.tmpBudgetBytes,
-	                minimumAge: CacheHousekeeper.tmpBudgetMinimumAge,
-	                includeUnowned: true
-	            )
-	        }.value
+        await Task.detached(priority: .background) {
+            URLCache.shared.removeAllCachedResponses()
+            TemporaryMediaFile.cleanupOrphanedFiles(olderThan: 0)
+            TemporaryMediaFile.enforceTemporaryDirectoryBudget(
+                maxBytes: CacheHousekeeper.tmpBudgetBytes,
+                minimumAge: CacheHousekeeper.tmpBudgetMinimumAge,
+                includeUnowned: true
+            )
+        }.value
 
         toastMessage = ToastMessage(text: "Cleared cached media.", kind: .success)
         await refreshStorageSnapshot()
     }
 
-	    private func refreshStorageSnapshot() async {
-	        guard !isLoadingStorage else { return }
-	        isLoadingStorage = true
-	        defer { isLoadingStorage = false }
-	        storageSnapshot = await StorageDiagnostics.snapshot()
-	    }
+    private func refreshStorageSnapshot() async {
+        guard !isLoadingStorage else { return }
+        isLoadingStorage = true
+        defer { isLoadingStorage = false }
+        storageSnapshot = await StorageDiagnostics.snapshot()
+    }
 
-	    private var storageDetailsMessage: String {
-	        guard let snapshot = storageSnapshot else {
-	            return "Tap “Storage used” to estimate storage usage."
-	        }
-	        let total = snapshot.documentsBytes + snapshot.cachesBytes + snapshot.tmpBytes
-	        return [
-	            "Total: \(StorageDiagnostics.formatBytes(total))",
-	            "Documents: \(StorageDiagnostics.formatBytes(snapshot.documentsBytes))",
-	            "Caches: \(StorageDiagnostics.formatBytes(snapshot.cachesBytes))",
-	            "Temp: \(StorageDiagnostics.formatBytes(snapshot.tmpBytes))",
-	            "URLCache: \(StorageDiagnostics.formatBytes(Int64(snapshot.urlCacheDiskBytes))) disk, \(StorageDiagnostics.formatBytes(Int64(snapshot.urlCacheMemoryBytes))) memory"
-	        ].joined(separator: "\n")
-	    }
+    private var storageDetailsMessage: String {
+        guard let snapshot = storageSnapshot else {
+            return "Tap “Storage used” to estimate storage usage."
+        }
+        let total = snapshot.documentsBytes + snapshot.cachesBytes + snapshot.tmpBytes
+        return [
+            "Total: \(StorageDiagnostics.formatBytes(total))",
+            "Documents: \(StorageDiagnostics.formatBytes(snapshot.documentsBytes))",
+            "Caches: \(StorageDiagnostics.formatBytes(snapshot.cachesBytes))",
+            "Temp: \(StorageDiagnostics.formatBytes(snapshot.tmpBytes))",
+            "URLCache: \(StorageDiagnostics.formatBytes(Int64(snapshot.urlCacheDiskBytes))) disk, \(StorageDiagnostics.formatBytes(Int64(snapshot.urlCacheMemoryBytes))) memory"
+        ].joined(separator: "\n")
+    }
 
-	    private func loadPreferences() async {
-	        if let user = authViewModel.currentUser {
-	            hideAnonymousPosts = user.hideAnonymousPosts ?? false
-	        }
+    private func loadPreferences() async {
+        if let user = authViewModel.currentUser {
+            hideAnonymousPosts = user.hideAnonymousPosts ?? false
+        }
 
         guard !isLoading else { return }
         isLoading = true

@@ -181,10 +181,16 @@ struct MainTabView: View {
             .preferredColorScheme(preferredColorScheme)
         }
         .fullScreenCover(item: $menuDestination) { destination in
-            NavigationStack {
-                destinationView(for: destination)
+            switch destination {
+            case .settings:
+                SettingsModalHost()
+                    .preferredColorScheme(preferredColorScheme)
+            default:
+                NavigationStack {
+                    destinationView(for: destination)
+                }
+                .preferredColorScheme(preferredColorScheme)
             }
-            .preferredColorScheme(preferredColorScheme)
         }
         .sheet(isPresented: $showFAQSheet) {
             SafariView(url: faqUrl)

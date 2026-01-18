@@ -1,51 +1,61 @@
 import SwiftUI
 
 struct BlockedUsersView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = BlockedUsersViewModel()
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        List {
+            Section {
+                Text("Manage the people you've blocked.")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    Text("Manage the people you've blocked.")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if viewModel.isLoading && viewModel.blockedUsers.isEmpty {
+            Section {
+                if viewModel.isLoading && viewModel.blockedUsers.isEmpty {
+                    HStack {
+                        Spacer()
                         ProgressView()
-                            .padding(.top, 16)
+                        Spacer()
                     }
-
-                    if let errorMessage = viewModel.errorMessage, viewModel.blockedUsers.isEmpty {
-                        Text(errorMessage)
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedError)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                    }
-
-                    if viewModel.blockedUsers.isEmpty && viewModel.errorMessage == nil && !viewModel.isLoading {
-                        emptyState
-                    } else {
-                        blockedList
+                } else if let errorMessage = viewModel.errorMessage, viewModel.blockedUsers.isEmpty {
+                    Text(errorMessage)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedError)
+                        .multilineTextAlignment(.center)
+                } else if viewModel.blockedUsers.isEmpty && viewModel.errorMessage == nil && !viewModel.isLoading {
+                    emptyState
+                        .listRowBackground(Color.loopedBackground)
+                } else {
+                    ForEach(viewModel.blockedUsers) { user in
+                        BlockedUserRow(
+                            user: user,
+                            isUnblocking: viewModel.unblockingUserIds.contains(user.backendId)
+                        ) {
+                            Task { await viewModel.unblock(user) }
+                        }
+                        .onAppear {
+                            Task { await viewModel.loadMoreIfNeeded(current: user) }
+                        }
                     }
 
                     if viewModel.isLoadingMore {
-                        ProgressView()
-                            .padding(.vertical, 16)
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 100)
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Blocked")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await viewModel.loadBlockedUsers()
         }
@@ -59,48 +69,6 @@ struct BlockedUsersView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.actionErrorMessage ?? "")
-        }
-    }
-
-    private var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Spacer()
-
-            Text("Blocked Users")
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            LoopedBackButton(action: {})
-                .opacity(0)
-                .disabled(true)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
-    }
-
-    private var blockedList: some View {
-        VStack(spacing: 0) {
-            ForEach(viewModel.blockedUsers) { user in
-                BlockedUserRow(
-                    user: user,
-                    isUnblocking: viewModel.unblockingUserIds.contains(user.backendId)
-                ) {
-                    Task { await viewModel.unblock(user) }
-                }
-                .onAppear {
-                    Task { await viewModel.loadMoreIfNeeded(current: user) }
-                }
-
-                if user.id != viewModel.blockedUsers.last?.id {
-                    Divider()
-                        .padding(.leading, 64)
-                }
-            }
         }
     }
 
@@ -170,7 +138,6 @@ private struct BlockedUserRow: View {
             }
             .disabled(isUnblocking)
         }
-        .padding(.vertical, 12)
     }
 
     @ViewBuilder

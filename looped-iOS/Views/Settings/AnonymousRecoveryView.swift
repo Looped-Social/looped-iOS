@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct AnonymousRecoveryView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = AnonBackupViewModel()
 
     @State private var backupPassphrase = ""
@@ -11,50 +10,30 @@ struct AnonymousRecoveryView: View {
     @State private var showCopiedToast = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(spacing: 24) {
+                anonAccessSection
+                backupSection
+                restoreSection
 
-            ScrollView {
-                VStack(spacing: 24) {
-                    anonAccessSection
-                    backupSection
-                    restoreSection
-
-                    if let success = viewModel.successMessage {
-                        statusBanner(text: success, color: .loopedSuccess)
-                    }
-
-                    if let error = viewModel.errorMessage {
-                        statusBanner(text: error, color: .loopedError)
-                    }
+                if let success = viewModel.successMessage {
+                    statusBanner(text: success, color: .loopedSuccess)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+
+                if let error = viewModel.errorMessage {
+                    statusBanner(text: error, color: .loopedError)
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 40)
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Anonymous Backup")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task { await viewModel.loadState() }
-    }
-
-    private var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Image("logo-banner")
-                .resizable()
-                .scaledToFit()
-                .frame(height: 36)
-
-            Spacer()
-
-            Text("Anonymous Backup")
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextSecondary)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
     }
 
     private var backupSection: some View {

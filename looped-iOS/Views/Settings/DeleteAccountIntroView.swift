@@ -2,79 +2,56 @@ import SwiftUI
 
 struct AccountActionIntroView: View {
     let action: AccountActionKind
-    @Environment(\.dismiss) private var dismiss
 
     private let feedbackURL = URL(string: "https://mylooped.app/feedback")!
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text(headline)
+                    .font(.loopedSubheadMedium)
+                    .foregroundColor(.loopedTextPrimary)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text(headline)
-                        .font(.loopedSubheadMedium)
+                Text(subheadline)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextSecondary)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(detailText)
+                        .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
 
-                    Text(subheadline)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextSecondary)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(detailText)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-
-                        if showsFeedbackLink {
-                            Link("Provide feedback here", destination: feedbackURL)
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedSecondary)
-                        }
+                    if showsFeedbackLink {
+                        Link("Provide feedback here", destination: feedbackURL)
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedSecondary)
                     }
-                    .padding(16)
-                    .background(Color.loopedTextSecondary.opacity(0.08))
-                    .cornerRadius(12)
-
-                    NavigationLink(destination: AccountActionConfirmView(action: action)) {
-                        Text(actionButtonTitle)
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedWhite)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Color.loopedPrimary)
-                            .cornerRadius(12)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .padding(.top, 8)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 40)
+                .padding(16)
+                .background(Color.loopedTextSecondary.opacity(0.08))
+                .cornerRadius(12)
+
+                NavigationLink(destination: AccountActionConfirmView(action: action)) {
+                    Text(actionButtonTitle)
+                        .font(.loopedBodyStrong)
+                        .foregroundColor(.loopedWhite)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.loopedPrimary)
+                        .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 40)
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-    }
-
-    private var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Spacer()
-
-            Text(title)
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            LoopedBackButton(action: {})
-                .opacity(0)
-                .disabled(true)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
     }
 
     private var title: String {

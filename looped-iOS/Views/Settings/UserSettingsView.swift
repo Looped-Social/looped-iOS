@@ -3,7 +3,6 @@ import UIKit
 import PhotosUI
 
 struct UserSettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
@@ -51,32 +50,8 @@ struct UserSettingsView: View {
     @State private var profilePhotoPayload: ImageUploadPayload?
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
-            // Header
-            HStack {
-                LoopedBackButton(action: { dismiss() })
-
-                Spacer()
-
-                Text("Edit Profile")
-                    .font(.loopedSubheadMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                // Invisible button for symmetry
-                LoopedBackButton(action: {})
-                    .opacity(0)
-                    .disabled(true)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 15)
-            .padding(.bottom, 12)
-
-            // Scrollable content
-            ScrollView {
-                VStack(spacing: 24) {
+        ScrollView {
+            VStack(spacing: 24) {
                     if isAnonymousMode {
                         VStack(spacing: 12) {
                             ProfileAvatarView(imageURL: nil, size: 96, iconScale: 0.4)
@@ -466,10 +441,11 @@ struct UserSettingsView: View {
                 }
                 .padding(.bottom, 100)
             }
-            }
-
-        }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle("Edit Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toast($toastMessage)
         .sheet(isPresented: $isShowingSpecializationPicker) {
             DisplaySpecializationPickerView(selectedSpecialization: $displaySpecialization)
@@ -515,7 +491,6 @@ struct UserSettingsView: View {
                 anonDisplaySpecializationError = nil
             }
         }
-        .navigationBarHidden(true)
     }
 }
 

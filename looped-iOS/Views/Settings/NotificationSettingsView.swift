@@ -1,77 +1,57 @@
 import SwiftUI
 
 struct NotificationSettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = NotificationPreferencesViewModel()
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                LoopedBackButton(action: { dismiss() })
-
-                Spacer()
-
-                Text("Notifications")
-                    .font(.loopedSubheadMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Spacer()
-
-                // Invisible button for symmetry
-                LoopedBackButton(action: {})
-                    .opacity(0)
-                    .disabled(true)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 15)
-            .padding(.bottom, 12)
-
-            // Scrollable content
-            ScrollView {
-                VStack(spacing: 0) {
-                    if viewModel.isLoading && viewModel.preferences == nil {
-                        ProgressView()
-                            .padding(.top, 24)
-                    }
-
-                    if let errorMessage = viewModel.errorMessage {
-                        Text(errorMessage)
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedError)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                            .padding(.top, 12)
-                    }
-
-                    if viewModel.preferences != nil {
-                        channelSection(
-                            title: "In-App Notifications",
-                            channel: .inApp,
-                            primaryIcon: "app.badge",
-                            primarySubtitle: "Show notifications inside the app"
-                        )
-
-                        channelSection(
-                            title: "Push Notifications",
-                            channel: .push,
-                            primaryIcon: "bell.fill",
-                            primarySubtitle: "Receive notifications on this device"
-                        )
-
-                        channelSection(
-                            title: "Email Notifications",
-                            channel: .email,
-                            primaryIcon: "envelope.circle.fill",
-                            primarySubtitle: "Receive updates via email"
-                        )
-                    }
+        List {
+            if viewModel.isLoading && viewModel.preferences == nil {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
                 }
-                .padding(.bottom, 100)
+                .listRowBackground(Color.loopedBackground)
+            }
+
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedError)
+                    .multilineTextAlignment(.center)
+                    .listRowBackground(Color.loopedBackground)
+            }
+
+            if viewModel.preferences != nil {
+                notificationChannelSection(
+                    title: "In-App Notifications",
+                    channel: .inApp,
+                    primaryIcon: "app.badge",
+                    primarySubtitle: "Show notifications inside the app"
+                )
+
+                notificationChannelSection(
+                    title: "Push Notifications",
+                    channel: .push,
+                    primaryIcon: "bell.fill",
+                    primarySubtitle: "Receive notifications on this device"
+                )
+
+                notificationChannelSection(
+                    title: "Email Notifications",
+                    channel: .email,
+                    primaryIcon: "envelope.circle.fill",
+                    primarySubtitle: "Receive updates via email"
+                )
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await viewModel.loadPreferences()
         }
@@ -170,7 +150,7 @@ private extension NotificationSettingsView {
     }
 
     @ViewBuilder
-    func channelSection(
+    func notificationChannelSection(
         title: String,
         channel: NotificationPreferenceChannel,
         primaryIcon: String,
@@ -178,27 +158,28 @@ private extension NotificationSettingsView {
     ) -> some View {
         let isLoaded = viewModel.preferences != nil
         let isEnabled = viewModel.preferences?.channels.channel(channel).enabled ?? false
-        NotificationSection(title: title) {
-            NotificationToggleRow(
-                icon: primaryIcon,
-                title: "Enable \(title)",
-                subtitle: primarySubtitle,
-                isOn: channelEnabledBinding(channel),
-                isPrimary: true,
-                isDisabled: !isLoaded
-            )
+        Section(title) {
+            Toggle(isOn: channelEnabledBinding(channel)) {
+                SettingsRowLabel(
+                    icon: .system(primaryIcon),
+                    title: "Enable \(title)",
+                    subtitle: primarySubtitle
+                )
+            }
+            .tint(.loopedSecondary)
+            .disabled(!isLoaded)
 
             if isEnabled {
-                ForEach(typeDescriptors.indices, id: \.self) { index in
-                    let descriptor = typeDescriptors[index]
-                    Divider().padding(.horizontal, 16)
-                    NotificationToggleRow(
-                        icon: descriptor.icon,
-                        title: descriptor.title,
-                        subtitle: descriptor.subtitle,
-                        isOn: typeBinding(channel: channel, type: descriptor.id),
-                        isDisabled: !isLoaded || descriptor.isSystem
-                    )
+                ForEach(typeDescriptors) { descriptor in
+                    Toggle(isOn: typeBinding(channel: channel, type: descriptor.id)) {
+                        SettingsRowLabel(
+                            icon: .system(descriptor.icon),
+                            title: descriptor.title,
+                            subtitle: descriptor.subtitle
+                        )
+                    }
+                    .tint(.loopedSecondary)
+                    .disabled(!isLoaded || descriptor.isSystem)
                 }
             }
         }
@@ -225,124 +206,6 @@ private extension NotificationSettingsView {
                 Task { await viewModel.setTypeEnabled(channel: channel, type: type, isOn: newValue) }
             }
         )
-    }
-}
-
-// MARK: - Notification Section
-
-struct NotificationSection<Content: View>: View {
-    let title: String
-    let content: Content
-
-    init(title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.loopedBodyStrong)
-                .foregroundColor(.loopedTextPrimary)
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 8)
-
-            VStack(spacing: 0) {
-                content
-            }
-            .background(Color.loopedTextSecondary.opacity(0.05))
-            .cornerRadius(12)
-            .padding(.horizontal, 20)
-        }
-    }
-}
-
-// MARK: - Notification Toggle Row
-
-struct NotificationToggleRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    @Binding var isOn: Bool
-    var isPrimary: Bool = false
-    var isDisabled: Bool = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.loopedCustom(.medium, size: isPrimary ? 22 : 18))
-                .foregroundColor(isPrimary ? .loopedPrimary : .loopedSecondary)
-                .frame(width: 28, height: 28)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(isPrimary ? .loopedBodyStrong : .loopedBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
-
-                Text(subtitle)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
-                .onChange(of: isOn) { _ in
-                    if !isDisabled {
-                        let impact = UIImpactFeedbackGenerator(style: .light)
-                        impact.impactOccurred()
-                    }
-                }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .disabled(isDisabled)
-        .opacity(isDisabled ? 0.6 : 1)
-    }
-}
-
-// MARK: - Notification Action Row
-
-struct NotificationActionRow: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: {
-            let impact = UIImpactFeedbackGenerator(style: .light)
-            impact.impactOccurred()
-            action()
-        }) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.loopedCustom(.medium, size: 20))
-                    .foregroundColor(.loopedSecondary)
-                    .frame(width: 28, height: 28)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    Text(subtitle)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.loopedCustom(.semibold, size: 14))
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 }
 

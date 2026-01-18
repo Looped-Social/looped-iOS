@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AccountActionConfirmView: View {
     let action: AccountActionKind
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
@@ -16,56 +15,55 @@ struct AccountActionConfirmView: View {
     @State private var errorMessage = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Final confirmation")
+                    .font(.loopedSubheadMedium)
+                    .foregroundColor(.loopedTextPrimary)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Final confirmation")
-                        .font(.loopedSubheadMedium)
-                        .foregroundColor(.loopedTextPrimary)
+                Text(promptText)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextSecondary)
 
-                    Text(promptText)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextSecondary)
+                Text(expectedPhrase)
+                    .font(.loopedBodyStrong)
+                    .foregroundColor(.loopedTextPrimary)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.loopedTextSecondary.opacity(0.08))
+                    .cornerRadius(10)
 
-                    Text(expectedPhrase)
-                        .font(.loopedBodyStrong)
-                        .foregroundColor(.loopedTextPrimary)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.loopedTextSecondary.opacity(0.08))
-                        .cornerRadius(10)
+                TextField("Type phrase here", text: $confirmationText)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedTextPrimary)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .padding(12)
+                    .background(Color.loopedTextSecondary.opacity(0.1))
+                    .cornerRadius(8)
 
-                    TextField("Type phrase here", text: $confirmationText)
-                        .font(.loopedBody)
-                        .foregroundColor(.loopedTextPrimary)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                        .padding(12)
-                        .background(Color.loopedTextSecondary.opacity(0.1))
-                        .cornerRadius(8)
+                Text(detailText)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
 
-                    Text(detailText)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-
-                    PrimaryButton(
-                        title: buttonTitle,
-                        isEnabled: isMatch,
-                        isLoading: isProcessing
-                    ) {
-                        performAction()
-                    }
-                    .padding(.top, 8)
+                PrimaryButton(
+                    title: buttonTitle,
+                    isEnabled: isMatch,
+                    isLoading: isProcessing
+                ) {
+                    performAction()
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 40)
+                .padding(.top, 8)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 40)
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle(headerTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .alert(alertTitle, isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -123,27 +121,6 @@ struct AccountActionConfirmView: View {
         case .deactivate:
             return .soft
         }
-    }
-
-    private var header: some View {
-        HStack {
-            LoopedBackButton(action: { dismiss() })
-
-            Spacer()
-
-            Text(headerTitle)
-                .font(.loopedSubheadMedium)
-                .foregroundColor(.loopedTextPrimary)
-
-            Spacer()
-
-            LoopedBackButton(action: {})
-                .opacity(0)
-                .disabled(true)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 15)
-        .padding(.bottom, 12)
     }
 
     private var headerTitle: String {
