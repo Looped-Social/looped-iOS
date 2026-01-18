@@ -8,6 +8,7 @@ struct PhotoIdVerificationView: View {
     let onBack: () -> Void
     let onSkip: (() -> Void)?
     let onComplete: () -> Void
+    let showsHeader: Bool
 
     @State private var stage: PhotoIdStage = .selfie
     @State private var selfieImage: UIImage?
@@ -24,7 +25,8 @@ struct PhotoIdVerificationView: View {
         totalSteps: Int,
         onBack: @escaping () -> Void,
         onSkip: (() -> Void)? = nil,
-        onComplete: @escaping () -> Void
+        onComplete: @escaping () -> Void,
+        showsHeader: Bool = true
     ) {
         self.communityId = communityId
         self.currentStep = currentStep
@@ -32,6 +34,7 @@ struct PhotoIdVerificationView: View {
         self.onBack = onBack
         self.onSkip = onSkip
         self.onComplete = onComplete
+        self.showsHeader = showsHeader
         _viewModel = StateObject(
             wrappedValue: PhotoIdVerificationViewModel(
                 service: PhotoIdVerificationService(communityId: communityId)
@@ -43,9 +46,11 @@ struct PhotoIdVerificationView: View {
         ZStack {
             GeometryReader { geometry in
                 VStack(spacing: 0) {
-                    header
-                        .padding(.top, 8)
-                        .padding(.horizontal, 16)
+                    if showsHeader {
+                        header
+                            .padding(.top, 8)
+                            .padding(.horizontal, 16)
+                    }
 
                     Spacer()
                         .frame(height: geometry.size.height * 0.05)
@@ -130,6 +135,32 @@ struct PhotoIdVerificationView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "Something went wrong.")
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(!showsHeader && stage == .workId)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            if !showsHeader {
+                ToolbarItem(placement: .principal) {
+                    VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                }
+
+                if stage == .workId {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(action: { stage = .selfie }) {
+                            Image(systemName: "chevron.left")
+                        }
+                        .accessibilityLabel("Back")
+                    }
+                }
+
+                if let onSkip {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Skip", action: onSkip)
+                    }
+                }
+            }
         }
     }
 }

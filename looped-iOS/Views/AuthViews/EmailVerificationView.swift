@@ -8,6 +8,7 @@ struct EmailVerificationView: View {
     let onBack: () -> Void
     let onSkip: (() -> Void)?
     let onComplete: () -> Void
+    let showsHeader: Bool
 
     @StateObject private var viewModel: CommunityEmailVerificationViewModel
 
@@ -18,7 +19,8 @@ struct EmailVerificationView: View {
         totalSteps: Int,
         onBack: @escaping () -> Void,
         onSkip: (() -> Void)? = nil,
-        onComplete: @escaping () -> Void
+        onComplete: @escaping () -> Void,
+        showsHeader: Bool = true
     ) {
         self.communityId = communityId
         self.communityName = communityName
@@ -27,6 +29,7 @@ struct EmailVerificationView: View {
         self.onBack = onBack
         self.onSkip = onSkip
         self.onComplete = onComplete
+        self.showsHeader = showsHeader
         _viewModel = StateObject(
             wrappedValue: CommunityEmailVerificationViewModel(
                 communityId: communityId,
@@ -38,9 +41,11 @@ struct EmailVerificationView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
+                if showsHeader {
+                    header
+                        .padding(.top, 8)
+                        .padding(.horizontal, 16)
+                }
 
                 Spacer()
                     .frame(height: geometry.size.height * 0.08)
@@ -133,6 +138,22 @@ struct EmailVerificationView: View {
         }
         .task {
             await viewModel.loadDomains()
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            if !showsHeader {
+                ToolbarItem(placement: .principal) {
+                    VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                }
+
+                if let onSkip {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Skip", action: onSkip)
+                    }
+                }
+            }
         }
     }
 }

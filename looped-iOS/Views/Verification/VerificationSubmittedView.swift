@@ -5,24 +5,35 @@ struct VerificationSubmittedView: View {
     let totalSteps: Int
     let onBack: () -> Void
     let onComplete: () -> Void
+    let showsHeader: Bool
+
+    init(
+        currentStep: Int,
+        totalSteps: Int,
+        onBack: @escaping () -> Void,
+        onComplete: @escaping () -> Void,
+        showsHeader: Bool = true
+    ) {
+        self.currentStep = currentStep
+        self.totalSteps = totalSteps
+        self.onBack = onBack
+        self.onComplete = onComplete
+        self.showsHeader = showsHeader
+    }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
-
-                HStack(spacing: 2) {
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 68)
-
-                    Text("ooped")
-                        .font(.loopedSuperLargeHeading)
-                        .foregroundColor(.loopedTextPrimary)
+                if showsHeader {
+                    header
+                        .padding(.top, 8)
+                        .padding(.horizontal, 16)
                 }
+
+                Image("logo-banner")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 68)
                 .padding(.top, 12)
                 .padding(.bottom, 24)
 
@@ -53,6 +64,16 @@ struct VerificationSubmittedView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            if !showsHeader {
+                ToolbarItem(placement: .principal) {
+                    VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                }
+            }
         }
     }
 }

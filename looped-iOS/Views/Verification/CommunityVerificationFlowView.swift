@@ -6,7 +6,7 @@ struct CommunityVerificationFlowView: View {
     let community: CommunityProfileData
     let onComplete: () -> Void
 
-    @State private var step: VerificationStep = .intro
+    @State private var path: [VerificationStep] = []
     @State private var selectedOptionId: String?
     private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
 
@@ -16,70 +16,87 @@ struct CommunityVerificationFlowView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            content
-
-            LoopedCloseButton(action: { dismiss() })
-            .padding(.top, 12)
-            .padding(.trailing, 16)
+        NavigationStack(path: $path) {
+            content(for: .intro)
+                .navigationDestination(for: VerificationStep.self) { step in
+                    content(for: step)
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.visible, for: .navigationBar)
+                .toolbarBackground(.hidden, for: .navigationBar)
         }
-        .background(Color.loopedBackground.ignoresSafeArea())
     }
 
     @ViewBuilder
-    private var content: some View {
-        switch step {
-        case .intro:
-            VerificationIntroView(
-                loopName: community.name,
-                currentStep: 1,
-                totalSteps: 4,
-                onBack: { dismiss() },
-                onContinue: { step = .methods },
-                onHowItWorks: { openURL(verificationInfoURL) }
-            )
-        case .methods:
-            WaysToVerifyView(
-                options: verificationOptions,
-                currentStep: 2,
-                totalSteps: 4,
-                selectedOptionId: $selectedOptionId,
-                onBack: { step = .intro },
-                onContinue: { option in
-                    selectedOptionId = option.id
-                    if option.id == "email" {
-                        step = .email
-                    } else {
-                        step = .photoId
-                    }
-                },
-                onSkip: nil,
-                onLearnMore: { openURL(verificationInfoURL) }
-            )
-        case .email:
-            EmailVerificationView(
-                communityId: community.id,
-                communityName: community.name,
-                currentStep: 3,
-                totalSteps: 4,
-                onBack: { step = .methods },
-                onComplete: { step = .confirmation }
-            )
-        case .photoId:
-            PhotoIdVerificationView(
-                communityId: community.id,
-                currentStep: 3,
-                totalSteps: 4,
-                onBack: { step = .methods },
-                onComplete: { step = .confirmation }
-            )
-        case .confirmation:
-            VerificationSubmittedView(
-                currentStep: 4,
-                totalSteps: 4,
-                onBack: { step = selectedOptionId == "email" ? .email : .photoId },
-                onComplete: handleComplete
-            )
+    private func content(for step: VerificationStep) -> some View {
+        Group {
+            switch step {
+            case .intro:
+                VerificationIntroView(
+                    loopName: community.name,
+                    currentStep: 1,
+                    totalSteps: 4,
+                    onBack: { dismiss() },
+                    onContinue: { path.append(.methods) },
+                    onHowItWorks: { openURL(verificationInfoURL) },
+                    showsHeader: false
+                )
+            case .methods:
+                WaysToVerifyView(
+                    options: verificationOptions,
+                    currentStep: 2,
+                    totalSteps: 4,
+                    selectedOptionId: $selectedOptionId,
+                    onBack: {},
+                    onContinue: { option in
+                        selectedOptionId = option.id
+                        if option.id == "email" {
+                            path.append(.email)
+                        } else {
+                            path.append(.photoId)
+                        }
+                    },
+                    onSkip: nil,
+                    onLearnMore: { openURL(verificationInfoURL) },
+                    showsHeader: false
+                )
+            case .email:
+                EmailVerificationView(
+                    communityId: community.id,
+                    communityName: community.name,
+                    currentStep: 3,
+                    totalSteps: 4,
+                    onBack: {},
+                    onComplete: { pushIfNeeded(.confirmation) },
+                    showsHeader: false
+                )
+            case .photoId:
+                PhotoIdVerificationView(
+                    communityId: community.id,
+                    currentStep: 3,
+                    totalSteps: 4,
+                    onBack: {},
+                    onComplete: { pushIfNeeded(.confirmation) },
+                    showsHeader: false
+                )
+            case .confirmation:
+                VerificationSubmittedView(
+                    currentStep: 4,
+                    totalSteps: 4,
+                    onBack: {},
+                    onComplete: handleComplete,
+                    showsHeader: false
+                )
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark")
+                }
+                .tint(.loopedTextSecondary)
+                .accessibilityLabel("Close")
+            }
         }
     }
 
@@ -91,12 +108,17 @@ struct CommunityVerificationFlowView: View {
         ]
     }
 
+    private func pushIfNeeded(_ step: VerificationStep) {
+        guard path.last != step else { return }
+        path.append(step)
+    }
+
     private func handleComplete() {
         onComplete()
         dismiss()
     }
 
-    private enum VerificationStep {
+    private enum VerificationStep: Hashable {
         case intro
         case methods
         case email

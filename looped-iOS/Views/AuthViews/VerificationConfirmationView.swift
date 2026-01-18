@@ -31,16 +31,10 @@ struct VerificationConfirmationView: View {
                     .padding(.top, 8)
                     .padding(.horizontal, 16)
 
-                HStack(spacing: 2) {
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 68)
-
-                    Text("ooped")
-                        .font(.loopedSuperLargeHeading)
-                        .foregroundColor(.loopedTextPrimary)
-                }
+                Image("logo-banner")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 68)
                 .padding(.top, 12)
                 .padding(.bottom, 24)
 

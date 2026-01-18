@@ -9,6 +9,7 @@ struct WaysToVerifyView: View {
     let onContinue: (VerificationOption) -> Void
     let onSkip: (() -> Void)?
     let onLearnMore: () -> Void
+    let showsHeader: Bool
 
     init(
         options: [VerificationOption] = [
@@ -21,7 +22,8 @@ struct WaysToVerifyView: View {
         onBack: @escaping () -> Void,
         onContinue: @escaping (VerificationOption) -> Void,
         onSkip: (() -> Void)?,
-        onLearnMore: @escaping () -> Void = {}
+        onLearnMore: @escaping () -> Void = {},
+        showsHeader: Bool = true
     ) {
         self.options = options
         self.currentStep = currentStep
@@ -31,14 +33,17 @@ struct WaysToVerifyView: View {
         self.onContinue = onContinue
         self.onSkip = onSkip
         self.onLearnMore = onLearnMore
+        self.showsHeader = showsHeader
     }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
+                if showsHeader {
+                    header
+                        .padding(.top, 8)
+                        .padding(.horizontal, 16)
+                }
 
                 Spacer()
                     .frame(height: geometry.size.height * 0.12)
@@ -93,6 +98,16 @@ struct WaysToVerifyView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            if !showsHeader {
+                ToolbarItem(placement: .principal) {
+                    VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                }
+            }
         }
     }
 }
