@@ -115,6 +115,7 @@ struct UserProfileView: View {
             .modifier(
                 ProfileActionsModifier(
                     canBlockUser: canBlockUser,
+                    canBlockPrincipal: canBlockPrincipal,
                     showActionMenu: $showActionMenu,
                     showBlockConfirm: $showBlockConfirm,
                     blockErrorMessage: $blockErrorMessage,
@@ -307,37 +308,52 @@ struct UserProfileView: View {
         await commentsViewModel.loadInitial()
     }
 
-    private var canShowActionMenu: Bool {
-        canBlockUser
-    }
+	    private var canShowActionMenu: Bool {
+	        canBlockUser || canBlockPrincipal
+	    }
 
-    private var canBlockUser: Bool {
-        guard !viewModel.isAnonymousProfile else { return false }
-        guard let profileId = viewModel.profile?.backendId else { return false }
-        if let currentUserId = authViewModel.currentUser?.backendId, currentUserId == profileId {
-            return false
-        }
-        return true
-    }
+	    private var canBlockUser: Bool {
+	        guard let profileId = viewModel.profile?.backendId else { return false }
+	        if let currentUserId = authViewModel.currentUser?.backendId, currentUserId == profileId {
+	            return false
+	        }
+	        guard !viewModel.isAnonymousProfile else { return false }
+	        return true
+	    }
 
-    private var blockTargetLabel: String {
-        guard let profile = viewModel.profile else { return "this user" }
-        if profile.isAnonymous {
-            return "this user"
-        }
+	    private var canBlockPrincipal: Bool {
+	        guard viewModel.isAnonymousProfile else { return false }
+	        guard viewModel.profile?.backendId != nil else { return false }
+	        return true
+	    }
+
+	    private var blockTargetLabel: String {
+	        guard let profile = viewModel.profile else { return "this user" }
+	        if profile.isAnonymous {
+	            return "this user"
+	        }
         return profile.formattedHandle
     }
 
 	    @MainActor
 	    private func blockProfileUser() async {
-	        guard canBlockUser else { return }
 	        guard let profileId = viewModel.profile?.backendId else { return }
 	        guard !isBlocking else { return }
 	        isBlocking = true
 	        defer { isBlocking = false }
 
 	        do {
-	            _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
+	            if viewModel.isAnonymousProfile {
+	                guard canBlockPrincipal else { return }
+	                _ = try await blockService.blockPrincipal(
+	                    principalId: profileId,
+	                    asAnonymousActor: isAnonymousMode,
+	                    communityId: nil
+	                )
+	            } else {
+	                guard canBlockUser else { return }
+	                _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
+	            }
 	            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
 	            dismiss()
 	        } catch {
@@ -369,6 +385,7 @@ struct UserProfileView: View {
 
 private struct ProfileActionsModifier: ViewModifier {
     let canBlockUser: Bool
+    let canBlockPrincipal: Bool
     @Binding var showActionMenu: Bool
     @Binding var showBlockConfirm: Bool
     @Binding var blockErrorMessage: String?
@@ -379,7 +396,7 @@ private struct ProfileActionsModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .confirmationDialog("Profile options", isPresented: $showActionMenu, titleVisibility: .visible) {
-                if canBlockUser {
+                if canBlockUser || canBlockPrincipal {
                     Button("Block User", role: .destructive) {
                         showBlockConfirm = true
                     }
