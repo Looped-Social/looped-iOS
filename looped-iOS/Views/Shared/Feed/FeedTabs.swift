@@ -3,6 +3,7 @@ import SwiftUI
 enum FeedTab: String, CaseIterable {
     case forYou = "For You"
     case hot = "Latest"
+    case following = "Following"
 }
 
 struct FeedTabs: View {
@@ -27,7 +28,7 @@ struct FeedTabs: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Tab selector (For You / Latest)
+            // Tab selector (For You / Latest / Following)
             VStack(spacing: 0) {
                 HStack {
                     ForEach(FeedTab.allCases, id: \.self) { tab in
@@ -51,15 +52,11 @@ struct FeedTabs: View {
                 
                 // Full-width underlines
                 HStack(spacing: 0) {
-                    // For You underline
-                    Rectangle()
-                        .frame(height: selectedTab == .forYou ? 2 : 1)
-                        .foregroundColor(selectedTab == .forYou ? .loopedPrimary : .loopedTextSecondary.opacity(0.3))
-                    
-                    // Latest underline
-                    Rectangle()
-                        .frame(height: selectedTab == .hot ? 2 : 1)
-                        .foregroundColor(selectedTab == .hot ? .loopedPrimary : .loopedTextSecondary.opacity(0.3))
+                    ForEach(FeedTab.allCases, id: \.self) { tab in
+                        Rectangle()
+                            .frame(height: selectedTab == tab ? 2 : 1)
+                            .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary.opacity(0.3))
+                    }
                 }
             }
             
@@ -323,6 +320,8 @@ private extension FeedTab {
             return .forYou
         case .hot:
             return .new
+        case .following:
+            return .following
         }
     }
 }
