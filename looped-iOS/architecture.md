@@ -91,6 +91,10 @@ iOS App ←→ HTTP/WebSocket ←→ Java Backend ←→ Database
 
 ## WebSocket Implementation
 
+### Current Status
+
+The app has a `WebSocketService`, but realtime message handling is not fully implemented yet (it currently contains placeholder parsing in places). Messaging and notifications are primarily powered by HTTP polling today. Treat WebSockets as a planned optimization/upgrade for realtime UX.
+
 ### Why WebSockets for iOS?
 
 Unlike web apps that are limited to HTTP, iOS apps can maintain persistent connections for real-time features. WebSockets provide:

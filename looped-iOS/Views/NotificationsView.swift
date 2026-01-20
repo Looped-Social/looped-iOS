@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotificationsView: View {
     @ObservedObject var viewModel: NotificationsViewModel
+    @State private var selectedProfileDestination: ProfileDestination?
 
     init(viewModel: NotificationsViewModel) {
         self.viewModel = viewModel
@@ -69,18 +70,24 @@ struct NotificationsView: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.notifications) { notification in
-                            Button(action: {
-                                viewModel.handleNotificationTap(notification)
-                            }) {
-                                NotificationRow(
-                                    notification: notification,
-                                    isActionLoading: viewModel.actionLoadingIds.contains(notification.id),
-                                    onActionTapped: {
-                                        viewModel.handleActionButtonTap(notification)
+                            NotificationRow(
+                                notification: notification,
+                                actionTitle: viewModel.actionTitle(for: notification),
+                                isActionLoading: viewModel.actionLoadingIds.contains(notification.id),
+                                isActionEnabled: viewModel.isActionEnabled(for: notification),
+                                onActionTapped: {
+                                    viewModel.handleActionButtonTap(notification)
+                                },
+                                onActorTapped: {
+                                    if let destination = ProfileDestination(notification: notification) {
+                                        selectedProfileDestination = destination
                                     }
-                                )
+                                }
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                viewModel.handleNotificationTap(notification)
                             }
-                            .buttonStyle(PlainButtonStyle())
                             .onAppear {
                                 if notification.id == viewModel.notifications.last?.id {
                                     Task { await viewModel.loadMoreNotifications() }
@@ -120,6 +127,14 @@ struct NotificationsView: View {
             }
         }
         .toast($viewModel.toastMessage)
+        .navigationDestination(item: $selectedProfileDestination) { destination in
+            switch destination {
+            case .user(let id):
+                UserProfileView(userId: id)
+            case .anon(let id):
+                UserProfileView(anonProfileId: id)
+            }
+        }
         .task {
             if viewModel.notifications.isEmpty {
                 await viewModel.loadNotifications()
@@ -129,6 +144,32 @@ struct NotificationsView: View {
 
     private var isMarkAllDisabled: Bool {
         viewModel.notifications.isEmpty || viewModel.notifications.allSatisfy(\.isRead) || viewModel.isLoading
+    }
+}
+
+private enum ProfileDestination: Hashable, Identifiable {
+    case user(Int)
+    case anon(Int)
+
+    var id: String {
+        switch self {
+        case .user(let id):
+            return "user:\(id)"
+        case .anon(let id):
+            return "anon:\(id)"
+        }
+    }
+
+    init?(notification: Notification) {
+        if notification.actorIsAnonymous, let anonId = notification.actorAnonProfileId?.backendInt {
+            self = .anon(anonId)
+            return
+        }
+        if let userId = notification.actorId?.backendInt {
+            self = .user(userId)
+            return
+        }
+        return nil
     }
 }
 

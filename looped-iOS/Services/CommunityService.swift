@@ -44,6 +44,68 @@ class CommunityService: CommunityServiceProtocol {
         return response.items
     }
 
+    func fetchJoinedSpecializations(type: CommunitySpecializationType?) async throws -> [DisplayCommunity] {
+        let filterType = type ?? .unknown
+        let typeQuery: String = {
+            switch filterType {
+            case .major:
+                return "major"
+            case .department:
+                return "department"
+            case .unknown:
+                return "all"
+            }
+        }()
+
+        var aggregated: [DisplayCommunity] = []
+        var cursor: String?
+        let pageLimit = 200
+        let maxTotal = 500
+
+        while true {
+            var endpoint = "/v1/me/joined/specializations?type=\(typeQuery)&limit=\(pageLimit)"
+            if let cursor, !cursor.isEmpty {
+                let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+                endpoint += "&cursor=\(encoded)"
+            }
+            let response: JoinedSpecializationsResponseDTO = try await apiClient.get(endpoint)
+            aggregated.append(
+                contentsOf: response.items.map { item in
+                    DisplayCommunity(
+                        id: item.id,
+                        name: item.name,
+                        shortName: item.shortName,
+                        kind: .specialization,
+                        specializationType: CommunitySpecializationType(rawValue: item.specializationType ?? "") ?? .unknown
+                    )
+                }
+            )
+            cursor = response.nextCursor
+            if cursor == nil || aggregated.count >= maxTotal {
+                break
+            }
+        }
+
+        let filtered = aggregated.filter { item in
+            let type = item.specializationType ?? .unknown
+            guard type != .unknown else { return false }
+            if filterType != .unknown, type != filterType { return false }
+            return true
+        }
+
+        return filtered.sorted { lhs, rhs in
+            let leftType = lhs.specializationType ?? .unknown
+            let rightType = rhs.specializationType ?? .unknown
+            if leftType != rightType {
+                // Keep majors before departments for pickers.
+                if leftType == .major { return true }
+                if rightType == .major { return false }
+                return leftType.rawValue < rightType.rawValue
+            }
+            return lhs.displayText.localizedCaseInsensitiveCompare(rhs.displayText) == .orderedAscending
+        }
+    }
+
     func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit] {
         var endpoint = "/v1/me/specializations/join-limits"
         if let type, type != .unknown {
@@ -88,11 +150,11 @@ class CommunityService: CommunityServiceProtocol {
     }
 
     func joinSpecialization(id: Int) async throws {
-        let _: EmptyResponse = try await apiClient.post("/v1/specializations/\(id)/join", body: EmptyBody())
+        let _: EmptyResponse = try await apiClient.post("/v1/communities/\(id)/join", body: EmptyBody())
     }
 
     func unjoinSpecialization(id: Int) async throws {
-        try await apiClient.delete("/v1/specializations/\(id)/join")
+        try await apiClient.delete("/v1/communities/\(id)/join")
     }
 
     func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions {

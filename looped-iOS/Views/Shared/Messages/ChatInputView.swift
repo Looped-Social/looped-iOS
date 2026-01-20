@@ -191,7 +191,7 @@ struct ChatInputView: View {
                 onDismiss: { showMediaPicker = false }
             )
         }
-        .sheet(isPresented: $showCamera) {
+        .fullScreenCover(isPresented: $showCamera) {
             CameraPickerView(selectedImage: .init(
                 get: { nil },
                 set: { image in

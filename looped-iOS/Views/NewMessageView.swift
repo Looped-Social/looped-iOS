@@ -126,7 +126,7 @@ struct NewMessageView: View {
                     }
                 } else if searchText.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Search coworkers to start a conversation.")
+                        Text("Search people to start a conversation.")
                             .font(.loopedBodyMedium)
                             .foregroundColor(.loopedTextPrimary)
                     }
@@ -269,22 +269,7 @@ struct ContactRow: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 // Profile Picture
-                AsyncImage(url: URL(string: contact.profileImageURL ?? "")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.loopedPrimary)
-                        .overlay(
-                            Image("profile-icon")
-                                .renderingMode(.template)
-                                .font(.loopedCustom(size: 16))
-                                .foregroundColor(.loopedWhite)
-                        )
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
+                ProfileAvatarView(imageURL: contact.profileImageURL, size: 40, iconScale: 0.4)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(contact.displayName ?? "Anonymous")

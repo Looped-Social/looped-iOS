@@ -421,6 +421,7 @@ private extension SettingsView {
         do {
             let communityId = await AnonCommunityResolver.resolve(
                 preferredCommunityId: authViewModel.currentUser?.displayCommunity?.id,
+                preferredSpecializationId: authViewModel.currentUser?.displaySpecialization?.id,
                 verificationService: verificationService
             )
             guard let communityId else {

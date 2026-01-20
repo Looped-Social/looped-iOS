@@ -127,6 +127,7 @@ private extension MenuContent {
         do {
             let communityId = await AnonCommunityResolver.resolve(
                 preferredCommunityId: authViewModel.currentUser?.displayCommunity?.id,
+                preferredSpecializationId: authViewModel.currentUser?.displaySpecialization?.id,
                 verificationService: verificationService
             )
             guard let communityId else {
@@ -849,6 +850,7 @@ struct DraftsView: View {
                     selectedDraft = nil
                 }
             )
+            .presentationDetents([.large])
         }
     }
 }

@@ -73,10 +73,18 @@ struct CustomTabBar: View {
                     }
                 }
             }
+            .padding(.top, 6)
+            .padding(.bottom, 2)
             .padding(.horizontal, 20)
             .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .bottom))
             .padding(.bottom, 0)
         }
+        .background(
+            GeometryReader { proxy in
+                Color.loopedClear
+                    .preference(key: LoopedTabBarHeightPreferenceKey.self, value: proxy.size.height)
+            }
+        )
         .onChange(of: isAnonymous) { _, newValue in
             if newValue && selectedTab == .messages {
                 selectedTab = .home
@@ -127,7 +135,6 @@ struct TabBarButton: View {
                             .accessibilityHidden(true)
                     }
                 }
-                .padding(.top, 4)
             }
             .frame(maxWidth: .infinity)
             .animation(nil, value: isSelected)

@@ -10,6 +10,7 @@ struct UserSettingsView: View {
     private let userService: UserServiceProtocol = UserService()
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
     private let mediaService: MediaServiceProtocol = MediaService()
+    private let communityService: CommunityServiceProtocol = CommunityService()
     private let anonService = AnonService.shared
 
     @State private var username: String = ""
@@ -33,7 +34,9 @@ struct UserSettingsView: View {
     @State private var displaySpecialization: DisplayCommunity?
     @State private var initialDisplaySpecializationId: Int?
     @State private var displaySpecializationError: String?
-    @State private var isShowingSpecializationPicker = false
+    @State private var joinedSpecializations: [DisplayCommunity] = []
+    @State private var isLoadingJoinedSpecializations = false
+    @State private var joinedSpecializationsError: String?
     @State private var anonDisplayCommunities: [DisplayCommunity] = []
     @State private var anonDisplayCommunityId: Int?
     @State private var initialAnonDisplayCommunityId: Int?
@@ -43,7 +46,6 @@ struct UserSettingsView: View {
     @State private var anonDisplaySpecialization: DisplayCommunity?
     @State private var initialAnonDisplaySpecializationId: Int?
     @State private var anonDisplaySpecializationError: String?
-    @State private var isShowingAnonSpecializationPicker = false
     @State private var toastMessage: ToastMessage?
     @State private var selectedProfilePhoto: PhotosPickerItem?
     @State private var profilePhotoPreview: UIImage?
@@ -157,23 +159,74 @@ struct UserSettingsView: View {
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
 
-                            Button(action: { isShowingAnonSpecializationPicker = true }) {
+                            if isLoadingJoinedSpecializations {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                    Text("Loading joined specializations...")
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .padding(.vertical, 8)
+                            } else if joinedSpecializations.isEmpty {
                                 DisplaySpecializationRow(
                                     specialization: anonDisplaySpecialization,
                                     displayCommunity: selectedAnonDisplayCommunity,
-                                    fallbackText: "Select a major or department",
+                                    fallbackText: "Join a major or department to add it here",
                                     font: .loopedBody,
                                     textColor: anonDisplaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                     iconSize: 18,
-                                    showsDisclosure: true,
+                                    showsDisclosure: false,
                                     showsCommunityFallback: false
                                 )
                                 .padding(12)
                                 .background(Color.loopedTextSecondary.opacity(0.1))
                                 .cornerRadius(8)
+                            } else {
+                                let selection = Binding<Int?>(
+                                    get: { anonDisplaySpecialization?.id },
+                                    set: { newValue in
+                                        if let newValue {
+                                            anonDisplaySpecialization = joinedSpecializations.first(where: { $0.id == newValue })
+                                        } else {
+                                            anonDisplaySpecialization = nil
+                                        }
+                                    }
+                                )
+                                Picker(
+                                    selection: selection,
+                                    label: DisplaySpecializationRow(
+                                        specialization: anonDisplaySpecialization,
+                                        displayCommunity: selectedAnonDisplayCommunity,
+                                        fallbackText: "Select a major or department",
+                                        font: .loopedBody,
+                                        textColor: anonDisplaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                        iconSize: 18,
+                                        showsDisclosure: true,
+                                        showsCommunityFallback: false
+                                    )
+                                    .padding(12)
+                                    .background(Color.loopedTextSecondary.opacity(0.1))
+                                    .cornerRadius(8)
+                                ) {
+                                    Text("None").tag(Int?.none)
+                                    ForEach(joinedSpecializations, id: \.id) { specialization in
+                                        Text(CommunityLabelText.preferredName(
+                                            preferShortNames: preferCommunityShortNames,
+                                            name: specialization.name,
+                                            shortName: specialization.shortName
+                                        ) ?? specialization.displayText)
+                                        .tag(Optional(specialization.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .disabled(isSaving)
                             }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(isSaving)
+                            
+                            if let joinedSpecializationsError {
+                                Text(joinedSpecializationsError)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedError)
+                            }
 
                             if let anonDisplaySpecializationError {
                                 Text(anonDisplaySpecializationError)
@@ -318,23 +371,74 @@ struct UserSettingsView: View {
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
 
-                            Button(action: { isShowingSpecializationPicker = true }) {
+                            if isLoadingJoinedSpecializations {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                    Text("Loading joined specializations...")
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .padding(.vertical, 8)
+                            } else if joinedSpecializations.isEmpty {
                                 DisplaySpecializationRow(
                                     specialization: displaySpecialization,
                                     displayCommunity: selectedDisplayCommunity,
-                                    fallbackText: "Select a major or department",
+                                    fallbackText: "Join a major or department to add it here",
                                     font: .loopedBody,
                                     textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                     iconSize: 18,
-                                    showsDisclosure: true,
+                                    showsDisclosure: false,
                                     showsCommunityFallback: false
                                 )
                                 .padding(12)
                                 .background(Color.loopedTextSecondary.opacity(0.1))
                                 .cornerRadius(8)
+                            } else {
+                                let selection = Binding<Int?>(
+                                    get: { displaySpecialization?.id },
+                                    set: { newValue in
+                                        if let newValue {
+                                            displaySpecialization = joinedSpecializations.first(where: { $0.id == newValue })
+                                        } else {
+                                            displaySpecialization = nil
+                                        }
+                                    }
+                                )
+                                Picker(
+                                    selection: selection,
+                                    label: DisplaySpecializationRow(
+                                        specialization: displaySpecialization,
+                                        displayCommunity: selectedDisplayCommunity,
+                                        fallbackText: "Select a major or department",
+                                        font: .loopedBody,
+                                        textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
+                                        iconSize: 18,
+                                        showsDisclosure: true,
+                                        showsCommunityFallback: false
+                                    )
+                                    .padding(12)
+                                    .background(Color.loopedTextSecondary.opacity(0.1))
+                                    .cornerRadius(8)
+                                ) {
+                                    Text("None").tag(Int?.none)
+                                    ForEach(joinedSpecializations, id: \.id) { specialization in
+                                        Text(CommunityLabelText.preferredName(
+                                            preferShortNames: preferCommunityShortNames,
+                                            name: specialization.name,
+                                            shortName: specialization.shortName
+                                        ) ?? specialization.displayText)
+                                        .tag(Optional(specialization.id))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .disabled(isSaving)
                             }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(isSaving)
+
+                            if let joinedSpecializationsError {
+                                Text(joinedSpecializationsError)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedError)
+                            }
 
                             if let displaySpecializationError {
                                 Text(displaySpecializationError)
@@ -447,15 +551,10 @@ struct UserSettingsView: View {
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toast($toastMessage)
-        .sheet(isPresented: $isShowingSpecializationPicker) {
-            DisplaySpecializationPickerView(selectedSpecialization: $displaySpecialization)
-        }
-        .sheet(isPresented: $isShowingAnonSpecializationPicker) {
-            DisplaySpecializationPickerView(selectedSpecialization: $anonDisplaySpecialization)
-        }
         .onAppear {
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
+            Task { await loadJoinedSpecializations() }
             if isAnonymousMode {
                 Task { await loadAnonDisplayCommunities() }
             }
@@ -464,6 +563,7 @@ struct UserSettingsView: View {
             hasLoadedUser = false
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
+            Task { await loadJoinedSpecializations() }
             if isAnonymousMode {
                 Task { await loadAnonDisplayCommunities() }
             }
@@ -574,6 +674,28 @@ private extension UserSettingsView {
         hasLoadedUser = true
     }
 
+    func loadJoinedSpecializations() async {
+        guard !isLoadingJoinedSpecializations else { return }
+        isLoadingJoinedSpecializations = true
+        joinedSpecializationsError = nil
+        defer { isLoadingJoinedSpecializations = false }
+        do {
+            let items = try await communityService.fetchJoinedSpecializations(type: nil)
+            joinedSpecializations = items
+            if let currentId = displaySpecialization?.id,
+               !items.contains(where: { $0.id == currentId }) {
+                displaySpecialization = nil
+            }
+            if let currentId = anonDisplaySpecialization?.id,
+               !items.contains(where: { $0.id == currentId }) {
+                anonDisplaySpecialization = nil
+            }
+        } catch {
+            joinedSpecializationsError = error.localizedDescription
+            joinedSpecializations = []
+        }
+    }
+
     func loadVerifiedCommunities() async {
         guard !isLoadingDisplayCommunities else { return }
         isLoadingDisplayCommunities = true
@@ -601,6 +723,7 @@ private extension UserSettingsView {
             } else {
                 let communityId = await AnonCommunityResolver.resolve(
                     preferredCommunityId: currentUser?.displayCommunity?.id,
+                    preferredSpecializationId: currentUser?.displaySpecialization?.id,
                     verificationService: verificationService
                 )
                 guard let communityId else {

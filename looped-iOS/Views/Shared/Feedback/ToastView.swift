@@ -63,23 +63,26 @@ struct ToastPresenter: ViewModifier {
     @State private var presentedToast: ToastMessage?
     @State private var isPresented = false
     @State private var dismissTask: Task<Void, Never>?
+    @Environment(\.loopedTabBarHeight) private var tabBarHeight
 
     func body(content: Content) -> some View {
-        ZStack(alignment: .bottom) {
-            content
-
-            if let presentedToast {
-                LoopedToastView(message: presentedToast)
-                    .padding(.bottom, 24)
-                    .padding(.horizontal, 20)
-                    .offset(y: isPresented ? 0 : 14)
-                    .scaleEffect(isPresented ? 1 : 0.98)
-                    .opacity(isPresented ? 1 : 0)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.86), value: isPresented)
-                    .allowsHitTesting(false)
+        content
+            .overlay {
+                GeometryReader { proxy in
+                    if let presentedToast {
+                        LoopedToastView(message: presentedToast)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, bottomPadding(proxy: proxy))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                            .offset(y: isPresented ? 0 : 14)
+                            .scaleEffect(isPresented ? 1 : 0.98)
+                            .opacity(isPresented ? 1 : 0)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.86), value: isPresented)
+                            .allowsHitTesting(false)
+                    }
+                }
             }
-        }
-        .onChange(of: toast) { _, newValue in
+            .onChange(of: toast) { _, newValue in
             dismissTask?.cancel()
             guard let newValue else {
                 withAnimation(.easeIn(duration: 0.2)) {
@@ -115,6 +118,12 @@ struct ToastPresenter: ViewModifier {
                 presentedToast = nil
             }
         }
+    }
+
+    private func bottomPadding(proxy: GeometryProxy) -> CGFloat {
+        // Keep toasts above the custom tab bar (which is inserted via `safeAreaInset`)
+        // while still respecting the device's home indicator safe area.
+        proxy.safeAreaInsets.bottom + tabBarHeight + 16
     }
 }
 

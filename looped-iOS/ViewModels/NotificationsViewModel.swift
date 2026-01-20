@@ -8,6 +8,7 @@ class NotificationsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingMore = false
     @Published var actionLoadingIds: Set<UUID> = []
+    @Published private var followedActorIds: Set<Int> = []
     @Published var errorMessage: String?
     @Published var toastMessage: ToastMessage?
 
@@ -114,7 +115,7 @@ class NotificationsViewModel: ObservableObject {
             switch notification.type {
             case .follow:
                 if let actorId = notification.actorId {
-                    await followUser(actorId)
+                    await toggleFollow(actorId)
                 } else {
                     toastMessage = ToastMessage(text: "Can't follow an anonymous profile yet.", kind: .error)
                 }
@@ -124,6 +125,29 @@ class NotificationsViewModel: ObservableObject {
             default:
                 break
             }
+        }
+    }
+
+    func actionTitle(for notification: Notification) -> String? {
+        switch notification.type {
+        case .follow:
+            guard let backendId = notification.actorId?.backendInt else { return nil }
+            return followedActorIds.contains(backendId) ? "Following" : "Follow"
+        case .loopInvite:
+            return "Join Loop"
+        case .groupInvite:
+            return "Join Group"
+        default:
+            return nil
+        }
+    }
+
+    func isActionEnabled(for notification: Notification) -> Bool {
+        switch notification.type {
+        case .follow:
+            return notification.actorId?.backendInt != nil
+        default:
+            return true
         }
     }
 
@@ -185,11 +209,25 @@ class NotificationsViewModel: ObservableObject {
     }
 
     // MARK: - Action Helpers
-    private func followUser(_ userId: UUID) async {
+    private func toggleFollow(_ userId: UUID) async {
         guard let backendUserId = userId.backendInt else { return }
+        if followedActorIds.contains(backendUserId) {
+            do {
+                let result = try await userService.unfollowUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
+                if result.following == false {
+                    followedActorIds.remove(backendUserId)
+                }
+            } catch {
+                toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+            }
+            return
+        }
+
         do {
             let result = try await userService.followUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
-            toastMessage = ToastMessage(text: result.following ? "Following" : "Not following", kind: .success)
+            if result.following {
+                followedActorIds.insert(backendUserId)
+            }
         } catch {
             toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
         }

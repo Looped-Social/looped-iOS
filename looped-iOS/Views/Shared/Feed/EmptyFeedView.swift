@@ -12,7 +12,7 @@ struct EmptyFeedView: View {
                 .font(.loopedSubheadMedium)
                 .foregroundColor(.loopedTextPrimary)
 
-            Text("No posts yet. Be the first to start something your coworkers actually want to read.")
+            Text("No posts yet. Be the first to start something your community actually wants to read.")
                 .font(.loopedSubBodyRegular)
                 .foregroundColor(.loopedTextSecondary)
                 .multilineTextAlignment(.center)
@@ -28,4 +28,3 @@ struct EmptyFeedView: View {
     EmptyFeedView()
         .background(Color.loopedBackground.ignoresSafeArea())
 }
-

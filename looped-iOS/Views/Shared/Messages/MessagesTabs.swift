@@ -10,7 +10,7 @@ struct MessagesTabs: View {
     @Binding var selectedTab: MessageTab
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             ForEach(MessageTab.allCases, id: \.self) { tab in
                 Button(action: {
                     selectedTab = tab
@@ -18,7 +18,10 @@ struct MessagesTabs: View {
                     Text(tab.rawValue)
                         .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
                         .foregroundColor(selectedTab == tab ? .loopedWhite : .loopedTextSecondary)
-                        .padding(.horizontal, 20)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .allowsTightening(true)
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 20)
@@ -31,8 +34,6 @@ struct MessagesTabs: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-
-            Spacer()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

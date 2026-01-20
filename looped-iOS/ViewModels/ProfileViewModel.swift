@@ -76,6 +76,7 @@ class ProfileViewModel: ObservableObject {
             do {
                 let communityId = await AnonCommunityResolver.resolve(
                     preferredCommunityId: user?.displayCommunity?.id,
+                    preferredSpecializationId: user?.displaySpecialization?.id,
                     verificationService: verificationService
                 )
                 guard let communityId else {

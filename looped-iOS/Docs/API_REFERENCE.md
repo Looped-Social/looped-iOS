@@ -33,6 +33,19 @@ Environment variables (set in ECS via SSM/Secrets)
 
 ## Endpoints
 
+### App Config
+
+GET /v1/app-config
+- No auth required
+- Use cases:
+  - Optional client-side placeholder/splash configuration (e.g., a default profile image URL).
+- 200 OK:
+```
+{
+  "default_profile_image_url": "https://..." // string or null
+}
+```
+
 ### Identity
 
 GET /v1/me
@@ -147,6 +160,38 @@ GET /v1/users/search?query=&limit=&cursor=
 
 GET /v1/users?limit=&cursor=
 - Auth required, same-company scope; default directory/suggestions with the same item shape as search
+
+### Specializations (Majors/Departments)
+
+GET /v1/me/joined/specializations?type=major|department|all&limit=&cursor=
+- Auth: `Authorization: Bearer <firebase_jwt>`
+- 200 OK:
+```
+{
+  "items": [
+    {
+      "id": 123,
+      "kind": "specialization",
+      "name": "Computer Science",
+      "short_name": "CS",
+      "specialization_type": "major",
+      "member_count": 1800,
+      "joined_at": "2024-01-02T03:04:05Z"
+    }
+  ],
+  "next_cursor": "opaque-cursor"
+}
+```
+- Errors:
+  - 400 `{ "error": "invalid_specialization_type" }`
+  - 409 `{ "error": "user_not_provisioned" }`
+
+POST /v1/communities/{id}/join
+DELETE /v1/communities/{id}/join
+- Auth: `Authorization: Bearer <firebase_jwt>`
+- Notes:
+  - For `community.kind == specialization`, this applies join-limit + cooldown rules.
+  - For non-specializations, this is treated as follow/unfollow server-side.
 
 ### Feed & Posts
 

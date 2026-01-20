@@ -2,13 +2,26 @@ import SwiftUI
 
 struct NotificationRow: View {
     let notification: Notification
+    let actionTitle: String?
     let isActionLoading: Bool
+    let isActionEnabled: Bool
     let onActionTapped: (() -> Void)?
+    let onActorTapped: (() -> Void)?
 
-    init(notification: Notification, isActionLoading: Bool = false, onActionTapped: (() -> Void)? = nil) {
+    init(
+        notification: Notification,
+        actionTitle: String? = nil,
+        isActionLoading: Bool = false,
+        isActionEnabled: Bool = true,
+        onActionTapped: (() -> Void)? = nil,
+        onActorTapped: (() -> Void)? = nil
+    ) {
         self.notification = notification
+        self.actionTitle = actionTitle
         self.isActionLoading = isActionLoading
+        self.isActionEnabled = isActionEnabled
         self.onActionTapped = onActionTapped
+        self.onActorTapped = onActorTapped
     }
 
     var body: some View {
@@ -28,15 +41,16 @@ struct NotificationRow: View {
                     ProfileAvatarView(imageURL: notification.actorProfileImageUrl, size: 40)
                 }
             }
+            .onTapGesture {
+                guard !notification.actorIsAnonymous else { return }
+                onActorTapped?()
+            }
 
             // Content
             VStack(alignment: .leading, spacing: 6) {
                 // Notification Text
                 HStack(alignment: .top, spacing: 6) {
-                    // Notification text with attributed string
-                    Text(notificationAttributedText)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextPrimary)
+                    notificationTextView
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -69,28 +83,15 @@ struct NotificationRow: View {
                 }
 
                 // Action Button (for follow/invite notifications)
-                if notification.hasActionButton {
+                if let actionTitle, !actionTitle.isEmpty {
                     Button(action: {
                         onActionTapped?()
                     }) {
-                        HStack(spacing: 10) {
-                            Text(notification.actionButtonText)
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedPrimary)
-
-                            if isActionLoading {
-                                ProgressView()
-                                    .tint(.loopedPrimary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.loopedBackground)
+                        notificationActionButtonLabel(title: actionTitle)
                     }
-                    .cornerRadius(10)
-                    .border(Color.loopedTextSecondary.opacity(0.3))
+                    .buttonStyle(PlainButtonStyle())
                     .padding(.top, 4)
-                    .disabled(isActionLoading)
+                    .disabled(isActionLoading || !isActionEnabled)
                 }
             }
 
@@ -102,18 +103,108 @@ struct NotificationRow: View {
     }
 
     // MARK: - Helper Properties
-    private var notificationAttributedText: AttributedString {
-        var text = AttributedString(notification.notificationText)
+    private var notificationTextView: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            if onActorTapped != nil, !notification.actorIsAnonymous {
+                Button(action: { onActorTapped?() }) {
+                    Text(notification.actorName)
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedTextPrimary)
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                Text(notification.actorName)
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedTextPrimary)
+            }
 
-        // Find and bold the actor name
-        if let range = text.range(of: notification.actorName) {
-            text[range].font = .loopedSubBodyMedium
-            text[range].foregroundColor = .loopedTextPrimary
+            Text(notificationSuffixText)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextPrimary)
         }
-
-        return text
     }
 
+    private var notificationSuffixText: String {
+        let full = notification.notificationText
+        if full.hasPrefix(notification.actorName) {
+            return String(full.dropFirst(notification.actorName.count))
+        }
+        if let range = full.range(of: notification.actorName) {
+            return String(full[range.upperBound...])
+        }
+        return full
+    }
+
+    @ViewBuilder
+    private func notificationActionButtonLabel(title: String) -> some View {
+        let style = actionButtonStyle(for: title)
+        let textColor: Color = {
+            guard isActionEnabled else { return .loopedTextSecondary.opacity(0.75) }
+            switch style {
+            case .filled:
+                return .loopedWhite
+            case .outline:
+                return .loopedTextSecondary
+            }
+        }()
+
+        let background: Color = {
+            guard isActionEnabled else { return .loopedMutedBackground.opacity(0.35) }
+            switch style {
+            case .filled:
+                return .loopedPrimary
+            case .outline:
+                return .loopedClear
+            }
+        }()
+
+        let borderColor: Color = {
+            guard isActionEnabled else { return .loopedTextSecondary.opacity(0.2) }
+            switch style {
+            case .filled:
+                return background
+            case .outline:
+                return .loopedTextSecondary
+            }
+        }()
+
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(textColor)
+
+            if isActionLoading {
+                ProgressView()
+                    .tint(textColor)
+                    .scaleEffect(0.85)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .fixedSize(horizontal: true, vertical: false)
+        .background(background)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(borderColor, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private enum NotificationActionButtonStyle {
+        case outline
+        case filled
+    }
+
+    private func actionButtonStyle(for title: String) -> NotificationActionButtonStyle {
+        switch notification.type {
+        case .follow:
+            return title == "Following" ? .filled : .outline
+        case .loopInvite, .groupInvite:
+            return .filled
+        default:
+            return .outline
+        }
+    }
 }
 
 #Preview {
@@ -164,6 +255,7 @@ struct NotificationRow: View {
                 isRead: false,
                 createdAt: Date().addingTimeInterval(-14400)
             ),
+            actionTitle: "Follow Back",
             onActionTapped: { }
         )
 

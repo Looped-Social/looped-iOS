@@ -64,7 +64,11 @@ struct EditProfileView: View {
                                     Task {
                                         if let data = try? await newValue?.loadTransferable(type: Data.self),
                                            let uiImage = UIImage(data: data) {
-                                            profileImage = Image(uiImage: uiImage)
+                                            let prepared = uiImage
+                                                .normalizedOrientation()
+                                                .resized(maxDimension: 1024)
+                                            let trimmed = prepared.trimmedTransparentBorders() ?? prepared
+                                            profileImage = Image(uiImage: trimmed)
                                         }
                                     }
                                 }

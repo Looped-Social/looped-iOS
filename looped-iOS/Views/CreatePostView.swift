@@ -95,9 +95,9 @@ struct CreatePostView: View {
         selectedCommunity != nil && (!isAnonymous || !(anonMembershipMissing || anonMembershipExpired))
     }
 
-    private var mediaPickerAllowsVideo: Bool {
-        selectedMedia.isEmpty
-    }
+	    private var mediaPickerAllowsVideo: Bool {
+	        selectedMedia.isEmpty && pollDraft == nil
+	    }
 
     private var mediaPickerAppendSelection: Bool {
         let hasVideo = selectedMedia.contains(where: { $0.type == .video })
@@ -123,15 +123,14 @@ struct CreatePostView: View {
         return verifiedCommunities.first?.id
     }
     
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Main content
-                VStack(alignment: .leading, spacing: 16) {
-                    // Community selector
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Community")
+	    var body: some View {
+	        NavigationStack {
+	            ScrollView {
+	                VStack(alignment: .leading, spacing: 16) {
+	                    // Community selector
+	                    VStack(alignment: .leading, spacing: 8) {
+	                        HStack {
+	                            Text("Community")
                                 .font(.loopedSubBodyMedium)
                                 .foregroundColor(.loopedTextSecondary)
                             Spacer()
@@ -223,24 +222,23 @@ struct CreatePostView: View {
                         Button(action: {
                             isPostTextFocused = false
                             showMediaPicker = true
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "photo")
-                                    .font(.loopedCustom(size: 16))
-                                Text("Photo")
+	                        }) {
+	                            HStack(spacing: 6) {
+	                                Image(systemName: "photo")
+	                                    .font(.loopedCustom(size: 16))
+	                                Text("Photo")
                                     .font(.loopedSubBodyMedium)
                             }
                             .foregroundColor(.loopedPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.loopedMutedBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                        .disabled(pollDraft != nil)
+	                            .background(Color.loopedMutedBackground)
+	                            .clipShape(RoundedRectangle(cornerRadius: 8))
+	                        }
 
-                        Button(action: {
-                            isPostTextFocused = false
-                            showCamera = true
+	                        Button(action: {
+	                            isPostTextFocused = false
+	                            showCamera = true
                         }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "camera")
@@ -251,10 +249,9 @@ struct CreatePostView: View {
                             .foregroundColor(.loopedPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.loopedMutedBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                        .disabled(pollDraft != nil)
+	                            .background(Color.loopedMutedBackground)
+	                            .clipShape(RoundedRectangle(cornerRadius: 8))
+	                        }
 
                         Button(action: togglePoll) {
                             HStack(spacing: 6) {
@@ -324,21 +321,20 @@ struct CreatePostView: View {
                             .toggleStyle(SwitchToggleStyle(tint: Color.loopedSecondary))
                             .disabled(isEnrollingAnon || (!isAnonymous && selectedCommunityId == nil))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.loopedMutedBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    
-                    Spacer()
-                }
-                .padding()
-                .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .bottom))
-            }
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationTitle("New Post")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
+	                    .padding(.horizontal, 16)
+	                    .padding(.vertical, 12)
+	                    .background(Color.loopedMutedBackground)
+	                    .clipShape(RoundedRectangle(cornerRadius: 12))
+	                }
+	                .padding()
+	                .frame(maxWidth: .infinity, alignment: .leading)
+	            }
+	            .scrollDismissesKeyboard(.interactively)
+	            .background(Color.loopedBackground.ignoresSafeArea())
+	            .navigationTitle("New Post")
+	            .navigationBarTitleDisplayMode(.inline)
+	            .navigationBarBackButtonHidden(true)
+	            .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     LoopedCancelTextButton(action: handleCancel)
                 }
@@ -350,10 +346,10 @@ struct CreatePostView: View {
                         }
                     }
                     .disabled(!isPostValid || isSubmitting || !canPost)
-                    .foregroundColor((isPostValid && !isSubmitting && canPost) ? .loopedPrimary : .loopedTextSecondary)
-                }
-            }
-        }
+	                    .foregroundColor((isPostValid && !isSubmitting && canPost) ? .loopedPrimary : .loopedTextSecondary)
+	                }
+	            }
+	        }
         .toast($toastMessage)
         .alert("Verification Required", isPresented: $showVerificationInfoAlert) {
             Button("OK", role: .cancel) { }
@@ -380,22 +376,22 @@ struct CreatePostView: View {
                 onDismiss: { showMediaPicker = false }
             )
         }
-        .sheet(isPresented: $showCamera) {
-            CameraPickerView(selectedImage: .init(
-                get: { nil },
-                set: { image in
-                    if let image = image {
-                        let newItem = LocalMediaItem(type: .image, image: image)
+	        .fullScreenCover(isPresented: $showCamera) {
+	            CameraPickerView(selectedImage: .init(
+	                get: { nil },
+	                set: { image in
+	                    if let image = image {
+	                        let newItem = LocalMediaItem(type: .image, image: image)
                         if selectedMedia.contains(where: { $0.type == .video }) || selectedMedia.count >= 4 {
                             selectedMedia = [newItem]
                             presentToast(message: "Replaced attachments (max 4 photos).", kind: .info)
                         } else {
                             selectedMedia.append(newItem)
                         }
-                    }
-                }
-            ))
-        }
+	                    }
+	                }
+	            ))
+	        }
         .onAppear {
             syncSelectedCommunity()
             updateAnonMembershipStatus()
@@ -575,15 +571,12 @@ struct CreatePostView: View {
         return pollDraft.options.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
-    private var draftPromptMessage: String {
-        if selectedMedia.isEmpty {
-            return "Save this post so you can finish it later."
-        }
-        if pollDraft != nil {
-            return "Only your text and poll will be saved. Media attachments are not saved in drafts yet."
-        }
-        return "Only your text will be saved. Media attachments are not saved in drafts yet."
-    }
+	    private var draftPromptMessage: String {
+	        if selectedMedia.isEmpty {
+	            return "Save this post so you can finish it later."
+	        }
+	        return "Only your text will be saved. Media attachments are not saved in drafts yet."
+	    }
 
     private func handleCancel() {
         guard hasDraftableContent else {
@@ -622,19 +615,14 @@ struct CreatePostView: View {
         }
     }
 
-    private func togglePoll() {
-        isPostTextFocused = false
-        if pollDraft == nil {
-            pollDraft = PollDraft(maxSelections: 1)
-            if !selectedMedia.isEmpty {
-                cleanupSelectedMedia()
-                selectedMedia = []
-                presentToast(message: "Removed media attachments. Poll posts are text-only for now.", kind: .info)
-            }
-        } else {
-            pollDraft = nil
-        }
-    }
+	    private func togglePoll() {
+	        isPostTextFocused = false
+	        if pollDraft == nil {
+	            pollDraft = PollDraft(maxSelections: 1)
+	        } else {
+	            pollDraft = nil
+	        }
+	    }
 
     private func cleanupSelectedMedia() {
         for item in selectedMedia {

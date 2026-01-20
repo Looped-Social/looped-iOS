@@ -42,6 +42,8 @@ struct ContentView: View {
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
+    @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
+    @AppStorage("defaultProfileImageUrlFetchedAt") private var defaultProfileImageUrlFetchedAt = 0.0
 
     var body: some View {
         Group {
@@ -54,6 +56,9 @@ struct ContentView: View {
             } else {
                 AuthView(authViewModel: authViewModel)
             }
+        }
+        .task {
+            await loadDefaultProfileImageIfNeeded()
         }
         .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
             Button("OK", role: .cancel) {
@@ -81,6 +86,22 @@ struct ContentView: View {
     private var preferredColorScheme: ColorScheme? {
         AppearanceMode.from(rawValue: appearanceMode).colorScheme
     }
+
+    private func loadDefaultProfileImageIfNeeded() async {
+        let now = Date().timeIntervalSince1970
+        let refreshAfterSeconds = 24.0 * 60.0 * 60.0
+        if now - defaultProfileImageUrlFetchedAt < refreshAfterSeconds, !defaultProfileImageUrl.isEmpty {
+            return
+        }
+
+        do {
+            let config = try await AppConfigService().fetch()
+            defaultProfileImageUrl = (config.defaultProfileImageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            defaultProfileImageUrlFetchedAt = now
+        } catch {
+            // Best-effort; the UI will still fall back to local placeholders.
+        }
+    }
 }
 
 struct MainTabView: View {
@@ -96,6 +117,7 @@ struct MainTabView: View {
     @State private var deepLinkConversationId: Int?
     @State private var deepLinkChannelId: Int?
     @State private var menuDestination: MenuDestination?
+    @State private var tabBarHeight: CGFloat = 0
     @State private var showFAQSheet = false
     @State private var deepLinkProfile: DeepLinkProfile?
     @StateObject private var commentsManager = CommentsModalManager()
@@ -186,6 +208,7 @@ struct MainTabView: View {
                 }
             )
                 .preferredColorScheme(preferredColorScheme)
+                .presentationDetents([.large])
         }
         .sheet(isPresented: $showNewMessage) {
             NewMessageView(onChatSelected: { conversation, channel in
@@ -307,21 +330,29 @@ struct MainTabView: View {
     }
 
     @ViewBuilder
-    private func mainContent(drawerWidth: CGFloat) -> some View {
-        tabContent
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if isTabBarVisible {
-                    CustomTabBar(
-                        selectedTab: $selectedTab,
-                        showsUpdateDot: { tab in shouldShowUpdateDot(for: tab) }
-                    )
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+		    private func mainContent(drawerWidth: CGFloat) -> some View {
+		        tabContent
+		            .frame(maxWidth: .infinity, maxHeight: .infinity)
+		            .safeAreaInset(edge: .bottom, spacing: 0) {
+		                if isTabBarVisible {
+		                    CustomTabBar(
+		                        selectedTab: $selectedTab,
+		                        showsUpdateDot: { tab in shouldShowUpdateDot(for: tab) }
+	                    )
+		                        .transition(.move(edge: .bottom).combined(with: .opacity))
+	                }
+	            }
+                .onPreferenceChange(LoopedTabBarHeightPreferenceKey.self) { newValue in
+                    if newValue > 0, abs(newValue - tabBarHeight) > 0.5 {
+                        tabBarHeight = newValue
+                    } else if newValue == 0 {
+                        tabBarHeight = 0
+                    }
                 }
-            }
-            .animation(.easeInOut(duration: 0.25), value: isTabBarVisible)
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .overlay(
+                .environment(\.loopedTabBarHeight, isTabBarVisible ? tabBarHeight : 0)
+	            .animation(.easeInOut(duration: 0.25), value: isTabBarVisible)
+	        .background(Color.loopedBackground.ignoresSafeArea())
+	        .overlay(
             // Blocking overlay when drawer is open - prevents feed interactions
             Group {
                 if selectedTab == .home && isRightMenuOpen {

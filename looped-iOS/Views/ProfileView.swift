@@ -9,7 +9,6 @@ enum ProfileTab: String, CaseIterable {
 struct ProfileView: View {
     @State private var selectedTab: ProfileTab = .content
     @StateObject private var viewModel = ProfileViewModel()
-    @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var contentViewModel = UserContentViewModel()
     @StateObject private var savedViewModel = CollectionPostsViewModel(collection: .saved)
     @StateObject private var repostsViewModel = CollectionPostsViewModel(collection: .myReposts)
@@ -25,6 +24,7 @@ struct ProfileView: View {
     @State private var pendingAnonymousDiscovery = false
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var coachMarkPresenter: CoachMarkPresenter
+    @EnvironmentObject private var commentsManager: CommentsModalManager
 
 	@State private var headerHeight: CGFloat = 300
 	@State private var hasActiveVerifications: Bool?
@@ -137,18 +137,6 @@ struct ProfileView: View {
 		}
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
-        .environmentObject(commentsManager)
-        .overlay(
-            Group {
-                if commentsManager.isPresented, let post = commentsManager.currentPost {
-                    CommentsNavigationHost(post: post) {
-                        commentsManager.dismissComments()
-                    }
-                    .environmentObject(commentsManager)
-                    .transition(.move(edge: .trailing))
-                }
-            }
-        )
 	        .task {
 	            await viewModel.loadUserProfile()
 	            if isAnonymous {

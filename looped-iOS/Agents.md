@@ -60,7 +60,7 @@ This is an early-stage MVP focusing on core functionality with a privacy-first a
 
 ## Project Structure
 
-Current structure is minimal template code. Implement features following this planned architecture:
+The app is actively implemented (auth/feed/profile/messaging/verification). For the most up-to-date wiring status, see `Docs/CODEX_HANDOFF.md`.
 
 ```
 ├── Models/          # Client-side data structures (User, Post, Message, etc.)
@@ -128,10 +128,11 @@ Current structure is minimal template code. Implement features following this pl
 ## Development Context
 
 ### Current State
-**IMPORTANT**: Project currently contains only Xcode template code:
-- `loopedApp.swift`: Basic SwiftUI app entry point
-- `ContentView.swift`: "Hello, world!" placeholder
-- Empty test templates
+The app is fully past the template stage:
+- Authentication is wired (Firebase email/password + Google + Apple).
+- Feed/posts/likes/saves/comments/profiles/search are wired to backend APIs.
+- Messaging + notifications are currently HTTP polling; `WebSocketService` exists but includes placeholder handling.
+- Default profile image URLs are handled by the backend; the app optionally caches `GET /v1/app-config` (`default_profile_image_url`) for placeholders.
 
 ### Privacy & Design Philosophy
 - **Privacy-first**: Minimal data collection, pseudonymous by default

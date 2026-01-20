@@ -110,7 +110,9 @@ struct SearchView: View {
                                                 ) ?? community.name,
                                                 description: community.description,
                                                 memberCount: community.memberCount,
-                                                imageURL: community.imageUrl
+                                                imageURL: community.imageUrl,
+                                                kind: community.kind,
+                                                specializationType: community.specializationType
                                             )
                                         }
                                         .buttonStyle(PlainButtonStyle())
@@ -146,7 +148,8 @@ struct SearchView: View {
                                             ) {
                                                 SpecializationIcon(
                                                     name: major.name,
-                                                    memberCount: major.memberCount
+                                                    memberCount: major.memberCount,
+                                                    specializationType: major.specializationType
                                                 )
                                             }
                                             .buttonStyle(PlainButtonStyle())
@@ -180,7 +183,8 @@ struct SearchView: View {
                                             ) {
                                                 SpecializationIcon(
                                                     name: department.name,
-                                                    memberCount: department.memberCount
+                                                    memberCount: department.memberCount,
+                                                    specializationType: department.specializationType
                                                 )
                                             }
                                             .buttonStyle(PlainButtonStyle())

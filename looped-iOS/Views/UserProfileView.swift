@@ -11,12 +11,12 @@ struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.floatingActionButtonState) private var fabState
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var commentsManager: CommentsModalManager
     @StateObject private var viewModel: UserProfileViewModel
     @StateObject private var postsViewModel: CollectionPostsViewModel
     @StateObject private var contentViewModel: UserContentViewModel
     @StateObject private var repostsViewModel: CollectionPostsViewModel
     @StateObject private var commentsViewModel = UserCommentsViewModel()
-    @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
     @State private var canPop = false
@@ -108,12 +108,11 @@ struct UserProfileView: View {
 	                        .accessibilityLabel("More options")
 	                    }
 	                }
-	            }
-	            .background(NavigationCanPopReader(canPop: $canPop))
-	            .environmentObject(commentsManager)
-            .modifier(
-                ProfileActionsModifier(
-                    canBlockUser: canBlockUser,
+		            }
+		            .background(NavigationCanPopReader(canPop: $canPop))
+	            .modifier(
+	                ProfileActionsModifier(
+	                    canBlockUser: canBlockUser,
                     canBlockPrincipal: canBlockPrincipal,
                     showActionMenu: $showActionMenu,
                     showBlockConfirm: $showBlockConfirm,
@@ -122,13 +121,12 @@ struct UserProfileView: View {
                     blockTargetLabel: blockTargetLabel,
                     onConfirmBlock: { Task { await blockProfileUser() } }
                 )
-            )
-	            .onAppear { fabState.isHidden = true }
-	            .onDisappear { fabState.isHidden = false }
-	            .overlay(commentsOverlay)
-	            .fullScreenCover(isPresented: $showChat) {
-	                ChatNavigationHost(conversation: startedConversation, channel: nil) {
-	                    showChat = false
+	            )
+		            .onAppear { fabState.isHidden = true }
+		            .onDisappear { fabState.isHidden = false }
+		            .fullScreenCover(isPresented: $showChat) {
+		                ChatNavigationHost(conversation: startedConversation, channel: nil) {
+		                    showChat = false
 	                    startedConversation = nil
 	                }
 	            }
@@ -197,18 +195,6 @@ struct UserProfileView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .task { await loadIfNeeded() }
         .refreshable { await reload() }
-    }
-
-    private var commentsOverlay: some View {
-        Group {
-            if commentsManager.isPresented, let post = commentsManager.currentPost {
-                CommentsNavigationHost(post: post) {
-                    commentsManager.dismissComments()
-                }
-                .environmentObject(commentsManager)
-                .transition(.move(edge: .trailing))
-            }
-        }
     }
 
     @ViewBuilder
@@ -973,6 +959,7 @@ struct UserCommentsList: View {
         UserProfileView(userId: 1, preloadedProfile: sampleProfile)
     }
     .environmentObject(AuthViewModel())
+    .environmentObject(CommentsModalManager())
     .environmentObject(FeedViewModel())
     .environment(\.floatingActionButtonState, FloatingActionButtonState())
 }
