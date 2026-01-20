@@ -17,16 +17,15 @@ struct UserProfileView: View {
     @StateObject private var contentViewModel: UserContentViewModel
     @StateObject private var repostsViewModel: CollectionPostsViewModel
     @StateObject private var commentsViewModel = UserCommentsViewModel()
-    @State private var selectedTab: UserProfileTab = .content
-    @State private var hasLoaded = false
-    @State private var canPop = false
-    @AppStorage("anonymousMode") private var isAnonymousMode = false
-	    @State private var showActionMenu = false
-	    @State private var showBlockConfirm = false
-	    @State private var blockErrorMessage: String?
-	    @State private var isBlocking = false
-	    @State private var showChat = false
-	    @State private var isStartingConversation = false
+	    @State private var selectedTab: UserProfileTab = .content
+	    @State private var hasLoaded = false
+	    @State private var canPop = false
+	    @AppStorage("anonymousMode") private var isAnonymousMode = false
+		    @State private var showBlockConfirm = false
+		    @State private var blockErrorMessage: String?
+		    @State private var isBlocking = false
+		    @State private var showChat = false
+		    @State private var isStartingConversation = false
 	    @State private var startedConversation: Conversation?
 	    @State private var messageErrorMessage: String?
 
@@ -96,29 +95,35 @@ struct UserProfileView: View {
 	                    }
 	                }
 
-	                if canShowActionMenu {
-	                    ToolbarItem(placement: .topBarTrailing) {
-	                        Button(action: { showActionMenu = true }) {
-	                            Image(systemName: "ellipsis")
-	                                .font(.loopedCustom(.medium, size: 18))
-	                                .foregroundColor(.loopedTextSecondary)
-	                                .frame(width: 44, height: 44)
-	                        }
-	                        .buttonStyle(.plain)
-	                        .accessibilityLabel("More options")
-	                    }
-	                }
-		            }
-		            .background(NavigationCanPopReader(canPop: $canPop))
-	            .modifier(
-	                ProfileActionsModifier(
-	                    canBlockUser: canBlockUser,
-                    canBlockPrincipal: canBlockPrincipal,
-                    showActionMenu: $showActionMenu,
-                    showBlockConfirm: $showBlockConfirm,
-                    blockErrorMessage: $blockErrorMessage,
-                    isBlocking: isBlocking,
-                    blockTargetLabel: blockTargetLabel,
+		                if canShowActionMenu {
+		                    ToolbarItem(placement: .topBarTrailing) {
+		                        Menu {
+		                            if canBlockUser || canBlockPrincipal {
+		                                Button(role: .destructive) {
+		                                    showBlockConfirm = true
+		                                } label: {
+		                                    Label("Block User", systemImage: "hand.raised")
+		                                }
+		                                .disabled(isBlocking)
+		                            }
+		                        } label: {
+		                            Image(systemName: "ellipsis")
+		                                .font(.loopedCustom(.medium, size: 18))
+		                                .foregroundColor(.loopedTextSecondary)
+		                                .frame(width: 44, height: 44)
+		                        }
+		                        .buttonStyle(.plain)
+		                        .accessibilityLabel("More options")
+		                    }
+		                }
+			            }
+			            .background(NavigationCanPopReader(canPop: $canPop))
+		            .modifier(
+		                ProfileActionsModifier(
+	                    showBlockConfirm: $showBlockConfirm,
+	                    blockErrorMessage: $blockErrorMessage,
+	                    isBlocking: isBlocking,
+	                    blockTargetLabel: blockTargetLabel,
                     onConfirmBlock: { Task { await blockProfileUser() } }
                 )
 	            )
@@ -366,9 +371,6 @@ struct UserProfileView: View {
 	}
 
 private struct ProfileActionsModifier: ViewModifier {
-    let canBlockUser: Bool
-    let canBlockPrincipal: Bool
-    @Binding var showActionMenu: Bool
     @Binding var showBlockConfirm: Bool
     @Binding var blockErrorMessage: String?
     let isBlocking: Bool
@@ -377,14 +379,6 @@ private struct ProfileActionsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .confirmationDialog("Profile options", isPresented: $showActionMenu, titleVisibility: .visible) {
-                if canBlockUser || canBlockPrincipal {
-                    Button("Block User", role: .destructive) {
-                        showBlockConfirm = true
-                    }
-                }
-                Button("Cancel", role: .cancel) { }
-            }
             .confirmationDialog("Block user?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
                 Button("Block User", role: .destructive) {
                     onConfirmBlock()
