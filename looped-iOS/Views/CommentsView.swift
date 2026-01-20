@@ -608,13 +608,13 @@ private extension CommentsView {
         }
         if let permissions = commentsManager.communityPermissions {
             if !permissions.canPost, permissions.requiresVerification {
-                return "Verification is required to comment in this community."
+                return "Verification is required to comment, like, or repost in this community."
             }
             if !permissions.canPost {
                 return "You do not have permission to comment in this community."
             }
         }
-        return "Verification is required to comment in this community."
+        return "Verification is required to comment, like, or repost in this community."
     }
 
     func loadAnonProfileId() async {

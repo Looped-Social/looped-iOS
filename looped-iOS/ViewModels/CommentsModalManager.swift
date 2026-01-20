@@ -174,7 +174,7 @@ class CommentsModalManager: ObservableObject {
     func postComment(content: String, media: [LocalMediaItem]) async {
         guard let postId = currentPostBackendId else { return }
         if let permissions = communityPermissions, !permissions.canPost {
-            errorMessage = "Verification is required to comment in this community."
+            errorMessage = "Verification is required to comment, like, or repost in this community."
             return
         }
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -319,7 +319,12 @@ class CommentsModalManager: ObservableObject {
                 replyThreads[parentKey] = state
             }
         } catch {
-            errorMessage = error.localizedDescription
+            if case let APIError.apiError(_, apiError, message) = error,
+               apiError == "community_not_verified" {
+                errorMessage = message ?? "You must be verified in this community to like comments. Verify in Settings → Community Verifications."
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

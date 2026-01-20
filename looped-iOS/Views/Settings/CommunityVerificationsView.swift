@@ -139,7 +139,7 @@ struct CommunityVerificationsView: View {
                 .foregroundColor(verification.isExpired ? .loopedError : .loopedTextSecondary)
 
             if verification.isExpired || !verification.active {
-                Text("Re-verify to post in this community.")
+                Text("Re-verify to post, comment, like, and repost in this community.")
                     .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedTextSecondary)
             }

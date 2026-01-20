@@ -54,7 +54,7 @@ struct VerificationIntroView: View {
                         .foregroundColor(.loopedContrast)
                         .multilineTextAlignment(.center)
 
-                    Text("We require verification to post in communities\nto keep your experience authentic")
+                    Text("We require verification to post, comment, like, and repost in communities\nto keep your experience authentic")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                         .multilineTextAlignment(.center)

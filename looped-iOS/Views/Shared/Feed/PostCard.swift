@@ -20,6 +20,8 @@ struct PostCard: View {
     @State private var showHeartBurst = false
     @State private var heartScale: CGFloat = 0.6
     @State private var heartOpacity: Double = 0
+    @State private var communityPermissions: CommunityPermissions?
+    @State private var hasRequestedCommunityPermissions = false
     @State private var showShareSheet = false
     @State private var shareCountOverride: Int?
     @State private var isShareTracking = false
@@ -274,12 +276,23 @@ struct PostCard: View {
 	    private var likeButton: some View {
 	        Button(action: { handleLikeToggle() }) {
 	            HStack(spacing: actionLabelSpacing) {
-	                Image(systemName: isLiked ? "heart.fill" : "heart")
-	                    .resizable()
-	                    .renderingMode(.template)
-	                    .scaledToFit()
-	                    .frame(width: actionIconSize, height: actionIconSize)
-	                    .foregroundColor(isLiked ? .loopedError : .loopedTextSecondary)
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: actionIconSize, height: actionIconSize)
+                            .foregroundColor(isLiked ? .loopedError : .loopedTextSecondary)
+
+                        if isReactionLockedByVerification {
+                            Image(systemName: "lock.fill")
+                                .font(.loopedCustom(.bold, size: 10))
+                                .foregroundColor(.loopedTextSecondary)
+                                .padding(3)
+                                .background(Circle().fill(Color.loopedBackground))
+                                .offset(x: 7, y: -7)
+                        }
+                    }
 	                Text("\(displayedReactionCount)")
 	                    .font(.loopedSubheadlineScaled)
 	                    .foregroundColor(.loopedTextSecondary)
@@ -306,13 +319,24 @@ struct PostCard: View {
 	    private var repostButton: some View {
 	        Button(action: { toggleRepost() }) {
 	            HStack(spacing: actionLabelSpacing) {
-	                Image(systemName: "arrow.2.squarepath")
-	                    .resizable()
-	                    .renderingMode(.template)
-	                    .scaledToFit()
-	                    .frame(width: repostIconSize, height: repostIconSize)
-	                    .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
-	                    .opacity(isRepostLoading ? 0.6 : 1)
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "arrow.2.squarepath")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: repostIconSize, height: repostIconSize)
+                            .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
+                            .opacity(isRepostLoading ? 0.6 : 1)
+
+                        if isReactionLockedByVerification {
+                            Image(systemName: "lock.fill")
+                                .font(.loopedCustom(.bold, size: 10))
+                                .foregroundColor(.loopedTextSecondary)
+                                .padding(3)
+                                .background(Circle().fill(Color.loopedBackground))
+                                .offset(x: 7, y: -7)
+                        }
+                    }
 	                Text("\(displayedRepostCount)")
 	                    .font(.loopedSubheadlineScaled)
 	                    .foregroundColor(.loopedTextSecondary)
@@ -738,6 +762,7 @@ struct PostCard: View {
                 syncBookmarkState()
                 syncLikeState()
                 syncRepostState()
+                Task { await loadCommunityPermissionsIfNeeded() }
             }
             .onChange(of: post.userReaction) { _, _ in
                 syncLikeState()
@@ -1010,6 +1035,13 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle() {
+        if isReactionLockedByVerification {
+            actionError = PostActionError(
+                title: "Verification required",
+                message: "You must be verified in this community to like posts. Verify in Settings → Community Verifications."
+            )
+            return
+        }
         guard let postId = post.backendId, !isLikeLoading else { return }
         if isLiked {
             isLiked = false
@@ -1029,6 +1061,7 @@ struct PostCard: View {
                     onUpdate?(updated)
                 } catch {
                     isLiked = true
+                    presentLikeErrorIfNeeded(verb: "unlike", title: "Couldn't unlike post", error: error)
                 }
             }
             return
@@ -1053,6 +1086,7 @@ struct PostCard: View {
                 onUpdate?(updated)
             } catch {
                 isLiked = false
+                presentLikeErrorIfNeeded(verb: "like", title: "Couldn't like post", error: error)
             }
         }
     }
@@ -1080,6 +1114,10 @@ struct PostCard: View {
     }
 
     private func toggleRepost() {
+        if isReactionLockedByVerification {
+            repostErrorMessage = "You must be verified in this community to repost. Verify in Settings → Community Verifications."
+            return
+        }
         guard let postId = post.backendId, !isRepostLoading else { return }
         let previousValue = isReposted
         isReposted.toggle()
@@ -1113,6 +1151,9 @@ struct PostCard: View {
 	        if let apiError = error as? APIError {
 	            switch apiError {
 	            case .apiError(_, let error, let message):
+	                if error == "community_not_verified" {
+	                    return "You must be verified in this community to repost. Verify in Settings → Community Verifications."
+	                }
 	                if error == "self_repost_not_allowed" {
 	                    return "You cannot repost your own post."
 	                }
@@ -1132,6 +1173,9 @@ struct PostCard: View {
 	            case .unauthorized:
 	                return "Please sign in again and try to \(verb)."
 	            case .apiError(_, let error, let message):
+	                if error == "community_not_verified" {
+	                    return "You must be verified in this community to \(verb). Verify in Settings → Community Verifications."
+	                }
 	                return message ?? error
 	            default:
 	                return apiError.localizedDescription
@@ -1139,6 +1183,42 @@ struct PostCard: View {
 	        }
 	        return error.localizedDescription
 	    }
+
+    private func presentLikeErrorIfNeeded(verb: String, title: String, error: Error) {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .unauthorized, .apiError, .serverError:
+                actionError = PostActionError(
+                    title: title,
+                    message: actionErrorMessage(verb: verb, error: error)
+                )
+            default:
+                break
+            }
+        }
+    }
+
+    private var isReactionLockedByVerification: Bool {
+        guard shouldLoadCommunityPermissions else { return false }
+        guard let communityPermissions else { return false }
+        return communityPermissions.requiresVerification && !communityPermissions.canPost
+    }
+
+    private func loadCommunityPermissionsIfNeeded() async {
+        guard !hasRequestedCommunityPermissions else { return }
+        hasRequestedCommunityPermissions = true
+        guard shouldLoadCommunityPermissions else { return }
+        guard let communityId = post.communityId else { return }
+        communityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
+    }
+
+    private var shouldLoadCommunityPermissions: Bool {
+        guard post.communityId != nil else { return false }
+        if post.communityKind == .specialization {
+            return false
+        }
+        return true
+    }
 
     private func triggerHeartBurst() {
         showHeartBurst = true
