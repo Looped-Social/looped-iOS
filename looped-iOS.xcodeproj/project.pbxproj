@@ -10,6 +10,13 @@
 		4F0E15DD2EF865B500A2341F /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15DC2EF865B500A2341F /* BigInt */; };
 		4F0E15E82EF86D1B00A2341F /* Clibsodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15E72EF86D1B00A2341F /* Clibsodium */; };
 		4F0E15EA2EF86D1B00A2341F /* Sodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15E92EF86D1B00A2341F /* Sodium */; };
+		4F5204902F23EA2400762196 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204892F23EA2400762196 /* BigInt */; };
+		4F5204912F23EA2400762196 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204832F23EA2400762196 /* FirebaseCore */; };
+		4F5204922F23EA2400762196 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204852F23EA2400762196 /* FirebaseAuth */; };
+		4F5204932F23EA2400762196 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204862F23EA2400762196 /* GoogleSignIn */; };
+		4F5204942F23EA2400762196 /* Sodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F52048D2F23EA2400762196 /* Sodium */; };
+		4F5204952F23EA2400762196 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204882F23EA2400762196 /* GoogleSignInSwift */; };
+		4F5204962F23EA2400762196 /* Clibsodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F52048B2F23EA2400762196 /* Clibsodium */; };
 		4F898B9D2EC4F9510025BA27 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4F898B9C2EC4F9510025BA27 /* FirebaseCore */; };
 		4F898B9F2EC4F9600025BA27 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4F898B9E2EC4F9600025BA27 /* FirebaseAuth */; };
 		4F898BA42EC517F10025BA27 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 4F898BA32EC517F10025BA27 /* GoogleSignIn */; };
@@ -37,13 +44,23 @@
 		4F4C188E2E6B3D150043DD49 /* looped-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "looped-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F4C189B2E6B3D160043DD49 /* looped-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "looped-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F4C18A52E6B3D160043DD49 /* looped-iOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "looped-iOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F52049B2F23EA2400762196 /* looped-iOS Staging.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "looped-iOS Staging.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4F52049C2F23EA2500762196 /* Exceptions for "looped-iOS" folder in "looped-iOS Staging" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"GoogleService-Info.plist",
+				Info.plist,
+			);
+			target = 4F5204822F23EA2400762196 /* looped-iOS Staging */;
+		};
 		4FA4E87C2E70969C0031D937 /* Exceptions for "looped-iOS" folder in "looped-iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				"Staging/GoogleService-Info.plist",
 			);
 			target = 4F4C188D2E6B3D150043DD49 /* looped-iOS */;
 		};
@@ -54,6 +71,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				4FA4E87C2E70969C0031D937 /* Exceptions for "looped-iOS" folder in "looped-iOS" target */,
+				4F52049C2F23EA2500762196 /* Exceptions for "looped-iOS" folder in "looped-iOS Staging" target */,
 			);
 			path = "looped-iOS";
 			sourceTree = "<group>";
@@ -99,6 +117,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4F52048F2F23EA2400762196 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4F5204902F23EA2400762196 /* BigInt in Frameworks */,
+				4F5204912F23EA2400762196 /* FirebaseCore in Frameworks */,
+				4F5204922F23EA2400762196 /* FirebaseAuth in Frameworks */,
+				4F5204932F23EA2400762196 /* GoogleSignIn in Frameworks */,
+				4F5204942F23EA2400762196 /* Sodium in Frameworks */,
+				4F5204952F23EA2400762196 /* GoogleSignInSwift in Frameworks */,
+				4F5204962F23EA2400762196 /* Clibsodium in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -108,7 +140,6 @@
 				4F4C18902E6B3D150043DD49 /* looped-iOS */,
 				4F4C189E2E6B3D160043DD49 /* looped-iOSTests */,
 				4F4C18A82E6B3D160043DD49 /* looped-iOSUITests */,
-				4F898B9B2EC4F9510025BA27 /* Frameworks */,
 				4F4C188F2E6B3D150043DD49 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -119,15 +150,9 @@
 				4F4C188E2E6B3D150043DD49 /* looped-iOS.app */,
 				4F4C189B2E6B3D160043DD49 /* looped-iOSTests.xctest */,
 				4F4C18A52E6B3D160043DD49 /* looped-iOSUITests.xctest */,
+				4F52049B2F23EA2400762196 /* looped-iOS Staging.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		4F898B9B2EC4F9510025BA27 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -208,6 +233,35 @@
 			productReference = 4F4C18A52E6B3D160043DD49 /* looped-iOSUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		4F5204822F23EA2400762196 /* looped-iOS Staging */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4F5204982F23EA2400762196 /* Build configuration list for PBXNativeTarget "looped-iOS Staging" */;
+			buildPhases = (
+				4F52048E2F23EA2400762196 /* Sources */,
+				4F52048F2F23EA2400762196 /* Frameworks */,
+				4F5204972F23EA2400762196 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4F4C18902E6B3D150043DD49 /* looped-iOS */,
+			);
+			name = "looped-iOS Staging";
+			packageProductDependencies = (
+				4F5204832F23EA2400762196 /* FirebaseCore */,
+				4F5204852F23EA2400762196 /* FirebaseAuth */,
+				4F5204862F23EA2400762196 /* GoogleSignIn */,
+				4F5204882F23EA2400762196 /* GoogleSignInSwift */,
+				4F5204892F23EA2400762196 /* BigInt */,
+				4F52048B2F23EA2400762196 /* Clibsodium */,
+				4F52048D2F23EA2400762196 /* Sodium */,
+			);
+			productName = "looped-iOS";
+			productReference = 4F52049B2F23EA2400762196 /* looped-iOS Staging.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -254,6 +308,7 @@
 				4F4C188D2E6B3D150043DD49 /* looped-iOS */,
 				4F4C189A2E6B3D160043DD49 /* looped-iOSTests */,
 				4F4C18A42E6B3D160043DD49 /* looped-iOSUITests */,
+				4F5204822F23EA2400762196 /* looped-iOS Staging */,
 			);
 		};
 /* End PBXProject section */
@@ -280,6 +335,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4F5204972F23EA2400762196 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -298,6 +360,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4F4C18A12E6B3D160043DD49 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4F52048E2F23EA2400762196 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -449,6 +518,7 @@
 		4F4C18B02E6B3D160043DD49 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				API_BASE_URL = "https://api.mylooped.app";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
@@ -480,6 +550,7 @@
 		4F4C18B12E6B3D160043DD49 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				API_BASE_URL = "https://api.mylooped.app";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
@@ -576,6 +647,70 @@
 			};
 			name = Release;
 		};
+		4F5204992F23EA2400762196 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				API_BASE_URL = "https://api-staging.mylooped.app";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7US6U8TZKF;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "looped-iOS/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Looped Staging";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to capture your verification selfie and ID.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "looped.looped-iOS.staging";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4F52049A2F23EA2400762196 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				API_BASE_URL = "https://api-staging.mylooped.app";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7US6U8TZKF;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "looped-iOS/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Looped Staging";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSCameraUsageDescription = "We need camera access to capture your verification selfie and ID.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "looped.looped-iOS.staging";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -615,6 +750,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		4F5204982F23EA2400762196 /* Build configuration list for PBXNativeTarget "looped-iOS Staging" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F5204992F23EA2400762196 /* Debug */,
+				4F52049A2F23EA2400762196 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -627,6 +771,38 @@
 			};
 		};
 		4F0E15E62EF86C8F00A2341F /* XCRemoteSwiftPackageReference "swift-sodium" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jedisct1/swift-sodium.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.1;
+			};
+		};
+		4F5204842F23EA2400762196 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.5.0;
+			};
+		};
+		4F5204872F23EA2400762196 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+		4F52048A2F23EA2400762196 /* XCRemoteSwiftPackageReference "BigInt" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/attaswift/BigInt.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.1.0;
+			};
+		};
+		4F52048C2F23EA2400762196 /* XCRemoteSwiftPackageReference "swift-sodium" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/jedisct1/swift-sodium.git";
 			requirement = {
@@ -666,6 +842,41 @@
 		4F0E15E92EF86D1B00A2341F /* Sodium */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4F0E15E62EF86C8F00A2341F /* XCRemoteSwiftPackageReference "swift-sodium" */;
+			productName = Sodium;
+		};
+		4F5204832F23EA2400762196 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F5204842F23EA2400762196 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		4F5204852F23EA2400762196 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F5204842F23EA2400762196 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		4F5204862F23EA2400762196 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F5204872F23EA2400762196 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		4F5204882F23EA2400762196 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F5204872F23EA2400762196 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		4F5204892F23EA2400762196 /* BigInt */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F52048A2F23EA2400762196 /* XCRemoteSwiftPackageReference "BigInt" */;
+			productName = BigInt;
+		};
+		4F52048B2F23EA2400762196 /* Clibsodium */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F52048C2F23EA2400762196 /* XCRemoteSwiftPackageReference "swift-sodium" */;
+			productName = Clibsodium;
+		};
+		4F52048D2F23EA2400762196 /* Sodium */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F52048C2F23EA2400762196 /* XCRemoteSwiftPackageReference "swift-sodium" */;
 			productName = Sodium;
 		};
 		4F898B9C2EC4F9510025BA27 /* FirebaseCore */ = {
