@@ -221,6 +221,12 @@ struct CommentRow: View {
                                 .font(metadataFont)
                                 .foregroundColor(.loopedTextSecondary)
 
+                            if comment.isUnderReview {
+                                Text("Under review")
+                                    .font(metadataFont)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+
                             Button(action: {
                                 onReply?(comment)
                             }) {

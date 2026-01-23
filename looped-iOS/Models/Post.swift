@@ -20,6 +20,7 @@ struct Post: Codable, Identifiable {
     let communityShortName: String?
     let communityKind: CommunityKind?
     let isAnonymous: Bool
+    let isUnderReview: Bool
     let reactionCount: Int
     let commentsCount: Int
     let shareCount: Int
@@ -57,6 +58,7 @@ struct Post: Codable, Identifiable {
         communityShortName: String? = nil,
         communityKind: CommunityKind? = nil,
         isAnonymous: Bool,
+        isUnderReview: Bool = false,
         reactionCount: Int,
         commentsCount: Int = 0,
         shareCount: Int = 0,
@@ -93,6 +95,7 @@ struct Post: Codable, Identifiable {
         self.communityShortName = communityShortName
         self.communityKind = communityKind
         self.isAnonymous = isAnonymous
+        self.isUnderReview = isUnderReview
         self.reactionCount = reactionCount
         self.commentsCount = commentsCount
         self.shareCount = shareCount
@@ -162,6 +165,7 @@ extension Post {
         let resolvedCommunityKind = CommunityKind(rawValue: dto.communityKind ?? "")
         let resolvedAuthorDisplayCommunity = dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:))
         let resolvedAuthorDisplaySpecialization = dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:))
+        let resolvedIsUnderReview = dto.isUnderReview ?? false
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
@@ -182,6 +186,7 @@ extension Post {
             communityShortName: dto.communityShortName,
             communityKind: resolvedCommunityKind,
             isAnonymous: resolvedIsAnonymous,
+            isUnderReview: resolvedIsUnderReview,
             reactionCount: dto.likesCount ?? 0,
             commentsCount: dto.commentsCount ?? 0,
             shareCount: dto.shareCount ?? 0,
@@ -260,6 +265,7 @@ extension Post {
             communityShortName: resolvedCommunityShortName,
             communityKind: resolvedCommunityKind,
             isAnonymous: isAnonymous,
+            isUnderReview: isUnderReview,
             reactionCount: resolvedReactionCount,
             commentsCount: resolvedCommentsCount,
             shareCount: resolvedShareCount,

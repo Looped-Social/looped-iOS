@@ -13,6 +13,7 @@ class CommentsModalManager: ObservableObject {
     @Published var isPosting = false
     @Published var isLoadingPermissions = false
     @Published var errorMessage: String?
+    @Published var toastMessage: ToastMessage?
     @Published var replyThreads: [Int: ReplyThreadState] = [:]
     @Published var replyTarget: Comment?
     @Published var editTarget: Comment?
@@ -44,6 +45,7 @@ class CommentsModalManager: ObservableObject {
         currentComments = []
         nextCursor = nil
         errorMessage = nil
+        toastMessage = nil
         replyThreads = [:]
         replyTarget = nil
         editTarget = nil
@@ -69,6 +71,7 @@ class CommentsModalManager: ObservableObject {
             self.currentPostBackendId = nil
             self.nextCursor = nil
             self.errorMessage = nil
+            self.toastMessage = nil
             self.replyThreads = [:]
             self.replyTarget = nil
             self.editTarget = nil
@@ -123,6 +126,11 @@ class CommentsModalManager: ObservableObject {
             updated.isLoading = false
             updated.isLoadingMore = false
             replyThreads[commentId] = updated
+            if isNotFound(error) {
+                toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
+                errorMessage = nil
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -223,6 +231,17 @@ class CommentsModalManager: ObservableObject {
             }
             replyTarget = nil
         } catch {
+            if isContentUnderReview(error), AnonService.shared.isAnonymousEnabled {
+                toastMessage = ToastMessage(text: "Under review", kind: .info)
+                replyTarget = nil
+                errorMessage = nil
+                return
+            }
+            if isNotFound(error) {
+                toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
+                errorMessage = nil
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -253,6 +272,18 @@ class CommentsModalManager: ObservableObject {
             }
             editTarget = nil
         } catch {
+            if isContentUnderReview(error), target.isAnonymous, AnonService.shared.isAnonymousEnabled {
+                toastMessage = ToastMessage(text: "Under review", kind: .info)
+                editTarget = nil
+                errorMessage = nil
+                return
+            }
+            if isNotFound(error) {
+                toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
+                editTarget = nil
+                errorMessage = nil
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -319,6 +350,11 @@ class CommentsModalManager: ObservableObject {
                 replyThreads[parentKey] = state
             }
         } catch {
+            if isNotFound(error) {
+                toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
+                errorMessage = nil
+                return
+            }
             if case let APIError.apiError(_, apiError, message) = error,
                apiError == "community_not_verified" {
                 errorMessage = message ?? "You must be verified in this community to like comments. Verify in Settings → Community Verifications."
@@ -364,7 +400,11 @@ class CommentsModalManager: ObservableObject {
                 await loadReplies(for: parent, reset: true)
             }
         } catch {
-            errorMessage = error.localizedDescription
+            if isNotFound(error) {
+                errorMessage = "Content unavailable"
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -381,6 +421,27 @@ class CommentsModalManager: ObservableObject {
         } catch {
             communityPermissions = nil
         }
+    }
+
+    private func isNotFound(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let code):
+                return code == 404
+            case .apiError(let code, _, _):
+                return code == 404
+            default:
+                return false
+            }
+        }
+        return false
+    }
+
+    private func isContentUnderReview(_ error: Error) -> Bool {
+        if case let APIError.apiError(code, apiError, _) = error {
+            return code == 403 && apiError == "content_under_review"
+        }
+        return false
     }
 }
 

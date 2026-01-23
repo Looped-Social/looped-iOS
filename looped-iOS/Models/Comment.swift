@@ -16,6 +16,7 @@ struct Comment: Codable, Identifiable {
     let company: String
     let isAnonymous: Bool
     let isDeleted: Bool
+    let isUnderReview: Bool
     let likeCount: Int
     let replyCount: Int
     let userLiked: Bool
@@ -41,6 +42,7 @@ struct Comment: Codable, Identifiable {
         company: String,
         isAnonymous: Bool = false,
         isDeleted: Bool = false,
+        isUnderReview: Bool = false,
         likeCount: Int = 0,
         replyCount: Int = 0,
         userLiked: Bool = false,
@@ -65,6 +67,7 @@ struct Comment: Codable, Identifiable {
         self.company = company
         self.isAnonymous = isAnonymous
         self.isDeleted = isDeleted
+        self.isUnderReview = isUnderReview
         self.likeCount = likeCount
         self.replyCount = replyCount
         self.userLiked = userLiked
@@ -144,6 +147,7 @@ struct Comment: Codable, Identifiable {
             company: "",
             isAnonymous: resolvedIsAnonymous,
             isDeleted: dto.isDeleted ?? false,
+            isUnderReview: dto.isUnderReview ?? false,
             likeCount: dto.likesCount,
             replyCount: dto.replyCount ?? 0,
             userLiked: dto.userLiked ?? false,
@@ -180,6 +184,7 @@ struct Comment: Codable, Identifiable {
             company: company,
             isAnonymous: isAnonymous,
             isDeleted: isDeleted ?? self.isDeleted,
+            isUnderReview: isUnderReview,
             likeCount: likeCount ?? self.likeCount,
             replyCount: replyCount ?? self.replyCount,
             userLiked: userLiked ?? self.userLiked,

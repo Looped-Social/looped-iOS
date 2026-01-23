@@ -368,6 +368,9 @@ private struct SettingsListContent: View {
             NavigationLink(destination: ViolationsView()) {
                 SettingsRowLabel(icon: .system("exclamationmark.triangle"), title: "Appeals & Violations")
             }
+            NavigationLink(destination: UnderReviewView()) {
+                SettingsRowLabel(icon: .system("hourglass"), title: "Under review")
+            }
             NavigationLink(destination: AnonymousRecoveryView()) {
                 SettingsRowLabel(icon: .system("key.fill"), title: "Anonymous Recovery")
             }

@@ -16,7 +16,7 @@
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to capture your verification selfie and work ID.</string>
+	<string>We need camera access to capture your verification selfie and ID.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Poppins-Medium.ttf</string>

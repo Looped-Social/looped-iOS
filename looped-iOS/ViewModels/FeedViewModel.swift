@@ -23,6 +23,13 @@ class FeedViewModel: ObservableObject {
     @Published var communitySearchError: String?
     @Published private(set) var recentFeedCommunity: CommunitySummary?
 
+    enum CreatePostResult: Equatable {
+        case created
+        case createdUnderReview
+        case queuedForReview
+        case failed
+    }
+
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
     private let mediaService: MediaServiceProtocol
@@ -342,6 +349,11 @@ class FeedViewModel: ObservableObject {
                 }
             }
         } catch {
+            if isNotFound(error) {
+                removePost(backendId: backendId)
+                errorMessage = "Content unavailable"
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -373,7 +385,9 @@ class FeedViewModel: ObservableObject {
         communityId: Int,
         media: [LocalMediaItem] = [],
         poll: PollDraft? = nil
-    ) async -> Bool {
+        ,
+        onStatus: ((ToastMessage) -> Void)? = nil
+    ) async -> CreatePostResult {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -381,14 +395,14 @@ class FeedViewModel: ObservableObject {
             let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
             if let poll, !poll.isValid {
                 errorMessage = "Your poll needs a question and at least 2 unique options."
-                return false
+                return .failed
             }
             if trimmedContent.isEmpty && media.isEmpty {
                 if poll != nil {
                     // Polls can be created without post text.
                 } else {
                     errorMessage = "Add text or attach media."
-                    return false
+                    return .failed
                 }
             }
 
@@ -396,6 +410,7 @@ class FeedViewModel: ObservableObject {
             var mediaAssetIds: [Int] = []
 
             if !media.isEmpty {
+                onStatus?(ToastMessage(text: "Uploading…", kind: .loading))
                 let actor: MediaUploadActor = isAnonymous ? .anon : .user
                 let videos = media.filter { $0.type == .video }
                 let images = media.filter { $0.type == .image }
@@ -403,17 +418,17 @@ class FeedViewModel: ObservableObject {
 
                 if !gifs.isEmpty {
                     errorMessage = "GIFs aren't supported yet."
-                    return false
+                    return .failed
                 }
 
                 if let video = videos.first {
                     guard videos.count == 1, images.isEmpty else {
                         errorMessage = "Videos must be posted by themselves."
-                        return false
+                        return .failed
                     }
                     guard let url = video.videoURL else {
                         errorMessage = "We couldn't read that video. Try another one."
-                        return false
+                        return .failed
                     }
                     let mp4Url = try await VideoTranscoder.ensureMP4(at: url)
                     defer {
@@ -465,6 +480,9 @@ class FeedViewModel: ObservableObject {
                 }
             }
 
+            if !media.isEmpty {
+                onStatus?(ToastMessage(text: "Finalizing…", kind: .loading))
+            }
             let newPost = try await feedService.createPost(
                 content: trimmedContent,
                 isAnonymous: isAnonymous,
@@ -483,10 +501,16 @@ class FeedViewModel: ObservableObject {
             posts.insert(resolvedPost, at: 0)
             lastPostedCommunityId = communityId
             UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
-            return true
+            return resolvedPost.isUnderReview ? .createdUnderReview : .created
         } catch {
+            if isAnonymous,
+               case let APIError.apiError(code, apiError, _) = error,
+               code == 403,
+               apiError == "content_under_review" {
+                return .queuedForReview
+            }
             errorMessage = error.localizedDescription
-            return false
+            return .failed
         }
     }
 }
@@ -697,6 +721,20 @@ private extension FeedViewModel {
     func resetNewPostsToast() {
         newPostsToastCount = nil
         lastToastAt = nil
+    }
+
+    func isNotFound(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let code):
+                return code == 404
+            case .apiError(let code, _, _):
+                return code == 404
+            default:
+                return false
+            }
+        }
+        return false
     }
 
     func countNewPosts(in fetched: [Post], comparedTo currentTop: Post) -> Int {

@@ -71,6 +71,7 @@ struct PostDTO: Codable {
     let authorDisplayCommunity: DisplayCommunityDTO?
     let authorDisplaySpecialization: DisplayCommunityDTO?
     let poll: PollDTO?
+    let isUnderReview: Bool?
 }
 
 struct RepostedByUserDTO: Codable {

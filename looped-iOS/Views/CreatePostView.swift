@@ -457,26 +457,38 @@ struct CreatePostView: View {
         let activeDraftIdToCleanup = activeDraftId
         let communityName = selectedCommunity?.name
 
-        onPostStatus?(ToastMessage(text: "Posting…", kind: .loading))
+        let initialToast = mediaToSend.isEmpty
+            ? ToastMessage(text: "Posting…", kind: .loading)
+            : ToastMessage(text: "Uploading…", kind: .loading)
+        onPostStatus?(initialToast)
         onPostCreated?()
         dismiss()
 
         Task {
-            let didCreate = await feedViewModel.createPost(
+            let result = await feedViewModel.createPost(
                 content: contentToSend,
                 isAnonymous: isAnonymousToSend,
                 communityId: communityId,
                 media: mediaToSend,
-                poll: pollDraftToSend
+                poll: pollDraftToSend,
+                onStatus: { status in
+                    onPostStatus?(status)
+                }
             )
 
             await MainActor.run {
                 isSubmitting = false
-                if didCreate {
+                if result == .created || result == .createdUnderReview {
                     if let activeDraftIdToCleanup {
                         PostDraftStore().delete(id: activeDraftIdToCleanup)
                     }
-                    onPostStatus?(ToastMessage(text: "Post created", kind: .success))
+                    if result == .createdUnderReview {
+                        onPostStatus?(ToastMessage(text: "Posted (under review)", kind: .success))
+                    } else if result == .created {
+                        onPostStatus?(ToastMessage(text: "Post created", kind: .success))
+                    }
+                } else if result == .queuedForReview {
+                    onPostStatus?(ToastMessage(text: "Under review", kind: .info))
                 } else {
                     var savedDraftId: UUID?
                     let drafts = PostDraftStore()

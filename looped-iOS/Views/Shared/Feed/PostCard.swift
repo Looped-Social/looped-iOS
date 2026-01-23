@@ -22,6 +22,7 @@ struct PostCard: View {
     @State private var heartOpacity: Double = 0
     @State private var communityPermissions: CommunityPermissions?
     @State private var hasRequestedCommunityPermissions = false
+    @State private var viewerAnonProfileId: Int?
     @State private var showShareSheet = false
     @State private var shareCountOverride: Int?
     @State private var isShareTracking = false
@@ -718,6 +719,7 @@ struct PostCard: View {
         ZStack {
             VStack(alignment: .leading, spacing: 12) {
                 repostBanner
+                underReviewBanner
                 headerSection
                 postTextSection
                     .contentShape(Rectangle())
@@ -762,6 +764,7 @@ struct PostCard: View {
                 syncBookmarkState()
                 syncLikeState()
                 syncRepostState()
+                syncViewerAnonProfileId()
                 Task { await loadCommunityPermissionsIfNeeded() }
             }
             .onChange(of: post.userReaction) { _, _ in
@@ -898,6 +901,10 @@ struct PostCard: View {
 	                let response = try await feedService.sharePost(postId: postId)
 	                shareCountOverride = response.shareCount
 	            } catch {
+                    if isNotFound(error) {
+                        handleContentUnavailable()
+                        return
+                    }
 	                actionError = PostActionError(
 	                    title: "Couldn't share post",
 	                    message: actionErrorMessage(verb: "share", error: error)
@@ -936,6 +943,10 @@ struct PostCard: View {
 	                    }
 	                }
 	            } catch {
+                    if isNotFound(error) {
+                        handleContentUnavailable()
+                        return
+                    }
 	                let title = isBookmarked ? "Couldn't remove saved post" : "Couldn't save post"
 	                actionError = PostActionError(
 	                    title: title,
@@ -981,6 +992,19 @@ struct PostCard: View {
             onUpdate?(updated)
             showEditSheet = false
         } catch {
+            if post.isAnonymous, isContentUnderReview(error) {
+                showEditSheet = false
+                actionError = PostActionError(
+                    title: "Under review",
+                    message: "Your edit is under review."
+                )
+                return
+            }
+            if isNotFound(error) {
+                showEditSheet = false
+                handleContentUnavailable()
+                return
+            }
             editErrorMessage = error.localizedDescription
         }
     }
@@ -1061,6 +1085,10 @@ struct PostCard: View {
                     onUpdate?(updated)
                 } catch {
                     isLiked = true
+                    if isNotFound(error) {
+                        handleContentUnavailable()
+                        return
+                    }
                     presentLikeErrorIfNeeded(verb: "unlike", title: "Couldn't unlike post", error: error)
                 }
             }
@@ -1086,6 +1114,10 @@ struct PostCard: View {
                 onUpdate?(updated)
             } catch {
                 isLiked = false
+                if isNotFound(error) {
+                    handleContentUnavailable()
+                    return
+                }
                 presentLikeErrorIfNeeded(verb: "like", title: "Couldn't like post", error: error)
             }
         }
@@ -1142,6 +1174,10 @@ struct PostCard: View {
                 isReposted = response.viewerHasReposted
             } catch {
                 isReposted = previousValue
+                if isNotFound(error) {
+                    handleContentUnavailable()
+                    return
+                }
                 repostErrorMessage = repostErrorMessage(for: error)
             }
         }
@@ -1198,6 +1234,35 @@ struct PostCard: View {
         }
     }
 
+    private func handleContentUnavailable() {
+        actionError = PostActionError(
+            title: "Content unavailable",
+            message: "This content is unavailable."
+        )
+        onDelete?(post)
+    }
+
+    private func isNotFound(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let code):
+                return code == 404
+            case .apiError(let code, _, _):
+                return code == 404
+            default:
+                return false
+            }
+        }
+        return false
+    }
+
+    private func isContentUnderReview(_ error: Error) -> Bool {
+        if case let APIError.apiError(code, apiError, _) = error {
+            return code == 403 && apiError == "content_under_review"
+        }
+        return false
+    }
+
     private var isReactionLockedByVerification: Bool {
         guard shouldLoadCommunityPermissions else { return false }
         guard let communityPermissions else { return false }
@@ -1218,6 +1283,45 @@ struct PostCard: View {
             return false
         }
         return true
+    }
+
+    private func syncViewerAnonProfileId() {
+        viewerAnonProfileId = AnonService.shared.currentIdentity()?.profileId
+    }
+
+    private var isUnderReviewVisibleToViewer: Bool {
+        guard post.isUnderReview else { return false }
+        if post.isAnonymous {
+            guard let viewerAnonProfileId else { return false }
+            return post.anonProfileId == viewerAnonProfileId
+        }
+        guard let viewerUserId = authViewModel.currentUser?.backendId else { return false }
+        return post.authorBackendId == viewerUserId
+    }
+
+    @ViewBuilder
+    private var underReviewBanner: some View {
+        if isUnderReviewVisibleToViewer {
+            HStack(spacing: 8) {
+                Image(systemName: "hourglass")
+                    .font(.loopedCustom(.medium, size: 14))
+                    .foregroundColor(.loopedTextSecondary)
+
+                Text("Under review")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.loopedMutedBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.loopedTextSecondary.opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
     }
 
     private func triggerHeartBurst() {

@@ -107,6 +107,7 @@ struct CommentsView: View {
                 commentInput
             }
             .background(Color.loopedBackground.ignoresSafeArea())
+            .toast($commentsManager.toastMessage)
             .modifier(CommentsPresentationModifier(style: presentationStyle, title: titleText, onDismiss: onDismiss))
             .onAppear {
                 pendingFocusCommentId = commentsManager.focusCommentId
@@ -278,7 +279,7 @@ private extension CommentsView {
             } else if let error = commentsManager.errorMessage, comments.isEmpty {
                 Text(error)
                     .font(.loopedSmallText)
-                    .foregroundColor(.loopedError)
+                    .foregroundColor(error == "Content unavailable" ? .loopedTextSecondary : .loopedError)
                     .frame(maxWidth: .infinity, minHeight: 140)
             } else if comments.isEmpty {
                 VStack(spacing: 10) {
@@ -296,7 +297,7 @@ private extension CommentsView {
                     if let error = commentsManager.errorMessage {
                         Text(error)
                             .font(.loopedSmallText)
-                            .foregroundColor(.loopedError)
+                            .foregroundColor(error == "Content unavailable" ? .loopedTextSecondary : .loopedError)
                     }
 
                     ForEach(comments) { comment in

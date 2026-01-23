@@ -20,6 +20,7 @@ struct CommentDTO: Codable {
     let userLiked: Bool?
     let likedByCreator: Bool?
     let isDeleted: Bool?
+    let isUnderReview: Bool?
     let createdAt: Date
 }
 
