@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>996844529225-06qna924iujpjt35tp7578n4cs3l59j0.apps.googleusercontent.com</string>
+	<string>996844529225-k5l4bn60e24j1sht2h53fdus5khlg3ud.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.996844529225-06qna924iujpjt35tp7578n4cs3l59j0</string>
+	<string>com.googleusercontent.apps.996844529225-k5l4bn60e24j1sht2h53fdus5khlg3ud</string>
 	<key>API_KEY</key>
 	<string>AIzaSyBZpy9t4CQeZQBeHAKAL6XjFaRr34ObeZU</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +13,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>looped.looped-iOS</string>
+	<string>com.mylooped.looped</string>
 	<key>PROJECT_ID</key>
 	<string>looped-auth-23fe5</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:996844529225:ios:39aaf6fe4da8d1f453c198</string>
+	<string>1:996844529225:ios:66fdec2c42a07b2253c198</string>
 </dict>
 </plist>
