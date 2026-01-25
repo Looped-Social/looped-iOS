@@ -38,6 +38,7 @@ enum MenuDestination: Identifiable {
 struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var feedViewModel = FeedViewModel()
+    @State private var keepBootstrapVisible = false
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
@@ -47,8 +48,13 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authViewModel.isAuthenticated, !authViewModel.didLoadIdentity {
-                LaunchBootstrapView()
+            if authViewModel.isAuthenticated, (!authViewModel.didLoadIdentity || keepBootstrapVisible) {
+                LaunchBootstrapView(isReady: authViewModel.didLoadIdentity) {
+                    keepBootstrapVisible = false
+                }
+                .onAppear {
+                    keepBootstrapVisible = !authViewModel.didLoadIdentity
+                }
             } else if authViewModel.isAuthenticated {
                 if !authViewModel.onboardingComplete {
                     AuthView(authViewModel: authViewModel)
@@ -109,6 +115,10 @@ struct ContentView: View {
 private struct LaunchBootstrapView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealProgress: CGFloat = 0
+    @State private var didFinish = false
+
+    let isReady: Bool
+    let onFinished: () -> Void
 
     var body: some View {
         ZStack {
@@ -123,14 +133,43 @@ private struct LaunchBootstrapView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading")
-        .task(id: reduceMotion) {
+        .onAppear {
+            didFinish = false
+
             if reduceMotion {
-                revealProgress = 1
+                revealProgress = isReady ? 1 : 0.9
+                if isReady {
+                    finishIfNeeded()
+                }
                 return
             }
+
             revealProgress = 0
-            withAnimation(.easeInOut(duration: 1.1)) {
+            if isReady {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    revealProgress = 1
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    finishIfNeeded()
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.7)) {
+                    revealProgress = 0.9
+                }
+            }
+        }
+        .onChange(of: isReady) { _, newValue in
+            guard newValue else { return }
+            if reduceMotion {
                 revealProgress = 1
+                finishIfNeeded()
+                return
+            }
+            withAnimation(.easeInOut(duration: 0.25)) {
+                revealProgress = 1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                finishIfNeeded()
             }
         }
     }
@@ -161,6 +200,12 @@ private struct LaunchBootstrapView: View {
 
     private var placeholderLogoColor: Color {
         Color(.sRGB, red: 175.0 / 255.0, green: 162.0 / 255.0, blue: 162.0 / 255.0, opacity: 1)
+    }
+
+    private func finishIfNeeded() {
+        guard !didFinish else { return }
+        didFinish = true
+        onFinished()
     }
 }
 
