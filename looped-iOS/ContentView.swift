@@ -107,24 +107,60 @@ struct ContentView: View {
 }
 
 private struct LaunchBootstrapView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealProgress: CGFloat = 0
+
     var body: some View {
         ZStack {
             Color.loopedBackground.ignoresSafeArea()
 
             VStack(spacing: 18) {
-                Image("LaunchLogo")
-                    .resizable()
-                    .scaledToFit()
+                animatedLogo
                     .frame(width: 180, height: 180)
                     .accessibilityHidden(true)
-
-                ProgressView()
-                    .tint(.loopedPrimary)
             }
             .padding(.horizontal, 24)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading")
+        .task(id: reduceMotion) {
+            if reduceMotion {
+                revealProgress = 1
+                return
+            }
+            revealProgress = 0
+            withAnimation(.easeInOut(duration: 1.1)) {
+                revealProgress = 1
+            }
+        }
+    }
+
+    private var animatedLogo: some View {
+        ZStack {
+            Image("logo")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(placeholderLogoColor)
+
+            Image("logo")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(Color.loopedPrimary)
+                .mask(
+                    GeometryReader { proxy in
+                        Rectangle()
+                            .frame(width: proxy.size.width * revealProgress, height: proxy.size.height)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    }
+                )
+        }
+        .compositingGroup()
+    }
+
+    private var placeholderLogoColor: Color {
+        Color(.sRGB, red: 175.0 / 255.0, green: 162.0 / 255.0, blue: 162.0 / 255.0, opacity: 1)
     }
 }
 
