@@ -3,6 +3,8 @@ import Foundation
 enum CacheHousekeeper {
     private static let lastRunKey = "looped.cache_housekeeper.last_run"
     private static let lastBudgetCheckKey = "looped.cache_housekeeper.last_tmp_budget_check"
+    private static let runLock = NSLock()
+    private static var isRunning = false
 
     static let tmpBudgetBytes: Int64 = 300 * 1024 * 1024
     static let tmpBudgetMinimumAge: TimeInterval = 10 * 60
@@ -23,6 +25,19 @@ enum CacheHousekeeper {
 
     /// Runs lightweight cleanup at most once per 12 hours.
     static func runIfNeeded() {
+        runLock.lock()
+        if isRunning {
+            runLock.unlock()
+            return
+        }
+        isRunning = true
+        runLock.unlock()
+        defer {
+            runLock.lock()
+            isRunning = false
+            runLock.unlock()
+        }
+
         // Always enforce tmp budget (lightweight, rate-limited) even if the heavier cleanup is skipped.
         enforceTmpBudgetIfNeeded()
 

@@ -47,7 +47,9 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authViewModel.isAuthenticated {
+            if authViewModel.isAuthenticated, !authViewModel.didLoadIdentity {
+                LaunchBootstrapView()
+            } else if authViewModel.isAuthenticated {
                 if !authViewModel.onboardingComplete {
                     AuthView(authViewModel: authViewModel)
                 } else {
@@ -101,6 +103,28 @@ struct ContentView: View {
         } catch {
             // Best-effort; the UI will still fall back to local placeholders.
         }
+    }
+}
+
+private struct LaunchBootstrapView: View {
+    var body: some View {
+        ZStack {
+            Color.loopedBackground.ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                Image("LaunchLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 180, height: 180)
+                    .accessibilityHidden(true)
+
+                ProgressView()
+                    .tint(.loopedPrimary)
+            }
+            .padding(.horizontal, 24)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading")
     }
 }
 

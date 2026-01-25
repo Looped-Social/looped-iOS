@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Foundation
 import FirebaseCore
 import UserNotifications
 #if canImport(FirebaseAuth)
@@ -32,11 +33,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   }
 
   func applicationDidBecomeActive(_ application: UIApplication) {
-      CacheHousekeeper.runIfNeeded()
+      DispatchQueue.global(qos: .utility).async {
+          CacheHousekeeper.runIfNeeded()
+      }
   }
 
   func applicationDidEnterBackground(_ application: UIApplication) {
-      CacheHousekeeper.runIfNeeded()
+      DispatchQueue.global(qos: .utility).async {
+          CacheHousekeeper.runIfNeeded()
+      }
   }
 
   private func configureNotifications() {
@@ -150,7 +155,9 @@ struct looped_iOSApp: App {
     init() {
         LoopedFontLoader.registerFonts()
         CacheHousekeeper.configureCacheLimits()
-        CacheHousekeeper.runIfNeeded()
+        DispatchQueue.global(qos: .utility).async {
+            CacheHousekeeper.runIfNeeded()
+        }
     }
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue

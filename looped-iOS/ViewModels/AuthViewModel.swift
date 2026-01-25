@@ -16,6 +16,7 @@ class AuthViewModel: ObservableObject {
     @Published var onboardingComplete = false
     @Published var shouldEnterOnboardingFlow = false
     @Published var onboardingStep: RemoteOnboardingStep?
+    @Published private(set) var didLoadIdentity = false
     @Published private(set) var isProvisioned = false
     @Published var selectedOrganization: Organization?
     @Published private(set) var linkedProviders: Set<String> = []
@@ -41,24 +42,30 @@ class AuthViewModel: ObservableObject {
         self.deviceRegistrar = deviceRegistrar
         self.notificationService = notificationService
         self.isAuthenticated = authService.isAuthenticated
+        self.didLoadIdentity = !authService.isAuthenticated
         
         authService.authStateChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isAuthenticated in
-                self?.isAuthenticated = isAuthenticated
-                self?.deviceRegistrar.updateAuthState(isAuthenticated: isAuthenticated)
+                guard let self else { return }
+                self.isAuthenticated = isAuthenticated
+                self.deviceRegistrar.updateAuthState(isAuthenticated: isAuthenticated)
                 if isAuthenticated {
-                    Task { await self?.loadCurrentUser() }
+                    self.didLoadIdentity = false
+                    Task { await self.bootstrapIdentity() }
                 } else {
-                    self?.currentUser = nil
+                    self.currentUser = nil
+                    self.onboardingComplete = false
+                    self.onboardingStep = nil
+                    self.isProvisioned = false
+                    self.selectedOrganization = nil
+                    self.shouldEnterOnboardingFlow = true
+                    self.didLoadIdentity = true
                 }
-                self?.updateLinkedProviders()
+                self.updateLinkedProviders()
             }
             .store(in: &cancellables)
 
-        if authService.isAuthenticated {
-            Task { await loadCurrentUser() }
-        }
         updateLinkedProviders()
     }
     
@@ -243,6 +250,11 @@ class AuthViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func bootstrapIdentity() async {
+        defer { didLoadIdentity = true }
+        await loadCurrentUser()
     }
 
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO {
