@@ -1,6 +1,7 @@
 import Foundation
 
 class APIClient {
+    private static let dateFormatterLock = NSLock()
     private static let iso8601FormatterWithFractional: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -303,7 +304,7 @@ class APIClient {
                     throw APIError.unauthorized
                 }
                 // Try to parse structured error
-                if let errorPayload = try? JSONDecoder().decode(ServerError.self, from: data) {
+                if let errorPayload = try? await decodeOnBackground(ServerError.self, from: data, configure: { _ in }) {
                     throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
                 }
                 throw APIError.serverError(httpResponse.statusCode)
@@ -326,23 +327,24 @@ class APIClient {
                 return EmptyResponse() as! T
             }
 
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .custom { decoder in
-                let container = try decoder.singleValueContainer()
-                let value = try container.decode(String.self)
-                if let date = APIClient.iso8601FormatterWithFractional.date(from: value)
-                    ?? APIClient.iso8601Formatter.date(from: value) {
-                    return date
-                }
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid ISO-8601 date: \(value)"
-                )
-            }
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-
             do {
-                return try decoder.decode(T.self, from: data)
+                return try await decodeOnBackground(T.self, from: data) { decoder in
+                    decoder.dateDecodingStrategy = .custom { decoder in
+                        let container = try decoder.singleValueContainer()
+                        let value = try container.decode(String.self)
+                        APIClient.dateFormatterLock.lock()
+                        defer { APIClient.dateFormatterLock.unlock() }
+                        if let date = APIClient.iso8601FormatterWithFractional.date(from: value)
+                            ?? APIClient.iso8601Formatter.date(from: value) {
+                            return date
+                        }
+                        throw DecodingError.dataCorruptedError(
+                            in: container,
+                            debugDescription: "Invalid ISO-8601 date: \(value)"
+                        )
+                    }
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                }
             } catch let decodingError as DecodingError {
                 throw APIError.decodingError(decodingError)
             }
@@ -370,7 +372,7 @@ class APIClient {
                 if httpResponse.statusCode == 401 {
                     throw APIError.unauthorized
                 }
-                if let errorPayload = try? JSONDecoder().decode(ServerError.self, from: data) {
+                if let errorPayload = try? await decodeOnBackground(ServerError.self, from: data, configure: { _ in }) {
                     throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
                 }
                 throw APIError.serverError(httpResponse.statusCode)
@@ -385,6 +387,11 @@ class APIClient {
     }
 
     private func shouldLogProfileResponse(request: URLRequest) -> Bool {
+#if DEBUG
+        guard ProcessInfo.processInfo.environment["LOOPED_LOG_PROFILE_RESPONSES"] == "1" else { return false }
+#else
+        return false
+#endif
         guard request.httpMethod == "GET", let path = request.url?.path else { return false }
         if path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/") { return true }
         // Helps debug profile repost tabs (e.g., 200 with empty items after refresh).
@@ -426,6 +433,26 @@ class APIClient {
     }
     #endif
 
+}
+
+extension APIClient {
+    private func decodeOnBackground<T: Decodable>(
+        _ type: T.Type,
+        from data: Data,
+        configure: @escaping (JSONDecoder) -> Void
+    ) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let decoder = JSONDecoder()
+                configure(decoder)
+                do {
+                    continuation.resume(returning: try decoder.decode(T.self, from: data))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
 }
 
 struct EmptyResponse: Codable {}

@@ -153,7 +153,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 @main
 struct looped_iOSApp: App {
     init() {
-        LoopedFontLoader.registerFonts()
         CacheHousekeeper.configureCacheLimits()
         DispatchQueue.global(qos: .utility).async {
             CacheHousekeeper.runIfNeeded()

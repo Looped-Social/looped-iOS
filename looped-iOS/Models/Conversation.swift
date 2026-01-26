@@ -56,7 +56,7 @@ extension Conversation {
         let calendar = Calendar.current
 
         if calendar.isDate(lastMessageTimestamp, inSameDayAs: Date()) {
-            formatter.dateFormat = "H:mm"
+            formatter.dateFormat = "h:mm a"
             return formatter.string(from: lastMessageTimestamp)
         } else if calendar.isDate(lastMessageTimestamp, equalTo: Date(), toGranularity: .year) {
             formatter.dateFormat = "M/d"

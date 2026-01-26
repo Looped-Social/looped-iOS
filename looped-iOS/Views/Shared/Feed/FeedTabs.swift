@@ -222,27 +222,19 @@ private extension FeedTabs {
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                         .padding(.vertical, 16)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(searchResults) { result in
-                                Button(action: { selectSearchResult(result) }) {
-                                    HStack(spacing: 10) {
-                                        Text(searchResultLabel(for: result))
-                                            .font(.loopedBody)
-                                            .foregroundColor(.loopedTextPrimary)
-                                            .lineLimit(1)
-
-                                        Spacer(minLength: 8)
-
-                                        Text(kindLabel(for: result.kind))
-                                            .font(.loopedSmallText)
-                                            .foregroundColor(.loopedTextSecondary)
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                }
-                                .buttonStyle(.plain)
+	                } else {
+	                    ScrollView {
+	                        LazyVStack(spacing: 0) {
+	                            ForEach(searchResults) { result in
+	                                Button(action: { selectSearchResult(result) }) {
+	                                    CommunitySearchResultRow(
+	                                        result: result,
+	                                        kindLabel: kindLabel(for: result.kind, specializationType: result.specializationType)
+	                                    )
+	                                    .padding(.horizontal, 16)
+	                                    .padding(.vertical, 12)
+	                                }
+	                                .buttonStyle(.plain)
 
                                 Rectangle()
                                     .frame(height: 1)
@@ -287,31 +279,31 @@ private extension FeedTabs {
         ) ?? community.name
     }
 
-    func searchResultLabel(for result: CommunitySearchResult) -> String {
-        CommunityLabelText.preferredName(
-            preferShortNames: false,
-            name: result.name,
-            shortName: result.shortName
-        ) ?? result.name
-    }
+	    func searchResultLabel(for result: CommunitySearchResult) -> String {
+	        CommunityLabelText.preferredName(
+	            preferShortNames: false,
+	            name: result.name,
+	            shortName: result.shortName
+	        ) ?? result.name
+	    }
 
-    func kindLabel(for kind: CommunityKind) -> String {
-        switch kind {
-        case .company:
-            return "Company"
-        case .school:
-            return "School"
-        case .profession:
-            return "Profession"
-        case .sector:
-            return "Sector"
-        case .specialization:
-            return "Specialization"
-        case .unknown:
-            return ""
-        }
-    }
-}
+	    func kindLabel(for kind: CommunityKind, specializationType: CommunitySpecializationType) -> String {
+	        switch kind {
+	        case .company:
+	            return "Company"
+	        case .school:
+	            return "School"
+	        case .profession:
+	            return "Profession"
+	        case .sector:
+	            return "Sector"
+	        case .specialization:
+	            return specializationType.displayName ?? "Specialization"
+	        case .unknown:
+	            return ""
+	        }
+	    }
+	}
 
 private extension FeedTab {
     var feedMode: FeedMode {
@@ -347,5 +339,109 @@ private extension FeedTab {
         )
         Spacer()
     }
-    .background(Color.loopedBackground.ignoresSafeArea())
+	    .background(Color.loopedBackground.ignoresSafeArea())
+	}
+
+private struct CommunitySearchResultRow: View {
+    let result: CommunitySearchResult
+    let kindLabel: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            thumbnail
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(primaryText)
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextPrimary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 8)
+
+                    if !kindLabel.isEmpty {
+                        Text(kindLabel)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                if let secondaryText {
+                    Text(secondaryText)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    private var primaryText: String {
+        let trimmedShortName = (result.shortName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedShortName.isEmpty { return trimmedShortName }
+        return result.name
+    }
+
+    private var secondaryText: String? {
+        let trimmedShortName = (result.shortName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedShortName.isEmpty { return result.name }
+
+        let trimmedDescription = result.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedDescription.isEmpty { return trimmedDescription }
+
+        return nil
+    }
+
+    private var thumbnail: some View {
+        Group {
+            if let imageUrl = result.imageUrl,
+               let url = URL(string: imageUrl),
+               url.scheme != nil {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure:
+                        placeholder
+                    case .empty:
+                        placeholder
+                    @unknown default:
+                        placeholder
+                    }
+                }
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: 34, height: 34)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.loopedTextSecondary.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var placeholder: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color.loopedMutedBackground)
+            .overlay(
+                Text(initials)
+                    .font(.loopedSmallTextMedium)
+                    .foregroundColor(.loopedTextSecondary)
+            )
+    }
+
+    private var initials: String {
+        let trimmedShortName = (result.shortName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedShortName.isEmpty {
+            return String(trimmedShortName.prefix(2)).uppercased()
+        }
+        let trimmedName = result.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let first = trimmedName.first {
+            return String(first).uppercased()
+        }
+        return "?"
+    }
 }

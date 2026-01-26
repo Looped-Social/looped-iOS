@@ -84,7 +84,7 @@ extension MessageRequest {
         let calendar = Calendar.current
 
         if calendar.isDate(previewCreatedAt, inSameDayAs: Date()) {
-            formatter.dateFormat = "H:mm"
+            formatter.dateFormat = "h:mm a"
             return formatter.string(from: previewCreatedAt)
         } else if calendar.isDate(previewCreatedAt, equalTo: Date(), toGranularity: .year) {
             formatter.dateFormat = "M/d"

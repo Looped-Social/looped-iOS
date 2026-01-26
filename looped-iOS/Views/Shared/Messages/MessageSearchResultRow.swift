@@ -42,7 +42,7 @@ struct MessageSearchResultRow: View {
         let calendar = Calendar.current
 
         if calendar.isDate(date, inSameDayAs: Date()) {
-            formatter.dateFormat = "H:mm"
+            formatter.dateFormat = "h:mm a"
         } else if calendar.isDate(date, equalTo: Date(), toGranularity: .year) {
             formatter.dateFormat = "M/d"
         } else {

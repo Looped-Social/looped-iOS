@@ -21,7 +21,7 @@ class FeedViewModel: ObservableObject {
     @Published var communitySearchResults: [CommunitySearchResult] = []
     @Published var isCommunitySearchLoading: Bool = false
     @Published var communitySearchError: String?
-    @Published private(set) var recentFeedCommunity: CommunitySummary?
+    @Published private(set) var recentFeedCommunities: [CommunitySummary] = []
 
     enum CreatePostResult: Equatable {
         case created
@@ -41,11 +41,13 @@ class FeedViewModel: ObservableObject {
     private let lastPostedCommunityKey = "lastPostedCommunityId"
     private let lastSelectedCommunityKey = "lastSelectedCommunityId"
     private let feedActiveCommunityKey = "feedActiveCommunityId"
+    private let feedRecentCommunitiesKey = "feedRecentCommunities"
     private let feedRecentCommunityIdKey = "feedRecentCommunityId"
     private let feedRecentCommunityNameKey = "feedRecentCommunityName"
     private let feedRecentCommunityShortNameKey = "feedRecentCommunityShortName"
     private let feedRecentCommunityKindKey = "feedRecentCommunityKind"
     private let feedRecentCommunityMemberCountKey = "feedRecentCommunityMemberCount"
+    private let maxRecentFeedCommunities = 12
     private var lastToastAt: Date?
     private var communitySearchTask: Task<Void, Never>?
     
@@ -99,16 +101,12 @@ class FeedViewModel: ObservableObject {
             )
             if reset {
                 followedCommunities = page.items
-                if let recent = recentFeedCommunity,
-                   let matched = followedCommunities.first(where: { $0.id == recent.id }) {
-                    recentFeedCommunity = matched
-                    persistRecentFeedCommunity(matched)
-                }
                 if let selected = selectedCommunity,
                    let matched = followedCommunities.first(where: { $0.id == selected.id }) {
                     selectedCommunity = matched
-                    persistRecentFeedCommunity(matched)
+                    bumpRecentCommunity(matched)
                 }
+                normalizeRecentCommunities(using: followedCommunities)
             } else {
                 var seen = Set(followedCommunities.map { $0.id })
                 let appended = page.items.filter { seen.insert($0.id).inserted }
@@ -134,8 +132,7 @@ class FeedViewModel: ObservableObject {
     func selectCommunity(_ community: CommunitySummary) async {
         guard selectedCommunity?.id != community.id else { return }
         selectedCommunity = community
-        recentFeedCommunity = community
-        persistRecentFeedCommunity(community)
+        bumpRecentCommunity(community)
         persistActiveFeedCommunityId(community.id)
         updateLastSelectedCommunityId()
         resetNewPostsToast()
@@ -151,17 +148,29 @@ class FeedViewModel: ObservableObject {
     }
 
     var feedFilterCommunities: [CommunitySummary] {
-        Self.makeFeedFilterCommunities(followedCommunities: followedCommunities, recentFeedCommunity: recentFeedCommunity)
+        Self.makeFeedFilterCommunities(
+            followedCommunities: followedCommunities,
+            recentFeedCommunities: recentFeedCommunities
+        )
     }
 
     static func makeFeedFilterCommunities(
         followedCommunities: [CommunitySummary],
-        recentFeedCommunity: CommunitySummary?
+        recentFeedCommunities: [CommunitySummary]
     ) -> [CommunitySummary] {
         var merged = followedCommunities
-        guard let recentFeedCommunity else { return merged }
-        merged.removeAll { $0.id == recentFeedCommunity.id }
-        merged.insert(recentFeedCommunity, at: 0)
+        guard !recentFeedCommunities.isEmpty else { return merged }
+
+        var uniqueRecent: [CommunitySummary] = []
+        uniqueRecent.reserveCapacity(min(recentFeedCommunities.count, 12))
+        var seenRecentIds = Set<Int>()
+        for community in recentFeedCommunities where seenRecentIds.insert(community.id).inserted {
+            uniqueRecent.append(community)
+        }
+
+        let recentIds = Set(uniqueRecent.map(\.id))
+        merged.removeAll { recentIds.contains($0.id) }
+        merged.insert(contentsOf: uniqueRecent, at: 0)
         return merged
     }
 
@@ -637,14 +646,19 @@ private extension FeedViewModel {
     }
 
     func restoreFeedFilterState() {
+        if let data = UserDefaults.standard.data(forKey: feedRecentCommunitiesKey),
+           let records = try? JSONDecoder().decode([RecentFeedCommunityRecord].self, from: data) {
+            recentFeedCommunities = records.map { $0.toCommunitySummary() }
+        }
+
         let recentId = UserDefaults.standard.integer(forKey: feedRecentCommunityIdKey)
-        if recentId > 0 {
+        if recentFeedCommunities.isEmpty, recentId > 0 {
             let name = UserDefaults.standard.string(forKey: feedRecentCommunityNameKey) ?? "Community"
             let shortName = UserDefaults.standard.string(forKey: feedRecentCommunityShortNameKey)
             let kindRaw = UserDefaults.standard.string(forKey: feedRecentCommunityKindKey) ?? ""
             let kind = CommunityKind(rawValue: kindRaw) ?? .unknown
             let memberCount = UserDefaults.standard.integer(forKey: feedRecentCommunityMemberCountKey)
-            recentFeedCommunity = CommunitySummary(
+            recentFeedCommunities = [CommunitySummary(
                 id: recentId,
                 name: name,
                 shortName: shortName,
@@ -653,15 +667,19 @@ private extension FeedViewModel {
                 isPinned: false,
                 sortOrder: nil,
                 canPost: false
-            )
+            )]
         }
 
         let activeId = UserDefaults.standard.integer(forKey: feedActiveCommunityKey)
-        if activeId > 0, let recentFeedCommunity, recentFeedCommunity.id == activeId {
-            selectedCommunity = recentFeedCommunity
-        } else {
-            selectedCommunity = nil
+        if activeId > 0, let index = recentFeedCommunities.firstIndex(where: { $0.id == activeId }) {
+            let active = recentFeedCommunities.remove(at: index)
+            recentFeedCommunities.insert(active, at: 0)
+            selectedCommunity = active
+            persistRecentFeedCommunities(recentFeedCommunities)
+            persistRecentFeedCommunity(active)
+            return
         }
+        selectedCommunity = nil
     }
 
     func persistActiveFeedCommunityId(_ id: Int?) {
@@ -707,6 +725,65 @@ private struct ImageUploadPayload: Sendable {
 }
 
 private extension FeedViewModel {
+    struct RecentFeedCommunityRecord: Codable, Equatable {
+        let id: Int
+        let name: String
+        let shortName: String?
+        let kind: CommunityKind
+        let memberCount: Int
+
+        init(from community: CommunitySummary) {
+            id = community.id
+            name = community.name
+            let trimmedShortName = community.shortName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            shortName = trimmedShortName?.isEmpty == false ? trimmedShortName : nil
+            kind = community.kind
+            memberCount = community.memberCount
+        }
+
+        func toCommunitySummary() -> CommunitySummary {
+            CommunitySummary(
+                id: id,
+                name: name,
+                shortName: shortName,
+                kind: kind,
+                memberCount: memberCount,
+                isPinned: false,
+                sortOrder: nil,
+                canPost: false
+            )
+        }
+    }
+
+    func bumpRecentCommunity(_ community: CommunitySummary) {
+        recentFeedCommunities.removeAll { $0.id == community.id }
+        recentFeedCommunities.insert(community, at: 0)
+        if recentFeedCommunities.count > maxRecentFeedCommunities {
+            recentFeedCommunities = Array(recentFeedCommunities.prefix(maxRecentFeedCommunities))
+        }
+        persistRecentFeedCommunities(recentFeedCommunities)
+        persistRecentFeedCommunity(community)
+    }
+
+    func normalizeRecentCommunities(using followed: [CommunitySummary]) {
+        guard !recentFeedCommunities.isEmpty else { return }
+        let normalized = recentFeedCommunities.map { recent in
+            followed.first(where: { $0.id == recent.id }) ?? recent
+        }
+        guard normalized != recentFeedCommunities else { return }
+        recentFeedCommunities = normalized
+        persistRecentFeedCommunities(recentFeedCommunities)
+        if let mostRecent = recentFeedCommunities.first {
+            persistRecentFeedCommunity(mostRecent)
+        }
+    }
+
+    func persistRecentFeedCommunities(_ communities: [CommunitySummary]) {
+        let records = communities.map { RecentFeedCommunityRecord(from: $0) }
+        guard let data = try? JSONEncoder().encode(records) else { return }
+        UserDefaults.standard.set(data, forKey: feedRecentCommunitiesKey)
+    }
+
     func updateLastSelectedCommunityId() {
         if let selectedId = selectedCommunity?.id {
             UserDefaults.standard.set(selectedId, forKey: lastSelectedCommunityKey)
