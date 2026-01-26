@@ -16,6 +16,7 @@ struct CommunityProfileView: View {
     @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
     @State private var canPop = false
+    @State private var isAtTop = true
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
@@ -31,9 +32,17 @@ struct CommunityProfileView: View {
                     tabContent
                     Color.loopedClear.frame(height: 80)
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.loopedClear
+                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                isAtTop = newValue >= -20
+                            }
+                    }
+                )
             }
             .background(Color.loopedBackground.ignoresSafeArea())
-            .refreshable {
+            .loopedPullToRefresh(isAtTop: isAtTop) {
                 await viewModel.refresh()
             }
             .task { await loadIfNeeded() }

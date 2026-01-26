@@ -216,15 +216,16 @@ struct MainTabView: View {
     @State private var showCreatePost = false
     @State private var showNewMessage = false
     @State private var isRightMenuOpen = false
-    @State private var showingChat = false
-    @State private var selectedConversation: Conversation?
-    @State private var selectedChannel: Channel?
-    @State private var deepLinkConversationId: Int?
-    @State private var deepLinkChannelId: Int?
-    @State private var menuDestination: MenuDestination?
-    @State private var tabBarHeight: CGFloat = 0
-    @State private var showFAQSheet = false
-    @State private var deepLinkProfile: DeepLinkProfile?
+	    @State private var showingChat = false
+	    @State private var selectedConversation: Conversation?
+	    @State private var selectedChannel: Channel?
+	    @State private var deepLinkConversationId: Int?
+	    @State private var deepLinkChannelId: Int?
+	    @State private var menuDestination: MenuDestination?
+	    @State private var mainOverlayDestination: LoopedMainOverlayDestination?
+	    @State private var tabBarHeight: CGFloat = 0
+	    @State private var showFAQSheet = false
+	    @State private var deepLinkProfile: DeepLinkProfile?
     @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var fabState = FloatingActionButtonState()
     @StateObject private var coachMarkPresenter = CoachMarkPresenter()
@@ -290,18 +291,31 @@ struct MainTabView: View {
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
         .toast($toastMessage)
-        .overlay(
-            Group {
-                if commentsManager.isPresented, let post = commentsManager.currentPost {
-                    CommentsNavigationHost(post: post) {
-                        commentsManager.dismissComments()
-                    }
-                    .environmentObject(commentsManager)
-                    .preferredColorScheme(preferredColorScheme)
-                    .transition(.move(edge: .trailing))
-                }
-            }
-        )
+	        .overlay(
+	            Group {
+	                if commentsManager.isPresented, let post = commentsManager.currentPost {
+	                    CommentsNavigationHost(post: post) {
+	                        commentsManager.dismissComments()
+	                    }
+	                    .environmentObject(commentsManager)
+	                    .preferredColorScheme(preferredColorScheme)
+	                    .transition(.move(edge: .trailing))
+	                }
+	            }
+	        )
+	        .overlay(
+	            Group {
+	                if let destination = mainOverlayDestination {
+	                    LoopedMainOverlayNavigationHost(destination: destination) {
+	                        withAnimation(.easeInOut(duration: 0.25)) {
+	                            mainOverlayDestination = nil
+	                        }
+	                    }
+	                    .preferredColorScheme(preferredColorScheme)
+	                    .transition(.move(edge: .trailing))
+	                }
+	            }
+	        )
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(
                 feedViewModel: feedViewModel,
@@ -447,15 +461,20 @@ struct MainTabView: View {
 		                        .transition(.move(edge: .bottom).combined(with: .opacity))
 	                }
 	            }
-                .onPreferenceChange(LoopedTabBarHeightPreferenceKey.self) { newValue in
-                    if newValue > 0, abs(newValue - tabBarHeight) > 0.5 {
-                        tabBarHeight = newValue
-                    } else if newValue == 0 {
-                        tabBarHeight = 0
-                    }
-                }
-                .environment(\.loopedTabBarHeight, isTabBarVisible ? tabBarHeight : 0)
-	            .animation(.easeInOut(duration: 0.25), value: isTabBarVisible)
+	                .onPreferenceChange(LoopedTabBarHeightPreferenceKey.self) { newValue in
+	                    if newValue > 0, abs(newValue - tabBarHeight) > 0.5 {
+	                        tabBarHeight = newValue
+	                    } else if newValue == 0 {
+	                        tabBarHeight = 0
+	                    }
+	                }
+	                .environment(\.loopedTabBarHeight, isTabBarVisible ? tabBarHeight : 0)
+	                .environment(\.loopedPresentMainOverlay) { destination in
+	                    withAnimation(.easeInOut(duration: 0.25)) {
+	                        mainOverlayDestination = destination
+	                    }
+	                }
+		            .animation(.easeInOut(duration: 0.25), value: isTabBarVisible)
 	        .background(Color.loopedBackground.ignoresSafeArea())
 	        .overlay(
             // Blocking overlay when drawer is open - prevents feed interactions

@@ -11,6 +11,7 @@ struct HashtagFeedView: View {
     @EnvironmentObject var commentsManager: CommentsModalManager
     @StateObject private var viewModel: HashtagFeedViewModel
     let presentationStyle: PresentationStyle
+    @State private var isAtTop = true
 
     // Remove # if present to display
     private var displayHashtag: String {
@@ -73,8 +74,16 @@ struct HashtagFeedView: View {
                         }
                     }
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.loopedClear
+                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                isAtTop = newValue >= -20
+                            }
+                    }
+                )
             }
-            .refreshable {
+            .loopedPullToRefresh(isAtTop: isAtTop) {
                 await viewModel.loadPosts(reset: true)
             }
         }

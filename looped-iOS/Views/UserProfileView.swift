@@ -17,6 +17,7 @@ struct UserProfileView: View {
     @StateObject private var contentViewModel: UserContentViewModel
     @StateObject private var repostsViewModel: CollectionPostsViewModel
     @StateObject private var commentsViewModel = UserCommentsViewModel()
+    @State private var isAtTop = true
 	    @State private var selectedTab: UserProfileTab = .content
 	    @State private var hasLoaded = false
 	    @State private var canPop = false
@@ -196,10 +197,18 @@ struct UserProfileView: View {
                 content
                 Color.loopedClear.frame(height: 80)
             }
+            .background(
+                GeometryReader { geo in
+                    Color.loopedClear
+                        .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                            isAtTop = newValue >= -20
+                        }
+                }
+            )
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .task { await loadIfNeeded() }
-        .refreshable { await reload() }
+        .loopedPullToRefresh(isAtTop: isAtTop) { await reload() }
     }
 
     @ViewBuilder
@@ -687,14 +696,13 @@ struct UserContentList: View {
                         .task { await viewModel.loadMoreIfNeeded(current: item) }
                     }
 
-                    if viewModel.isLoadingMore {
-                        ProgressView()
-                            .padding(.vertical, 16)
-                    }
-                }
-            } else if let error = viewModel.errorMessage {
-                VStack(spacing: 8) {
-                    Text(error)
+	                    if viewModel.isLoadingMore {
+	                        LoopedInlineLoadingIndicator()
+	                    }
+	                }
+	            } else if let error = viewModel.errorMessage {
+	                VStack(spacing: 8) {
+	                    Text(error)
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextSecondary)
                         .multilineTextAlignment(.center)

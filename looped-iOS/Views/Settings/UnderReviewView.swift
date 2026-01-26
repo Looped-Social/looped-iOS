@@ -4,6 +4,7 @@ struct UnderReviewView: View {
     @StateObject private var viewModel = UnderReviewViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @State private var isAtTop = true
 
     var body: some View {
         ScrollView {
@@ -64,6 +65,14 @@ struct UnderReviewView: View {
                     }
                 }
             }
+            .background(
+                GeometryReader { geo in
+                    Color.loopedClear
+                        .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                            isAtTop = newValue >= -20
+                        }
+                }
+            )
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Under review")
@@ -72,7 +81,7 @@ struct UnderReviewView: View {
         .task {
             await viewModel.loadInitial(fallbackUserId: authViewModel.currentUser?.backendId)
         }
-        .refreshable {
+        .loopedPullToRefresh(isAtTop: isAtTop) {
             await viewModel.refresh()
         }
     }

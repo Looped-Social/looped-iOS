@@ -92,7 +92,11 @@ struct FeedView: View {
                 .safeAreaInset(edge: .top, spacing: 0) {
                     Color.loopedClear.frame(height: headerHeight)
                 }
-                .refreshable {
+                .loopedPullToRefresh(
+                    isEnabled: !viewModel.isCommunitySearchActive,
+                    isAtTop: isAtTop,
+                    indicatorTopPadding: headerVisible ? headerHeight + 14 : 16
+                ) {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         headerVisible = true
                         isTabBarVisible = true

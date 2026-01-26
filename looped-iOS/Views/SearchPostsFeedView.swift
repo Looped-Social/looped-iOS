@@ -11,6 +11,7 @@ struct SearchPostsFeedView: View {
     @EnvironmentObject var commentsManager: CommentsModalManager
     @StateObject private var viewModel: SearchPostsFeedViewModel
     let presentationStyle: PresentationStyle
+    @State private var isAtTop = true
 
     private var displayQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -71,8 +72,16 @@ struct SearchPostsFeedView: View {
                         }
                     }
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.loopedClear
+                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                isAtTop = newValue >= -20
+                            }
+                    }
+                )
             }
-            .refreshable {
+            .loopedPullToRefresh(isAtTop: isAtTop) {
                 await viewModel.loadPosts(reset: true)
             }
         }

@@ -7,6 +7,7 @@ struct MessagesView: View {
     @State private var selectedTab: MessageTab = .messages
     @State private var searchText = ""
     @State private var showNewMessage = false
+    @State private var isAtTop = true
     @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     init(
@@ -318,8 +319,16 @@ struct MessagesView: View {
                         }
                     }
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.loopedClear
+                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                isAtTop = newValue >= -20
+                            }
+                    }
+                )
             }
-            .refreshable {
+            .loopedPullToRefresh(isAtTop: isAtTop) {
                 if selectedTab == .requests {
                     await viewModel.loadMessageRequests()
                 } else if selectedTab == .groups {

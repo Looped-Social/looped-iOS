@@ -3,6 +3,7 @@ import SwiftUI
 struct NotificationsView: View {
     @ObservedObject var viewModel: NotificationsViewModel
     @State private var selectedProfileDestination: ProfileDestination?
+    @State private var isAtTop = true
 
     init(viewModel: NotificationsViewModel) {
         self.viewModel = viewModel
@@ -103,8 +104,16 @@ struct NotificationsView: View {
                             }
                         }
                     }
+                    .background(
+                        GeometryReader { geo in
+                            Color.loopedClear
+                                .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                    isAtTop = newValue >= -20
+                                }
+                        }
+                    )
                 }
-                .refreshable {
+                .loopedPullToRefresh(isAtTop: isAtTop) {
                     await viewModel.refreshNotifications()
                 }
             }

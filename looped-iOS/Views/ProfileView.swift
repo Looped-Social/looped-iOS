@@ -14,6 +14,7 @@ struct ProfileView: View {
     @StateObject private var repostsViewModel = CollectionPostsViewModel(collection: .myReposts)
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
+    @State private var isAtTop = true
     @AppStorage("anonymousMode") private var isAnonymous = false
     @State private var showAnonError = false
     @State private var anonErrorMessage = ""
@@ -25,6 +26,7 @@ struct ProfileView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var coachMarkPresenter: CoachMarkPresenter
     @EnvironmentObject private var commentsManager: CommentsModalManager
+    @Environment(\.loopedPresentMainOverlay) private var presentMainOverlay
 
 	@State private var headerHeight: CGFloat = 300
 	@State private var hasActiveVerifications: Bool?
@@ -71,6 +73,12 @@ struct ProfileView: View {
                             }
                     }
                 )
+            }
+            .loopedPullToRefresh(
+                isAtTop: isAtTop,
+                indicatorTopPadding: headerVisible ? headerHeight + 14 : 16
+            ) {
+                await refreshAll()
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 Color.loopedClear.frame(height: headerHeight)
@@ -119,62 +127,29 @@ struct ProfileView: View {
             .opacity(headerVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.25), value: headerVisible)
         }
-		.overlay(alignment: .topTrailing) {
-			if displayProfile?.isCurrentUser ?? true {
-				NavigationLink(destination: SettingsView().environmentObject(authViewModel)) {
-					Image(systemName: "gearshape.fill")
-						.font(.loopedCustom(.semibold, size: 18))
-						.foregroundColor(.loopedTextSecondary)
-						.frame(width: 28, height: 28)
-						.contentShape(Rectangle())
-						.coachMarkTarget(.profileSettingsButton)
+			.overlay(alignment: .topTrailing) {
+				if displayProfile?.isCurrentUser ?? true {
+					Button(action: { presentMainOverlay(.settings) }) {
+						Image(systemName: "gearshape.fill")
+							.font(.loopedCustom(.semibold, size: 18))
+							.foregroundColor(.loopedTextSecondary)
+							.frame(width: 28, height: 28)
+							.contentShape(Rectangle())
+							.coachMarkTarget(.profileSettingsButton)
+					}
+					.buttonStyle(PlainButtonStyle())
+					.accessibilityLabel("Settings")
+					.padding(.top, 16)
+					.padding(.trailing, 16)
 				}
-				.buttonStyle(PlainButtonStyle())
-				.accessibilityLabel("Settings")
-				.padding(.top, 16)
-				.padding(.trailing, 16)
 			}
-		}
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-	        .task {
-	            await viewModel.loadUserProfile()
-	            if isAnonymous {
-	                await viewModel.loadAnonymousProfile()
-	            }
-	            await loadVerificationStatus()
-                await updateContentTarget()
-                if selectedTab == .content {
-                    await contentViewModel.loadInitial()
-                }
-	            if selectedTab == .saved {
-	                await savedViewModel.loadInitial()
-	            }
-	            if selectedTab == .reposts {
-	                await repostsViewModel.loadInitial()
-	            }
-	        }
-	        .refreshable {
-	            await viewModel.loadUserProfile()
-	            if isAnonymous {
-	                await viewModel.loadAnonymousProfile()
-	            }
-	            await loadVerificationStatus()
-                await updateContentTarget()
-                if selectedTab == .content {
-                    await contentViewModel.loadInitial()
-                }
-	            if selectedTab == .saved {
-	                await savedViewModel.loadInitial()
-	            }
-	            if selectedTab == .reposts {
-	                await repostsViewModel.loadInitial()
-	            }
-	        }
-        .onAppear {
-            headerVisible = true
-            lastScrollOffset = 0
-            startProfileDiscoveryIfNeeded()
+	        .background(Color.loopedBackground.ignoresSafeArea())
+	        .navigationBarHidden(true)
+		        .task { await refreshAll() }
+	        .onAppear {
+	            headerVisible = true
+	            lastScrollOffset = 0
+	            startProfileDiscoveryIfNeeded()
             if isAnonymous {
                 queueAnonymousDiscoveryIfNeeded()
             }
@@ -240,16 +215,17 @@ struct ProfileView: View {
         }
     }
 
-	private func handleScroll(_ offset: CGFloat) {
-		guard !isShowingDiscoveryOverlay else {
-			if !headerVisible {
-				withAnimation(.easeInOut(duration: 0.25)) {
-					headerVisible = true
+		private func handleScroll(_ offset: CGFloat) {
+			guard !isShowingDiscoveryOverlay else {
+				if !headerVisible {
+					withAnimation(.easeInOut(duration: 0.25)) {
+						headerVisible = true
+					}
 				}
+				lastScrollOffset = offset
+                isAtTop = offset >= -50
+				return
 			}
-			lastScrollOffset = offset
-			return
-		}
 
 		let delta = offset - lastScrollOffset
 
@@ -272,9 +248,10 @@ struct ProfileView: View {
             }
         }
 
-        lastScrollOffset = offset
-    }
-}
+	        isAtTop = offset >= -50
+	        lastScrollOffset = offset
+	    }
+	}
 
 private struct ProfileHeaderHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
@@ -285,6 +262,24 @@ private struct ProfileHeaderHeightKey: PreferenceKey {
 }
 
 private extension ProfileView {
+    func refreshAll() async {
+        await viewModel.loadUserProfile()
+        if isAnonymous {
+            await viewModel.loadAnonymousProfile()
+        }
+        await loadVerificationStatus()
+        await updateContentTarget()
+        if selectedTab == .content {
+            await contentViewModel.loadInitial()
+        }
+        if selectedTab == .saved {
+            await savedViewModel.loadInitial()
+        }
+        if selectedTab == .reposts {
+            await repostsViewModel.loadInitial()
+        }
+    }
+
     func loadVerificationStatus() async {
         guard !isAnonymous else {
             hasActiveVerifications = nil
@@ -619,6 +614,7 @@ struct ProfileStatsView: View {
     let isAnonymous: Bool
     let hasActiveVerifications: Bool?
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @Environment(\.loopedPresentMainOverlay) private var presentMainOverlay
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -643,7 +639,7 @@ struct ProfileStatsView: View {
 
                 if displaySpecializationLine != nil {
                     if canSelectDisplayCommunity {
-                        NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
+                        Button(action: { presentMainOverlay(.editProfile) }) {
                             DisplaySpecializationRow(
                                 specialization: displaySpecialization,
                                 displayCommunity: displayCommunity,
@@ -666,7 +662,7 @@ struct ProfileStatsView: View {
                     }
                 } else if shouldShowDisplayCommunityRow {
                     if canSelectDisplayCommunity {
-                        NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
+                        Button(action: { presentMainOverlay(.editProfile) }) {
                             DisplayCommunityRow(
                                 displayCommunity: displayCommunity,
                                 fallbackText: displayCommunityFallbackText,
@@ -834,11 +830,12 @@ private struct CompanyIconView: View {
 	        let onTap: () -> Void
 	    }
 
-	    @EnvironmentObject private var authViewModel: AuthViewModel
-	    let userProfile: UserProfile?
-	    @Binding var isAnonymous: Bool
-	    let followConfig: FollowConfig?
-	    let messageConfig: MessageConfig?
+		    @EnvironmentObject private var authViewModel: AuthViewModel
+		    @Environment(\.loopedPresentMainOverlay) private var presentMainOverlay
+		    let userProfile: UserProfile?
+		    @Binding var isAnonymous: Bool
+		    let followConfig: FollowConfig?
+		    let messageConfig: MessageConfig?
 
 	    init(
 	        userProfile: UserProfile?,
@@ -852,20 +849,20 @@ private struct CompanyIconView: View {
 	        self.messageConfig = messageConfig
 	    }
 
-    var body: some View {
-        HStack(spacing: 0) {
-            if isCurrentUser {
-                NavigationLink(destination: UserSettingsView().environmentObject(authViewModel)) {
-                    ProfileActionButton(
-                        title: "Edit Profile",
-                        style: .outline,
-                        textColor: .loopedTextSecondary,
-                        borderColor: .loopedTextSecondary
-                    )
-                        .coachMarkTarget(.profileEditButton)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .frame(maxWidth: .infinity, alignment: .center)
+	    var body: some View {
+	        HStack(spacing: 0) {
+	            if isCurrentUser {
+	                Button(action: { presentMainOverlay(.editProfile) }) {
+	                    ProfileActionButton(
+	                        title: "Edit Profile",
+	                        style: .outline,
+	                        textColor: .loopedTextSecondary,
+	                        borderColor: .loopedTextSecondary
+	                    )
+	                        .coachMarkTarget(.profileEditButton)
+	                }
+	                .buttonStyle(PlainButtonStyle())
+	                .frame(maxWidth: .infinity, alignment: .center)
 
                 Button(action: {
                     isAnonymous.toggle()
@@ -1157,14 +1154,13 @@ struct SavedPostsList: View {
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
                 }
 
-                if viewModel.isLoadingMore {
-                    ProgressView()
-                        .padding()
-                }
-            }
-        }
-    }
-}
+	                if viewModel.isLoadingMore {
+	                    LoopedInlineLoadingIndicator()
+	                }
+	            }
+	        }
+	    }
+	}
 
 struct RepostedPostsList: View {
     @ObservedObject var viewModel: CollectionPostsViewModel
@@ -1217,14 +1213,13 @@ struct RepostedPostsList: View {
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
                 }
 
-                if viewModel.isLoadingMore {
-                    ProgressView()
-                        .padding()
-                }
-            }
-        }
-    }
-}
+	                if viewModel.isLoadingMore {
+	                    LoopedInlineLoadingIndicator()
+	                }
+	            }
+	        }
+	    }
+	}
 
 struct EmptyPostsListView: View {
     var message: String = "No posts yet"

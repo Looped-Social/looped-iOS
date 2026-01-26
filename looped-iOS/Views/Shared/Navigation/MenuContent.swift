@@ -265,7 +265,7 @@ struct MyPostsView: View {
         }
         .environmentObject(commentsManager)
         .task { await loadPosts() }
-        .refreshable {
+        .loopedPullToRefresh {
             if let viewModel = loader.viewModel {
                 await viewModel.loadInitial()
             } else {
@@ -347,7 +347,7 @@ struct MyRepliesView: View {
             repliesViewModel.setUser(id: authViewModel.currentUser?.backendId)
             await repliesViewModel.loadInitial()
         }
-        .refreshable {
+        .loopedPullToRefresh {
             repliesViewModel.setUser(id: authViewModel.currentUser?.backendId)
             await repliesViewModel.loadInitial()
         }
@@ -379,7 +379,7 @@ struct LikedPostsView: View {
         .task {
             await likedViewModel.loadInitial()
         }
-        .refreshable {
+        .loopedPullToRefresh {
             await likedViewModel.loadInitial()
         }
     }
@@ -415,7 +415,7 @@ struct SavedPostsView: View {
         .task {
             await savedViewModel.loadInitial()
         }
-        .refreshable {
+        .loopedPullToRefresh {
             await savedViewModel.loadInitial()
         }
     }
