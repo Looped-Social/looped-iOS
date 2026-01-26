@@ -27,9 +27,10 @@ struct ProfileView: View {
     @EnvironmentObject private var coachMarkPresenter: CoachMarkPresenter
     @EnvironmentObject private var commentsManager: CommentsModalManager
     @Environment(\.loopedPresentMainOverlay) private var presentMainOverlay
+    @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
 
-	@State private var headerHeight: CGFloat = 300
-	@State private var hasActiveVerifications: Bool?
+		@State private var headerHeight: CGFloat = 300
+		@State private var hasActiveVerifications: Bool?
 	private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
     private let anonService: AnonService = .shared
 
@@ -40,30 +41,34 @@ struct ProfileView: View {
 	var body: some View {
 		ZStack(alignment: .top) {
             // ScrollView with content (bottom layer)
-            ScrollView {
-	                LazyVStack(spacing: 0) {
-	                    // Content based on selected tab
-	                    switch selectedTab {
-                        case .content:
-                            if let profile = displayProfile {
-                                UserContentList(userProfile: profile, viewModel: contentViewModel)
-                            } else if viewModel.isLoading {
-                                ProgressView()
-                                    .padding(.top, 60)
-                            } else {
+		            ScrollView {
+			                LazyVStack(spacing: 0) {
+			                    // Content based on selected tab
+			                    switch selectedTab {
+		                        case .content:
+		                            if let profile = displayProfile {
+		                                UserContentList(
+		                                    userProfile: profile,
+		                                    viewModel: contentViewModel,
+		                                    showsLoadMoreIndicator: false
+		                                )
+		                            } else if viewModel.isLoading {
+		                                ProgressView()
+		                                    .padding(.top, 60)
+		                            } else {
                                 EmptyPostsListView(message: "No content yet")
                                     .padding(.top, 60)
                             }
-	                    case .saved:
-	                        SavedPostsList(viewModel: savedViewModel)
-	                            .padding(.top, 20)
-	                    case .reposts:
-	                        RepostedPostsList(viewModel: repostsViewModel)
-	                            .padding(.top, 20)
-	                    }
+		                    case .saved:
+		                        SavedPostsList(viewModel: savedViewModel, showsLoadMoreIndicator: false)
+		                            .padding(.top, 20)
+		                    case .reposts:
+		                        RepostedPostsList(viewModel: repostsViewModel, showsLoadMoreIndicator: false)
+		                            .padding(.top, 20)
+		                    }
 
-                    // Bottom spacer
-                    Color.loopedClear.frame(height: 100)
+	                    // Bottom spacer
+	                    Color.loopedClear.frame(height: 100)
                 }
                 .background(
                     GeometryReader { geo in
@@ -74,16 +79,18 @@ struct ProfileView: View {
                     }
                 )
             }
-            .loopedPullToRefresh(
-                isAtTop: isAtTop,
-                indicatorTopPadding: headerVisible ? headerHeight + 14 : 16
-            ) {
-                await refreshAll()
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.loopedClear.frame(height: headerHeight)
-            }
-            .background(Color.loopedBackground.ignoresSafeArea())
+		            .loopedPullToRefresh(
+		                isAtTop: isAtTop,
+		                indicatorTopPadding: headerVisible ? headerHeight + 14 : 16,
+		                showsIndicatorOverlay: false,
+		                indicatorState: $refreshIndicatorState
+		            ) {
+		                await refreshAll()
+		            }
+	            .safeAreaInset(edge: .top, spacing: 0) {
+	                Color.loopedClear.frame(height: headerHeight)
+	            }
+	            .background(Color.loopedBackground.ignoresSafeArea())
 
             // Fixed collapsible header (middle layer)
             VStack(spacing: 0) {
@@ -113,6 +120,18 @@ struct ProfileView: View {
 
                 // Tab Navigation
                 ProfileTabsView(selectedTab: $selectedTab)
+
+                if let state = refreshIndicatorState {
+                    LoopedPullToRefreshIndicator(
+                        fillProgress: state.fillProgress,
+                        stretchProgress: state.stretchProgress,
+                        phase: state.phase
+                    )
+                    .frame(height: 44)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 6)
+                    .transition(.opacity)
+                }
             }
             .background(
                 Color.loopedBackground
@@ -213,12 +232,12 @@ struct ProfileView: View {
         .onDisappear {
             coachMarkPresenter.dismissIfSource(.profile)
         }
-    }
+	    }
 
-		private func handleScroll(_ offset: CGFloat) {
-			guard !isShowingDiscoveryOverlay else {
-				if !headerVisible {
-					withAnimation(.easeInOut(duration: 0.25)) {
+			private func handleScroll(_ offset: CGFloat) {
+				guard !isShowingDiscoveryOverlay else {
+					if !headerVisible {
+						withAnimation(.easeInOut(duration: 0.25)) {
 						headerVisible = true
 					}
 				}
@@ -1103,6 +1122,7 @@ struct PostsList: View {
 struct SavedPostsList: View {
     @ObservedObject var viewModel: CollectionPostsViewModel
     @EnvironmentObject var commentsManager: CommentsModalManager
+    var showsLoadMoreIndicator: Bool = true
 
     var body: some View {
         if viewModel.isLoading && viewModel.posts.isEmpty {
@@ -1154,7 +1174,7 @@ struct SavedPostsList: View {
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
                 }
 
-	                if viewModel.isLoadingMore {
+	                if showsLoadMoreIndicator, viewModel.isLoadingMore {
 	                    LoopedInlineLoadingIndicator()
 	                }
 	            }
@@ -1165,6 +1185,7 @@ struct SavedPostsList: View {
 struct RepostedPostsList: View {
     @ObservedObject var viewModel: CollectionPostsViewModel
     @EnvironmentObject var commentsManager: CommentsModalManager
+    var showsLoadMoreIndicator: Bool = true
 
     var body: some View {
         if viewModel.isLoading && viewModel.posts.isEmpty {
@@ -1213,7 +1234,7 @@ struct RepostedPostsList: View {
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
                 }
 
-	                if viewModel.isLoadingMore {
+	                if showsLoadMoreIndicator, viewModel.isLoadingMore {
 	                    LoopedInlineLoadingIndicator()
 	                }
 	            }

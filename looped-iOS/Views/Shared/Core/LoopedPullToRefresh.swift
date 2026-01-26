@@ -9,6 +9,8 @@ struct LoopedPullToRefreshModifier: ViewModifier {
     let isEnabled: Bool
     let isAtTop: Bool
     let indicatorTopPadding: CGFloat
+    let showsIndicatorOverlay: Bool
+    let indicatorState: Binding<LoopedPullToRefreshIndicatorState?>?
     let onRefresh: () async -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -31,15 +33,29 @@ struct LoopedPullToRefreshModifier: ViewModifier {
                         }
                     }
             )
+            .onAppear {
+                publishIndicatorState()
+            }
+            .onChange(of: pullTranslation) { _, _ in
+                publishIndicatorState()
+            }
+            .onChange(of: phase) { _, _ in
+                publishIndicatorState()
+            }
+            .onChange(of: isAtTop) { _, _ in
+                publishIndicatorState()
+            }
             .overlay(alignment: .top) {
-                if let indicatorPhase = indicatorPhase {
-                    LoopedPullToRefreshIndicator(
-                        fillProgress: fillProgress,
-                        stretchProgress: stretchProgress,
-                        phase: indicatorPhase
-                    )
-                    .padding(.top, indicatorTopPadding)
-                    .transition(.opacity)
+                Group {
+                    if showsIndicatorOverlay, let indicatorPhase = indicatorPhase {
+                        LoopedPullToRefreshIndicator(
+                            fillProgress: fillProgress,
+                            stretchProgress: stretchProgress,
+                            phase: indicatorPhase
+                        )
+                        .padding(.top, indicatorTopPadding)
+                        .transition(.opacity)
+                    }
                 }
             }
     }
@@ -79,19 +95,47 @@ struct LoopedPullToRefreshModifier: ViewModifier {
             await onRefresh()
             await MainActor.run {
                 phase = .completing
+                publishIndicatorState()
             }
             if reduceMotion {
                 await MainActor.run {
                     phase = nil
+                    publishIndicatorState()
                 }
                 return
             }
             try? await Task.sleep(nanoseconds: LoopedPullToRefreshConstants.completionFadeDelayNanoseconds)
             await MainActor.run {
                 phase = nil
+                publishIndicatorState()
             }
         }
     }
+
+    private func publishIndicatorState() {
+        guard let indicatorState else { return }
+        guard let indicatorPhase else {
+            if indicatorState.wrappedValue != nil {
+                indicatorState.wrappedValue = nil
+            }
+            return
+        }
+
+        let next = LoopedPullToRefreshIndicatorState(
+            fillProgress: fillProgress,
+            stretchProgress: stretchProgress,
+            phase: indicatorPhase
+        )
+        if indicatorState.wrappedValue != next {
+            indicatorState.wrappedValue = next
+        }
+    }
+}
+
+struct LoopedPullToRefreshIndicatorState: Equatable {
+    let fillProgress: CGFloat
+    let stretchProgress: CGFloat
+    let phase: LoopedPullToRefreshIndicator.Phase
 }
 
 extension View {
@@ -99,6 +143,8 @@ extension View {
         isEnabled: Bool = true,
         isAtTop: Bool = true,
         indicatorTopPadding: CGFloat = 16,
+        showsIndicatorOverlay: Bool = true,
+        indicatorState: Binding<LoopedPullToRefreshIndicatorState?>? = nil,
         onRefresh: @escaping () async -> Void
     ) -> some View {
         modifier(
@@ -106,9 +152,10 @@ extension View {
                 isEnabled: isEnabled,
                 isAtTop: isAtTop,
                 indicatorTopPadding: indicatorTopPadding,
+                showsIndicatorOverlay: showsIndicatorOverlay,
+                indicatorState: indicatorState,
                 onRefresh: onRefresh
             )
         )
     }
 }
-

@@ -18,15 +18,17 @@ struct UserProfileView: View {
     @StateObject private var repostsViewModel: CollectionPostsViewModel
     @StateObject private var commentsViewModel = UserCommentsViewModel()
     @State private var isAtTop = true
-	    @State private var selectedTab: UserProfileTab = .content
-	    @State private var hasLoaded = false
-	    @State private var canPop = false
-	    @AppStorage("anonymousMode") private var isAnonymousMode = false
-		    @State private var showBlockConfirm = false
-		    @State private var blockErrorMessage: String?
-		    @State private var isBlocking = false
-		    @State private var showChat = false
-		    @State private var isStartingConversation = false
+    @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
+    @State private var headerHeight: CGFloat = 0
+    @State private var selectedTab: UserProfileTab = .content
+    @State private var hasLoaded = false
+    @State private var canPop = false
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
+    @State private var showBlockConfirm = false
+    @State private var blockErrorMessage: String?
+    @State private var isBlocking = false
+    @State private var showChat = false
+    @State private var isStartingConversation = false
 	    @State private var startedConversation: Conversation?
 	    @State private var messageErrorMessage: String?
 
@@ -76,81 +78,39 @@ struct UserProfileView: View {
         _selectedTab = State(initialValue: .content)
     }
 
-	    var body: some View {
-		        profileLayout
-		            .background(Color.loopedBackground.ignoresSafeArea())
-		            .navigationBarTitleDisplayMode(.inline)
-		            .toolbar(.visible, for: .navigationBar)
-		            .toolbarBackground(.hidden, for: .navigationBar)
-		            .toolbar {
-		                if !canPop {
-		                    ToolbarItem(placement: .topBarLeading) {
-		                        Button(action: { dismiss() }) {
-	                            Image(systemName: "xmark")
-	                                .font(.loopedCustom(.semibold, size: 16))
-	                                .foregroundColor(.loopedTextSecondary)
-	                                .frame(width: 44, height: 44)
-	                        }
-	                        .buttonStyle(.plain)
-	                        .accessibilityLabel("Close")
-	                    }
-	                }
-
-		                if canShowActionMenu {
-		                    ToolbarItem(placement: .topBarTrailing) {
-		                        Menu {
-		                            if canBlockUser || canBlockPrincipal {
-		                                Button(role: .destructive) {
-		                                    showBlockConfirm = true
-		                                } label: {
-		                                    Label("Block User", systemImage: "hand.raised")
-		                                }
-		                                .disabled(isBlocking)
-		                            }
-		                        } label: {
-		                            Image(systemName: "ellipsis")
-		                                .font(.loopedCustom(.medium, size: 18))
-		                                .foregroundColor(.loopedTextSecondary)
-		                                .frame(width: 44, height: 44)
-		                        }
-		                        .buttonStyle(.plain)
-		                        .accessibilityLabel("More options")
-		                    }
-		                }
-			            }
-			            .background(NavigationCanPopReader(canPop: $canPop))
-		            .modifier(
-		                ProfileActionsModifier(
-	                    showBlockConfirm: $showBlockConfirm,
-	                    blockErrorMessage: $blockErrorMessage,
-	                    isBlocking: isBlocking,
-	                    blockTargetLabel: blockTargetLabel,
-                    onConfirmBlock: { Task { await blockProfileUser() } }
+    var body: some View {
+        profileLayout
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.visible, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar { toolbarContent }
+            .background(NavigationCanPopReader(canPop: $canPop))
+            .modifier(profileActionsModifier)
+            .onPreferenceChange(UserProfileHeaderHeightKey.self, perform: handleHeaderHeightChange)
+            .onAppear { fabState.isHidden = true }
+            .onDisappear { fabState.isHidden = false }
+            .fullScreenCover(isPresented: $showChat) {
+                ChatNavigationHost(conversation: startedConversation, channel: nil) {
+                    showChat = false
+                    startedConversation = nil
+                }
+            }
+            .alert(
+                "Couldn't start chat",
+                isPresented: Binding(
+                    get: { messageErrorMessage != nil },
+                    set: { if !$0 { messageErrorMessage = nil } }
                 )
-	            )
-		            .onAppear { fabState.isHidden = true }
-		            .onDisappear { fabState.isHidden = false }
-		            .fullScreenCover(isPresented: $showChat) {
-		                ChatNavigationHost(conversation: startedConversation, channel: nil) {
-		                    showChat = false
-	                    startedConversation = nil
-	                }
-	            }
-	            .alert(
-	                "Couldn't start chat",
-	                isPresented: Binding(
-	                    get: { messageErrorMessage != nil },
-	                    set: { if !$0 { messageErrorMessage = nil } }
-	                )
-	            ) {
-	                Button("OK", role: .cancel) { }
+            ) {
+                Button("OK", role: .cancel) { }
             } message: {
                 Text(messageErrorMessage ?? "")
             }
-	            .alert(
-	                "Couldn't update follow",
-	                isPresented: Binding(
-	                    get: { viewModel.followErrorMessage != nil },
+            .alert(
+                "Couldn't update follow",
+                isPresented: Binding(
+                    get: { viewModel.followErrorMessage != nil },
                     set: { if !$0 { viewModel.followErrorMessage = nil } }
                 )
             ) {
@@ -172,52 +132,130 @@ struct UserProfileView: View {
         [.content, .reposts]
     }
 
-	    private var followConfig: ProfileActionButtons.FollowConfig? {
-	        guard viewModel.profile != nil else { return nil }
-	        guard !viewModel.isAnonymousProfile else { return nil }
-	        return ProfileActionButtons.FollowConfig(
-	            isFollowing: viewModel.isFollowing,
-	            isInFlight: viewModel.isFollowActionInFlight,
-	            onToggle: { Task { await viewModel.toggleFollow(asAnonymousActor: isAnonymousMode) } }
-	        )
-	    }
-
-	    private var messageConfig: ProfileActionButtons.MessageConfig? {
-	        guard viewModel.profile?.backendId != nil else { return nil }
-	        guard !viewModel.isAnonymousProfile else { return nil }
-	        return ProfileActionButtons.MessageConfig(
-	            isInFlight: isStartingConversation,
-	            onTap: { Task { await startConversationIfPossible() } }
-	        )
-	    }
-
-    private var profileLayout: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                content
-                Color.loopedClear.frame(height: 80)
-            }
-            .background(
-                GeometryReader { geo in
-                    Color.loopedClear
-                        .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-                            isAtTop = newValue >= -20
-                        }
-                }
-            )
-        }
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .task { await loadIfNeeded() }
-        .loopedPullToRefresh(isAtTop: isAtTop) { await reload() }
+    private var followConfig: ProfileActionButtons.FollowConfig? {
+        guard viewModel.profile != nil else { return nil }
+        guard !viewModel.isAnonymousProfile else { return nil }
+        return ProfileActionButtons.FollowConfig(
+            isFollowing: viewModel.isFollowing,
+            isInFlight: viewModel.isFollowActionInFlight,
+            onToggle: { Task { await viewModel.toggleFollow(asAnonymousActor: isAnonymousMode) } }
+        )
     }
 
-    @ViewBuilder
-    private var content: some View {
-        if viewModel.isLoading && viewModel.profile == nil {
-            loadingState
-	        } else if let error = viewModel.errorMessage, viewModel.profile == nil {
-	            errorState(error)
-	        } else if let profile = viewModel.profile {
+    private var messageConfig: ProfileActionButtons.MessageConfig? {
+        guard viewModel.profile?.backendId != nil else { return nil }
+        guard !viewModel.isAnonymousProfile else { return nil }
+        return ProfileActionButtons.MessageConfig(
+            isInFlight: isStartingConversation,
+            onTap: { Task { await startConversationIfPossible() } }
+        )
+    }
+
+    private var profileActionsModifier: ProfileActionsModifier {
+        ProfileActionsModifier(
+            showBlockConfirm: $showBlockConfirm,
+            blockErrorMessage: $blockErrorMessage,
+            isBlocking: isBlocking,
+            blockTargetLabel: blockTargetLabel,
+            onConfirmBlock: { Task { await blockProfileUser() } }
+        )
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if !canPop {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark")
+                        .font(.loopedCustom(.semibold, size: 16))
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close")
+            }
+        }
+
+        if canShowActionMenu {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if canBlockUser || canBlockPrincipal {
+                        Button(role: .destructive) {
+                            showBlockConfirm = true
+                        } label: {
+                            Label("Block User", systemImage: "hand.raised")
+                        }
+                        .disabled(isBlocking)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.loopedCustom(.medium, size: 18))
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More options")
+            }
+        }
+    }
+
+	    private var profileLayout: some View {
+	        ZStack(alignment: .top) {
+	            ScrollView {
+	                LazyVStack(spacing: 0) {
+	                    scrollContent
+	                    Color.loopedClear.frame(height: 80)
+	                }
+	                .background(
+	                    GeometryReader { geo in
+	                        Color.loopedClear
+	                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+	                                isAtTop = newValue >= -20
+	                            }
+	                    }
+	                )
+	            }
+	            .background(Color.loopedBackground.ignoresSafeArea())
+	            .task { await loadIfNeeded() }
+	            .loopedPullToRefresh(
+	                isAtTop: isAtTop,
+	                showsIndicatorOverlay: false,
+	                indicatorState: $refreshIndicatorState
+	            ) { await reload() }
+	            .safeAreaInset(edge: .top, spacing: 0) {
+	                Color.loopedClear.frame(height: headerHeight)
+	            }
+
+	            headerOverlay
+	        }
+	    }
+
+	    @ViewBuilder
+	    private var scrollContent: some View {
+	        if viewModel.isLoading && viewModel.profile == nil {
+	            loadingState
+		        } else if let error = viewModel.errorMessage, viewModel.profile == nil {
+		            errorState(error)
+		        } else if let profile = viewModel.profile {
+	            UserProfileContentView(
+	                userProfile: profile,
+	                selectedTab: selectedTab,
+	                contentViewModel: contentViewModel,
+	                postsViewModel: postsViewModel,
+	                repostsViewModel: repostsViewModel,
+	                commentsViewModel: commentsViewModel
+	            )
+	        } else {
+	            Text("Profile unavailable")
+	                .font(.loopedBodyMedium)
+	                .foregroundColor(.loopedTextSecondary)
+	                .padding(.top, 120)
+	        }
+	    }
+
+	    @ViewBuilder
+	    private var headerOverlay: some View {
+	        if let profile = viewModel.profile {
 	            VStack(spacing: 0) {
 	                UserProfileInfoSection(
 	                    userProfile: profile,
@@ -226,23 +264,27 @@ struct UserProfileView: View {
 	                    messageConfig: messageConfig
 	                )
 	                UserProfileTabsView(selectedTab: $selectedTab, tabs: tabs)
-	                UserProfileContentView(
-	                    userProfile: profile,
-	                    selectedTab: selectedTab,
-                    contentViewModel: contentViewModel,
-                    postsViewModel: postsViewModel,
-                    repostsViewModel: repostsViewModel,
-                    commentsViewModel: commentsViewModel
-                )
-            }
-            .padding(.top, 12)
-        } else {
-            Text("Profile unavailable")
-                .font(.loopedBodyMedium)
-                .foregroundColor(.loopedTextSecondary)
-                .padding(.top, 120)
-        }
-    }
+	                if let state = refreshIndicatorState {
+	                    LoopedPullToRefreshIndicator(
+	                        fillProgress: state.fillProgress,
+	                        stretchProgress: state.stretchProgress,
+	                        phase: state.phase
+	                    )
+	                    .frame(height: 44)
+	                    .frame(maxWidth: .infinity)
+	                    .padding(.bottom, 6)
+	                    .transition(.opacity)
+	                }
+	            }
+	            .padding(.top, 12)
+	            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top))
+	            .background(
+	                GeometryReader { proxy in
+	                    Color.loopedClear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
+	                }
+	            )
+	        }
+	    }
 
     private var loadingState: some View {
         VStack(spacing: 12) {
@@ -274,11 +316,16 @@ struct UserProfileView: View {
         .padding(.horizontal, 24)
     }
 
-    private func loadIfNeeded() async {
-        guard !hasLoaded else { return }
-        hasLoaded = true
-        await reload()
-    }
+	    private func loadIfNeeded() async {
+	        guard !hasLoaded else { return }
+	        hasLoaded = true
+	        await reload()
+	    }
+
+	    private func handleHeaderHeightChange(_ newValue: CGFloat) {
+	        guard newValue > 0, abs(newValue - headerHeight) > 1 else { return }
+	        headerHeight = newValue
+	    }
 
     private func reload() async {
         await viewModel.loadProfile()
@@ -650,11 +697,12 @@ struct UserProfileContentView: View {
 
 
 // MARK: - Content List
-struct UserContentList: View {
-    let userProfile: UserProfile
-    @ObservedObject var viewModel: UserContentViewModel
-    @EnvironmentObject var commentsManager: CommentsModalManager
-    @State private var showPostUnavailableAlert = false
+	struct UserContentList: View {
+	    let userProfile: UserProfile
+	    @ObservedObject var viewModel: UserContentViewModel
+	    var showsLoadMoreIndicator: Bool = true
+	    @EnvironmentObject var commentsManager: CommentsModalManager
+	    @State private var showPostUnavailableAlert = false
 
     var body: some View {
         Group {
@@ -696,7 +744,7 @@ struct UserContentList: View {
                         .task { await viewModel.loadMoreIfNeeded(current: item) }
                     }
 
-	                    if viewModel.isLoadingMore {
+	                    if showsLoadMoreIndicator, viewModel.isLoadingMore {
 	                        LoopedInlineLoadingIndicator()
 	                    }
 	                }
@@ -928,6 +976,14 @@ struct UserCommentsList: View {
         await MainActor.run {
             showPostUnavailableAlert = true
         }
+    }
+}
+
+private struct UserProfileHeaderHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
