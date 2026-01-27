@@ -23,6 +23,7 @@ struct PhotoIdVerificationStartResponse: Equatable {
     let status: String
     let method: String
     let uploadSessionId: String
+    let nonce: String?
     let required: [PhotoIdDocumentKind]
     let optional: [PhotoIdDocumentKind]
     let constraints: PhotoIdVerificationConstraints

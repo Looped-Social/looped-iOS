@@ -65,14 +65,21 @@ private extension NotificationSettingsView {
         let isSystem: Bool
     }
 
-    var typeDescriptors: [NotificationTypeDescriptor] {
-        [
-            NotificationTypeDescriptor(
-                id: .dmMessage,
-                icon: "message.fill",
-                title: "Direct Messages",
-                subtitle: "When someone messages you",
-                isSystem: false
+	    var typeDescriptors: [NotificationTypeDescriptor] {
+	        [
+	            NotificationTypeDescriptor(
+	                id: .messageRequest,
+	                icon: "tray.fill",
+	                title: "Message Requests",
+	                subtitle: "When someone you don’t follow messages you",
+	                isSystem: false
+	            ),
+	            NotificationTypeDescriptor(
+	                id: .dmMessage,
+	                icon: "message.fill",
+	                title: "Direct Messages",
+	                subtitle: "When someone messages you",
+	                isSystem: false
             ),
             NotificationTypeDescriptor(
                 id: .channelMessage,

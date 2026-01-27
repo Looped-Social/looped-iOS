@@ -60,27 +60,35 @@ struct CommentsView: View {
         "\(comments.count) comment\(comments.count == 1 ? "" : "s")"
     }
 
-    @ViewBuilder
-    private var commentsScrollView: some View {
-        if presentationStyle == .navigation {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    threadHeader
-                    commentsContent
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
+	    @ViewBuilder
+	    private var commentsScrollView: some View {
+	        if presentationStyle == .navigation {
+	            ScrollView {
+	                VStack(alignment: .leading, spacing: 0) {
+	                    threadHeader
+	                    Rectangle()
+	                        .frame(height: 1)
+	                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+	                        .padding(.vertical, 16)
+	                    commentsContent
+	                }
+	                .padding(.horizontal, 20)
+	                .padding(.top, 16)
+	                .padding(.bottom, 24)
             }
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    threadHeader
-                    commentsContent
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
+	        } else {
+	            ScrollView {
+	                VStack(alignment: .leading, spacing: 0) {
+	                    threadHeader
+	                    Rectangle()
+	                        .frame(height: 1)
+	                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+	                        .padding(.vertical, 16)
+	                    commentsContent
+	                }
+	                .padding(.horizontal, 20)
+	                .padding(.top, 16)
+	                .padding(.bottom, 24)
             }
         }
     }

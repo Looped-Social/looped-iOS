@@ -70,6 +70,7 @@ enum NotificationType: String, Codable {
     case mention        // Someone mentioned you
     case follow         // Someone followed you
     case postFromFollowed = "post_from_followed"
+    case messageRequest = "message_request"
     case announcement
     case system
     case loopInvite     // Someone invited you to a loop
@@ -139,6 +140,8 @@ extension Notification {
             return "\(actorText) started following you"
         case .postFromFollowed:
             return "\(actorText) shared a new post"
+        case .messageRequest:
+            return "\(actorText) sent you a message request"
         case .announcement:
             if let title, !title.isEmpty {
                 return "\(actorText): \(title)"
@@ -196,6 +199,8 @@ extension Notification {
             return "person.fill.badge.plus"
         case .postFromFollowed:
             return "person.2.fill"
+        case .messageRequest:
+            return "tray.fill"
         case .announcement:
             return "megaphone.fill"
         case .system:

@@ -19,6 +19,8 @@ final class PhotoIdVerificationViewModel: ObservableObject {
 
     var maxUploadBytes: Int? { session?.constraints.maxBytes }
     var allowedContentTypes: [String] { session?.constraints.allowedContentTypes ?? ["image/jpeg", "image/png"] }
+    var visualNonce: String? { session?.nonce }
+    var isReadyToCapture: Bool { session != nil && !isPreparing }
 
     func prepareIfNeeded() async {
         guard !didPrepare else { return }

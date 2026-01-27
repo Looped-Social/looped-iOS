@@ -455,19 +455,14 @@ struct PostCard: View {
 		    }
 
 		    @ViewBuilder
-		    private var pollSection: some View {
-		        if let poll = post.poll {
-		            PollCard(poll: poll) { updatedPoll in
-		                onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
-		            }
-		            .padding(.top, 4)
-		            .highPriorityGesture(
-		                TapGesture(count: 2).onEnded {
-		                    handleDoubleTapLike()
-		                }
-		            )
-		        }
-		    }
+			    private var pollSection: some View {
+			        if let poll = post.poll {
+			            PollCard(poll: poll) { updatedPoll in
+			                onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
+			            }
+			            .padding(.top, 4)
+			        }
+			    }
 
 		    @ViewBuilder
 		    private var attachmentsSection: some View {
@@ -715,30 +710,18 @@ struct PostCard: View {
         postCardAlerts
     }
 
-    private var postCardContent: some View {
-        ZStack {
-            VStack(alignment: .leading, spacing: 12) {
-                repostBanner
-                underReviewBanner
-                headerSection
-                postTextSection
-                    .contentShape(Rectangle())
-                    .highPriorityGesture(
-                        TapGesture(count: 2).onEnded {
-                            handleDoubleTapLike()
-                        }
-                    )
-                pollSection
-                attachmentsSection
-                    .contentShape(Rectangle())
-                    .highPriorityGesture(
-                        TapGesture(count: 2).onEnded {
-                            handleDoubleTapLike()
-                        }
-                    )
-                engagementBar
-                timestampSection
-            }
+			    private var postCardContent: some View {
+			        ZStack {
+			            VStack(alignment: .leading, spacing: 12) {
+			                repostBanner
+			                underReviewBanner
+			                headerSection
+			                postTextSection
+			                pollSection
+			                attachmentsSection
+			                engagementBar
+			                timestampSection
+			            }
 
             if showHeartBurst {
                 Image(systemName: "heart.fill")
@@ -751,12 +734,15 @@ struct PostCard: View {
         }
     }
 
-    private var postCardStyled: some View {
-        postCardContent
-            .padding(16)
-            .background(Color.loopedBackground)
-            .cornerRadius(0)
-    }
+	    private var postCardStyled: some View {
+	        postCardContent
+	            .padding(16)
+	            .background(Color.loopedBackground)
+	            .cornerRadius(0)
+	            .loopedDoubleTapToLike {
+	                handleDoubleTapLike()
+	            }
+	    }
 
     private var postCardLifecycle: some View {
         postCardStyled

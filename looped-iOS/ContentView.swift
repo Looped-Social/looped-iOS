@@ -547,10 +547,8 @@ struct MainTabView: View {
             let hasNewUnreadConversation = messagesViewModel.conversations.contains { conversation in
                 conversation.hasUnreadMessages && conversation.lastMessageTimestamp > lastSeen
             }
-            let hasNewRequest = messagesViewModel.messageRequests.contains { request in
-                request.previewCreatedAt > lastSeen
-            }
-            return hasNewUnreadConversation || hasNewRequest
+            let hasPendingRequest = !messagesViewModel.messageRequests.isEmpty
+            return hasNewUnreadConversation || hasPendingRequest
         case .notifications:
             guard selectedTab != .notifications else { return false }
             let lastSeen = Date(timeIntervalSince1970: lastSeenNotificationsAt)

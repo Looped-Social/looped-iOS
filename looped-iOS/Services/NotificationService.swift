@@ -15,7 +15,7 @@ class NotificationService: NotificationServiceProtocol {
         }
         let response: NotificationListResponseDTO = try await apiClient.get(endpoint)
         let notifications: [Notification] = response.items.map { dto -> Notification in
-            let type = NotificationType(rawValue: dto.type) ?? .like
+            let type = NotificationType(rawValue: dto.type) ?? .system
             let payload = dto.payload
             let actorIsAnonymous = payload?.actorIsAnonymous
                 ?? (payload?.actorUserId == nil && payload?.actorAnonProfileId != nil)

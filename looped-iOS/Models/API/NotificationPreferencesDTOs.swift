@@ -29,6 +29,7 @@ struct NotificationTypePreferencesDTO: Codable {
     var repost: Bool
     var announcement: Bool
     var system: Bool
+    var messageRequest: Bool
     var dmMessage: Bool
     var channelMessage: Bool
 
@@ -42,6 +43,7 @@ struct NotificationTypePreferencesDTO: Codable {
         case repost
         case announcement
         case system
+        case messageRequest
         case dmMessage
         case channelMessage
     }
@@ -58,6 +60,7 @@ struct NotificationTypePreferencesDTO: Codable {
         repost = try container.decodeIfPresent(Bool.self, forKey: .repost) ?? true
         announcement = try container.decodeIfPresent(Bool.self, forKey: .announcement) ?? true
         system = try container.decodeIfPresent(Bool.self, forKey: .system) ?? true
+        messageRequest = try container.decodeIfPresent(Bool.self, forKey: .messageRequest) ?? true
         dmMessage = try container.decodeIfPresent(Bool.self, forKey: .dmMessage) ?? true
         channelMessage = try container.decodeIfPresent(Bool.self, forKey: .channelMessage) ?? true
     }
@@ -94,6 +97,7 @@ struct NotificationTypePreferencesUpdateDTO: Codable {
     var repost: Bool? = nil
     var announcement: Bool? = nil
     var system: Bool? = nil
+    var messageRequest: Bool? = nil
     var dmMessage: Bool? = nil
     var channelMessage: Bool? = nil
 
@@ -107,6 +111,7 @@ struct NotificationTypePreferencesUpdateDTO: Codable {
         case repost
         case announcement
         case system
+        case messageRequest = "message_request"
         case dmMessage = "dm_message"
         case channelMessage = "channel_message"
     }

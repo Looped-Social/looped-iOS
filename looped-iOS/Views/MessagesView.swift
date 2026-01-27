@@ -102,7 +102,36 @@ struct MessagesView: View {
                 }
 
             // Tabs
-            MessagesTabs(selectedTab: $selectedTab)
+            MessagesTabs(selectedTab: $selectedTab, pendingRequestCount: viewModel.messageRequests.count)
+
+            if selectedTab != .requests, !viewModel.messageRequests.isEmpty {
+                Button(action: { selectedTab = .requests }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "tray.fill")
+                            .font(.loopedCustom(.semibold, size: 14))
+                            .foregroundColor(.loopedSecondary)
+
+                        Text("You have \(viewModel.messageRequests.count) message request\(viewModel.messageRequests.count == 1 ? "" : "s")")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedTextPrimary)
+                            .lineLimit(1)
+
+                        Spacer(minLength: 8)
+
+                        Image(systemName: "chevron.right")
+                            .font(.loopedCustom(.medium, size: 12))
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.loopedMutedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View message requests")
+            }
 
             // Content (both Messages and Groups use same list structure)
             ScrollView {

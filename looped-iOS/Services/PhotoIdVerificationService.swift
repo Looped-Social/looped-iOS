@@ -23,6 +23,7 @@ final class PhotoIdVerificationService: PhotoIdVerificationServiceProtocol {
             status: dto.status,
             method: dto.method,
             uploadSessionId: dto.uploadSessionId,
+            nonce: dto.nonce,
             required: dto.required.compactMap(PhotoIdDocumentKind.init(rawValue:)),
             optional: dto.optional.compactMap(PhotoIdDocumentKind.init(rawValue:)),
             constraints: PhotoIdVerificationConstraints(

@@ -16,6 +16,7 @@ enum NotificationPreferenceType: String, CaseIterable {
     case repost
     case announcement
     case system
+    case messageRequest = "message_request"
     case dmMessage = "dm_message"
     case channelMessage = "channel_message"
 }
@@ -78,6 +79,8 @@ extension NotificationTypePreferencesDTO {
             return announcement
         case .system:
             return system
+        case .messageRequest:
+            return messageRequest
         case .dmMessage:
             return dmMessage
         case .channelMessage:
@@ -105,6 +108,8 @@ extension NotificationTypePreferencesDTO {
             announcement = value
         case .system:
             system = value
+        case .messageRequest:
+            messageRequest = value
         case .dmMessage:
             dmMessage = value
         case .channelMessage:
@@ -134,6 +139,8 @@ extension NotificationTypePreferencesUpdateDTO {
             announcement = value
         case .system:
             system = value
+        case .messageRequest:
+            messageRequest = value
         case .dmMessage:
             dmMessage = value
         case .channelMessage:

@@ -4,6 +4,7 @@ struct PhotoIdVerificationStartResponseDTO: Decodable {
     let status: String
     let method: String
     let uploadSessionId: String
+    let nonce: String?
     let required: [String]
     let optional: [String]
     let constraints: PhotoIdVerificationConstraintsDTO
@@ -48,4 +49,3 @@ struct PhotoIdVerificationStatusResponseDTO: Decodable {
     let method: String
     let status: String
 }
-

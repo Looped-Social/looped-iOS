@@ -96,6 +96,9 @@ class NotificationsViewModel: ObservableObject {
             }
         case .postFromFollowed:
             navigateToPost(notification.targetId)
+        case .messageRequest:
+            if openDeeplink(notification.actionDeeplink) { return }
+            toastMessage = ToastMessage(text: "Message request isn't available yet.", kind: .info)
         case .announcement, .system:
             _ = openDeeplink(notification.actionDeeplink)
         case .loopInvite, .groupInvite:

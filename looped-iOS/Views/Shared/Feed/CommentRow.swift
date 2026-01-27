@@ -149,41 +149,35 @@ struct CommentRow: View {
         onLike(comment)
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                avatarView
-
-                VStack(alignment: .leading, spacing: 8) {
-                    if comment.isDeleted {
-                        Text("Comment deleted")
-                            .font(contentFont)
-                            .foregroundColor(.loopedTextSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+	    var body: some View {
+	        VStack(alignment: .leading, spacing: 0) {
+	            HStack(alignment: .top, spacing: 12) {
+	                avatarView
+	
+	                VStack(alignment: .leading, spacing: 8) {
+	                    if comment.isDeleted {
+	                        Text("Comment deleted")
+	                            .font(contentFont)
+	                            .foregroundColor(.loopedTextSecondary)
+	                            .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         HashtagText(
                             text: comment.content,
                             font: contentFont,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary
-                        ) { hashtag in
-                            onHashtagTap?(hashtag)
-                        }
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .highPriorityGesture(
-                            TapGesture(count: 2).onEnded {
-                                handleDoubleTapLike()
-                            }
-                        )
-                    }
+	                        ) { hashtag in
+	                            onHashtagTap?(hashtag)
+	                        }
+	                        .multilineTextAlignment(.leading)
+	                        .fixedSize(horizontal: false, vertical: true)
+	                        .frame(maxWidth: .infinity, alignment: .leading)
+	                    }
 
 	                    if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
-	                        PostedMediaGrid(
-	                            attachments: attachments,
-	                            maxHeight: 240,
+		                        PostedMediaGrid(
+		                            attachments: attachments,
+		                            maxHeight: 240,
 	                            onImageTap: { url in
 	                                guard !url.isEmpty, URL(string: url) != nil else { return }
 	                                if let index = imageUrls.firstIndex(of: url) {
@@ -198,14 +192,8 @@ struct CommentRow: View {
 	                                selectedVideoUrl = url
                                 showVideoPlayer = true
                             }
-                        )
-                        .contentShape(Rectangle())
-                        .highPriorityGesture(
-                            TapGesture(count: 2).onEnded {
-                                handleDoubleTapLike()
-                            }
-                        )
-                    }
+		                        )
+		                    }
 
                     Text(displayName)
                         .font(authorFont)
@@ -261,76 +249,107 @@ struct CommentRow: View {
                             .foregroundColor(.loopedTextSecondary)
                     }
 
-                    if onToggleReplies != nil, !isExpanded, let label = collapsedRepliesLabel {
-                        Button(action: { onToggleReplies?(comment) }) {
-                            HStack(spacing: 8) {
-                                Text(label)
-                                    .font(metadataFont)
-                                    .foregroundColor(.loopedTextSecondary)
-                                if isLoadingReplies {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 12)
-                            .background(Color.loopedMutedBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        }
-                        .padding(.top, 4)
-                    }
-
-                    if isExpanded {
-                        VStack(alignment: .leading, spacing: 16) {
-                            ForEach(replies) { reply in
-                                CommentRow(
-                                    comment: reply,
-                                    nestingLevel: nestingLevel + 1,
-                                    replies: [],
-                                    isExpanded: false,
-                                    isLoadingReplies: false,
-                                    isLoadingMoreReplies: false,
-                                    hasMoreReplies: false,
-                                    onReply: onReply,
-                                    onToggleReplies: nil,
-                                    onLoadMoreReplies: nil,
-                                    onLike: onLike,
-                                    canManage: canManage,
-                                    onEdit: onEdit,
-                                    onDelete: onDelete,
-                                    onHashtagTap: onHashtagTap
-                                )
-                                .id(reply.backendId ?? reply.id.hashValue)
-                            }
-
-                            if isLoadingMoreReplies {
-                                ProgressView()
-                                    .padding(.vertical, 8)
-                            } else if hasMoreReplies {
-                                Button(action: { onLoadMoreReplies?(comment) }) {
-                                    Text(remainingRepliesLabel)
+	                    if let onToggleReplies, let label = collapsedRepliesLabel {
+	                        if isExpanded {
+	                            Button(action: { onToggleReplies(comment) }) {
+	                                HStack(spacing: 8) {
+                                    Text("Hide replies")
                                         .font(metadataFont)
                                         .foregroundColor(.loopedTextSecondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.vertical, 10)
-                                        .padding(.horizontal, 12)
-                                        .background(Color.loopedMutedBackground)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    Spacer(minLength: 8)
+                                    Image(systemName: "chevron.up")
+                                        .font(.loopedCustom(size: 12))
+                                        .foregroundColor(.loopedTextSecondary.opacity(0.9))
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                                .background(Color.loopedMutedBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             }
-                        }
-                        .padding(.top, 8)
-                    }
-                }
-            }
-            .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
-            .padding(.vertical, 6)
-        }
-        .fullScreenCover(isPresented: $showImageViewer) {
-            if !imageUrls.isEmpty {
-                FullScreenImageViewer(
-                    imageUrls: imageUrls,
+                            .padding(.top, 4)
+                        } else {
+                            Button(action: { onToggleReplies(comment) }) {
+                                HStack(spacing: 8) {
+                                    Text(label)
+                                        .font(metadataFont)
+                                        .foregroundColor(.loopedTextSecondary)
+                                    if isLoadingReplies {
+                                        ProgressView()
+                                            .scaleEffect(0.6)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                                .background(Color.loopedMutedBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+	                            .padding(.top, 4)
+	                        }
+	                    }
+	                }
+	            }
+	            .frame(maxWidth: .infinity, alignment: .leading)
+	            .loopedDoubleTapToLike {
+	                handleDoubleTapLike()
+	            }
+	            .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
+	            .padding(.vertical, 6)
+	
+		            if isExpanded {
+		                HStack(alignment: .top, spacing: 12) {
+		                    Color.loopedClear
+		                        .frame(width: profileSize)
+	
+	                    VStack(alignment: .leading, spacing: 16) {
+	                        ForEach(replies) { reply in
+	                            CommentRow(
+	                                comment: reply,
+	                                nestingLevel: nestingLevel + 1,
+	                                replies: [],
+	                                isExpanded: false,
+	                                isLoadingReplies: false,
+	                                isLoadingMoreReplies: false,
+	                                hasMoreReplies: false,
+	                                onReply: onReply,
+	                                onToggleReplies: nil,
+	                                onLoadMoreReplies: nil,
+	                                onLike: onLike,
+	                                canManage: canManage,
+	                                onEdit: onEdit,
+	                                onDelete: onDelete,
+	                                onHashtagTap: onHashtagTap
+	                            )
+	                            .id(reply.backendId ?? reply.id.hashValue)
+	                        }
+	
+	                        if isLoadingMoreReplies {
+	                            ProgressView()
+	                                .padding(.vertical, 8)
+	                        } else if hasMoreReplies {
+	                            Button(action: { onLoadMoreReplies?(comment) }) {
+	                                Text(remainingRepliesLabel)
+	                                    .font(metadataFont)
+	                                    .foregroundColor(.loopedTextSecondary)
+	                                    .frame(maxWidth: .infinity, alignment: .leading)
+	                                    .padding(.vertical, 10)
+	                                    .padding(.horizontal, 12)
+	                                    .background(Color.loopedMutedBackground)
+	                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+	                            }
+	                        }
+	                    }
+	                    .padding(.top, 8)
+	                }
+	                .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
+	                .padding(.bottom, 6)
+	            }
+	        }
+	        .fullScreenCover(isPresented: $showImageViewer) {
+	            if !imageUrls.isEmpty {
+	                FullScreenImageViewer(
+	                    imageUrls: imageUrls,
                     initialIndex: selectedImageIndex,
                     isPresented: $showImageViewer
                 )

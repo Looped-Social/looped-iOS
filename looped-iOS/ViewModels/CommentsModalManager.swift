@@ -145,7 +145,11 @@ class CommentsModalManager: ObservableObject {
     func toggleReplies(for comment: Comment) async {
         guard let backendId = comment.backendId else { return }
         var state = replyThreads[backendId] ?? ReplyThreadState()
-        guard !state.isExpanded else { return }
+        if state.isExpanded {
+            state.isExpanded = false
+            replyThreads[backendId] = state
+            return
+        }
         state.isExpanded = true
         replyThreads[backendId] = state
 

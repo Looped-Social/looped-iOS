@@ -20,6 +20,8 @@ struct NotificationPayloadDTO: Codable {
     let actorIsAnonymous: Bool?
     let actorDisplayName: String?
     let actorProfileImageUrl: String?
+    let conversationId: Int?
+    let messageId: Int?
     let postId: Int?
     let commentId: Int?
     let context: String?

@@ -108,7 +108,7 @@ import UIKit
 	            CameraCaptureView(
 	                position: .front,
 	                overlayStyle: .none,
-	                instruction: "Position your face clearly in the frame",
+	                instruction: instructionWithNonce("Position your face clearly in the frame"),
 	                onCancel: { showSelfieCamera = false },
 	                onConfirm: { image in
 	                    selfieImage = image
@@ -120,7 +120,7 @@ import UIKit
             CameraCaptureView(
                 position: .back,
                 overlayStyle: .idCard,
-                instruction: "Position ID front within\nframe",
+                instruction: instructionWithNonce("Position ID front within\nframe"),
                 onCancel: { showIdFrontCamera = false },
                 onConfirm: { image in
                     idFrontImage = image
@@ -132,7 +132,7 @@ import UIKit
             CameraCaptureView(
                 position: .back,
                 overlayStyle: .idCard,
-                instruction: "Position ID back within\nframe",
+                instruction: instructionWithNonce("Position ID back within\nframe"),
                 onCancel: { showIdBackCamera = false },
                 onConfirm: { image in
                     idBackImage = image
@@ -230,17 +230,24 @@ private extension PhotoIdVerificationView {
                     )
 	            }
 	            .buttonStyle(PlainButtonStyle())
+	            .disabled(!viewModel.isReadyToCapture)
+	            .opacity(viewModel.isReadyToCapture ? 1 : 0.65)
 
-	            Text("Position your face clearly in the frame")
-	                .font(.loopedSubBodyMedium)
-	                .foregroundColor(.loopedTextPrimary)
-	                .multilineTextAlignment(.center)
+	            VStack(spacing: 10) {
+	                nonceCard
+	                Text(instructionWithNonce("Position your face clearly in the frame"))
+	                    .font(.loopedSubBodyMedium)
+	                    .foregroundColor(.loopedTextPrimary)
+	                    .multilineTextAlignment(.center)
+	            }
 
 	            Button(action: { showSelfieCamera = true }) {
 	                Text(selfieImage == nil ? "Take Selfie" : "Retake Selfie")
 	                    .font(.loopedSubBodyMedium)
 	                    .foregroundColor(.loopedSecondary)
 	            }
+	            .disabled(!viewModel.isReadyToCapture)
+	            .opacity(viewModel.isReadyToCapture ? 1 : 0.65)
 	        }
 	    }
 
@@ -251,18 +258,25 @@ private extension PhotoIdVerificationView {
 	                    IdDocumentCardView(title: "ID Front", image: idFrontImage)
 	                }
 	                .buttonStyle(PlainButtonStyle())
+	                .disabled(!viewModel.isReadyToCapture)
+	                .opacity(viewModel.isReadyToCapture ? 1 : 0.65)
 
 	                Button(action: { showIdBackCamera = true }) {
 	                    IdDocumentCardView(title: "ID Back", image: idBackImage)
 	                }
 	                .buttonStyle(PlainButtonStyle())
+	                .disabled(!viewModel.isReadyToCapture)
+	                .opacity(viewModel.isReadyToCapture ? 1 : 0.65)
 	            }
 	            .frame(maxWidth: .infinity)
 
-	            Text("Position your ID within\nframe")
-	                .font(.loopedSubBodyMedium)
-	                .foregroundColor(.loopedTextPrimary)
-	                .multilineTextAlignment(.center)
+	            VStack(spacing: 10) {
+	                nonceCard
+	                Text(instructionWithNonce("Position your ID within\nframe"))
+	                    .font(.loopedSubBodyMedium)
+	                    .foregroundColor(.loopedTextPrimary)
+	                    .multilineTextAlignment(.center)
+	            }
 
             HStack(spacing: 18) {
                 Button(action: { showIdFrontCamera = true }) {
@@ -270,13 +284,16 @@ private extension PhotoIdVerificationView {
                         .font(.loopedSubBodyMedium)
                         .foregroundColor(.loopedSecondary)
                 }
+                .disabled(!viewModel.isReadyToCapture)
+                .opacity(viewModel.isReadyToCapture ? 1 : 0.65)
 
                 Button(action: { showIdBackCamera = true }) {
                     Text(idBackImage == nil ? "Take ID Back" : "Retake ID Back")
                         .font(.loopedSubBodyMedium)
                         .foregroundColor(.loopedSecondary)
                 }
-                .opacity(0.85)
+                .disabled(!viewModel.isReadyToCapture)
+                .opacity(viewModel.isReadyToCapture ? 0.85 : 0.55)
             }
 
 	        }
@@ -321,6 +338,54 @@ private extension PhotoIdVerificationView {
 private enum PhotoIdStage {
     case selfie
     case workId
+}
+
+private extension PhotoIdVerificationView {
+    @ViewBuilder
+    var nonceCard: some View {
+        if let nonce = viewModel.visualNonce, !nonce.isEmpty {
+            VStack(spacing: 10) {
+                Text("Write this code on paper and keep it visible in each photo:")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+                    .multilineTextAlignment(.center)
+
+                Button(action: { UIPasteboard.general.string = nonce }) {
+                    HStack(spacing: 10) {
+                        Text(nonce)
+                            .font(.system(.headline, design: .monospaced))
+                            .foregroundColor(.loopedTextPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+
+                        Image(systemName: "doc.on.doc")
+                            .font(.loopedCustom(.regular, size: 16))
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.loopedMutedBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("Copy verification code")
+            }
+            .frame(maxWidth: .infinity)
+        } else if viewModel.isPreparing {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Getting verification code…")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    func instructionWithNonce(_ base: String) -> String {
+        guard let nonce = viewModel.visualNonce, !nonce.isEmpty else { return base }
+        return "Include code \(nonce) in the photo.\n\(base)"
+    }
 }
 
 	private struct IdDocumentCardView: View {
