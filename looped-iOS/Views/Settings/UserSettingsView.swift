@@ -155,7 +155,7 @@ struct UserSettingsView: View {
                                 .font(.loopedBodyStrong)
                                 .foregroundColor(.loopedTextPrimary)
 
-                            Text("Choose a major or department to show on your anonymous profile.")
+                            Text("Choose a major or field to show on your anonymous profile.")
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
 
@@ -171,7 +171,7 @@ struct UserSettingsView: View {
                                 DisplaySpecializationRow(
                                     specialization: anonDisplaySpecialization,
                                     displayCommunity: selectedAnonDisplayCommunity,
-                                    fallbackText: "Join a major or department to add it here",
+                                    fallbackText: "Join a major or field to add it here",
                                     font: .loopedBody,
                                     textColor: anonDisplaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                     iconSize: 18,
@@ -197,7 +197,7 @@ struct UserSettingsView: View {
                                     label: DisplaySpecializationRow(
                                         specialization: anonDisplaySpecialization,
                                         displayCommunity: selectedAnonDisplayCommunity,
-                                        fallbackText: "Select a major or department",
+                                        fallbackText: "Select a major or field",
                                         font: .loopedBody,
                                         textColor: anonDisplaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                         iconSize: 18,
@@ -367,7 +367,7 @@ struct UserSettingsView: View {
                                 .font(.loopedBodyStrong)
                                 .foregroundColor(.loopedTextPrimary)
 
-                            Text("Choose a major or department to show on your profile.")
+                            Text("Choose a major or field to show on your profile.")
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
 
@@ -383,7 +383,7 @@ struct UserSettingsView: View {
                                 DisplaySpecializationRow(
                                     specialization: displaySpecialization,
                                     displayCommunity: selectedDisplayCommunity,
-                                    fallbackText: "Join a major or department to add it here",
+                                    fallbackText: "Join a major or field to add it here",
                                     font: .loopedBody,
                                     textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                     iconSize: 18,
@@ -409,7 +409,7 @@ struct UserSettingsView: View {
                                     label: DisplaySpecializationRow(
                                         specialization: displaySpecialization,
                                         displayCommunity: selectedDisplayCommunity,
-                                        fallbackText: "Select a major or department",
+                                        fallbackText: "Select a major or field",
                                         font: .loopedBody,
                                         textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                         iconSize: 18,
@@ -1008,9 +1008,9 @@ private extension UserSettingsView {
             case "specialization_not_found":
                 return "That specialization could not be found."
             case "invalid_specialization":
-                return "Select a major or department to display."
+                return "Select a major or field to display."
             case "specialization_not_joined":
-                return "You must join that major or department to display it."
+                return "You must join that major or field to display it."
             case "invalid_anon_proof":
                 return "Anonymous identity proof failed. Try toggling anonymous mode off/on."
             case "anon_jwt_not_allowed":

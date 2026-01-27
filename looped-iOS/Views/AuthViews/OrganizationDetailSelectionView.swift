@@ -141,10 +141,10 @@ struct OrganizationDetailSelectionView: View {
 private extension OrganizationDetailSelectionView {
     var infoText: String {
         switch kind {
-        case .department:
-            return "Pick the department you want featured on your profile. You can update this later."
+        case .field:
+            return "Follow a field to personalize your experience. You can change this later."
         case .major:
-            return "Pick the major you want featured on your profile. You can update this later."
+            return "Follow a major to personalize your experience. You can change this later."
         default:
             return "Pick what you want featured on your profile. You can update this later."
         }
@@ -190,8 +190,8 @@ private struct OrganizationDetailRow: View {
 #Preview {
     NavigationStack {
         OrganizationDetailSelectionView(
-            title: "Department",
-            kind: .department,
+            title: "Field",
+            kind: .field,
             searchText: .constant(""),
             selectedItem: .constant(nil as CommunitySearchResult?),
             onSelect: { _ in }

@@ -252,6 +252,21 @@ final class CommunityProfileViewModel: ObservableObject {
 
         let label = community.specializationLabel ?? "Specialization"
         switch apiError {
+        case "specialization_verification_required":
+            let required: String
+            switch community.specializationType {
+            case .field:
+                required = "company"
+            case .major:
+                required = "school"
+            case .unknown:
+                required = "community"
+            }
+            return specializationMessage(
+                message,
+                fallback: "Verify your \(required) before joining \(label.lowercased()) communities.",
+                label: label
+            )
         case "specialization_join_limit":
             return specializationMessage(
                 message,

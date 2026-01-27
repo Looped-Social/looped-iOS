@@ -3,8 +3,6 @@ import Foundation
 enum CommunityKind: String, Codable {
     case company
     case school
-    case profession
-    case sector
     case specialization
     case unknown
 
@@ -23,7 +21,7 @@ enum CommunityKind: String, Codable {
     static func fromApi(_ rawValue: String?) -> CommunityKind {
         let trimmed = (rawValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .unknown }
-        if trimmed == "major" || trimmed == "department" {
+        if trimmed == "major" || trimmed == "field" {
             return .specialization
         }
         return CommunityKind(rawValue: trimmed) ?? .unknown
@@ -32,7 +30,7 @@ enum CommunityKind: String, Codable {
 
 enum CommunitySpecializationType: String, Codable {
     case major
-    case department
+    case field
     case unknown
 
     init(from decoder: Decoder) throws {
@@ -51,8 +49,8 @@ enum CommunitySpecializationType: String, Codable {
         switch self {
         case .major:
             return "Major"
-        case .department:
-            return "Department"
+        case .field:
+            return "Field"
         case .unknown:
             return nil
         }
@@ -62,11 +60,9 @@ enum CommunitySpecializationType: String, Codable {
 enum CommunitySearchKind: String {
     case company
     case school
-    case profession
-    case sector
     case specialization
     case major
-    case department
+    case field
     case unknown
 
     var queryValue: String? {

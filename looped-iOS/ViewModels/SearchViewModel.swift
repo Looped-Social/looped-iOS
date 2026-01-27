@@ -8,7 +8,7 @@ class SearchViewModel: ObservableObject {
     @Published var trendingPosts: [TrendingPost] = []
     @Published var recommendedCommunities: [CommunitySearchResult] = []
     @Published var majors: [CommunitySearchResult] = []
-    @Published var departments: [CommunitySearchResult] = []
+    @Published var fields: [CommunitySearchResult] = []
     @Published var specializationsError: String?
 
     private let communityService: CommunityServiceProtocol
@@ -38,11 +38,11 @@ class SearchViewModel: ObservableObject {
         do {
             let results = try await discoveryService.fetchRecommendedSpecializations(limit: 12)
             majors = results.majors
-            departments = results.departments
+            fields = results.fields
             specializationsError = nil
         } catch {
             majors = []
-            departments = []
+            fields = []
             specializationsError = error.localizedDescription
         }
     }

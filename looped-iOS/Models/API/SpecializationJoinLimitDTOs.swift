@@ -15,5 +15,7 @@ struct SpecializationJoinLimitDTO: Codable {
     let cooldownDaysRemaining: Int?
     let canJoin: Bool
     let blockedReason: String?
+    let requiredVerificationKind: String?
+    let joinRequiresVerificationKind: String?
+    let joinBlockedReason: String?
 }
-

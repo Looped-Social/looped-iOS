@@ -8,10 +8,12 @@ enum CommunityProfileTab: String, CaseIterable {
 
 struct CommunityProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel: CommunityProfileViewModel
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: CommunityProfileTab = .posts
-    @State private var showVerificationFlow = false
+    @State private var verificationTargetCommunity: CommunityProfileData?
+    @State private var verificationUnavailableMessage: String?
     @State private var showSpecializationJoinInfo = false
     @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
@@ -78,12 +80,21 @@ struct CommunityProfileView: View {
                 }
             }
         )
-        .sheet(isPresented: $showVerificationFlow) {
-            CommunityVerificationFlowView(
-                community: viewModel.community
-            ) {
+        .sheet(item: $verificationTargetCommunity) { community in
+            CommunityVerificationFlowView(community: community) {
                 Task { await viewModel.loadVerification() }
             }
+        }
+        .alert(
+            "Verification Needed",
+            isPresented: Binding(
+                get: { verificationUnavailableMessage != nil },
+                set: { if !$0 { verificationUnavailableMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(verificationUnavailableMessage ?? "")
         }
         .alert(
             "Update Failed",
@@ -177,7 +188,7 @@ struct CommunityProfileView: View {
     }
 
     private var verificationPill: some View {
-        Button(action: { showVerificationFlow = true }) {
+        Button(action: { verificationTargetCommunity = viewModel.community }) {
             HStack(spacing: 8) {
                 Image(systemName: verificationDisplay.icon)
                     .foregroundColor(verificationDisplay.color)
@@ -210,7 +221,11 @@ struct CommunityProfileView: View {
                 if viewModel.community.isJoined {
                     showSpecializationLeaveConfirmation = true
                 } else {
-                    Task { await viewModel.toggleJoin() }
+                    if viewModel.community.joinLimit?.joinBlockedReason == .verificationRequired {
+                        Task { await presentVerificationFlowIfPossible() }
+                    } else {
+                        Task { await viewModel.toggleJoin() }
+                    }
                 }
             }) {
                 HStack(spacing: 8) {
@@ -438,6 +453,16 @@ struct CommunityProfileView: View {
                 infoText: infoText
             )
         }
+        if joinLimit?.joinBlockedReason == .verificationRequired {
+            return SpecializationJoinDisplay(
+                label: label,
+                title: "Verify to Join",
+                subtitle: subtitle,
+                icon: "lock.fill",
+                color: .loopedSecondary,
+                infoText: infoText
+            )
+        }
         return SpecializationJoinDisplay(
             label: label,
             title: "Join \(label)",
@@ -453,6 +478,11 @@ struct CommunityProfileView: View {
             return viewModel.community.isJoined ? "Tap to leave" : "Tap to join"
         }
 
+        if joinLimit.joinBlockedReason == .verificationRequired {
+            let required = joinLimit.joinRequiresVerificationKind?.displayName ?? "Company/School"
+            return "Verify your \(required.lowercased()) to join."
+        }
+
         let remaining = max(0, joinLimit.canJoin ? joinLimit.remaining : 0)
         let specializationLabel = Self.specializationLabel(for: joinLimit.specializationType, count: remaining)
         return "You can join \(remaining) more \(specializationLabel) left"
@@ -463,6 +493,14 @@ struct CommunityProfileView: View {
             return """
             Joining a \(label.lowercased()) helps personalize your experience.
             You may be limited in how often you can change.
+            """
+        }
+
+        if joinLimit.joinBlockedReason == .verificationRequired {
+            let required = joinLimit.joinRequiresVerificationKind?.displayName ?? "Company/School"
+            return """
+            Verify your \(required.lowercased()) before joining \(label.lowercased()) communities.
+            After verification, you can join up to \(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()) and changes may be limited.
             """
         }
 
@@ -512,6 +550,62 @@ struct CommunityProfileView: View {
         return parts.joined(separator: " ")
     }
 
+    @MainActor
+    private func presentVerificationFlowIfPossible() async {
+        guard let joinLimit = viewModel.community.joinLimit,
+              joinLimit.joinBlockedReason == .verificationRequired else {
+            return
+        }
+
+        guard let target = await resolveVerificationTarget(for: joinLimit) else {
+            let required = joinLimit.joinRequiresVerificationKind?.displayName ?? "Company/School"
+            verificationUnavailableMessage = "Verify a \(required.lowercased()) to join \(joinLimit.pluralLabel.lowercased())."
+            return
+        }
+
+        verificationTargetCommunity = target
+    }
+
+    private func resolveVerificationTarget(for joinLimit: SpecializationJoinLimit) async -> CommunityProfileData? {
+        guard let required = joinLimit.joinRequiresVerificationKind else { return nil }
+
+        var candidateIds: [Int] = []
+        if required == .company, let companyId = authViewModel.currentUser?.companyId, companyId > 0 {
+            candidateIds.append(companyId)
+        }
+        if let selected = authViewModel.selectedOrganization,
+           selected.kind.rawValue == required.rawValue,
+           let id = selected.backendId,
+           id > 0 {
+            candidateIds.append(id)
+        }
+
+        let lastSelected = UserDefaults.standard.integer(forKey: "lastSelectedCommunityId")
+        if lastSelected > 0 {
+            candidateIds.append(lastSelected)
+        }
+
+        // De-dupe while preserving order.
+        var seen = Set<Int>()
+        let unique = candidateIds.filter { seen.insert($0).inserted }
+        guard !unique.isEmpty else { return nil }
+
+        let desiredKind: CommunityKind = required == .company ? .company : .school
+        let service = CommunityService()
+        for id in unique {
+            if let details = try? await service.fetchCommunityDetails(communityId: id),
+               details.kind == desiredKind {
+                return details
+            }
+        }
+
+        if let followed = try? await service.fetchFollowedCommunities(limit: 50, cursor: nil, order: .relevant),
+           let candidate = followed.items.first(where: { $0.kind == desiredKind }) {
+            return try? await service.fetchCommunityDetails(communityId: candidate.id)
+        }
+        return nil
+    }
+
     private static let expiryFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -524,8 +618,8 @@ struct CommunityProfileView: View {
         switch type {
         case .major:
             singular = "major"
-        case .department:
-            singular = "department"
+        case .field:
+            singular = "field"
         case .unknown:
             singular = "specialization"
         }
@@ -617,7 +711,7 @@ struct CommunityProfileBanner: View {
             name: "Finance",
             shortName: nil,
             description: "Talk markets, careers, and everything in finance.",
-            kind: .profession,
+            kind: .company,
             specializationType: .unknown,
             memberCount: 1_000_000,
             imageUrl: nil,

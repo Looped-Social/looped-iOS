@@ -8,7 +8,6 @@ private enum CommunityRequestRoute: Hashable {
 enum CommunityRequestType: String, CaseIterable, Identifiable {
     case company = "Company"
     case school = "School"
-    case profession = "Profession"
 
     var id: String { rawValue }
 
@@ -18,8 +17,6 @@ enum CommunityRequestType: String, CaseIterable, Identifiable {
             return .company
         case .school:
             return .school
-        case .profession:
-            return .profession
         }
     }
 }

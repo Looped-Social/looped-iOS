@@ -2,7 +2,6 @@ import Foundation
 
 struct SpecializationsRecommendedResponseDTO: Codable {
     let majors: [CommunityRecommendedDTO]?
-    let departments: [CommunityRecommendedDTO]?
+    let fields: [CommunityRecommendedDTO]?
     let items: [CommunityRecommendedDTO]?
 }
-

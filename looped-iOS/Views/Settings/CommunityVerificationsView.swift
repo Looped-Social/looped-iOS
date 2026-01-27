@@ -200,6 +200,9 @@ struct CommunityVerificationsView: View {
             parts.append("Resets \(Self.expiryFormatter.string(from: cooldownEndsAt))")
         } else if limit.canJoin {
             parts.append("\(limit.remaining)/\(limit.limit) joins left")
+        } else if limit.joinBlockedReason == .verificationRequired {
+            let required = limit.joinRequiresVerificationKind?.displayName ?? "Company/School"
+            parts.append("Verify your \(required.lowercased())")
         } else if limit.blockedReason == .limit {
             parts.append("Limit reached")
         }

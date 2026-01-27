@@ -122,7 +122,7 @@ struct SearchView: View {
                             }
                         }
 
-                        // Majors & Departments Section
+                        // Majors & Fields Section
                         VStack(alignment: .leading, spacing: 24) {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
@@ -161,30 +161,30 @@ struct SearchView: View {
 
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
-                                    Text("Departments")
+                                    Text("Fields")
                                         .font(.loopedSubheadMedium)
                                         .foregroundColor(.loopedTextPrimary)
                                     Spacer()
                                 }
                                 .padding(.horizontal, 16)
 
-                                if viewModel.departments.isEmpty {
-                                    Text(viewModel.specializationsError ?? "No departments yet.")
+                                if viewModel.fields.isEmpty {
+                                    Text(viewModel.specializationsError ?? "No fields yet.")
                                         .font(.loopedSubBodyRegular)
                                         .foregroundColor(.loopedTextSecondary)
                                         .padding(.horizontal, 16)
                                 } else {
                                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-                                        ForEach(viewModel.departments) { department in
+                                        ForEach(viewModel.fields) { field in
                                             NavigationLink(
                                                 destination: CommunityProfileView(
-                                                    community: CommunityProfileData(community: department)
+                                                    community: CommunityProfileData(community: field)
                                                 )
                                             ) {
                                                 SpecializationIcon(
-                                                    name: department.name,
-                                                    memberCount: department.memberCount,
-                                                    specializationType: department.specializationType
+                                                    name: field.name,
+                                                    memberCount: field.memberCount,
+                                                    specializationType: field.specializationType
                                                 )
                                             }
                                             .buttonStyle(PlainButtonStyle())

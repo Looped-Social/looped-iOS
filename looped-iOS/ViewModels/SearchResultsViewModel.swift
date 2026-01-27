@@ -6,30 +6,27 @@ enum SearchResultsFilter: String, CaseIterable, Identifiable {
     case posts = "Posts"
     case all = "All"
     case communities = "Communities"
-    case sectors = "Sectors"
     case companies = "Companies"
-    case colleges = "Colleges"
+    case schools = "Schools"
     case majors = "Majors"
-    case departments = "Departments"
+    case fields = "Fields"
 
     var id: String { rawValue }
 
     static var uiCases: [SearchResultsFilter] {
-        [.all, .posts, .users, .communities, .sectors, .companies, .colleges, .majors, .departments]
+        [.all, .posts, .users, .communities, .companies, .schools, .majors, .fields]
     }
 
     var searchKind: CommunitySearchKind? {
         switch self {
-        case .sectors:
-            return .sector
         case .companies:
             return .company
-        case .colleges:
+        case .schools:
             return .school
         case .majors:
             return .major
-        case .departments:
-            return .department
+        case .fields:
+            return .field
         default:
             return nil
         }
@@ -155,7 +152,7 @@ class SearchResultsViewModel: ObservableObject {
                 }
                 searchResults = results
                 hashtagSuggestions = []
-            case .sectors, .companies, .colleges, .majors, .departments:
+            case .companies, .schools, .majors, .fields:
                 let loopResults = try await communityService.searchCommunities(
                     query: trimmedQuery,
                     limit: 20,

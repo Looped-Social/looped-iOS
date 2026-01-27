@@ -90,7 +90,7 @@ struct DisplaySpecializationPickerView: View {
                 .font(.loopedCustom(.medium, size: 16))
                 .foregroundColor(.loopedTextSecondary)
 
-            TextField("Search majors or departments", text: $searchText)
+            TextField("Search majors or fields", text: $searchText)
                 .font(.loopedBody)
                 .foregroundColor(.loopedTextPrimary)
                 .textInputAutocapitalization(.words)
@@ -141,7 +141,7 @@ struct DisplaySpecializationPickerView: View {
 
     private var emptyStateText: String {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Start typing to search majors or departments." : "No specializations found."
+        return trimmed.isEmpty ? "Start typing to search majors or fields." : "No specializations found."
     }
 
     private func scheduleSearch() {
@@ -204,14 +204,14 @@ struct DisplaySpecializationPickerView: View {
 
 private enum SpecializationFilter: CaseIterable {
     case major
-    case department
+    case field
 
     var title: String {
         switch self {
         case .major:
             return "Major"
-        case .department:
-            return "Department"
+        case .field:
+            return "Field"
         }
     }
 
@@ -219,8 +219,8 @@ private enum SpecializationFilter: CaseIterable {
         switch self {
         case .major:
             return .major
-        case .department:
-            return .department
+        case .field:
+            return .field
         }
     }
 
@@ -228,8 +228,8 @@ private enum SpecializationFilter: CaseIterable {
         switch specializationType {
         case .major:
             return .major
-        case .department:
-            return .department
+        case .field:
+            return .field
         case .unknown, .none:
             return nil
         }

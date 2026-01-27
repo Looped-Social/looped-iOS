@@ -293,10 +293,6 @@ private extension FeedTabs {
 	            return "Company"
 	        case .school:
 	            return "School"
-	        case .profession:
-	            return "Profession"
-	        case .sector:
-	            return "Sector"
 	        case .specialization:
 	            return specializationType.displayName ?? "Specialization"
 	        case .unknown:

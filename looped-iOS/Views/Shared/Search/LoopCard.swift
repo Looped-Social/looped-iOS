@@ -69,7 +69,7 @@ struct LoopCard: View {
             if normalizedWithoutPunctuation.contains("finance") {
                 return .emoji("💰")
             }
-            if specializationType == .department {
+            if specializationType == .field {
                 return .emoji("🏷️")
             }
             return .emoji("🎓")
@@ -80,10 +80,6 @@ struct LoopCard: View {
             return .emoji("🏢")
         case .school:
             return .emoji("🎓")
-        case .profession:
-            return .emoji("💼")
-        case .sector:
-            return .emoji("🏭")
         default:
             return .system("person.3")
         }
@@ -147,7 +143,7 @@ struct LoopCard: View {
             description: "Tech discussions and career tips",
             memberCount: 1250,
             imageURL: "trending1",
-            kind: .profession,
+            kind: .company,
             specializationType: nil
         )
 
@@ -156,7 +152,7 @@ struct LoopCard: View {
             description: "UX/UI design inspiration",
             memberCount: 890,
             imageURL: "trending2",
-            kind: .profession,
+            kind: .company,
             specializationType: nil
         )
 
@@ -165,7 +161,7 @@ struct LoopCard: View {
             description: "Growth and strategy insights",
             memberCount: 640,
             imageURL: "trending3",
-            kind: .profession,
+            kind: .company,
             specializationType: nil
         )
     }

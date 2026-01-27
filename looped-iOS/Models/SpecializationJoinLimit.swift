@@ -3,6 +3,21 @@ import Foundation
 enum SpecializationJoinBlockedReason: String {
     case limit
     case cooldown
+    case verificationRequired = "verification_required"
+}
+
+enum SpecializationJoinRequiresVerificationKind: String {
+    case company
+    case school
+
+    var displayName: String {
+        switch self {
+        case .company:
+            return "Company"
+        case .school:
+            return "School"
+        }
+    }
 }
 
 struct SpecializationJoinLimit: Equatable {
@@ -16,6 +31,8 @@ struct SpecializationJoinLimit: Equatable {
     let cooldownDaysRemaining: Int?
     let canJoin: Bool
     let blockedReason: SpecializationJoinBlockedReason?
+    let joinRequiresVerificationKind: SpecializationJoinRequiresVerificationKind?
+    let joinBlockedReason: SpecializationJoinBlockedReason?
 }
 
 extension SpecializationJoinLimit {
@@ -30,17 +47,19 @@ extension SpecializationJoinLimit {
         cooldownDaysRemaining = dto.cooldownDaysRemaining
         canJoin = dto.canJoin
         blockedReason = dto.blockedReason.flatMap(SpecializationJoinBlockedReason.init(rawValue:))
+        joinRequiresVerificationKind = (dto.joinRequiresVerificationKind ?? dto.requiredVerificationKind)
+            .flatMap(SpecializationJoinRequiresVerificationKind.init(rawValue:))
+        joinBlockedReason = dto.joinBlockedReason.flatMap(SpecializationJoinBlockedReason.init(rawValue:))
     }
 
     var pluralLabel: String {
         switch specializationType {
         case .major:
             return "Majors"
-        case .department:
-            return "Departments"
+        case .field:
+            return "Fields"
         case .unknown:
             return "Specializations"
         }
     }
 }
-

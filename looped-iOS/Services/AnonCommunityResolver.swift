@@ -53,10 +53,14 @@ struct AnonCommunityResolver {
         }
 
         // If the user isn't verified in any community, specializations can still be anon-eligible.
-        // Try picking a joined specialization so the profile toggle can enroll.
+        // Try picking a joined/followed specialization so the profile toggle can enroll.
         if activeVerifications.isEmpty {
             if let joined = try? await communityService.fetchJoinedSpecializations(type: nil),
                let specialization = joined.first {
+                return specialization.id
+            }
+            if let followed = try? await communityService.fetchFollowedCommunities(limit: 50, cursor: nil, order: .relevant),
+               let specialization = followed.items.first(where: { $0.kind == .specialization }) {
                 return specialization.id
             }
         }

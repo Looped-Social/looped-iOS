@@ -56,7 +56,7 @@ enum AnonServiceError: Error, LocalizedError {
         case .missingIdentity:
             return "No anonymous identity found on this device."
         case .missingCommunityContext:
-            return "Select a community (or major/department) before enabling anonymous mode. Some communities require verification first."
+            return "Select a community (or major/field) before enabling anonymous mode. Some communities require verification first."
         }
     }
 }

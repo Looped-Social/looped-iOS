@@ -161,9 +161,9 @@ GET /v1/users/search?query=&limit=&cursor=
 GET /v1/users?limit=&cursor=
 - Auth required, same-company scope; default directory/suggestions with the same item shape as search
 
-### Specializations (Majors/Departments)
+### Specializations (Majors/Fields)
 
-GET /v1/me/joined/specializations?type=major|department|all&limit=&cursor=
+GET /v1/me/joined/specializations?type=major|field|all&limit=&cursor=
 - Auth: `Authorization: Bearer <firebase_jwt>`
 - 200 OK:
 ```

@@ -22,20 +22,20 @@ class DiscoveryService: DiscoveryServiceProtocol {
         let endpoint = "/v1/specializations/recommended?type=all&limit=\(resolvedLimit)"
         let response: SpecializationsRecommendedResponseDTO = try await apiClient.get(endpoint)
         let majors: [CommunitySearchResult]
-        let departments: [CommunitySearchResult]
+        let fields: [CommunitySearchResult]
 
-        if let responseMajors = response.majors, let responseDepartments = response.departments {
+        if let responseMajors = response.majors, let responseFields = response.fields {
             majors = responseMajors.map(CommunitySearchResult.init(dto:))
-            departments = responseDepartments.map(CommunitySearchResult.init(dto:))
+            fields = responseFields.map(CommunitySearchResult.init(dto:))
         } else if let items = response.items {
             let results = items.map(CommunitySearchResult.init(dto:))
             majors = results.filter { $0.specializationType == .major }
-            departments = results.filter { $0.specializationType == .department }
+            fields = results.filter { $0.specializationType == .field }
         } else {
             majors = (response.majors ?? []).map(CommunitySearchResult.init(dto:))
-            departments = (response.departments ?? []).map(CommunitySearchResult.init(dto:))
+            fields = (response.fields ?? []).map(CommunitySearchResult.init(dto:))
         }
-        return RecommendedSpecializations(majors: majors, departments: departments)
+        return RecommendedSpecializations(majors: majors, fields: fields)
     }
 
     private func search<T: Codable>(endpoint: String, query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<T> {

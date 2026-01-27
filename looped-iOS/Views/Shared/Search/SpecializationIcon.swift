@@ -85,7 +85,7 @@ struct SpecializationIcon: View {
         switch specializationType {
         case .major:
             return "🎓"
-        case .department:
+        case .field:
             return "🏷️"
         default:
             return nil
@@ -105,8 +105,8 @@ struct SpecializationIcon: View {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
         SpecializationIcon(name: "Computer Science", memberCount: 1800, specializationType: .major)
         SpecializationIcon(name: "Business", memberCount: 2500, specializationType: .major)
-        SpecializationIcon(name: "Marketing", memberCount: 1200, specializationType: .department)
-        SpecializationIcon(name: "Design", memberCount: 760, specializationType: .department)
+        SpecializationIcon(name: "Marketing", memberCount: 1200, specializationType: .field)
+        SpecializationIcon(name: "Design", memberCount: 760, specializationType: .field)
     }
     .padding()
     .background(Color.loopedBackground)

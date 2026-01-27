@@ -245,7 +245,6 @@ protocol CommunityServiceProtocol {
     func fetchJoinedSpecializations(type: CommunitySpecializationType?) async throws -> [DisplayCommunity]
     func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit]
     func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult>
-    func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult]
     func followCommunity(id: Int) async throws
     func unfollowCommunity(id: Int) async throws
     func followSpecialization(id: Int) async throws

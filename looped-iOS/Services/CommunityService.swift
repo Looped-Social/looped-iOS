@@ -50,8 +50,8 @@ class CommunityService: CommunityServiceProtocol {
             switch filterType {
             case .major:
                 return "major"
-            case .department:
-                return "department"
+            case .field:
+                return "field"
             case .unknown:
                 return "all"
             }
@@ -97,7 +97,7 @@ class CommunityService: CommunityServiceProtocol {
             let leftType = lhs.specializationType ?? .unknown
             let rightType = rhs.specializationType ?? .unknown
             if leftType != rightType {
-                // Keep majors before departments for pickers.
+                // Keep majors before fields for pickers.
                 if leftType == .major { return true }
                 if rightType == .major { return false }
                 return leftType.rawValue < rightType.rawValue
@@ -127,10 +127,6 @@ class CommunityService: CommunityServiceProtocol {
         let response: CommunitySearchResponseDTO = try await apiClient.get(endpoint)
         let items = response.items.map(CommunitySearchResult.init(dto:))
         return SearchResultPage(items: items, nextCursor: response.nextCursor)
-    }
-
-    func fetchTopProfessionCommunities(limit: Int) async throws -> [CommunitySearchResult] {
-        try await fetchRecommendedCommunities(kind: .profession, limit: limit)
     }
 
     func followCommunity(id: Int) async throws {
