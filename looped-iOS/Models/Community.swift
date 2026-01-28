@@ -20,11 +20,12 @@ enum CommunityKind: String, Codable {
 
     static func fromApi(_ rawValue: String?) -> CommunityKind {
         let trimmed = (rawValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return .unknown }
-        if trimmed == "major" || trimmed == "field" {
+        let normalized = trimmed.lowercased()
+        guard !normalized.isEmpty else { return .unknown }
+        if normalized == "major" || normalized == "field" {
             return .specialization
         }
-        return CommunityKind(rawValue: trimmed) ?? .unknown
+        return CommunityKind(rawValue: normalized) ?? .unknown
     }
 }
 
@@ -33,10 +34,17 @@ enum CommunitySpecializationType: String, Codable {
     case field
     case unknown
 
+    static func fromApi(_ rawValue: String?) -> CommunitySpecializationType {
+        let trimmed = (rawValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed.lowercased()
+        guard !normalized.isEmpty else { return .unknown }
+        return CommunitySpecializationType(rawValue: normalized) ?? .unknown
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        self = CommunitySpecializationType(rawValue: rawValue) ?? .unknown
+        self = CommunitySpecializationType.fromApi(rawValue)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -145,10 +153,10 @@ extension CommunitySearchResult {
         shortName = dto.shortName
         description = dto.description ?? ""
         kind = CommunityKind.fromApi(dto.kind)
-        let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
+        let parsedType = CommunitySpecializationType.fromApi(dto.specializationType)
         specializationType = parsedType != .unknown
             ? parsedType
-            : (CommunitySpecializationType(rawValue: dto.kind ?? "") ?? .unknown)
+            : CommunitySpecializationType.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
         isFollowing = dto.isFollowing
@@ -161,10 +169,10 @@ extension CommunitySearchResult {
         shortName = dto.shortName
         description = dto.description ?? ""
         kind = CommunityKind.fromApi(dto.kind)
-        let parsedType = CommunitySpecializationType(rawValue: dto.specializationType ?? "") ?? .unknown
+        let parsedType = CommunitySpecializationType.fromApi(dto.specializationType)
         specializationType = parsedType != .unknown
             ? parsedType
-            : (CommunitySpecializationType(rawValue: dto.kind ?? "") ?? .unknown)
+            : CommunitySpecializationType.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
         isFollowing = dto.isFollowing

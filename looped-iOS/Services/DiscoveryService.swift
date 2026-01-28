@@ -21,6 +21,37 @@ class DiscoveryService: DiscoveryServiceProtocol {
         let resolvedLimit = min(max(limit, 1), 50)
         let endpoint = "/v1/specializations/recommended?type=all&limit=\(resolvedLimit)"
         let response: SpecializationsRecommendedResponseDTO = try await apiClient.get(endpoint)
+        let initial = parseRecommendedSpecializations(response)
+        var majors = initial.majors
+        var fields = initial.fields
+
+        // Some backend deployments only populate one type for `type=all`. If we didn't get both,
+        // opportunistically fetch the missing set(s).
+        if fields.isEmpty || majors.isEmpty {
+            async let majorsResponse: SpecializationsRecommendedResponseDTO? =
+                majors.isEmpty
+                    ? (try? apiClient.get("/v1/specializations/recommended?type=major&limit=\(resolvedLimit)"))
+                    : nil
+
+            async let fieldsResponse: SpecializationsRecommendedResponseDTO? =
+                fields.isEmpty
+                    ? (try? apiClient.get("/v1/specializations/recommended?type=field&limit=\(resolvedLimit)"))
+                    : nil
+
+            let (maybeMajors, maybeFields) = await (majorsResponse, fieldsResponse)
+
+            if let maybeMajors, majors.isEmpty {
+                majors = parseRecommendedSpecializations(maybeMajors).majors
+            }
+            if let maybeFields, fields.isEmpty {
+                fields = parseRecommendedSpecializations(maybeFields).fields
+            }
+        }
+
+        return RecommendedSpecializations(majors: majors, fields: fields)
+    }
+
+    private func parseRecommendedSpecializations(_ response: SpecializationsRecommendedResponseDTO) -> RecommendedSpecializations {
         let majors: [CommunitySearchResult]
         let fields: [CommunitySearchResult]
 
@@ -35,6 +66,7 @@ class DiscoveryService: DiscoveryServiceProtocol {
             majors = (response.majors ?? []).map(CommunitySearchResult.init(dto:))
             fields = (response.fields ?? []).map(CommunitySearchResult.init(dto:))
         }
+
         return RecommendedSpecializations(majors: majors, fields: fields)
     }
 

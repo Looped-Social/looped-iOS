@@ -107,10 +107,17 @@ class AuthService: AuthServiceProtocol {
         #endif
     }
 
+    #if canImport(GoogleSignIn)
+    @MainActor
+    private func performGoogleSignIn(presenting: UIViewController) async throws -> GIDSignInResult {
+        try await GIDSignIn.sharedInstance.signIn(withPresenting: presenting)
+    }
+    #endif
+
     // MARK: - Google Sign-In
     func signInWithGoogle(presenting: UIViewController) async throws {
         #if canImport(GoogleSignIn)
-        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenting)
+        let result = try await performGoogleSignIn(presenting: presenting)
         guard let idToken = result.user.idToken?.tokenString else {
             throw AuthError.invalidCredentials
         }
@@ -138,7 +145,7 @@ class AuthService: AuthServiceProtocol {
         guard let user = Auth.auth().currentUser else {
             throw AuthError.invalidCredentials
         }
-        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenting)
+        let result = try await performGoogleSignIn(presenting: presenting)
         guard let idToken = result.user.idToken?.tokenString else {
             throw AuthError.invalidCredentials
         }
