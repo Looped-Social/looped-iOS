@@ -266,6 +266,15 @@ struct MainTabView: View {
             }
             updateLastSeen(for: selectedTab)
             startFeedDiscoveryIfNeeded()
+            if selectedTab == .home {
+                VideoPlaybackManager.shared.requestVisibilityRefresh()
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    VideoPlaybackManager.shared.requestVisibilityRefresh()
+                }
+            } else {
+                VideoPlaybackManager.shared.resetVisibility()
+            }
         }
         .onChange(of: isRightMenuOpen) { _, _ in
             startFeedDiscoveryIfNeeded()
