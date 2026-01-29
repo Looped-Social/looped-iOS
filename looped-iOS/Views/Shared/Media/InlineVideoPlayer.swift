@@ -137,6 +137,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     @Published var isPlaying: Bool = false
     @Published var isReady: Bool = false
     @Published var isReadyForDisplay: Bool = false
+    @Published var didReachEnd: Bool = false
     @Published var duration: Double = 0
     @Published var currentTime: Double = 0
     @Published var errorDescription: String?
@@ -216,6 +217,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
         errorDescription = nil
         isReady = false
         isReadyForDisplay = false
+        didReachEnd = false
         duration = 0
         currentTime = 0
         debugStatusText = "unknown"
@@ -279,10 +281,9 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            self.player.seek(to: .zero)
-            if self.isPlaying {
-                self.player.play()
-            }
+            self.isPlaying = false
+            self.didReachEnd = true
+            self.player.pause()
         }
 
         failedToPlayObserver = NotificationCenter.default.addObserver(
@@ -314,6 +315,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
 
     func play() {
         isPlaying = true
+        didReachEnd = false
         player.play()
     }
 
@@ -332,9 +334,20 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             guard let self else { return }
             self.currentTime = target
             self.isScrubbing = false
+            if target < max(self.duration - 0.1, 0) {
+                self.didReachEnd = false
+            }
             if resumeIfPlaying {
                 self.play()
             }
+        }
+    }
+
+    func replay() {
+        didReachEnd = false
+        isPlaying = true
+        player.seek(to: .zero) { [weak self] _ in
+            self?.player.play()
         }
     }
 
@@ -521,13 +534,31 @@ struct InlineVideoPlayer: View {
         let resolvedAspectRatio = aspectRatio ?? (16.0 / 9.0)
         let minHeight = min(maxHeight, 280.0)
         let clipShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let hasThumbnail = (thumbnailUrl ?? "").isEmpty == false
+        let shouldShowPoster = hasThumbnail && !viewModel.isReadyForDisplay
 
         ZStack {
             Rectangle().fill(Color.loopedBlack)
 
-            Rectangle()
-                .fill(Color.loopedMutedBackground)
+            if let thumbnailUrl, !thumbnailUrl.isEmpty {
+                AsyncImage(url: URL(string: thumbnailUrl)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    default:
+                        Rectangle().fill(Color.loopedMutedBackground)
+                    }
+                }
+                .opacity(shouldShowPoster ? 1 : 0)
+                .animation(.easeInOut(duration: 0.2), value: shouldShowPoster)
                 .allowsHitTesting(false)
+            } else {
+                Rectangle()
+                    .fill(Color.loopedMutedBackground)
+                    .allowsHitTesting(false)
+            }
 
             VideoPlayerView(
                 player: viewModel.player,
@@ -573,7 +604,15 @@ struct InlineVideoPlayer: View {
                 showControls()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(!(controlsVisible || viewModel.didReachEnd))
             .zIndex(3)
+
+            if viewModel.didReachEnd {
+                ReplayOverlayView {
+                    handleReplayTap()
+                }
+                .zIndex(3.5)
+            }
 
         }
         .aspectRatio(resolvedAspectRatio, contentMode: .fill)
@@ -645,6 +684,11 @@ struct InlineVideoPlayer: View {
         .onChange(of: controlsVisible) { _, newValue in
             VideoDebugLogger.log("id=\(id) controlsVisible=\(newValue) overlayZ=4 playerZ=1")
         }
+        .onChange(of: viewModel.didReachEnd) { _, newValue in
+            if newValue {
+                hideControls()
+            }
+        }
         .onChange(of: playbackManager.isMuted) { _, newValue in
             viewModel.setMuted(newValue)
         }
@@ -708,6 +752,10 @@ struct InlineVideoPlayer: View {
 
     private func applyPlaybackGate() {
         guard !isScrubbing else { return }
+        if viewModel.didReachEnd {
+            viewModel.pause()
+            return
+        }
         let isVisibleEnough = playbackManager.isVisibleEnough(id)
         guard isVisibleEnough else {
             viewModel.pause()
@@ -762,6 +810,10 @@ struct InlineVideoPlayer: View {
     }
 
     private func togglePlayPauseFromUser() {
+        if viewModel.didReachEnd {
+            handleReplayTap()
+            return
+        }
         if viewModel.isPlaying {
             userPaused = true
             viewModel.pause()
@@ -771,6 +823,13 @@ struct InlineVideoPlayer: View {
             viewModel.play()
         }
         scheduleAutoHideControlsIfNeeded()
+    }
+
+    private func handleReplayTap() {
+        userPaused = false
+        hasAttemptedPlayback = true
+        playbackManager.promoteToActive(id: id)
+        viewModel.replay()
     }
 
     private func resetForNewMedia() {
@@ -862,6 +921,28 @@ private struct VideoControlsOverlayView: View {
         let mins = total / 60
         let secs = total % 60
         return String(format: "%02d:%02d", mins, secs)
+    }
+}
+
+private struct ReplayOverlayView: View {
+    let onReplay: () -> Void
+
+    var body: some View {
+        Button(action: onReplay) {
+            ZStack {
+                Color.loopedBlack.opacity(0.35)
+                Image("replay-icon")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
+                    .foregroundColor(.loopedWhite)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityLabel("Replay")
     }
 }
 
