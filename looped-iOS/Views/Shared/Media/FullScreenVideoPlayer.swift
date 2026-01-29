@@ -35,18 +35,21 @@ struct VideoPlayerSheet: View {
             VStack {
                 HStack {
                     Spacer()
-                    LoopedCloseButton(
-                        action: {
-                            player?.pause()
-                            isPresented = false
-                        },
-                        foregroundColor: .loopedWhite,
-                        iconSize: 20,
-                        hitArea: 44,
-                        showsBackground: true,
-                        backgroundColor: .loopedBlack,
-                        backgroundOpacity: 0.5
-                    )
+                    Button {
+                        player?.pause()
+                        isPresented = false
+                    } label: {
+                        Image("minimize-icon")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                            .foregroundColor(.loopedWhite)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.loopedBlack.opacity(0.5)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Exit Full Screen")
                     .padding()
                 }
                 Spacer()

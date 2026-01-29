@@ -9,13 +9,123 @@ private struct InlineVideoFramePreferenceKey: PreferenceKey {
     }
 }
 
-final class InlineVideoPlaybackCoordinator: ObservableObject {
-    static let shared = InlineVideoPlaybackCoordinator()
-    @Published var activeVideoId: String?
+private struct TapCaptureView: UIViewRepresentable {
+    let onTap: () -> Void
 
-    func requestPlayback(id: String) {
-        if activeVideoId != id {
-            activeVideoId = id
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onTap: onTap)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = true
+
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
+        tap.numberOfTapsRequired = 1
+        tap.cancelsTouchesInView = false
+        tap.delaysTouchesBegan = false
+        tap.delaysTouchesEnded = false
+        tap.delegate = context.coordinator
+        view.addGestureRecognizer(tap)
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.onTap = onTap
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var onTap: () -> Void
+
+        init(onTap: @escaping () -> Void) {
+            self.onTap = onTap
+        }
+
+        @objc func handleTap() {
+            onTap()
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            true
+        }
+    }
+}
+
+private struct VideoDebugLogger {
+    static var isEnabled: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["LOOPED_LOG_VIDEO"] == "1" || env["LOOPED_LOG_VIDEO_TAPS"] == "1"
+    }
+
+    static func log(_ message: String) {
+        guard isEnabled else { return }
+        print("LOOPED_VIDEO \(message)")
+    }
+}
+
+final class VideoPlaybackManager: ObservableObject {
+    static let shared = VideoPlaybackManager()
+
+    @Published private(set) var activeVideoId: String?
+    @Published var isMuted: Bool = true
+
+    private struct VisibilityState {
+        let ratio: Double
+        let lastUpdated: Date
+    }
+
+    private var visibilityById: [String: VisibilityState] = [:]
+    private let visibilityThreshold: Double = 0.60
+    private let hysteresisDelta: Double = 0.08
+
+    func updateVisibility(id: String, visibleRatio: Double) {
+        visibilityById[id] = VisibilityState(ratio: visibleRatio, lastUpdated: Date())
+        recomputeActive()
+    }
+
+    func unregister(id: String) {
+        visibilityById.removeValue(forKey: id)
+        if activeVideoId == id {
+            activeVideoId = nil
+        }
+        recomputeActive()
+    }
+
+    func promoteToActive(id: String) {
+        guard activeVideoId != id else { return }
+        activeVideoId = id
+        VideoDebugLogger.log("activeVideoId set to \(id)")
+    }
+
+    func isVisibleEnough(_ id: String) -> Bool {
+        (visibilityById[id]?.ratio ?? 0) >= visibilityThreshold
+    }
+
+    func visibleRatio(for id: String) -> Double {
+        visibilityById[id]?.ratio ?? 0
+    }
+
+    private func recomputeActive() {
+        let candidates = visibilityById.filter { $0.value.ratio >= visibilityThreshold }
+        guard let best = candidates.max(by: { $0.value.ratio < $1.value.ratio }) else {
+            if activeVideoId != nil {
+                activeVideoId = nil
+                VideoDebugLogger.log("activeVideoId cleared (no visible candidates)")
+            }
+            return
+        }
+
+        if let currentId = activeVideoId,
+           let current = visibilityById[currentId],
+           current.ratio >= visibilityThreshold {
+            if currentId == best.key { return }
+            if best.value.ratio - current.ratio < hysteresisDelta { return }
+        }
+
+        if activeVideoId != best.key {
+            activeVideoId = best.key
+            VideoDebugLogger.log("activeVideoId switched to \(best.key) ratio=\(best.value.ratio)")
         }
     }
 }
@@ -26,39 +136,33 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     @Published var isMuted: Bool
     @Published var isPlaying: Bool = false
     @Published var isReady: Bool = false
+    @Published var isReadyForDisplay: Bool = false
     @Published var duration: Double = 0
     @Published var currentTime: Double = 0
+    @Published var errorDescription: String?
+    @Published var debugStatusText: String = "unknown"
+    @Published var debugTimeControlText: String = "unknown"
+    @Published var debugURLText: String = ""
+    @Published var debugHTTPText: String = ""
+    @Published var debugAssetText: String = ""
 
     private var timeObserver: Any?
     private var itemStatusObserver: NSKeyValueObservation?
     private var durationObserver: NSKeyValueObservation?
     private var didPlayToEndObserver: NSObjectProtocol?
+    private var failedToPlayObserver: NSObjectProtocol?
+    private var stalledObserver: NSObjectProtocol?
+    private var timeControlObserver: NSKeyValueObservation?
     private var isScrubbing = false
+    private var loadedUrl: URL?
+    private let debugId: String
 
-    init(url: URL?, startsMuted: Bool = true) {
-        if let url {
-            self.player = AVPlayer(url: url)
-        } else {
-            self.player = AVPlayer()
-        }
+    init(url: URL?, startsMuted: Bool = true, debugId: String) {
+        self.player = AVPlayer()
         self.isMuted = startsMuted
+        self.debugId = debugId
         player.isMuted = startsMuted
-
-        let item = player.currentItem
-        itemStatusObserver = item?.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
-            guard let self else { return }
-            DispatchQueue.main.async {
-                self.isReady = item.status == .readyToPlay
-            }
-        }
-
-        durationObserver = item?.observe(\.duration, options: [.initial, .new]) { [weak self] item, _ in
-            guard let self else { return }
-            let seconds = item.duration.seconds
-            DispatchQueue.main.async {
-                self.duration = seconds.isFinite ? max(seconds, 0) : 0
-            }
-        }
+        replaceCurrentItem(url: url)
 
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
@@ -68,6 +172,105 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             guard !self.isScrubbing else { return }
             let seconds = time.seconds
             self.currentTime = seconds.isFinite ? max(seconds, 0) : 0
+        }
+
+        timeControlObserver = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.debugTimeControlText = self.timeControlLabel(player.timeControlStatus)
+            }
+        }
+    }
+
+    deinit {
+        if let timeObserver {
+            player.removeTimeObserver(timeObserver)
+        }
+        if let didPlayToEndObserver {
+            NotificationCenter.default.removeObserver(didPlayToEndObserver)
+        }
+        if let failedToPlayObserver {
+            NotificationCenter.default.removeObserver(failedToPlayObserver)
+        }
+        if let stalledObserver {
+            NotificationCenter.default.removeObserver(stalledObserver)
+        }
+        itemStatusObserver = nil
+        durationObserver = nil
+        timeControlObserver = nil
+    }
+
+    func updateURLIfNeeded(_ url: URL?) {
+        if loadedUrl == url { return }
+        replaceCurrentItem(url: url)
+    }
+
+    func updateReadyForDisplay(_ isReady: Bool) {
+        if isReadyForDisplay == isReady { return }
+        isReadyForDisplay = isReady
+        VideoDebugLogger.log("id=\(debugId) readyForDisplay=\(isReady)")
+    }
+
+    private func replaceCurrentItem(url: URL?) {
+        loadedUrl = url
+        errorDescription = nil
+        isReady = false
+        isReadyForDisplay = false
+        duration = 0
+        currentTime = 0
+        debugStatusText = "unknown"
+        debugAssetText = ""
+        debugHTTPText = ""
+        debugURLText = ""
+
+        itemStatusObserver = nil
+        durationObserver = nil
+        if let didPlayToEndObserver {
+            NotificationCenter.default.removeObserver(didPlayToEndObserver)
+        }
+        if let failedToPlayObserver {
+            NotificationCenter.default.removeObserver(failedToPlayObserver)
+        }
+        if let stalledObserver {
+            NotificationCenter.default.removeObserver(stalledObserver)
+        }
+
+        if let url {
+            debugURLText = debugURLSummary(url)
+            let asset = AVURLAsset(url: url)
+            let item = AVPlayerItem(asset: asset)
+            player.replaceCurrentItem(with: item)
+
+            if VideoDebugLogger.isEnabled {
+                Task.detached { [weak self] in
+                    await self?.runDebugChecks(for: asset, url: url)
+                }
+            }
+        } else {
+            player.replaceCurrentItem(with: nil)
+        }
+
+        player.isMuted = isMuted
+
+        guard let item = player.currentItem else { return }
+        itemStatusObserver = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.isReady = item.status == .readyToPlay
+                if item.status == .failed {
+                    self.errorDescription = item.error?.localizedDescription ?? "Failed to load video"
+                }
+                self.debugStatusText = self.statusLabel(item.status)
+                VideoDebugLogger.log("id=\(self.debugId) status=\(self.statusLabel(item.status))")
+            }
+        }
+
+        durationObserver = item.observe(\.duration, options: [.initial, .new]) { [weak self] item, _ in
+            guard let self else { return }
+            let seconds = item.duration.seconds
+            DispatchQueue.main.async {
+                self.duration = seconds.isFinite ? max(seconds, 0) : 0
+            }
         }
 
         didPlayToEndObserver = NotificationCenter.default.addObserver(
@@ -81,17 +284,27 @@ final class InlineVideoPlayerViewModel: ObservableObject {
                 self.player.play()
             }
         }
-    }
 
-    deinit {
-        if let timeObserver {
-            player.removeTimeObserver(timeObserver)
+        failedToPlayObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            self.isPlaying = false
+            let err = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+            self.errorDescription = err?.localizedDescription ?? item.error?.localizedDescription ?? "Video failed"
+            VideoDebugLogger.log("id=\(self.debugId) failedToPlay error=\(self.errorDescription ?? "unknown")")
         }
-        if let didPlayToEndObserver {
-            NotificationCenter.default.removeObserver(didPlayToEndObserver)
+
+        stalledObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemPlaybackStalled,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            // Treat as transient; keep playing gate logic running, but this helps debug flakiness.
         }
-        itemStatusObserver = nil
-        durationObserver = nil
     }
 
     func setMuted(_ muted: Bool) {
@@ -124,24 +337,107 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             }
         }
     }
+
+    private func statusLabel(_ status: AVPlayerItem.Status) -> String {
+        switch status {
+        case .unknown:
+            return "unknown"
+        case .readyToPlay:
+            return "readyToPlay"
+        case .failed:
+            return "failed"
+        @unknown default:
+            return "unknown"
+        }
+    }
+
+    private func timeControlLabel(_ status: AVPlayer.TimeControlStatus) -> String {
+        switch status {
+        case .paused:
+            return "paused"
+        case .playing:
+            return "playing"
+        case .waitingToPlayAtSpecifiedRate:
+            return "waiting"
+        @unknown default:
+            return "unknown"
+        }
+    }
+
+    private func debugURLSummary(_ url: URL) -> String {
+        let scheme = url.scheme ?? "nil"
+        let host = url.host ?? "nil"
+        return "\(scheme)://\(host)\(url.path)"
+    }
+
+    private func runDebugChecks(for asset: AVURLAsset, url: URL) async {
+        let urlSummary = debugURLSummary(url)
+        await MainActor.run {
+            debugURLText = urlSummary
+        }
+
+        do {
+            let playable = try await asset.load(.isPlayable)
+            let protected = try await asset.load(.hasProtectedContent)
+            let duration = try await asset.load(.duration).seconds
+            let durationText = duration.isFinite ? String(format: "%.2f", duration) : "n/a"
+            let info = "playable=\(playable) protected=\(protected) duration=\(durationText)"
+            await MainActor.run {
+                debugAssetText = info
+            }
+            VideoDebugLogger.log("id=\(debugId) asset \(info)")
+        } catch {
+            await MainActor.run {
+                debugAssetText = "asset error: \(error.localizedDescription)"
+            }
+            VideoDebugLogger.log("id=\(debugId) asset error=\(error.localizedDescription)")
+        }
+
+        var head = URLRequest(url: url)
+        head.httpMethod = "HEAD"
+        head.timeoutInterval = 12
+        do {
+            let (_, response) = try await URLSession.shared.data(for: head)
+            if let http = response as? HTTPURLResponse {
+                let type = http.value(forHTTPHeaderField: "Content-Type") ?? "nil"
+                let ranges = http.value(forHTTPHeaderField: "Accept-Ranges") ?? "nil"
+                let text = "HEAD \(http.statusCode) \(type) ranges=\(ranges)"
+                await MainActor.run {
+                    debugHTTPText = text
+                }
+                VideoDebugLogger.log("id=\(debugId) \(text)")
+            }
+        } catch {
+            let text = "HEAD error: \(error.localizedDescription)"
+            await MainActor.run {
+                debugHTTPText = text
+            }
+            VideoDebugLogger.log("id=\(debugId) \(text)")
+        }
+    }
 }
 
-private struct PlayerLayerView: UIViewRepresentable {
+private struct VideoPlayerView: UIViewRepresentable {
     let player: AVPlayer
+    let onReadyForDisplay: (Bool) -> Void
 
     func makeUIView(context: Context) -> PlayerContainerUIView {
         let view = PlayerContainerUIView()
+        view.onReadyForDisplay = onReadyForDisplay
         view.setPlayer(player)
         return view
     }
 
     func updateUIView(_ uiView: PlayerContainerUIView, context: Context) {
+        uiView.onReadyForDisplay = onReadyForDisplay
         uiView.setPlayer(player)
     }
 }
 
 private final class PlayerContainerUIView: UIView {
     private let playerLayer = AVPlayerLayer()
+    private var readyObserver: NSKeyValueObservation?
+    var onReadyForDisplay: ((Bool) -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -151,10 +447,20 @@ private final class PlayerContainerUIView: UIView {
         playerLayer.videoGravity = .resizeAspectFill
         playerLayer.masksToBounds = true
         layer.addSublayer(playerLayer)
+
+        readyObserver = playerLayer.observe(\.isReadyForDisplay, options: [.initial, .new]) { [weak self] layer, _ in
+            DispatchQueue.main.async {
+                self?.onReadyForDisplay?(layer.isReadyForDisplay)
+            }
+        }
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        readyObserver = nil
     }
 
     override func layoutSubviews() {
@@ -177,13 +483,15 @@ struct InlineVideoPlayer: View {
     let maxHeight: CGFloat
     let onFullScreen: ((String) -> Void)?
 
-    @ObservedObject private var coordinator = InlineVideoPlaybackCoordinator.shared
+    @ObservedObject private var playbackManager = VideoPlaybackManager.shared
     @StateObject private var viewModel: InlineVideoPlayerViewModel
-    @State private var isVisibleEnough = false
+    @State private var visibleRatio: Double = 0
     @State private var isScrubbing = false
     @State private var controlsVisible = false
     @State private var hideControlsTask: Task<Void, Never>?
     @State private var userPaused = false
+    @State private var hasAttemptedPlayback = false
+    @State private var lastLoggedVisibility: Double = -1
 
     init(
         id: String,
@@ -205,7 +513,7 @@ struct InlineVideoPlayer: View {
         let url = isRunningForPreviews
             ? nil
             : (URL(string: cleanedUrl) ?? URLComponents(string: cleanedUrl)?.url)
-        _viewModel = StateObject(wrappedValue: InlineVideoPlayerViewModel(url: url, startsMuted: true))
+        _viewModel = StateObject(wrappedValue: InlineVideoPlayerViewModel(url: url, startsMuted: true, debugId: id))
     }
 
     var body: some View {
@@ -216,36 +524,89 @@ struct InlineVideoPlayer: View {
         ZStack {
             Rectangle().fill(Color.loopedBlack)
 
-            if let thumbnailUrl, !thumbnailUrl.isEmpty, !viewModel.isReady {
-                AsyncImage(url: URL(string: thumbnailUrl)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    default:
-                        Rectangle().fill(Color.loopedMutedBackground)
-                    }
+            Rectangle()
+                .fill(Color.loopedMutedBackground)
+                .allowsHitTesting(false)
+
+            VideoPlayerView(
+                player: viewModel.player,
+                onReadyForDisplay: { isReady in
+                    viewModel.updateReadyForDisplay(isReady)
                 }
-            } else {
-                Rectangle().fill(Color.loopedMutedBackground)
+            )
+            .opacity(viewModel.isReadyForDisplay ? 1 : 0)
+            .allowsHitTesting(false)
+            .zIndex(1)
+
+            if hasAttemptedPlayback, !viewModel.isReadyForDisplay, viewModel.errorDescription == nil {
+                ProgressView()
+                    .tint(.loopedWhite.opacity(0.9))
+                    .allowsHitTesting(false)
+                    .zIndex(2)
             }
 
-            PlayerLayerView(player: viewModel.player)
-                .opacity(viewModel.isReady ? 1 : 0)
+            if let error = viewModel.errorDescription, hasAttemptedPlayback {
+                VStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.loopedCustom(size: 18))
+                        .foregroundColor(.loopedWhite.opacity(0.75))
+                    Text("Couldn't play video")
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedWhite.opacity(0.8))
+                    Text(error)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedWhite.opacity(0.6))
+                        .lineLimit(2)
+                }
+                .padding(10)
+                .background(Color.loopedBlack.opacity(0.55))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(12)
+                .allowsHitTesting(false)
+                .zIndex(2)
+            }
 
-            Color.loopedClear
-                .contentShape(Rectangle())
-                .highPriorityGesture(
-                    TapGesture().onEnded {
-                        showControls()
-                    },
-                    including: .all
-                )
+            TapCaptureView {
+                VideoDebugLogger.log("id=\(id) tapped")
+                playbackManager.promoteToActive(id: id)
+                toggleControls()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .zIndex(3)
 
             if controlsVisible {
                 controlsOverlay
                     .transition(.opacity)
+                    .zIndex(4)
+            }
+
+            if VideoDebugLogger.isEnabled {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("url: \(viewModel.debugURLText)")
+                    Text("status: \(viewModel.debugStatusText)")
+                    Text("time: \(viewModel.debugTimeControlText)")
+                    Text("active: \(playbackManager.activeVideoId ?? "nil")")
+                    Text(String(format: "visible: %.2f enough=%@", visibleRatio, playbackManager.isVisibleEnough(id) ? "true" : "false"))
+                    Text("attempted=\(hasAttemptedPlayback) paused=\(userPaused) scrubbing=\(isScrubbing)")
+                    if !viewModel.debugHTTPText.isEmpty {
+                        Text(viewModel.debugHTTPText)
+                    }
+                    if !viewModel.debugAssetText.isEmpty {
+                        Text(viewModel.debugAssetText)
+                    }
+                    if let error = viewModel.errorDescription, !error.isEmpty {
+                        Text("error: \(error)")
+                    }
+                }
+                .font(.loopedSmallText)
+                .foregroundColor(.loopedWhite)
+                .padding(8)
+                .background(Color.loopedBlack.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .zIndex(5)
+                .allowsHitTesting(false)
             }
         }
         .aspectRatio(resolvedAspectRatio, contentMode: .fill)
@@ -266,120 +627,113 @@ struct InlineVideoPlayer: View {
             applyPlaybackGate()
         }
         .onAppear {
-            // Fallback for cases where geometry callbacks are delayed/missed in lazy scroll containers.
-            // `onAppear` for a cell should only fire when it is on screen.
-            if !isVisibleEnough {
-                isVisibleEnough = true
+            VideoDebugLogger.log("id=\(id) bind url=\(videoUrl) thumbnail=\(thumbnailUrl ?? "nil")")
+            viewModel.setMuted(playbackManager.isMuted)
+            if visibleRatio <= 0 {
+                visibleRatio = 1
+                playbackManager.updateVisibility(id: id, visibleRatio: 1)
             }
             applyPlaybackGate()
+
+            let cleanedUrl = videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+            let isRunningForPreviews = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+            let url = isRunningForPreviews
+                ? nil
+                : (URL(string: cleanedUrl) ?? URLComponents(string: cleanedUrl)?.url)
+            viewModel.updateURLIfNeeded(url)
+        }
+        .onChange(of: videoUrl) { _, newValue in
+            resetForNewMedia()
+            let cleanedUrl = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let isRunningForPreviews = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+            let url = isRunningForPreviews
+                ? nil
+                : (URL(string: cleanedUrl) ?? URLComponents(string: cleanedUrl)?.url)
+            viewModel.updateURLIfNeeded(url)
+            VideoDebugLogger.log("id=\(id) bind urlUpdated=\(newValue)")
         }
         .onDisappear {
             hideControlsTask?.cancel()
             hideControlsTask = nil
-            if coordinator.activeVideoId == id {
-                coordinator.activeVideoId = nil
-            }
+            playbackManager.unregister(id: id)
             viewModel.pause()
         }
         .onChange(of: viewModel.isReady) { _, _ in
             applyPlaybackGate()
         }
-        .onChange(of: isVisibleEnough) { _, _ in
+        .onChange(of: visibleRatio) { _, _ in
             applyPlaybackGate()
         }
-        .onChange(of: coordinator.activeVideoId) { _, _ in
+        .onChange(of: playbackManager.activeVideoId) { _, _ in
             applyPlaybackGate()
+        }
+        .onChange(of: controlsVisible) { _, newValue in
+            VideoDebugLogger.log("id=\(id) controlsVisible=\(newValue) overlayZ=4 playerZ=1")
+        }
+        .onChange(of: playbackManager.isMuted) { _, newValue in
+            viewModel.setMuted(newValue)
         }
     }
 
     private var controlsOverlay: some View {
-        VStack {
-            Spacer()
-            HStack(spacing: 12) {
-                Button {
-                    togglePlayPauseFromUser()
-                } label: {
-                    Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.loopedCustom(.semibold, size: 16))
-                        .foregroundColor(.loopedWhite)
-                        .frame(width: 36, height: 36)
-                }
-                .buttonStyle(.plain)
-
-                InlineVideoScrubber(
-                    value: Binding(
-                        get: { viewModel.duration > 0 ? min(viewModel.currentTime, viewModel.duration) : 0 },
-                        set: { newValue in viewModel.currentTime = newValue }
-                    ),
-                    duration: viewModel.duration,
-                    onEditingChanged: { isEditing in
-                        if isEditing {
-                            hideControlsTask?.cancel()
-                            hideControlsTask = nil
-                            isScrubbing = true
-                            viewModel.beginScrub()
-                            viewModel.pause()
-                        } else {
-                            let shouldResume = isVisibleEnough && coordinator.activeVideoId == id && !userPaused
-                            viewModel.endScrub(to: viewModel.currentTime, resumeIfPlaying: shouldResume)
-                            isScrubbing = false
-                            scheduleAutoHideControlsIfNeeded()
-                        }
-                    }
-                )
-
-                Text("\(formatTime(viewModel.currentTime))/\(formatTime(viewModel.duration))")
-                    .font(.loopedSmallText)
-                    .foregroundColor(.loopedWhite.opacity(0.92))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-
-                Button {
-                    viewModel.setMuted(!viewModel.isMuted)
-                    scheduleAutoHideControlsIfNeeded()
-                } label: {
-                    Image(systemName: viewModel.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .font(.loopedCustom(.semibold, size: 16))
-                        .foregroundColor(.loopedWhite)
-                        .frame(width: 36, height: 36)
-                }
-                .buttonStyle(.plain)
-
-                if let onFullScreen {
-                    Button {
-                        onFullScreen(videoUrl)
-                        scheduleAutoHideControlsIfNeeded()
-                    } label: {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .font(.loopedCustom(.semibold, size: 16))
-                            .foregroundColor(.loopedWhite)
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.plain)
-                }
+        VideoControlsOverlayView(
+            isPlaying: viewModel.isPlaying,
+            currentTime: Binding(
+                get: { viewModel.currentTime },
+                set: { viewModel.currentTime = $0 }
+            ),
+            duration: viewModel.duration,
+            isMuted: viewModel.isMuted,
+            onPlayPause: togglePlayPauseFromUser,
+            onBeginScrub: {
+                hideControlsTask?.cancel()
+                hideControlsTask = nil
+                isScrubbing = true
+                viewModel.beginScrub()
+                viewModel.pause()
+            },
+            onEndScrub: { newValue in
+                let shouldResume = playbackManager.isVisibleEnough(id) && playbackManager.activeVideoId == id && !userPaused
+                viewModel.currentTime = newValue
+                viewModel.endScrub(to: newValue, resumeIfPlaying: shouldResume)
+                isScrubbing = false
+                scheduleAutoHideControlsIfNeeded()
+            },
+            onMuteToggle: {
+                playbackManager.isMuted.toggle()
+                scheduleAutoHideControlsIfNeeded()
+            },
+            onFullScreen: onFullScreen.map { handler in
+                { handler(videoUrl) }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.loopedBlack.opacity(0.62))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.horizontal, 10)
-            .padding(.bottom, 10)
-        }
+        )
     }
 
     private func updateVisibility(frame: CGRect) {
         let screen = UIScreen.main.bounds
         // Ignore zero/invalid frames (can happen transiently in lazy lists).
-        guard frame.height > 1 else { return }
+        guard frame.height > 1 else {
+            visibleRatio = 0
+            playbackManager.updateVisibility(id: id, visibleRatio: 0)
+            return
+        }
         let visibleTop = max(frame.minY, 0)
         let visibleBottom = min(frame.maxY, screen.height)
         let visibleHeight = max(0, visibleBottom - visibleTop)
-        let ratio = visibleHeight / frame.height
-        isVisibleEnough = ratio >= 0.60
+        let ratio = Double(visibleHeight / frame.height)
+        visibleRatio = ratio
+        playbackManager.updateVisibility(id: id, visibleRatio: ratio)
+        if VideoDebugLogger.isEnabled {
+            if lastLoggedVisibility < 0 || abs(ratio - lastLoggedVisibility) >= 0.05 {
+                lastLoggedVisibility = ratio
+                VideoDebugLogger.log("id=\(id) visibleRatio=\(String(format: "%.2f", ratio))")
+            }
+        }
     }
 
     private func applyPlaybackGate() {
         guard !isScrubbing else { return }
+        let isVisibleEnough = playbackManager.isVisibleEnough(id)
         guard isVisibleEnough else {
             if controlsVisible {
                 hideControls()
@@ -387,18 +741,18 @@ struct InlineVideoPlayer: View {
             viewModel.pause()
             return
         }
-
-        if coordinator.activeVideoId == nil || coordinator.activeVideoId == id {
-            coordinator.requestPlayback(id: id)
+        if playbackManager.activeVideoId == nil && visibleRatio >= 0.60 {
+            playbackManager.promoteToActive(id: id)
         }
-
-        guard coordinator.activeVideoId == id else {
+        guard playbackManager.activeVideoId == id else {
             if controlsVisible {
                 hideControls()
             }
             viewModel.pause()
             return
         }
+
+        hasAttemptedPlayback = true
 
         if userPaused {
             viewModel.pause()
@@ -408,19 +762,19 @@ struct InlineVideoPlayer: View {
         viewModel.play()
     }
 
-    private func formatTime(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let total = Int(max(seconds, 0).rounded(.down))
-        let mins = total / 60
-        let secs = total % 60
-        return String(format: "%d:%02d", mins, secs)
-    }
-
     private func showControls() {
         withAnimation(.easeInOut(duration: 0.15)) {
             controlsVisible = true
         }
         scheduleAutoHideControlsIfNeeded()
+    }
+
+    private func toggleControls() {
+        if controlsVisible {
+            hideControls()
+        } else {
+            showControls()
+        }
     }
 
     private func hideControls() {
@@ -450,19 +804,115 @@ struct InlineVideoPlayer: View {
             viewModel.pause()
         } else {
             userPaused = false
-            if coordinator.activeVideoId == nil || coordinator.activeVideoId == id {
-                coordinator.requestPlayback(id: id)
-            }
+            playbackManager.promoteToActive(id: id)
             viewModel.play()
         }
         scheduleAutoHideControlsIfNeeded()
     }
+
+    private func resetForNewMedia() {
+        hasAttemptedPlayback = false
+        userPaused = false
+        hideControlsTask?.cancel()
+        hideControlsTask = nil
+        controlsVisible = false
+        isScrubbing = false
+    }
 }
 
-private struct InlineVideoScrubber: View {
+private struct VideoControlsOverlayView: View {
+    let isPlaying: Bool
+    @Binding var currentTime: Double
+    let duration: Double
+    let isMuted: Bool
+    let onPlayPause: () -> Void
+    let onBeginScrub: () -> Void
+    let onEndScrub: (Double) -> Void
+    let onMuteToggle: () -> Void
+    let onFullScreen: (() -> Void)?
+
+    var body: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 12) {
+                Button(action: onPlayPause) {
+                    Image(isPlaying ? "pause-icon" : "play-icon")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .foregroundColor(.loopedWhite)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.plain)
+
+                VideoScrubber(
+                    value: Binding(
+                        get: { duration > 0 ? min(currentTime, duration) : 0 },
+                        set: { currentTime = $0 }
+                    ),
+                    duration: duration,
+                    onEditingChanged: { isEditing, newValue in
+                        if isEditing {
+                            onBeginScrub()
+                        } else {
+                            onEndScrub(newValue)
+                        }
+                    }
+                )
+
+                Text("\(formatTime(currentTime))/\(formatTime(duration))")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedWhite.opacity(0.92))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+
+                Button(action: onMuteToggle) {
+                    Image(isMuted ? "mute-icon" : "volume-icon")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .foregroundColor(.loopedWhite)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.plain)
+
+                if let onFullScreen {
+                    Button(action: onFullScreen) {
+                        Image("maximize-icon")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: 18, height: 18)
+                            .foregroundColor(.loopedWhite)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.loopedBlack.opacity(0.62))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+        }
+    }
+
+    private func formatTime(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "00:00" }
+        let total = Int(max(seconds, 0).rounded(.down))
+        let mins = total / 60
+        let secs = total % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+}
+
+private struct VideoScrubber: View {
     @Binding var value: Double
     let duration: Double
-    let onEditingChanged: (Bool) -> Void
+    let onEditingChanged: (Bool, Double) -> Void
 
     private let trackHeight: CGFloat = 2
     private let thumbSize: CGFloat = 6
@@ -492,12 +942,13 @@ private struct InlineVideoScrubber: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
-                        onEditingChanged(true)
                         let raw = min(max(gesture.location.x, 0), width)
-                        value = (raw / width) * clampedDuration
+                        let updated = (raw / width) * clampedDuration
+                        value = updated
+                        onEditingChanged(true, updated)
                     }
                     .onEnded { _ in
-                        onEditingChanged(false)
+                        onEditingChanged(false, value)
                     }
             )
         }

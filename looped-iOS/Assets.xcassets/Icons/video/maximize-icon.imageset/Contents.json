@@ -1,6 +1,7 @@
 {
   "images" : [
     {
+      "filename" : "full-screen.svg",
       "idiom" : "universal",
       "scale" : "1x"
     },

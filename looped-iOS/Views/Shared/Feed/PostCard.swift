@@ -450,7 +450,7 @@ struct PostCard: View {
 			    }
 
 		    @ViewBuilder
-		    private var postTextSection: some View {
+			    private var postTextSection: some View {
 		        let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
 		        let shouldHideDuplicatePollQuestion: Bool = {
 		            guard let poll = post.poll else { return false }
@@ -458,19 +458,22 @@ struct PostCard: View {
 		            return !trimmedQuestion.isEmpty && trimmedContent == trimmedQuestion
 		        }()
 
-		        if !trimmedContent.isEmpty, !shouldHideDuplicatePollQuestion {
-		            HashtagText(
-		                text: trimmedContent,
-		                font: .loopedBodyScaled,
-		                textColor: .loopedTextPrimary,
-		                hashtagColor: .loopedPrimary
-		            ) { hashtag in
-		                selectedHashtag = hashtag
-		                showHashtagFeed = true
-		            }
-		            .multilineTextAlignment(.leading)
-		        }
-		    }
+			        if !trimmedContent.isEmpty, !shouldHideDuplicatePollQuestion {
+			            HashtagText(
+			                text: trimmedContent,
+			                font: .loopedBodyScaled,
+			                textColor: .loopedTextPrimary,
+			                hashtagColor: .loopedPrimary
+			            ) { hashtag in
+			                selectedHashtag = hashtag
+			                showHashtagFeed = true
+			            }
+			            .multilineTextAlignment(.leading)
+                        .loopedDoubleTapToLike {
+                            handleDoubleTapLike()
+                        }
+			        }
+			    }
 
 		    @ViewBuilder
 			    private var pollSection: some View {
@@ -761,15 +764,12 @@ struct PostCard: View {
         }
     }
 
-	    private var postCardStyled: some View {
-	        postCardContent
-	            .padding(16)
-	            .background(Color.loopedBackground)
-	            .cornerRadius(0)
-	            .loopedDoubleTapToLike {
-	                handleDoubleTapLike()
-	            }
-	    }
+		    private var postCardStyled: some View {
+		        postCardContent
+		            .padding(16)
+		            .background(Color.loopedBackground)
+		            .cornerRadius(0)
+		    }
 
     private var postCardLifecycle: some View {
         postCardStyled
