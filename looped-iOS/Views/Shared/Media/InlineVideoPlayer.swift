@@ -492,6 +492,7 @@ struct InlineVideoPlayer: View {
     @State private var userPaused = false
     @State private var hasAttemptedPlayback = false
     @State private var lastLoggedVisibility: Double = -1
+    @State private var controlsRequestedByUser = false
 
     init(
         id: String,
@@ -569,45 +570,11 @@ struct InlineVideoPlayer: View {
             TapCaptureView {
                 VideoDebugLogger.log("id=\(id) tapped")
                 playbackManager.promoteToActive(id: id)
-                toggleControls()
+                showControls()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .zIndex(3)
 
-            if controlsVisible {
-                controlsOverlay
-                    .transition(.opacity)
-                    .zIndex(4)
-            }
-
-            if VideoDebugLogger.isEnabled {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("url: \(viewModel.debugURLText)")
-                    Text("status: \(viewModel.debugStatusText)")
-                    Text("time: \(viewModel.debugTimeControlText)")
-                    Text("active: \(playbackManager.activeVideoId ?? "nil")")
-                    Text(String(format: "visible: %.2f enough=%@", visibleRatio, playbackManager.isVisibleEnough(id) ? "true" : "false"))
-                    Text("attempted=\(hasAttemptedPlayback) paused=\(userPaused) scrubbing=\(isScrubbing)")
-                    if !viewModel.debugHTTPText.isEmpty {
-                        Text(viewModel.debugHTTPText)
-                    }
-                    if !viewModel.debugAssetText.isEmpty {
-                        Text(viewModel.debugAssetText)
-                    }
-                    if let error = viewModel.errorDescription, !error.isEmpty {
-                        Text("error: \(error)")
-                    }
-                }
-                .font(.loopedSmallText)
-                .foregroundColor(.loopedWhite)
-                .padding(8)
-                .background(Color.loopedBlack.opacity(0.6))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .padding(8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .zIndex(5)
-                .allowsHitTesting(false)
-            }
         }
         .aspectRatio(resolvedAspectRatio, contentMode: .fill)
         .frame(maxWidth: .infinity)
@@ -617,6 +584,14 @@ struct InlineVideoPlayer: View {
         .clipped()
         .clipShape(clipShape)
         .contentShape(clipShape)
+        .overlay(alignment: .bottom) {
+            if controlsVisible {
+                controlsOverlay
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 8)
+                    .transition(.opacity)
+            }
+        }
         .background(
             GeometryReader { geo in
                 Color.loopedClear.preference(key: InlineVideoFramePreferenceKey.self, value: geo.frame(in: .global))
@@ -735,9 +710,6 @@ struct InlineVideoPlayer: View {
         guard !isScrubbing else { return }
         let isVisibleEnough = playbackManager.isVisibleEnough(id)
         guard isVisibleEnough else {
-            if controlsVisible {
-                hideControls()
-            }
             viewModel.pause()
             return
         }
@@ -745,9 +717,6 @@ struct InlineVideoPlayer: View {
             playbackManager.promoteToActive(id: id)
         }
         guard playbackManager.activeVideoId == id else {
-            if controlsVisible {
-                hideControls()
-            }
             viewModel.pause()
             return
         }
@@ -766,15 +735,8 @@ struct InlineVideoPlayer: View {
         withAnimation(.easeInOut(duration: 0.15)) {
             controlsVisible = true
         }
+        controlsRequestedByUser = true
         scheduleAutoHideControlsIfNeeded()
-    }
-
-    private func toggleControls() {
-        if controlsVisible {
-            hideControls()
-        } else {
-            showControls()
-        }
     }
 
     private func hideControls() {
@@ -783,6 +745,7 @@ struct InlineVideoPlayer: View {
         withAnimation(.easeInOut(duration: 0.15)) {
             controlsVisible = false
         }
+        controlsRequestedByUser = false
     }
 
     private func scheduleAutoHideControlsIfNeeded() {
@@ -832,72 +795,65 @@ private struct VideoControlsOverlayView: View {
     let onFullScreen: (() -> Void)?
 
     var body: some View {
-        VStack {
-            Spacer()
-            HStack(spacing: 12) {
-                Button(action: onPlayPause) {
-                    Image(isPlaying ? "pause-icon" : "play-icon")
-                        .resizable()
-                        .renderingMode(.template)
-                        .scaledToFit()
-                        .frame(width: 18, height: 18)
-                        .foregroundColor(.loopedWhite)
-                        .frame(width: 36, height: 36)
-                }
-                .buttonStyle(.plain)
-
-                VideoScrubber(
-                    value: Binding(
-                        get: { duration > 0 ? min(currentTime, duration) : 0 },
-                        set: { currentTime = $0 }
-                    ),
-                    duration: duration,
-                    onEditingChanged: { isEditing, newValue in
-                        if isEditing {
-                            onBeginScrub()
-                        } else {
-                            onEndScrub(newValue)
-                        }
-                    }
-                )
-
-                Text("\(formatTime(currentTime))/\(formatTime(duration))")
-                    .font(.loopedSmallText)
-                    .foregroundColor(.loopedWhite.opacity(0.92))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-
-                Button(action: onMuteToggle) {
-                    Image(isMuted ? "mute-icon" : "volume-icon")
-                        .resizable()
-                        .renderingMode(.template)
-                        .scaledToFit()
-                        .frame(width: 18, height: 18)
-                        .foregroundColor(.loopedWhite)
-                        .frame(width: 36, height: 36)
-                }
-                .buttonStyle(.plain)
-
-                if let onFullScreen {
-                    Button(action: onFullScreen) {
-                        Image("maximize-icon")
-                            .resizable()
-                            .renderingMode(.template)
-                            .scaledToFit()
-                            .frame(width: 18, height: 18)
-                            .foregroundColor(.loopedWhite)
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.plain)
-                }
+        HStack(spacing: 12) {
+            Button(action: onPlayPause) {
+                Image(isPlaying ? "pause-icon" : "play-icon")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+                    .foregroundColor(.loopedWhite)
+                    .frame(width: 36, height: 36)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.loopedBlack.opacity(0.62))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.horizontal, 10)
-            .padding(.bottom, 10)
+            .buttonStyle(.plain)
+
+            VideoScrubber(
+                value: Binding(
+                    get: { duration > 0 ? min(currentTime, duration) : 0 },
+                    set: { currentTime = $0 }
+                ),
+                duration: duration,
+                onEditingChanged: { isEditing, newValue in
+                    if isEditing {
+                        onBeginScrub()
+                    } else {
+                        onEndScrub(newValue)
+                    }
+                }
+            )
+
+            Text("\(formatTime(currentTime))/\(formatTime(duration))")
+                .font(.loopedSmallText)
+                .foregroundColor(.loopedWhite.opacity(0.92))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+
+            Button(action: onMuteToggle) {
+                Image(isMuted ? "mute-icon" : "volume-icon")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
+                    .foregroundColor(.loopedWhite)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+
+            if let onFullScreen {
+                Button(action: onFullScreen) {
+                    Image("maximize-icon")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .foregroundColor(.loopedWhite)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.plain)
+            }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private func formatTime(_ seconds: Double) -> String {
