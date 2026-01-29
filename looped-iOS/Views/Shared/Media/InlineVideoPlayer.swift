@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import Foundation
 
 private struct InlineVideoFramePreferenceKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
@@ -66,6 +67,7 @@ private struct VideoDebugLogger {
 
 final class VideoPlaybackManager: ObservableObject {
     static let shared = VideoPlaybackManager()
+    static let refreshVisibilityNotification = Foundation.Notification.Name("LoopedVideoRefreshVisibility")
 
     @Published private(set) var activeVideoId: String?
 
@@ -77,6 +79,18 @@ final class VideoPlaybackManager: ObservableObject {
     private var visibilityById: [String: VisibilityState] = [:]
     private let visibilityThreshold: Double = 0.60
     private let hysteresisDelta: Double = 0.08
+
+    func resetVisibility() {
+        visibilityById.removeAll()
+        if activeVideoId != nil {
+            activeVideoId = nil
+            VideoDebugLogger.log("activeVideoId cleared (reset)")
+        }
+    }
+
+    func requestVisibilityRefresh() {
+        NotificationCenter.default.post(name: Self.refreshVisibilityNotification, object: nil)
+    }
 
     func updateVisibility(id: String, visibleRatio: Double) {
         visibilityById[id] = VisibilityState(ratio: visibleRatio, lastUpdated: Date())
@@ -618,6 +632,7 @@ struct InlineVideoPlayer: View {
                 VideoDebugLogger.log("id=\(id) tapped")
                 playbackManager.promoteToActive(id: id)
                 if let onFullScreen {
+                    viewModel.setExternallyPresented(true)
                     onFullScreen(viewModel)
                 } else {
                     showControls()
@@ -714,6 +729,22 @@ struct InlineVideoPlayer: View {
             }
         }
         .onChange(of: viewModel.isExternallyPresented) { _, _ in
+            if !viewModel.isExternallyPresented {
+                if playbackManager.isVisibleEnough(id) {
+                    playbackManager.promoteToActive(id: id)
+                    if !viewModel.didReachEnd {
+                        viewModel.play()
+                    }
+                }
+            }
+            applyPlaybackGate()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: VideoPlaybackManager.refreshVisibilityNotification)) { _ in
+            playbackManager.updateVisibility(id: id, visibleRatio: visibleRatio)
+            if playbackManager.activeVideoId == nil, playbackManager.isVisibleEnough(id), !viewModel.didReachEnd {
+                playbackManager.promoteToActive(id: id)
+                viewModel.play()
+            }
             applyPlaybackGate()
         }
     }
@@ -765,7 +796,8 @@ struct InlineVideoPlayer: View {
             },
             onFullScreen: onFullScreen.map { handler in
                 { handler(viewModel) }
-            }
+            },
+            sizeScale: 1.0
         )
     }
 
@@ -896,17 +928,23 @@ struct VideoControlsOverlayView: View {
     let onEndScrub: (Double) -> Void
     let onMuteToggle: () -> Void
     let onFullScreen: (() -> Void)?
+    let sizeScale: CGFloat
 
     var body: some View {
-        HStack(spacing: 12) {
+        let iconSize = 18 * sizeScale
+        let buttonSize = 36 * sizeScale
+        let horizontalPadding = 12 * sizeScale
+        let verticalPadding = 8 * sizeScale
+
+        HStack(spacing: 12 * sizeScale) {
             Button(action: onPlayPause) {
                 Image(isPlaying ? "pause-icon" : "play-icon")
                     .resizable()
                     .renderingMode(.template)
                     .scaledToFit()
-                    .frame(width: 18, height: 18)
+                    .frame(width: iconSize, height: iconSize)
                     .foregroundColor(.loopedWhite)
-                    .frame(width: 36, height: 36)
+                    .frame(width: buttonSize, height: buttonSize)
             }
             .buttonStyle(.plain)
 
@@ -916,6 +954,7 @@ struct VideoControlsOverlayView: View {
                     set: { currentTime = $0 }
                 ),
                 duration: duration,
+                sizeScale: sizeScale,
                 onEditingChanged: { isEditing, newValue in
                     if isEditing {
                         onBeginScrub()
@@ -926,7 +965,7 @@ struct VideoControlsOverlayView: View {
             )
 
             Text("\(formatTime(currentTime))/\(formatTime(duration))")
-                .font(.loopedSmallText)
+                .font(.loopedCustom(size: 12 * sizeScale))
                 .foregroundColor(.loopedWhite.opacity(0.92))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
@@ -936,9 +975,9 @@ struct VideoControlsOverlayView: View {
                     .resizable()
                     .renderingMode(.template)
                     .scaledToFit()
-                    .frame(width: 18, height: 18)
+                    .frame(width: iconSize, height: iconSize)
                     .foregroundColor(.loopedWhite)
-                    .frame(width: 36, height: 36)
+                    .frame(width: buttonSize, height: buttonSize)
             }
             .buttonStyle(.plain)
 
@@ -948,15 +987,15 @@ struct VideoControlsOverlayView: View {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: 18, height: 18)
+                        .frame(width: iconSize, height: iconSize)
                         .foregroundColor(.loopedWhite)
-                        .frame(width: 36, height: 36)
+                        .frame(width: buttonSize, height: buttonSize)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, verticalPadding)
     }
 
     private func formatTime(_ seconds: Double) -> String {
@@ -993,12 +1032,12 @@ private struct ReplayOverlayView: View {
 private struct VideoScrubber: View {
     @Binding var value: Double
     let duration: Double
+    let sizeScale: CGFloat
     let onEditingChanged: (Bool, Double) -> Void
 
-    private let trackHeight: CGFloat = 2
-    private let thumbSize: CGFloat = 6
-
     var body: some View {
+        let trackHeight = 2 * sizeScale
+        let thumbSize = 6 * sizeScale
         GeometryReader { geo in
             let width = max(geo.size.width, 1)
             let clampedDuration = max(duration, 0.0001)

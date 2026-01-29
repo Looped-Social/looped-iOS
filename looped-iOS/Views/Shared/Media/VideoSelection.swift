@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 struct VideoSelection: Identifiable {
     let id = UUID()
@@ -9,6 +9,7 @@ struct VideoSelection: Identifiable {
     let communityName: String?
     let caption: String?
     let inlineViewModel: InlineVideoPlayerViewModel?
+    let postActionConfig: PostActionBarConfig?
 
     init(
         url: String,
@@ -17,7 +18,8 @@ struct VideoSelection: Identifiable {
         authorImageUrl: String? = nil,
         communityName: String? = nil,
         caption: String? = nil,
-        inlineViewModel: InlineVideoPlayerViewModel? = nil
+        inlineViewModel: InlineVideoPlayerViewModel? = nil,
+        postActionConfig: PostActionBarConfig? = nil
     ) {
         self.url = url
         self.thumbnailUrl = thumbnailUrl
@@ -26,5 +28,6 @@ struct VideoSelection: Identifiable {
         self.communityName = communityName
         self.caption = caption
         self.inlineViewModel = inlineViewModel
+        self.postActionConfig = postActionConfig
     }
 }

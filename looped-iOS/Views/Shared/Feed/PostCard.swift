@@ -35,6 +35,7 @@ struct PostCard: View {
     @State private var selectedVideo: VideoSelection?
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
+    @StateObject private var postActionState = PostActionBarState()
     @ScaledMetric private var actionIconSize: CGFloat = 22
     @ScaledMetric private var repostIconSize: CGFloat = 24
     @ScaledMetric private var actionLabelSpacing: CGFloat = 4
@@ -513,19 +514,20 @@ struct PostCard: View {
 			        }
 			    }
 
-		    private func handlePostedVideoTap(_ selection: VideoSelection) {
-		        let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
-		        guard !trimmed.isEmpty else { return }
-		        selectedVideo = VideoSelection(
-		            url: trimmed,
-		            thumbnailUrl: selection.thumbnailUrl,
-		            authorName: post.resolvedAuthorName,
-		            authorImageUrl: post.authorProfileImageURL,
-		            communityName: communityContextText,
-		            caption: post.content,
-		            inlineViewModel: selection.inlineViewModel
-		        )
-		    }
+    private func handlePostedVideoTap(_ selection: VideoSelection) {
+        let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        selectedVideo = VideoSelection(
+            url: trimmed,
+            thumbnailUrl: selection.thumbnailUrl,
+            authorName: post.resolvedAuthorName,
+            authorImageUrl: post.authorProfileImageURL,
+            communityName: communityContextText,
+            caption: post.content,
+            inlineViewModel: selection.inlineViewModel,
+            postActionConfig: postActionBarConfig
+        )
+    }
 
 		    private var timestampSection: some View {
 		        HStack {
@@ -547,41 +549,53 @@ struct PostCard: View {
 			        }
 			    }
 
-		    @ViewBuilder
-		    private var imageViewerContent: some View {
-		        if !imageUrls.isEmpty {
-		            FullScreenImageViewer(
-		                imageUrls: imageUrls,
-		                initialIndex: selectedImageIndex,
-		                isPresented: $showImageViewer
-		            )
-		        } else {
-		            Color.loopedBlack.ignoresSafeArea()
-		                .overlay(
-		                    VStack(spacing: 16) {
-		                        Image(systemName: "exclamationmark.triangle")
-		                            .font(.loopedCustom(size: 60))
-		                            .foregroundColor(.loopedWhite.opacity(0.5))
-		                        Text("No images available")
-		                            .foregroundColor(.loopedWhite.opacity(0.7))
-		                        Button("Close") {
-		                            showImageViewer = false
-		                        }
-		                        .foregroundColor(.loopedWhite)
-		                        .padding()
-		                        .background(Color.loopedWhite.opacity(0.2))
-		                        .cornerRadius(8)
-		                    }
-		                )
-		        }
-		    }
+    @ViewBuilder
+    private var imageViewerContent: some View {
+        if !imageUrls.isEmpty {
+            FullScreenImageViewer(
+                imageUrls: imageUrls,
+                initialIndex: selectedImageIndex,
+                isPresented: $showImageViewer,
+                postActionConfig: postActionBarConfig
+            )
+        } else {
+            Color.loopedBlack.ignoresSafeArea()
+                .overlay(
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.loopedCustom(size: 60))
+                            .foregroundColor(.loopedWhite.opacity(0.5))
+                        Text("No images available")
+                            .foregroundColor(.loopedWhite.opacity(0.7))
+                        Button("Close") {
+                            showImageViewer = false
+                        }
+                        .foregroundColor(.loopedWhite)
+                        .padding()
+                        .background(Color.loopedWhite.opacity(0.2))
+                        .cornerRadius(8)
+                    }
+                )
+        }
+    }
 
-		    private var videoPlayerBinding: Binding<Bool> {
-		        Binding(
-		            get: { selectedVideo != nil },
-		            set: { if !$0 { selectedVideo = nil } }
-		        )
-		    }
+    private var videoPlayerBinding: Binding<Bool> {
+        Binding(
+            get: { selectedVideo != nil },
+            set: { if !$0 { selectedVideo = nil } }
+        )
+    }
+
+    private var postActionBarConfig: PostActionBarConfig {
+        PostActionBarConfig(
+            state: postActionState,
+            onLike: handleLikeToggle,
+            onComment: { commentsManager.showComments(for: post) },
+            onRepost: toggleRepost,
+            onShare: prepareShareSheet,
+            onSave: toggleBookmark
+        )
+    }
 
 		    @ViewBuilder
 		    private var postOptionsDialogActions: some View {
@@ -765,17 +779,57 @@ struct PostCard: View {
                 syncBookmarkState()
                 syncLikeState()
                 syncRepostState()
+                syncActionBarState()
                 syncViewerAnonProfileId()
                 Task { await loadCommunityPermissionsIfNeeded() }
             }
             .onChange(of: post.userReaction) { _, _ in
                 syncLikeState()
+                syncActionBarState()
             }
             .onChange(of: post.viewerHasReposted) { _, _ in
                 syncRepostState()
+                syncActionBarState()
             }
             .onChange(of: post.isSaved) { _, _ in
                 syncBookmarkState()
+                syncActionBarState()
+            }
+            .onChange(of: post.reactionCount) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: post.commentsCount) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: post.repostCount) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: post.shareCount) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: shareCountOverride) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: isLiked) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: isReposted) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: isBookmarked) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: isRepostLoading) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: isBookmarkLoading) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: isPreparingShareSheet) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: isReactionLockedByVerification) { _, _ in
+                syncActionBarState()
             }
     }
 
@@ -1164,6 +1218,20 @@ struct PostCard: View {
     private func syncRepostState() {
         guard !isRepostLoading else { return }
         isReposted = post.viewerHasReposted
+    }
+
+    private func syncActionBarState() {
+        postActionState.likeCount = displayedReactionCount
+        postActionState.commentCount = post.commentsCount
+        postActionState.repostCount = displayedRepostCount
+        postActionState.shareCount = currentShareCount
+        postActionState.isLiked = isLiked
+        postActionState.isReposted = isReposted
+        postActionState.isSaved = isBookmarked
+        postActionState.isRepostLoading = isRepostLoading
+        postActionState.isBookmarkLoading = isBookmarkLoading
+        postActionState.isPreparingShareSheet = isPreparingShareSheet
+        postActionState.isReactionLocked = isReactionLockedByVerification
     }
 
     private func toggleRepost() {

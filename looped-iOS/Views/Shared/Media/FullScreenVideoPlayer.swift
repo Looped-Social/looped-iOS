@@ -50,6 +50,7 @@ private struct VideoPlayerSheetBody: View {
     @ObservedObject var viewModel: InlineVideoPlayerViewModel
     let usesSharedViewModel: Bool
 
+    private let playbackManager = VideoPlaybackManager.shared
     @State private var overlaysVisible = true
     @State private var dragOffset: CGFloat = 0
 
@@ -115,9 +116,15 @@ private struct VideoPlayerSheetBody: View {
                         onMuteToggle: {
                             viewModel.setMuted(!viewModel.isMuted)
                         },
-                        onFullScreen: nil
+                        onFullScreen: nil,
+                        sizeScale: 1.2
                     )
                     .padding(.bottom, 4)
+
+                    if let config = actionBarConfig {
+                        PostActionBarCompact(config: config, sizeScale: 1.3)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
@@ -141,6 +148,7 @@ private struct VideoPlayerSheetBody: View {
         .offset(y: dragOffset)
         .gesture(dragGesture)
         .onAppear {
+            playbackManager.resetVisibility()
             viewModel.setMuted(false)
             if usesSharedViewModel {
                 viewModel.setExternallyPresented(true)
@@ -164,6 +172,7 @@ private struct VideoPlayerSheetBody: View {
             } else {
                 viewModel.pause()
             }
+            playbackManager.requestVisibilityRefresh()
         }
     }
 
@@ -219,5 +228,23 @@ private struct VideoPlayerSheetBody: View {
 
     private func dismiss() {
         isPresented = false
+    }
+
+    private var actionBarConfig: PostActionBarConfig? {
+        guard let base = selection.postActionConfig else { return nil }
+        return PostActionBarConfig(
+            state: base.state,
+            onLike: base.onLike,
+            onComment: {
+                dismiss()
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    base.onComment()
+                }
+            },
+            onRepost: base.onRepost,
+            onShare: base.onShare,
+            onSave: base.onSave
+        )
     }
 }

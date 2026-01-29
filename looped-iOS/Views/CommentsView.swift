@@ -126,6 +126,7 @@ struct CommentsView: View {
             .toast($commentsManager.toastMessage)
             .modifier(CommentsPresentationModifier(style: presentationStyle, title: titleText, onDismiss: onDismiss))
             .onAppear {
+                VideoPlaybackManager.shared.resetVisibility()
                 pendingFocusCommentId = commentsManager.focusCommentId
                 setupKeyboardObservers()
                 Task { await loadAnonProfileId() }
@@ -134,6 +135,7 @@ struct CommentsView: View {
             .onDisappear {
                 removeKeyboardObservers()
                 cleanupSelectedMedia()
+                VideoPlaybackManager.shared.requestVisibilityRefresh()
             }
             .onChange(of: isAnonymousMode) { _, _ in
                 Task { await loadAnonProfileId() }

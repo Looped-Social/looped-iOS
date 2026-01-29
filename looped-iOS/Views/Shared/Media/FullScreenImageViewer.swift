@@ -5,6 +5,7 @@ struct FullScreenImageViewer: View {
     let imageUrls: [String]
     let initialIndex: Int
     @Binding var isPresented: Bool
+    let postActionConfig: PostActionBarConfig?
 
     @State private var currentIndex: Int = 0
     @State private var scale: CGFloat = 1.0
@@ -14,10 +15,11 @@ struct FullScreenImageViewer: View {
     @State private var showControls = true
     @State private var showShareSheet = false
 
-    init(imageUrls: [String], initialIndex: Int = 0, isPresented: Binding<Bool>) {
+    init(imageUrls: [String], initialIndex: Int = 0, isPresented: Binding<Bool>, postActionConfig: PostActionBarConfig? = nil) {
         self.imageUrls = imageUrls
         self.initialIndex = initialIndex
         self._isPresented = isPresented
+        self.postActionConfig = postActionConfig
         let clamped = min(max(initialIndex, 0), max(imageUrls.count - 1, 0))
         self._currentIndex = State(initialValue: clamped)
     }
@@ -96,6 +98,12 @@ struct FullScreenImageViewer: View {
                     .padding()
 
                     Spacer()
+
+                    if let config = actionBarConfig {
+                        PostActionBarCompact(config: config, sizeScale: 1.3)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 24)
+                    }
                 }
                 .transition(.opacity)
             }
@@ -112,6 +120,24 @@ struct FullScreenImageViewer: View {
                 ShareSheet(items: [url])
             }
         }
+    }
+
+    private var actionBarConfig: PostActionBarConfig? {
+        guard let base = postActionConfig else { return nil }
+        return PostActionBarConfig(
+            state: base.state,
+            onLike: base.onLike,
+            onComment: {
+                isPresented = false
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    base.onComment()
+                }
+            },
+            onRepost: base.onRepost,
+            onShare: base.onShare,
+            onSave: base.onSave
+        )
     }
 
     private func syncToInitialIndex() {
