@@ -513,10 +513,18 @@ struct PostCard: View {
 			        }
 			    }
 
-		    private func handlePostedVideoTap(_ url: String) {
-		        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+		    private func handlePostedVideoTap(_ selection: VideoSelection) {
+		        let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
 		        guard !trimmed.isEmpty else { return }
-		        selectedVideo = VideoSelection(url: trimmed)
+		        selectedVideo = VideoSelection(
+		            url: trimmed,
+		            thumbnailUrl: selection.thumbnailUrl,
+		            authorName: post.resolvedAuthorName,
+		            authorImageUrl: post.authorProfileImageURL,
+		            communityName: communityContextText,
+		            caption: post.content,
+		            inlineViewModel: selection.inlineViewModel
+		        )
 		    }
 
 		    private var timestampSection: some View {
@@ -784,7 +792,7 @@ struct PostCard: View {
                 imageViewerContent
             }
             .fullScreenCover(item: $selectedVideo) { selection in
-                VideoPlayerSheet(videoUrl: selection.url, isPresented: videoPlayerBinding)
+                VideoPlayerSheet(selection: selection, isPresented: videoPlayerBinding)
             }
     }
 

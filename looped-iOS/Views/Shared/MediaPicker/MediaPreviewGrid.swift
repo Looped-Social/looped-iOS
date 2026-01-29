@@ -199,9 +199,9 @@ struct PostedMediaGrid: View {
     let attachments: [MediaAttachment]
     let maxHeight: CGFloat
     let onImageTap: (String) -> Void
-    let onVideoTap: (String) -> Void
+    let onVideoTap: (VideoSelection) -> Void
 
-    init(attachments: [MediaAttachment], maxHeight: CGFloat = 350, onImageTap: @escaping (String) -> Void, onVideoTap: @escaping (String) -> Void) {
+    init(attachments: [MediaAttachment], maxHeight: CGFloat = 350, onImageTap: @escaping (String) -> Void, onVideoTap: @escaping (VideoSelection) -> Void) {
         self.attachments = attachments
         self.maxHeight = maxHeight
         self.onImageTap = onImageTap
@@ -233,7 +233,7 @@ struct SinglePostedMedia: View {
     let attachment: MediaAttachment
     let maxHeight: CGFloat
     let onImageTap: (String) -> Void
-    let onVideoTap: (String) -> Void
+    let onVideoTap: (VideoSelection) -> Void
     @State private var isShimmering = true
 
     var body: some View {
@@ -249,7 +249,15 @@ struct SinglePostedMedia: View {
                     }
                 },
                 maxHeight: maxHeight,
-                onFullScreen: onVideoTap
+                onFullScreen: { viewModel in
+                    onVideoTap(
+                        VideoSelection(
+                            url: attachment.url,
+                            thumbnailUrl: attachment.thumbnailUrl,
+                            inlineViewModel: viewModel
+                        )
+                    )
+                }
             )
         } else {
             // Image
@@ -291,7 +299,7 @@ struct SinglePostedMedia: View {
 struct PostedMediaThumbnail: View {
     let attachment: MediaAttachment
     let onImageTap: (String) -> Void
-    let onVideoTap: (String) -> Void
+    let onVideoTap: (VideoSelection) -> Void
     @State private var isShimmering = true
     @State private var loadCompleted = false
     @State private var scheduledRetry = false
@@ -341,7 +349,12 @@ struct PostedMediaThumbnail: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onTapGesture {
             if attachment.type == .video {
-                onVideoTap(attachment.url)
+                onVideoTap(
+                    VideoSelection(
+                        url: attachment.url,
+                        thumbnailUrl: attachment.thumbnailUrl
+                    )
+                )
             } else {
                 onImageTap(attachment.url)
             }
@@ -416,7 +429,7 @@ struct PostedMediaGridLayout: View {
     let attachments: [MediaAttachment]
     let maxHeight: CGFloat
     let onImageTap: (String) -> Void
-    let onVideoTap: (String) -> Void
+    let onVideoTap: (VideoSelection) -> Void
 
     var body: some View {
         let spacing: CGFloat = 8

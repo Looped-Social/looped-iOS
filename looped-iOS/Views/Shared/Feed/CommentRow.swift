@@ -186,11 +186,18 @@ struct CommentRow: View {
 	                                    showImageViewer = true
 	                                }
 	                            },
-	                            onVideoTap: { url in
-	                                guard !url.isEmpty, URL(string: url) != nil else { return }
-	                                let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+	                            onVideoTap: { selection in
+	                                let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
 	                                guard !trimmed.isEmpty else { return }
-	                                selectedVideo = VideoSelection(url: trimmed)
+	                                selectedVideo = VideoSelection(
+	                                    url: trimmed,
+	                                    thumbnailUrl: selection.thumbnailUrl,
+	                                    authorName: displayName,
+	                                    authorImageUrl: comment.authorProfileImageURL,
+	                                    communityName: nil,
+	                                    caption: comment.content,
+	                                    inlineViewModel: selection.inlineViewModel
+	                                )
                             }
 		                        )
 		                    }
@@ -369,7 +376,7 @@ struct CommentRow: View {
         }
         .fullScreenCover(item: $selectedVideo) { selection in
             VideoPlayerSheet(
-                videoUrl: selection.url,
+                selection: selection,
                 isPresented: Binding(
                     get: { selectedVideo != nil },
                     set: { if !$0 { selectedVideo = nil } }

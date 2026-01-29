@@ -93,7 +93,15 @@ struct SentMessageBubble: View {
                         .onTapGesture {
                             let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !trimmed.isEmpty else { return }
-                            selectedVideo = VideoSelection(url: trimmed)
+                            selectedVideo = VideoSelection(
+                                url: trimmed,
+                                thumbnailUrl: attachment.thumbnailUrl,
+                                authorName: message.senderDisplayName,
+                                authorImageUrl: nil,
+                                communityName: nil,
+                                caption: message.normalizedContent,
+                                inlineViewModel: nil
+                            )
                         }
                     } else {
                         MessageMediaTile(
@@ -144,7 +152,7 @@ struct SentMessageBubble: View {
         }
         .fullScreenCover(item: $selectedVideo) { selection in
             VideoPlayerSheet(
-                videoUrl: selection.url,
+                selection: selection,
                 isPresented: Binding(
                     get: { selectedVideo != nil },
                     set: { if !$0 { selectedVideo = nil } }
@@ -225,7 +233,15 @@ struct ReceivedMessageBubble: View {
 	                            .onTapGesture {
 	                                let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
 	                                guard !trimmed.isEmpty else { return }
-	                                selectedVideo = VideoSelection(url: trimmed)
+	                                selectedVideo = VideoSelection(
+	                                    url: trimmed,
+	                                    thumbnailUrl: attachment.thumbnailUrl,
+	                                    authorName: message.senderDisplayName,
+	                                    authorImageUrl: nil,
+	                                    communityName: nil,
+	                                    caption: message.normalizedContent,
+	                                    inlineViewModel: nil
+	                                )
 	                            }
 	                        } else {
 	                            MessageMediaTile(
@@ -277,7 +293,7 @@ struct ReceivedMessageBubble: View {
         }
         .fullScreenCover(item: $selectedVideo) { selection in
             VideoPlayerSheet(
-                videoUrl: selection.url,
+                selection: selection,
                 isPresented: Binding(
                     get: { selectedVideo != nil },
                     set: { if !$0 { selectedVideo = nil } }

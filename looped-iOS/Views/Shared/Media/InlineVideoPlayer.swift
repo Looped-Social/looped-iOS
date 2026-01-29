@@ -68,7 +68,6 @@ final class VideoPlaybackManager: ObservableObject {
     static let shared = VideoPlaybackManager()
 
     @Published private(set) var activeVideoId: String?
-    @Published var isMuted: Bool = true
 
     private struct VisibilityState {
         let ratio: Double
@@ -141,6 +140,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     @Published var duration: Double = 0
     @Published var currentTime: Double = 0
     @Published var errorDescription: String?
+    @Published var isExternallyPresented: Bool = false
     @Published var debugStatusText: String = "unknown"
     @Published var debugTimeControlText: String = "unknown"
     @Published var debugURLText: String = ""
@@ -166,7 +166,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
         replaceCurrentItem(url: url)
 
         timeObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
+            forInterval: CMTime(seconds: 0.1, preferredTimescale: 600),
             queue: .main
         ) { [weak self] time in
             guard let self else { return }
@@ -351,6 +351,12 @@ final class InlineVideoPlayerViewModel: ObservableObject {
         }
     }
 
+    func setExternallyPresented(_ value: Bool) {
+        if isExternallyPresented == value { return }
+        isExternallyPresented = value
+        VideoDebugLogger.log("id=\(debugId) externalPresentation=\(value)")
+    }
+
     private func statusLabel(_ status: AVPlayerItem.Status) -> String {
         switch status {
         case .unknown:
@@ -430,34 +436,42 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     }
 }
 
-private struct VideoPlayerView: UIViewRepresentable {
+struct VideoPlayerView: UIViewRepresentable {
     let player: AVPlayer
+    let videoGravity: AVLayerVideoGravity
     let onReadyForDisplay: (Bool) -> Void
 
     func makeUIView(context: Context) -> PlayerContainerUIView {
         let view = PlayerContainerUIView()
         view.onReadyForDisplay = onReadyForDisplay
+        view.videoGravity = videoGravity
         view.setPlayer(player)
         return view
     }
 
     func updateUIView(_ uiView: PlayerContainerUIView, context: Context) {
         uiView.onReadyForDisplay = onReadyForDisplay
+        uiView.videoGravity = videoGravity
         uiView.setPlayer(player)
     }
 }
 
-private final class PlayerContainerUIView: UIView {
+final class PlayerContainerUIView: UIView {
     private let playerLayer = AVPlayerLayer()
     private var readyObserver: NSKeyValueObservation?
     var onReadyForDisplay: ((Bool) -> Void)?
+    var videoGravity: AVLayerVideoGravity = .resizeAspectFill {
+        didSet {
+            playerLayer.videoGravity = videoGravity
+        }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         isUserInteractionEnabled = false
         clipsToBounds = true
         layer.masksToBounds = true
-        playerLayer.videoGravity = .resizeAspectFill
+        playerLayer.videoGravity = videoGravity
         playerLayer.masksToBounds = true
         layer.addSublayer(playerLayer)
 
@@ -494,7 +508,7 @@ struct InlineVideoPlayer: View {
     let thumbnailUrl: String?
     let aspectRatio: CGFloat?
     let maxHeight: CGFloat
-    let onFullScreen: ((String) -> Void)?
+    let onFullScreen: ((InlineVideoPlayerViewModel) -> Void)?
 
     @ObservedObject private var playbackManager = VideoPlaybackManager.shared
     @StateObject private var viewModel: InlineVideoPlayerViewModel
@@ -513,7 +527,7 @@ struct InlineVideoPlayer: View {
         thumbnailUrl: String?,
         aspectRatio: CGFloat? = nil,
         maxHeight: CGFloat = 350,
-        onFullScreen: ((String) -> Void)? = nil
+        onFullScreen: ((InlineVideoPlayerViewModel) -> Void)? = nil
     ) {
         self.id = id
         self.videoUrl = videoUrl
@@ -536,6 +550,7 @@ struct InlineVideoPlayer: View {
         let clipShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         let hasThumbnail = (thumbnailUrl ?? "").isEmpty == false
         let shouldShowPoster = hasThumbnail && !viewModel.isReadyForDisplay
+        let muteBottomPadding: CGFloat = (controlsVisible && onFullScreen == nil) ? 54 : 10
 
         ZStack {
             Rectangle().fill(Color.loopedBlack)
@@ -562,6 +577,7 @@ struct InlineVideoPlayer: View {
 
             VideoPlayerView(
                 player: viewModel.player,
+                videoGravity: .resizeAspectFill,
                 onReadyForDisplay: { isReady in
                     viewModel.updateReadyForDisplay(isReady)
                 }
@@ -601,10 +617,13 @@ struct InlineVideoPlayer: View {
             TapCaptureView {
                 VideoDebugLogger.log("id=\(id) tapped")
                 playbackManager.promoteToActive(id: id)
-                showControls()
+                if let onFullScreen {
+                    onFullScreen(viewModel)
+                } else {
+                    showControls()
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .allowsHitTesting(!(controlsVisible || viewModel.didReachEnd))
             .zIndex(3)
 
             if viewModel.didReachEnd {
@@ -624,12 +643,17 @@ struct InlineVideoPlayer: View {
         .clipShape(clipShape)
         .contentShape(clipShape)
         .overlay(alignment: .bottom) {
-            if controlsVisible {
+            if controlsVisible, onFullScreen == nil {
                 controlsOverlay
                     .padding(.horizontal, 10)
                     .padding(.bottom, 8)
                     .transition(.opacity)
             }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            muteButton
+                .padding(.bottom, muteBottomPadding)
+                .padding(.trailing, 10)
         }
         .background(
             GeometryReader { geo in
@@ -642,7 +666,6 @@ struct InlineVideoPlayer: View {
         }
         .onAppear {
             VideoDebugLogger.log("id=\(id) bind url=\(videoUrl) thumbnail=\(thumbnailUrl ?? "nil")")
-            viewModel.setMuted(playbackManager.isMuted)
             if visibleRatio <= 0 {
                 visibleRatio = 1
                 playbackManager.updateVisibility(id: id, visibleRatio: 1)
@@ -669,6 +692,7 @@ struct InlineVideoPlayer: View {
         .onDisappear {
             hideControlsTask?.cancel()
             hideControlsTask = nil
+            guard !viewModel.isExternallyPresented else { return }
             playbackManager.unregister(id: id)
             viewModel.pause()
         }
@@ -689,9 +713,26 @@ struct InlineVideoPlayer: View {
                 hideControls()
             }
         }
-        .onChange(of: playbackManager.isMuted) { _, newValue in
-            viewModel.setMuted(newValue)
+        .onChange(of: viewModel.isExternallyPresented) { _, _ in
+            applyPlaybackGate()
         }
+    }
+
+    private var muteButton: some View {
+        Button {
+            viewModel.setMuted(!viewModel.isMuted)
+            scheduleAutoHideControlsIfNeeded()
+        } label: {
+            Image(viewModel.isMuted ? "mute-icon" : "volume-icon")
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .foregroundColor(.loopedWhite)
+                .frame(width: 36, height: 36)
+        }
+        .buttonStyle(.plain)
+        .zIndex(4)
     }
 
     private var controlsOverlay: some View {
@@ -719,11 +760,11 @@ struct InlineVideoPlayer: View {
                 scheduleAutoHideControlsIfNeeded()
             },
             onMuteToggle: {
-                playbackManager.isMuted.toggle()
+                viewModel.setMuted(!viewModel.isMuted)
                 scheduleAutoHideControlsIfNeeded()
             },
             onFullScreen: onFullScreen.map { handler in
-                { handler(videoUrl) }
+                { handler(viewModel) }
             }
         )
     }
@@ -752,6 +793,7 @@ struct InlineVideoPlayer: View {
 
     private func applyPlaybackGate() {
         guard !isScrubbing else { return }
+        guard !viewModel.isExternallyPresented else { return }
         if viewModel.didReachEnd {
             viewModel.pause()
             return
@@ -839,10 +881,12 @@ struct InlineVideoPlayer: View {
         hideControlsTask = nil
         controlsVisible = false
         isScrubbing = false
+        viewModel.setExternallyPresented(false)
+        viewModel.setMuted(true)
     }
 }
 
-private struct VideoControlsOverlayView: View {
+struct VideoControlsOverlayView: View {
     let isPlaying: Bool
     @Binding var currentTime: Double
     let duration: Double

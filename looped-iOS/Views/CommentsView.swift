@@ -172,7 +172,7 @@ struct CommentsView: View {
             }
             .fullScreenCover(item: $selectedVideo) { selection in
                 VideoPlayerSheet(
-                    videoUrl: selection.url,
+                    selection: selection,
                     isPresented: Binding(
                         get: { selectedVideo != nil },
                         set: { if !$0 { selectedVideo = nil } }
@@ -295,11 +295,19 @@ private extension CommentsView {
 	                                showImageViewer = true
 	                            }
 	                        },
-	                        onVideoTap: { url in
-	                            guard !url.isEmpty, URL(string: url) != nil else { return }
-	                            let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-	                            guard !trimmed.isEmpty else { return }
-	                            selectedVideo = VideoSelection(url: trimmed)
+                        onVideoTap: { selection in
+                            let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            let communityLabel = post.communityDisplayName(preferShortNames: true).map { "in \($0)" }
+                            selectedVideo = VideoSelection(
+                                url: trimmed,
+                                thumbnailUrl: selection.thumbnailUrl,
+                                authorName: post.resolvedAuthorName,
+                                authorImageUrl: post.authorProfileImageURL,
+                                communityName: communityLabel,
+                                caption: post.content,
+                                inlineViewModel: selection.inlineViewModel
+                            )
                         }
                     )
                 }
