@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 struct CommentsView: View {
     enum PresentationStyle {
@@ -27,6 +28,9 @@ struct CommentsView: View {
     @State private var pendingFocusCommentId: Int?
     @State private var showMediaPicker = false
     @State private var showCamera = false
+    @State private var keyboardWillShowObserver: NSObjectProtocol?
+    @State private var keyboardWillHideObserver: NSObjectProtocol?
+    @FocusState private var isCommentFieldFocused: Bool
 
     private var comments: [Comment] {
         commentsManager.currentComments
@@ -76,6 +80,7 @@ struct CommentsView: View {
 	                .padding(.top, 16)
 	                .padding(.bottom, 24)
             }
+		            .modifier(CommentsKeyboardDismissalModifier(onDismiss: dismissKeyboard))
 	        } else {
 	            ScrollView {
 	                VStack(alignment: .leading, spacing: 0) {
@@ -90,6 +95,7 @@ struct CommentsView: View {
 	                .padding(.top, 16)
 	                .padding(.bottom, 24)
             }
+		            .modifier(CommentsKeyboardDismissalModifier(onDismiss: dismissKeyboard))
         }
     }
 
@@ -111,8 +117,11 @@ struct CommentsView: View {
                 }
 
                 commentsScrollView
-
-                commentInput
+                if canComment {
+                    commentInput
+                } else {
+                    restrictedInteractionNotice
+                }
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .toast($commentsManager.toastMessage)
@@ -187,6 +196,22 @@ private struct CommentsPresentationModifier: ViewModifier {
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+}
+
+private struct CommentsKeyboardDismissalModifier: ViewModifier {
+    let onDismiss: () -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content
+                .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(TapGesture().onEnded { onDismiss() })
+        } else {
+            content
+                .simultaneousGesture(DragGesture().onChanged { _ in onDismiss() })
+                .simultaneousGesture(TapGesture().onEnded { onDismiss() })
         }
     }
 }
@@ -295,9 +320,11 @@ private extension CommentsView {
                         .font(.loopedBodyMedium)
                         .foregroundColor(.loopedTextPrimary)
 
-                    Text("Be the first to share your thoughts.")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
+                    if canComment {
+                        Text("Be the first to share your thoughts.")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, minHeight: 140)
             } else {
@@ -317,18 +344,16 @@ private extension CommentsView {
                             isLoadingReplies: thread.isLoading,
                             isLoadingMoreReplies: thread.isLoadingMore,
                             hasMoreReplies: thread.nextCursor != nil,
-                            onReply: { commentsManager.setReplyTarget($0) },
+                            onReply: canComment ? { commentsManager.setReplyTarget($0) } : nil,
                             onToggleReplies: { tapped in
                                 Task { await commentsManager.toggleReplies(for: tapped) }
                             },
                             onLoadMoreReplies: { tapped in
                                 Task { await commentsManager.loadMoreRepliesIfNeeded(for: tapped) }
                             },
-                            onLike: { tappedComment in
-                                Task {
-                                    await commentsManager.toggleLike(for: tappedComment)
-                                }
-                            },
+                            onLike: canComment ? { tappedComment in
+                                Task { await commentsManager.toggleLike(for: tappedComment) }
+                            } : nil,
                             canManage: { canManage(comment: $0) },
                             onEdit: { target in
                                 commentsManager.setEditTarget(target)
@@ -398,42 +423,11 @@ private extension CommentsView {
                 .padding(.horizontal, 4)
             }
 
-            if !canComment {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "checkmark.seal")
-                        .font(.loopedCustom(.semibold, size: 16))
-                        .foregroundColor(.loopedSecondary)
-
-                    Text(verificationMessage)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                }
-                .padding(.horizontal, 4)
-            }
-
             HStack(alignment: .bottom, spacing: 12) {
-                if let imageUrl = authViewModel.currentUser?.profileImageURL,
-                   let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.loopedTextSecondary.opacity(0.2))
-                    }
-                    .frame(width: 34, height: 34)
-                    .clipShape(Circle())
-                } else {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.15))
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.loopedCustom(.semibold, size: 14))
-                                .foregroundColor(.loopedTextSecondary)
-                        )
-                        .frame(width: 34, height: 34)
-                }
+                ProfileAvatarView(
+                    imageURL: authViewModel.currentUser?.profileImageURL,
+                    size: 34
+                )
 
                 Button(action: { showMediaPicker = true }) {
                     Image(systemName: "paperclip")
@@ -453,6 +447,7 @@ private extension CommentsView {
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
                     .lineLimit(1...4)
+                    .focused($isCommentFieldFocused)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(Color.loopedMutedBackground)
@@ -460,7 +455,6 @@ private extension CommentsView {
 
                 Button(action: {
                     Task {
-                        guard canComment else { return }
                         let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
                         if commentsManager.editTarget != nil {
                             guard !trimmed.isEmpty else { return }
@@ -472,6 +466,7 @@ private extension CommentsView {
 	                            selectedMedia = []
 	                        }
 	                        commentText = ""
+                            dismissKeyboard()
 	                    }
 	                }) {
                     Image(systemName: "arrow.up.circle.fill")
@@ -479,7 +474,6 @@ private extension CommentsView {
                         .foregroundColor(
                             (commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedMedia.isEmpty)
                             || commentsManager.isPosting
-                            || !canComment
                             ? .loopedTextSecondary
                             : .loopedPrimary
                         )
@@ -487,7 +481,6 @@ private extension CommentsView {
                 .disabled(
                     (commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedMedia.isEmpty)
                     || commentsManager.isPosting
-                    || !canComment
                 )
             }
             .padding(.horizontal, 20)
@@ -505,12 +498,16 @@ private extension CommentsView {
             )
         }
         .fullScreenCover(isPresented: $showCamera) {
-            CameraPickerView(selectedImage: .init(
+            CameraMediaPickerView(selectedItem: .init(
                 get: { nil },
-                set: { image in
-                    if let image = image {
-                        cleanupSelectedMedia()
-                        selectedMedia = [LocalMediaItem(type: .image, image: image)]
+                set: { item in
+                    guard let item else { return }
+                    cleanupSelectedMedia()
+                    switch item.type {
+                    case .image, .video:
+                        selectedMedia = [item]
+                    case .gif:
+                        break
                     }
                 }
             ))
@@ -546,30 +543,45 @@ private extension CommentsView {
         }
     }
 
-    func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillShowNotification,
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                keyboardHeight = keyboardFrame.height
-            }
-        }
+	    func setupKeyboardObservers() {
+	        guard keyboardWillShowObserver == nil, keyboardWillHideObserver == nil else { return }
 
-        NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillHideNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            keyboardHeight = 0
-        }
-    }
+	        keyboardWillShowObserver = NotificationCenter.default.addObserver(
+	            forName: UIResponder.keyboardWillShowNotification,
+	            object: nil,
+	            queue: .main
+	        ) { notification in
+	            if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+	                keyboardHeight = keyboardFrame.height
+	            }
+	        }
 
-    func removeKeyboardObservers() {
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
-    }
+	        keyboardWillHideObserver = NotificationCenter.default.addObserver(
+	            forName: UIResponder.keyboardWillHideNotification,
+	            object: nil,
+	            queue: .main
+	        ) { _ in
+	            keyboardHeight = 0
+	        }
+	    }
+
+	    func removeKeyboardObservers() {
+	        if let keyboardWillShowObserver {
+	            NotificationCenter.default.removeObserver(keyboardWillShowObserver)
+	            self.keyboardWillShowObserver = nil
+	        }
+	        if let keyboardWillHideObserver {
+	            NotificationCenter.default.removeObserver(keyboardWillHideObserver)
+	            self.keyboardWillHideObserver = nil
+	        }
+	    }
+
+	    func dismissKeyboard() {
+	        DispatchQueue.main.async {
+	            isCommentFieldFocused = false
+	            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+	        }
+	    }
 
     func formattedTimestamp(for date: Date) -> String {
         let now = Date()
@@ -611,19 +623,27 @@ private extension CommentsView {
         commentsManager.editTarget == nil ? "Add a comment..." : "Edit comment..."
     }
 
-    var verificationMessage: String {
+    var restrictedInteractionMessage: String {
         if commentsManager.isLoadingPermissions {
             return "Checking verification..."
         }
-        if let permissions = commentsManager.communityPermissions {
-            if !permissions.canPost, permissions.requiresVerification {
-                return "Verification is required to comment, like, or repost in this community."
-            }
-            if !permissions.canPost {
-                return "You do not have permission to comment in this community."
-            }
+        return "You can’t comment or interact with comments because you aren’t verified."
+    }
+
+    var restrictedInteractionNotice: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "checkmark.seal")
+                .font(.loopedCustom(.semibold, size: 16))
+                .foregroundColor(.loopedSecondary)
+
+            Text(restrictedInteractionMessage)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
         }
-        return "Verification is required to comment, like, or repost in this community."
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.loopedBackground)
     }
 
     func loadAnonProfileId() async {

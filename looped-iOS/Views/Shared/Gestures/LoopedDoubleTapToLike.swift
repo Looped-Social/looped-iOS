@@ -6,7 +6,7 @@ private struct LoopedDoubleTapToLikeModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .contentShape(Rectangle())
-            .highPriorityGesture(
+            .simultaneousGesture(
                 TapGesture(count: 2).onEnded(action),
                 including: .all
             )
@@ -18,4 +18,3 @@ extension View {
         modifier(LoopedDoubleTapToLikeModifier(action: action))
     }
 }
-

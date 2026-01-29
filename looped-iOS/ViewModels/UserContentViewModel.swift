@@ -54,7 +54,10 @@ final class UserContentViewModel: ObservableObject {
     }
 
     func loadMoreIfNeeded(current item: UserContentItem) async {
-        guard let last = items.last, last.id == item.id else { return }
+        let prefetchThreshold = 8
+        guard nextCursor != nil else { return }
+        guard !items.isEmpty else { return }
+        guard items.suffix(prefetchThreshold).contains(where: { $0.id == item.id }) else { return }
         await load(reset: false)
     }
 

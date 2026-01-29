@@ -324,7 +324,10 @@ class FeedViewModel: ObservableObject {
     }
 
     func loadMoreIfNeeded(currentPost: Post) async {
-        guard let lastPost = posts.last, currentPost.id == lastPost.id else { return }
+        let prefetchThreshold = 6
+        guard nextCursor != nil else { return }
+        guard !posts.isEmpty else { return }
+        guard posts.suffix(prefetchThreshold).contains(where: { $0.id == currentPost.id }) else { return }
         await loadPosts(reset: false)
     }
     
@@ -445,13 +448,33 @@ class FeedViewModel: ObservableObject {
                         TemporaryMediaFile.deleteIfOwned(url)
                     }
                     let metadata = videoMetadata(url: mp4Url)
+                    var thumbnailMediaAssetId: Int?
+                    var thumbnailUrl: String?
+                    if let thumbnailImage = video.image ?? makeVideoThumbnail(url: mp4Url),
+                       let payload = FeedViewModel.makeUploadPayload(from: thumbnailImage) {
+                        do {
+                            let thumbnailAsset = try await mediaService.uploadImage(
+                                data: payload.data,
+                                mimeType: payload.mimeType,
+                                width: payload.width,
+                                height: payload.height,
+                                actor: actor
+                            )
+                            thumbnailMediaAssetId = thumbnailAsset.id
+                            thumbnailUrl = thumbnailAsset.cdnUrl
+                        } catch {
+                            thumbnailMediaAssetId = nil
+                            thumbnailUrl = nil
+                        }
+                    }
                     let asset = try await mediaService.uploadVideo(
                         fileURL: mp4Url,
                         mimeType: "video/mp4",
                         width: metadata.width,
                         height: metadata.height,
                         durationSeconds: metadata.durationSeconds,
-                        actor: actor
+                        actor: actor,
+                        thumbnailMediaAssetId: thumbnailMediaAssetId
                     )
                     mediaAssetIds = [asset.id]
                     if let cdnUrl = asset.cdnUrl, !cdnUrl.isEmpty {
@@ -459,6 +482,7 @@ class FeedViewModel: ObservableObject {
                             id: "asset:\(asset.id)",
                             type: .video,
                             url: cdnUrl,
+                            thumbnailUrl: thumbnailUrl,
                             width: metadata.width,
                             height: metadata.height,
                             duration: TimeInterval(metadata.durationSeconds)
@@ -517,6 +541,19 @@ class FeedViewModel: ObservableObject {
                code == 403,
                apiError == "content_under_review" {
                 return .queuedForReview
+            }
+            if case let APIError.apiError(code, apiError, message) = error, code == 422 {
+                switch apiError {
+                case "media_not_found":
+                    errorMessage = "Couldn't find your uploaded media yet. Try again."
+                case "media_invalid":
+                    errorMessage = message ?? "That attachment isn't supported."
+                case "media_too_many":
+                    errorMessage = message ?? "Attach up to 4 photos or 1 video."
+                default:
+                    errorMessage = message ?? apiError
+                }
+                return .failed
             }
             errorMessage = error.localizedDescription
             return .failed
@@ -713,6 +750,19 @@ private extension FeedViewModel {
         let width = Int(abs(transformed.width).rounded())
         let height = Int(abs(transformed.height).rounded())
         return (width: max(width, 0), height: max(height, 0), durationSeconds: max(duration, 0))
+    }
+
+    func makeVideoThumbnail(url: URL) -> UIImage? {
+        let asset = AVAsset(url: url)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+
+        do {
+            let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
+            return UIImage(cgImage: cgImage)
+        } catch {
+            return nil
+        }
     }
 
 }

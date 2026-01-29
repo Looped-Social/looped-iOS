@@ -782,6 +782,7 @@ struct DraftsView: View {
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @StateObject private var draftStore = PostDraftStore()
     @State private var selectedDraft: PostDraft?
+    @State private var toastMessage: ToastMessage?
 
     private var drafts: [PostDraft] {
         draftStore.drafts
@@ -840,14 +841,19 @@ struct DraftsView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .toast($toastMessage)
         .sheet(item: $selectedDraft, onDismiss: {
             draftStore.reload()
         }) { draft in
             CreatePostView(
                 feedViewModel: feedViewModel,
+                draftStore: draftStore,
                 draft: draft,
                 onPostCreated: {
                     selectedDraft = nil
+                },
+                onPostStatus: { message in
+                    toastMessage = message
                 }
             )
             .presentationDetents([.large])

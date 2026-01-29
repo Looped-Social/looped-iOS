@@ -108,6 +108,33 @@ struct UserProfile: Codable, Identifiable {
 }
 
 extension UserProfile {
+    func updatingFollowersCount(_ value: Int) -> UserProfile {
+        UserProfile(
+            id: id,
+            backendId: backendId,
+            username: username,
+            displayName: displayName,
+            handle: handle,
+            company: company,
+            jobTitle: jobTitle,
+            bio: bio,
+            profileImageURL: profileImageURL,
+            isVerified: isVerified,
+            isAnonymous: isAnonymous,
+            yearsInLoop: yearsInLoop,
+            followingCount: followingCount,
+            followersCount: value,
+            postsCount: postsCount,
+            commentsCount: commentsCount,
+            showFollowerCount: showFollowerCount,
+            isCurrentUser: isCurrentUser,
+            displayCommunity: displayCommunity,
+            displaySpecialization: displaySpecialization,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+
     static func from(user: User, isCurrentUser: Bool = false) -> UserProfile {
         let now = Date()
         let createdAt = user.createdAt ?? now

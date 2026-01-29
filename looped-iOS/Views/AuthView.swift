@@ -179,8 +179,8 @@ private extension AuthView {
                 },
                 showsHeader: false
             )
-        case .waysToVerifyCompany:
-            WaysToVerifyView(
+	        case .waysToVerifyCompany:
+	            WaysToVerifyView(
                 options: [
                     VerificationOption(id: "company_email", title: "Company Email"),
                     VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
@@ -189,15 +189,16 @@ private extension AuthView {
                 totalSteps: verificationTotalSteps,
                 selectedOptionId: $companyVerificationOptionId,
                 onBack: {},
-                onContinue: { option in
-                    let method = VerificationMethod.from(optionId: option.id)
-                    verificationContext = VerificationContext(isStudent: false, method: method)
-                    if method == .photoId {
-                        navigate(to: .photoIdVerification(isStudent: false))
-                    } else {
-                        navigate(to: .emailVerification(isStudent: false))
-                    }
-                },
+	                onContinue: { option in
+	                    let method = VerificationMethod.from(optionId: option.id)
+	                    verificationContext = VerificationContext(isStudent: false, method: method)
+	                    onboardingStore.saveVerificationMethod(method == .photoId ? "photo_id" : "email")
+	                    if method == .photoId {
+	                        navigate(to: .photoIdVerification(isStudent: false))
+	                    } else {
+	                        navigate(to: .emailVerification(isStudent: false))
+	                    }
+	                },
                 onSkip: {
                     skipToNotifications()
                 },
@@ -206,8 +207,8 @@ private extension AuthView {
                 },
                 showsHeader: false
             )
-        case .waysToVerifyStudent:
-            WaysToVerifyView(
+	        case .waysToVerifyStudent:
+	            WaysToVerifyView(
                 options: [
                     VerificationOption(id: "student_email", title: "Student Email"),
                     VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
@@ -216,15 +217,16 @@ private extension AuthView {
                 totalSteps: verificationTotalSteps,
                 selectedOptionId: $studentVerificationOptionId,
                 onBack: {},
-                onContinue: { option in
-                    let method = VerificationMethod.from(optionId: option.id)
-                    verificationContext = VerificationContext(isStudent: true, method: method)
-                    if method == .photoId {
-                        navigate(to: .photoIdVerification(isStudent: true))
-                    } else {
-                        navigate(to: .emailVerification(isStudent: true))
-                    }
-                },
+	                onContinue: { option in
+	                    let method = VerificationMethod.from(optionId: option.id)
+	                    verificationContext = VerificationContext(isStudent: true, method: method)
+	                    onboardingStore.saveVerificationMethod(method == .photoId ? "photo_id" : "email")
+	                    if method == .photoId {
+	                        navigate(to: .photoIdVerification(isStudent: true))
+	                    } else {
+	                        navigate(to: .emailVerification(isStudent: true))
+	                    }
+	                },
                 onSkip: {
                     skipToNotifications()
                 },
@@ -233,8 +235,8 @@ private extension AuthView {
                 },
                 showsHeader: false
             )
-        case .photoIdVerification(let isStudent):
-            PhotoIdVerificationView(
+	        case .photoIdVerification(let isStudent):
+	            PhotoIdVerificationView(
                 communityId: selectedCommunityId,
                 currentStep: verificationStep(for: .photoIdVerification(isStudent: isStudent)),
                 totalSteps: verificationTotalSteps,
@@ -242,16 +244,17 @@ private extension AuthView {
                 onSkip: {
                     skipToNotifications()
                 },
-                onComplete: {
-                    if verificationContext == nil {
-                        verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
-                    }
-                    pushIfNeeded(.verificationConfirmation)
-                },
-                showsHeader: false
-            )
-        case .emailVerification(let isStudent):
-            EmailVerificationView(
+	                onComplete: {
+	                    if verificationContext == nil {
+	                        verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
+	                        onboardingStore.saveVerificationMethod("photo_id")
+	                    }
+	                    pushIfNeeded(.verificationConfirmation)
+	                },
+	                showsHeader: false
+	            )
+	        case .emailVerification(let isStudent):
+	            EmailVerificationView(
                 communityId: selectedCommunityId,
                 communityName: selectedLoopName,
                 currentStep: verificationStep(for: .emailVerification(isStudent: isStudent)),
@@ -260,28 +263,39 @@ private extension AuthView {
                 onSkip: {
                     skipToNotifications()
                 },
-                onComplete: {
-                    if verificationContext == nil {
-                        verificationContext = VerificationContext(isStudent: isStudent, method: .email)
-                    }
-                    pushIfNeeded(.verificationConfirmation)
-                },
-                showsHeader: false
-            )
-        case .verificationConfirmation:
-            VerificationConfirmationView(
-                authViewModel: authViewModel,
-                currentStep: verificationStep(for: .verificationConfirmation),
-                totalSteps: verificationTotalSteps,
-                onBack: {},
-                onSkip: {
-                    skipToNotifications()
-                },
-                onComplete: {
-                    navigate(to: .verificationNotifications)
-                },
-                showsHeader: false
-            )
+	                onComplete: {
+	                    if verificationContext == nil {
+	                        verificationContext = VerificationContext(isStudent: isStudent, method: .email)
+	                        onboardingStore.saveVerificationMethod("email")
+	                    }
+	                    pushIfNeeded(.verificationConfirmation)
+	                },
+	                showsHeader: false
+	            )
+	        case .verificationConfirmation:
+	            let confirmationKind: VerificationConfirmationView.ConfirmationKind = {
+	                guard let verificationContext else { return .photoIdPending }
+	                switch verificationContext.method {
+	                case .email:
+	                    return .emailVerified(loopName: selectedLoopName)
+	                case .photoId:
+	                    return .photoIdPending
+	                }
+	            }()
+	            VerificationConfirmationView(
+	                authViewModel: authViewModel,
+	                currentStep: verificationStep(for: .verificationConfirmation),
+	                totalSteps: verificationTotalSteps,
+	                onBack: {},
+	                onSkip: {
+	                    skipToNotifications()
+	                },
+	                onComplete: {
+	                    navigate(to: .verificationNotifications)
+	                },
+	                showsHeader: false,
+	                confirmationKind: confirmationKind
+	            )
         case .verificationNotifications:
             VerificationNotificationsView(
                 loopName: selectedLoopName,
@@ -369,13 +383,14 @@ private extension AuthView {
         }
     }
 
-    func skipToNotifications() {
-        verificationFlowMode = .skipped
-        verificationContext = nil
-        if let introIndex = path.lastIndex(where: { screen in
-            if case .verificationIntro = screen { return true }
-            return false
-        }) {
+	    func skipToNotifications() {
+	        verificationFlowMode = .skipped
+	        verificationContext = nil
+	        onboardingStore.clearVerificationMethod()
+	        if let introIndex = path.lastIndex(where: { screen in
+	            if case .verificationIntro = screen { return true }
+	            return false
+	        }) {
             path = Array(path.prefix(introIndex + 1))
         }
         pushIfNeeded(.verificationNotifications)
@@ -420,6 +435,7 @@ private extension AuthView {
     func restoreOnboardingScreen() {
         guard !authViewModel.onboardingComplete else { return }
         restoreOrganizationDraftIfNeeded()
+        restoreVerificationContextIfNeeded()
         if let step = onboardingStore.loadProgress(), let restored = AuthScreen.fromOnboardingStep(step) {
             setNavigationStack(for: restored)
         } else if let remote = authViewModel.onboardingStep {
@@ -501,6 +517,7 @@ private extension AuthView {
     func restoreOrganizationDraftIfNeeded() {
         guard authViewModel.selectedOrganization == nil else { return }
         guard let draft = onboardingStore.loadOrganizationDraft() else { return }
+
         authViewModel.selectedOrganization = Organization(
             backendId: draft.backendId,
             name: draft.name,
@@ -514,6 +531,13 @@ private extension AuthView {
         if selectedCommunityId == nil {
             selectedCommunityId = draft.backendId
         }
+    }
+
+    func restoreVerificationContextIfNeeded() {
+        guard verificationContext == nil else { return }
+        guard let stored = onboardingStore.loadVerificationMethod() else { return }
+        let method: VerificationMethod = stored == "photo_id" ? .photoId : .email
+        verificationContext = VerificationContext(isStudent: isStudentOnboardingFlow, method: method)
     }
 
     func reportRemoteProgressIfNeeded(for screen: AuthScreen) {

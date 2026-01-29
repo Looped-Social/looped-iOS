@@ -238,62 +238,19 @@ struct SinglePostedMedia: View {
 
     var body: some View {
         if attachment.type == .video {
-            // Video thumbnail with play button
-            ZStack {
-                AsyncImage(url: URL(string: attachment.thumbnailUrl ?? attachment.url)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .onAppear { isShimmering = false }
-                    case .failure:
-                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
-                            .onAppear { isShimmering = false }
-                    case .empty:
-                        MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
-                    @unknown default:
-                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+            InlineVideoPlayer(
+                id: attachment.id,
+                videoUrl: attachment.url,
+                thumbnailUrl: attachment.thumbnailUrl,
+                aspectRatio: attachment.width.flatMap { width in
+                    attachment.height.flatMap { height -> CGFloat? in
+                        guard width > 0, height > 0 else { return nil }
+                        return CGFloat(width) / CGFloat(height)
                     }
-                }
-                .frame(maxHeight: maxHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .task {
-                    await stopShimmerAfterDelay()
-                }
-
-                // Play button overlay
-                Circle()
-                    .fill(Color.loopedBlack.opacity(0.6))
-                    .frame(width: 70, height: 70)
-                    .overlay(
-                        Image(systemName: "play.fill")
-                            .font(.loopedCustom(size: 30))
-                            .foregroundColor(.loopedWhite)
-                            .offset(x: 2)
-                    )
-
-                // Duration label if available
-                if let duration = attachment.duration {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Text(formatDuration(duration))
-                                .font(.loopedSmallText)
-                                .foregroundColor(.loopedWhite)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.loopedBlack.opacity(0.7))
-                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                                .padding(12)
-                        }
-                    }
-                }
-            }
-            .onTapGesture {
-                onVideoTap(attachment.url)
-            }
+                },
+                maxHeight: maxHeight,
+                onFullScreen: onVideoTap
+            )
         } else {
             // Image
             AsyncImage(url: URL(string: attachment.url)) { phase in

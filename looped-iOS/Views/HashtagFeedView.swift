@@ -69,8 +69,7 @@ struct HashtagFeedView: View {
                         }
 
                         if viewModel.isLoadingMore {
-                            ProgressView()
-                                .padding()
+                            LoopedInlineLoadingIndicator()
                         }
                     }
                 }
@@ -85,6 +84,15 @@ struct HashtagFeedView: View {
             }
             .loopedPullToRefresh(isAtTop: isAtTop) {
                 await viewModel.loadPosts(reset: true)
+            }
+            .overlay(alignment: .bottom) {
+                if viewModel.isLoadingMore && !viewModel.posts.isEmpty {
+                    LoopedInlineLoadingIndicator()
+                        .background(Color.loopedBackground.opacity(0.92))
+                        .padding(.bottom, 12)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())

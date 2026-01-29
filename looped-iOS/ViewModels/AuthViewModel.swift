@@ -214,6 +214,7 @@ class AuthViewModel: ObservableObject {
         shouldEnterOnboardingFlow = true
         Task { await AnonService.shared.clearIdentity() }
         UserDefaults.standard.set(false, forKey: "anonymousMode")
+        FollowStateStore.shared.reset()
         linkedProviders = []
         #if canImport(FirebaseAuth)
         mfaSession = nil

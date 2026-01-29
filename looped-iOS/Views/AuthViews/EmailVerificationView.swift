@@ -179,11 +179,11 @@ private extension EmailVerificationView {
         }
     }
 
-    var emailEntryCard: some View {
-        VStack(spacing: 16) {
-            Text("Use your \(communityName) email")
-                .font(.loopedSubBodyMedium)
-                .foregroundColor(.loopedTextSecondary)
+	    var emailEntryCard: some View {
+	        VStack(spacing: 16) {
+	            Text("Use your \(communityName) email")
+	                .font(.loopedSubBodyMedium)
+	                .foregroundColor(.loopedTextSecondary)
 
             HStack(spacing: 10) {
                 TextField("username", text: $viewModel.emailLocalPart)
@@ -195,16 +195,22 @@ private extension EmailVerificationView {
                     .autocorrectionDisabled()
                     .keyboardType(.emailAddress)
 
-                domainSelector
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.loopedWhite)
-            .cornerRadius(10)
+	                domainSelector
+	            }
+	            .padding(.horizontal, 12)
+	            .padding(.vertical, 10)
+	            .background(
+	                RoundedRectangle(cornerRadius: 10, style: .continuous)
+	                    .fill(Color.loopedBackground)
+	                    .overlay(
+	                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+	                            .stroke(Color.loopedTextSecondary.opacity(0.18), lineWidth: 1)
+	                    )
+	            )
 
-            if viewModel.domains.count > 1 {
-                Text("Select a domain")
-                    .font(.loopedSmallText)
+	            if viewModel.domains.count > 1 {
+	                Text("Select a domain")
+	                    .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
             }
         }
@@ -279,28 +285,32 @@ private extension EmailVerificationView {
     }
 }
 
-private struct VerificationCodeEntryView: View {
-    @Binding var code: String
-    @FocusState private var isFocused: Bool
+	private struct VerificationCodeEntryView: View {
+	    @Binding var code: String
+	    @FocusState private var isFocused: Bool
 
-    private let digits = 6
+	    private let digits = 6
 
-    var body: some View {
-        ZStack {
-            HStack(spacing: 10) {
-                ForEach(0..<digits, id: \.self) { index in
-                    let character = characterAt(index)
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.loopedWhite)
-                        .frame(width: 28, height: 36)
-                        .shadow(color: Color.loopedBlack.opacity(0.1), radius: 2, x: 0, y: 1)
-                        .overlay(
-                            Text(character)
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                        )
-                }
-            }
+	    var body: some View {
+	        ZStack {
+	            HStack(spacing: 10) {
+	                ForEach(0..<digits, id: \.self) { index in
+	                    let character = characterAt(index)
+	                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+	                        .fill(Color.loopedBackground)
+	                        .frame(width: 28, height: 36)
+	                        .overlay(
+	                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+	                                .stroke(borderColor(for: index), lineWidth: 1)
+	                        )
+	                        .shadow(color: Color.loopedTextSecondary.opacity(0.12), radius: 1, x: 0, y: 1)
+	                        .overlay(
+	                            Text(character)
+	                                .font(.loopedSubBodyMedium)
+	                                .foregroundColor(.loopedTextPrimary)
+	                        )
+	                }
+	            }
 
             TextField("", text: $code)
                 .keyboardType(.numberPad)
@@ -329,12 +339,18 @@ private struct VerificationCodeEntryView: View {
         }
     }
 
-    private func characterAt(_ index: Int) -> String {
-        guard index < code.count else { return "" }
-        let stringIndex = code.index(code.startIndex, offsetBy: index)
-        return String(code[stringIndex])
-    }
-}
+	    private func characterAt(_ index: Int) -> String {
+	        guard index < code.count else { return "" }
+	        let stringIndex = code.index(code.startIndex, offsetBy: index)
+	        return String(code[stringIndex])
+	    }
+
+	    private func borderColor(for index: Int) -> Color {
+	        guard isFocused else { return .loopedTextSecondary.opacity(0.18) }
+	        let nextIndex = min(code.count, digits - 1)
+	        return index == nextIndex ? .loopedPrimary : .loopedTextSecondary.opacity(0.18)
+	    }
+	}
 
 #Preview {
     EmailVerificationView(

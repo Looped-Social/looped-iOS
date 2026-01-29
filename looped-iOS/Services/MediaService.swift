@@ -17,7 +17,8 @@ class MediaService: MediaServiceProtocol {
             width: width,
             height: height,
             durationSeconds: nil,
-            actor: actor
+            actor: actor,
+            thumbnailMediaAssetId: nil
         )
     }
 
@@ -27,7 +28,8 @@ class MediaService: MediaServiceProtocol {
         width: Int,
         height: Int,
         durationSeconds: Int,
-        actor: MediaUploadActor
+        actor: MediaUploadActor,
+        thumbnailMediaAssetId: Int?
     ) async throws -> MediaAsset {
         try await uploadPublicMedia(
             data: nil,
@@ -36,7 +38,8 @@ class MediaService: MediaServiceProtocol {
             width: width,
             height: height,
             durationSeconds: durationSeconds,
-            actor: actor
+            actor: actor,
+            thumbnailMediaAssetId: thumbnailMediaAssetId
         )
     }
 
@@ -70,7 +73,8 @@ class MediaService: MediaServiceProtocol {
         width: Int,
         height: Int,
         durationSeconds: Int?,
-        actor: MediaUploadActor
+        actor: MediaUploadActor,
+        thumbnailMediaAssetId: Int?
     ) async throws -> MediaAsset {
         let presignRequest = MediaPresignRequestDTO(
             contentType: mimeType,
@@ -95,7 +99,8 @@ class MediaService: MediaServiceProtocol {
             mimeType: mimeType,
             width: width,
             height: height,
-            durationSeconds: durationSeconds
+            durationSeconds: durationSeconds,
+            thumbnailMediaAssetId: thumbnailMediaAssetId
         )
         var callbackHeaders: [String: String] = [:]
         if let signature = presign.callbackSignature, !signature.isEmpty {

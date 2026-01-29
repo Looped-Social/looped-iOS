@@ -165,8 +165,11 @@ class AuthService: AuthServiceProtocol {
         guard let user = Auth.auth().currentUser else {
             throw AuthError.invalidCredentials
         }
+        try validateCanUnlink(providerId: "google.com", for: user)
         _ = try await user.unlink(fromProvider: "google.com")
-        if let token = try await currentIDToken() {
+        try await reload(user: user)
+        try validateProviderUnlinked(providerId: "google.com", for: user)
+        if let token = try await currentIDToken(forcingRefresh: true) {
             tokenStorage.token = token
         }
         #else
@@ -240,8 +243,11 @@ class AuthService: AuthServiceProtocol {
         guard let user = Auth.auth().currentUser else {
             throw AuthError.invalidCredentials
         }
+        try validateCanUnlink(providerId: "apple.com", for: user)
         _ = try await user.unlink(fromProvider: "apple.com")
-        if let token = try await currentIDToken() {
+        try await reload(user: user)
+        try validateProviderUnlinked(providerId: "apple.com", for: user)
+        if let token = try await currentIDToken(forcingRefresh: true) {
             tokenStorage.token = token
         }
         #else
@@ -336,6 +342,18 @@ private extension AuthService {
         }
     }
 
+    func reload(user: FirebaseAuth.User) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            user.reload { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: ())
+            }
+        }
+    }
+
     func mapFirebaseAuthError(_ error: Error) -> AuthError {
         let nsError = error as NSError
         if let code = AuthErrorCode(rawValue: nsError.code) {
@@ -368,6 +386,25 @@ private extension AuthService {
         }
         return nsError.userInfo[AuthErrorUserInfoMultiFactorResolverKey] as? MultiFactorResolver
     }
+
+    func validateCanUnlink(providerId: String, for user: FirebaseAuth.User) throws {
+        let providers = user.providerData.map(\.providerID)
+        let isLinked = providers.contains(providerId)
+        if !isLinked {
+            throw AuthProviderLinkError.notLinked(providerId)
+        }
+
+        if providers.count <= 1 {
+            throw AuthProviderLinkError.cannotUnlinkOnlyProvider(providerId)
+        }
+    }
+
+    func validateProviderUnlinked(providerId: String, for user: FirebaseAuth.User) throws {
+        let providers = user.providerData.map(\.providerID)
+        if providers.contains(providerId) {
+            throw AuthProviderLinkError.stillLinked(providerId)
+        }
+    }
     #endif
 }
 
@@ -376,6 +413,41 @@ struct MFARequiredError: Error {
     let resolver: MultiFactorResolver
 }
 #endif
+
+private enum AuthProviderLinkError: LocalizedError {
+    case notLinked(String)
+    case cannotUnlinkOnlyProvider(String)
+    case stillLinked(String)
+
+    private var providerName: String {
+        switch self.providerId {
+        case "apple.com":
+            return "Apple"
+        case "google.com":
+            return "Google"
+        default:
+            return providerId
+        }
+    }
+
+    private var providerId: String {
+        switch self {
+        case .notLinked(let providerId), .cannotUnlinkOnlyProvider(let providerId), .stillLinked(let providerId):
+            return providerId
+        }
+    }
+
+    var errorDescription: String? {
+        switch self {
+        case .notLinked:
+            return "This account isn’t connected to \(providerName)."
+        case .cannotUnlinkOnlyProvider:
+            return "Link another sign-in method first, then disconnect \(providerName)."
+        case .stillLinked:
+            return "Disconnect didn’t complete for \(providerName). Please try again."
+        }
+    }
+}
 
 enum AuthError: Error, LocalizedError {
     case noRefreshToken

@@ -3,6 +3,13 @@ import Combine
 import SwiftUI
 import UIKit
 
+private enum ChatConversationPreviewUpdate {
+    static let name = Foundation.Notification.Name("ChatConversationPreviewUpdate")
+    static let conversationBackendIdKey = "conversationBackendId"
+    static let previewTextKey = "previewText"
+    static let timestampKey = "timestamp"
+}
+
 @MainActor
 class MessagesViewModel: ObservableObject {
     @Published var channels: [Channel] = []
@@ -30,6 +37,47 @@ class MessagesViewModel: ObservableObject {
     ) {
         self.messageService = messageService
         self.userService = userService
+
+        NotificationCenter.default.publisher(for: ChatConversationPreviewUpdate.name)
+            .compactMap { notification -> (Int, String, Date)? in
+                guard let backendId = notification.userInfo?[ChatConversationPreviewUpdate.conversationBackendIdKey] as? Int else { return nil }
+                let previewText = notification.userInfo?[ChatConversationPreviewUpdate.previewTextKey] as? String ?? ""
+                guard let timestamp = notification.userInfo?[ChatConversationPreviewUpdate.timestampKey] as? Date else { return nil }
+                return (backendId, previewText, timestamp)
+            }
+            .sink { [weak self] backendId, previewText, timestamp in
+                Task { @MainActor in
+                    self?.applyConversationPreviewUpdate(
+                        conversationBackendId: backendId,
+                        previewText: previewText,
+                        timestamp: timestamp
+                    )
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyConversationPreviewUpdate(conversationBackendId: Int, previewText: String, timestamp: Date) {
+        guard let existingIndex = conversations.firstIndex(where: { $0.backendId == conversationBackendId }) else { return }
+        let existing = conversations[existingIndex]
+        let updated = Conversation(
+            id: existing.id,
+            backendId: existing.backendId,
+            userId: existing.userId,
+            backendUserId: existing.backendUserId,
+            userName: existing.userName,
+            userProfileImageUrl: existing.userProfileImageUrl,
+            lastMessage: previewText,
+            lastMessageTimestamp: timestamp,
+            unreadCount: existing.unreadCount,
+            hasTypingIndicator: existing.hasTypingIndicator,
+            hasSpecialStatus: existing.hasSpecialStatus,
+            isOnline: existing.isOnline,
+            isGroup: existing.isGroup,
+            memberIds: existing.memberIds
+        )
+        conversations.remove(at: existingIndex)
+        conversations.insert(updated, at: 0)
     }
 
     func loadChannels() async {
@@ -425,6 +473,7 @@ class ChatViewModel: ObservableObject {
                 attachments: attachments.isEmpty ? nil : attachments
             )
             messages.append(message)
+            publishConversationPreviewUpdate(for: message)
             return true
         } catch {
             handleDirectMessageError(error)
@@ -528,6 +577,7 @@ class ChatViewModel: ObservableObject {
                 guard let self else { return }
                 if self.messages.contains(where: { $0.backendId == message.backendId }) == false {
                     self.messages.append(message)
+                    self.publishConversationPreviewUpdate(for: message)
                 }
             }
             .store(in: &cancellables)
@@ -573,6 +623,45 @@ class ChatViewModel: ObservableObject {
         }
         guard !appended.isEmpty else { return }
         messages.append(contentsOf: appended)
+        if let latest = appended.max(by: { $0.createdAt < $1.createdAt }) {
+            publishConversationPreviewUpdate(for: latest)
+        }
+    }
+
+    private func publishConversationPreviewUpdate(for message: Message) {
+        guard message.messageType == .direct else { return }
+        guard let conversationBackendId = message.conversationBackendId else { return }
+
+        let previewText = conversationPreviewText(for: message)
+        NotificationCenter.default.post(
+            name: ChatConversationPreviewUpdate.name,
+            object: nil,
+            userInfo: [
+                ChatConversationPreviewUpdate.conversationBackendIdKey: conversationBackendId,
+                ChatConversationPreviewUpdate.previewTextKey: previewText,
+                ChatConversationPreviewUpdate.timestampKey: message.createdAt
+            ]
+        )
+    }
+
+    private func conversationPreviewText(for message: Message) -> String {
+        let trimmed = message.normalizedContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+
+        guard let attachments = message.attachments, !attachments.isEmpty else { return "" }
+        let imagesCount = attachments.filter { $0.type == .image }.count
+        let videosCount = attachments.filter { $0.type == .video }.count
+
+        if imagesCount > 0 && videosCount == 0 {
+            return imagesCount == 1 ? "Photo" : "\(imagesCount) Photos"
+        }
+        if videosCount > 0 && imagesCount == 0 {
+            return videosCount == 1 ? "Video" : "\(videosCount) Videos"
+        }
+        if imagesCount > 0 && videosCount > 0 {
+            return "Media"
+        }
+        return "Attachment"
     }
 }
 

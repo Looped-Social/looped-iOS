@@ -61,7 +61,10 @@ final class CollectionPostsViewModel: ObservableObject {
     }
     
     func loadMoreIfNeeded(currentPost: Post) async {
-        guard let last = posts.last, last.id == currentPost.id else { return }
+        let prefetchThreshold = 6
+        guard nextCursor != nil else { return }
+        guard !posts.isEmpty else { return }
+        guard posts.suffix(prefetchThreshold).contains(where: { $0.id == currentPost.id }) else { return }
         await loadMore(reset: false)
     }
     

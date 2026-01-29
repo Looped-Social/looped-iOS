@@ -215,19 +215,31 @@ struct CommentRow: View {
                                     .foregroundColor(.loopedTextSecondary)
                             }
 
-                            Button(action: {
-                                onReply?(comment)
-                            }) {
-                                Text("Reply")
-                                    .font(metadataFont)
-                                    .foregroundColor(.loopedTextSecondary)
+                            if let onReply {
+                                Button(action: { onReply(comment) }) {
+                                    Text("Reply")
+                                        .font(metadataFont)
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
                             }
 
                             Spacer()
 
-                            Button(action: {
-                                onLike?(comment)
-                            }) {
+                            if let onLike {
+                                Button(action: { onLike(comment) }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: comment.userLiked ? "heart.fill" : "heart")
+                                            .font(.loopedCustom(size: 12))
+                                            .foregroundColor(comment.userLiked ? .loopedError : .loopedTextSecondary)
+
+                                        if comment.likeCount > 0 {
+                                            Text("\(comment.likeCount)")
+                                                .font(metadataFont)
+                                                .foregroundColor(.loopedTextSecondary)
+                                        }
+                                    }
+                                }
+                            } else {
                                 HStack(spacing: 4) {
                                     Image(systemName: comment.userLiked ? "heart.fill" : "heart")
                                         .font(.loopedCustom(size: 12))

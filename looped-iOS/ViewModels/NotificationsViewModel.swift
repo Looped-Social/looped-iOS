@@ -15,18 +15,30 @@ class NotificationsViewModel: ObservableObject {
     private let notificationService: NotificationServiceProtocol
     private let userService: UserServiceProtocol
     private let cacheStore: NotificationCacheStore
+    private let followStateStore: FollowStateStore
     private var nextCursor: String?
     private var actorCache: [Int: ActorProfile] = [:]
+    private var cancellables: Set<AnyCancellable> = []
 
     init(
         notificationService: NotificationServiceProtocol = NotificationService(),
         userService: UserServiceProtocol = UserService(),
-        cacheStore: NotificationCacheStore = NotificationCacheStore()
+        cacheStore: NotificationCacheStore = NotificationCacheStore(),
+        followStateStore: FollowStateStore = .shared
     ) {
         self.notificationService = notificationService
         self.userService = userService
         self.cacheStore = cacheStore
+        self.followStateStore = followStateStore
         self.notifications = cacheStore.load()
+        self.followedActorIds = followStateStore.followingUserIds
+
+        followStateStore.$followingUserIds
+            .receive(on: RunLoop.main)
+            .sink { [weak self] ids in
+                self?.followedActorIds = ids
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Load Notifications
@@ -135,7 +147,7 @@ class NotificationsViewModel: ObservableObject {
         switch notification.type {
         case .follow:
             guard let backendId = notification.actorId?.backendInt else { return nil }
-            return followedActorIds.contains(backendId) ? "Following" : "Follow"
+            return followedActorIds.contains(backendId) ? "Following" : "Follow Back"
         case .loopInvite:
             return "Join Loop"
         case .groupInvite:
@@ -218,7 +230,7 @@ class NotificationsViewModel: ObservableObject {
             do {
                 let result = try await userService.unfollowUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
                 if result.following == false {
-                    followedActorIds.remove(backendUserId)
+                    followStateStore.setFollowing(false, userId: backendUserId)
                 }
             } catch {
                 toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
@@ -229,7 +241,7 @@ class NotificationsViewModel: ObservableObject {
         do {
             let result = try await userService.followUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
             if result.following {
-                followedActorIds.insert(backendUserId)
+                followStateStore.setFollowing(true, userId: backendUserId)
             }
         } catch {
             toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)

@@ -37,6 +37,7 @@ final class OnboardingProgressStore {
     private let progressKey = "looped.onboarding.progress"
     private let profileDraftKey = "looped.onboarding.profileDraft"
     private let organizationDraftKey = "looped.onboarding.organizationDraft"
+    private let verificationMethodKey = "looped.onboarding.verificationMethod"
     private let defaults: UserDefaults
     private let keychain: KeychainStore
 
@@ -96,9 +97,22 @@ final class OnboardingProgressStore {
         defaults.removeObject(forKey: organizationDraftKey)
     }
 
+    func saveVerificationMethod(_ method: String) {
+        defaults.set(method, forKey: verificationMethodKey)
+    }
+
+    func loadVerificationMethod() -> String? {
+        defaults.string(forKey: verificationMethodKey)
+    }
+
+    func clearVerificationMethod() {
+        defaults.removeObject(forKey: verificationMethodKey)
+    }
+
     func clearAll() {
         clearProgress()
         clearProfileDraft()
         clearOrganizationDraft()
+        clearVerificationMethod()
     }
 }

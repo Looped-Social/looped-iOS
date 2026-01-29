@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 @MainActor
 class ProfileViewModel: ObservableObject {
@@ -18,6 +19,7 @@ class ProfileViewModel: ObservableObject {
     private let authService: AuthServiceProtocol
     private let anonService: AnonService
     private let verificationService: CommunityVerificationServiceProtocol
+    private let mediaService: MediaServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     
     init(
@@ -25,13 +27,15 @@ class ProfileViewModel: ObservableObject {
         feedService: FeedServiceProtocol = FeedService(),
         authService: AuthServiceProtocol = AuthService(),
         anonService: AnonService = .shared,
-        verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+        verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService(),
+        mediaService: MediaServiceProtocol = MediaService()
     ) {
         self.userService = userService
         self.feedService = feedService
         self.authService = authService
         self.anonService = anonService
         self.verificationService = verificationService
+        self.mediaService = mediaService
     }
     
     func loadUserProfile() async {
@@ -125,6 +129,99 @@ class ProfileViewModel: ObservableObject {
         }
     }
 
+    func updateProfileWithPhoto(
+        displayName: String?,
+        handle: String?,
+        bio: String? = nil,
+        isAnonymous: Bool,
+        showFollowerCount: Bool?,
+        messagePermission: MessagePermission? = nil,
+        profileImage: UIImage?
+    ) async {
+        do {
+            var workingUser = user
+            let trimmedHandle = (handle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !isAnonymous,
+               !trimmedHandle.isEmpty,
+               let currentHandle = workingUser?.handle,
+               currentHandle.lowercased() != trimmedHandle.lowercased() {
+                guard
+                    let firstName = workingUser?.firstName, !firstName.isEmpty,
+                    let lastName = workingUser?.lastName, !lastName.isEmpty,
+                    let dateOfBirth = workingUser?.dateOfBirth, !dateOfBirth.isEmpty
+                else {
+                    throw NSError(domain: "looped.profile", code: 2, userInfo: [
+                        NSLocalizedDescriptionKey: "Missing required identity info to update your handle."
+                    ])
+                }
+                let updatedIdentityUser = try await userService.updateIdentity(
+                    username: trimmedHandle,
+                    firstName: firstName,
+                    lastName: lastName,
+                    dateOfBirth: dateOfBirth
+                )
+                workingUser = updatedIdentityUser
+                user = updatedIdentityUser
+            }
+
+            var profileMediaAssetId: Int?
+            if !isAnonymous, let profileImage {
+                let prepared = profileImage.normalizedOrientation().resized(maxDimension: 2048)
+                guard let payload = makeUploadPayload(from: prepared) else {
+                    throw NSError(domain: "looped.profile", code: 1, userInfo: [
+                        NSLocalizedDescriptionKey: "Couldn't prepare that profile photo. Try another one."
+                    ])
+                }
+                let asset = try await mediaService.uploadImage(
+                    data: payload.data,
+                    mimeType: payload.mimeType,
+                    width: payload.width,
+                    height: payload.height
+                )
+                profileMediaAssetId = asset.id
+            }
+
+            let updatedUser = try await userService.updateProfile(
+                displayName: displayName,
+                bio: bio,
+                isAnonymous: isAnonymous,
+                showFollowerCount: showFollowerCount,
+                messagePermission: messagePermission ?? workingUser?.messagePermission,
+                profileMediaAssetId: profileMediaAssetId
+            )
+            user = updatedUser
+            userProfile = UserProfile.from(user: updatedUser, isCurrentUser: true)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func makeUploadPayload(from image: UIImage) -> ImageUploadPayload? {
+        let width = Int(image.size.width * image.scale)
+        let height = Int(image.size.height * image.scale)
+
+        if imageHasAlpha(image), let pngData = image.pngData() {
+            return ImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
+        }
+
+        if let jpegData = image.jpegData(compressionQuality: 0.85) {
+            return ImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
+        }
+
+        return nil
+    }
+
+    private func imageHasAlpha(_ image: UIImage) -> Bool {
+        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
+        switch alphaInfo {
+        case .first, .last, .premultipliedFirst, .premultipliedLast:
+            return true
+        default:
+            return false
+        }
+    }
+
     private func fallbackAnonProfile(identity: AnonIdentity) -> AnonProfile {
         AnonProfile(
             id: identity.profileId,
@@ -197,4 +294,11 @@ class ProfileViewModel: ObservableObject {
             userPosts[index] = updated
         }
     }
+}
+
+private struct ImageUploadPayload {
+    let data: Data
+    let mimeType: String
+    let width: Int
+    let height: Int
 }

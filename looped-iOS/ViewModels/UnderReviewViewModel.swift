@@ -28,7 +28,10 @@ final class UnderReviewViewModel: ObservableObject {
     }
 
     func loadMoreIfNeeded(current post: Post) async {
-        guard let last = posts.last, last.id == post.id else { return }
+        let prefetchThreshold = 6
+        guard nextCursor != nil else { return }
+        guard !posts.isEmpty else { return }
+        guard posts.suffix(prefetchThreshold).contains(where: { $0.id == post.id }) else { return }
         await load(reset: false)
     }
 

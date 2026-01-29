@@ -20,6 +20,8 @@ struct UserProfileView: View {
     @State private var isAtTop = true
     @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
     @State private var headerHeight: CGFloat = 0
+    @State private var headerVisible = true
+    @State private var lastScrollOffset: CGFloat = 0
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
     @State private var canPop = false
@@ -210,7 +212,7 @@ struct UserProfileView: View {
 	                    GeometryReader { geo in
 	                        Color.loopedClear
 	                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-	                                isAtTop = newValue >= -20
+	                                handleScroll(newValue)
 	                            }
 	                    }
 	                )
@@ -277,12 +279,16 @@ struct UserProfileView: View {
 	                }
 	            }
 	            .padding(.top, 12)
-	            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top))
+	            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top).allowsHitTesting(false))
 	            .background(
 	                GeometryReader { proxy in
 	                    Color.loopedClear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
 	                }
 	            )
+                .offset(y: headerVisible ? 0 : -headerHeight)
+                .opacity(headerVisible ? 1 : 0)
+                .allowsHitTesting(headerVisible)
+                .animation(.easeInOut(duration: 0.22), value: headerVisible)
 	        }
 	    }
 
@@ -326,6 +332,32 @@ struct UserProfileView: View {
 	        guard newValue > 0, abs(newValue - headerHeight) > 1 else { return }
 	        headerHeight = newValue
 	    }
+
+        private func handleScroll(_ offset: CGFloat) {
+            let delta = offset - lastScrollOffset
+
+            // At/near top: always show header
+            if offset >= -20 {
+                if !headerVisible {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        headerVisible = true
+                    }
+                }
+            } else if delta < -2, headerVisible {
+                // Any meaningful scroll down collapses
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    headerVisible = false
+                }
+            } else if delta > 2, !headerVisible {
+                // Any meaningful scroll up expands
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    headerVisible = true
+                }
+            }
+
+            isAtTop = offset >= -20
+            lastScrollOffset = offset
+        }
 
     private func reload() async {
         await viewModel.loadProfile()

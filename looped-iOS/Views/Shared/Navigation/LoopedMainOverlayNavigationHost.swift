@@ -36,6 +36,22 @@ struct LoopedMainOverlayNavigationHost: View {
     }
 
     var body: some View {
+        Group {
+            if destination == .editProfile {
+                navigationStack
+            } else {
+                navigationStack
+                    .edgeSwipeToDismiss { onDismiss() }
+            }
+        }
+        .onChange(of: path) { _, newValue in
+            if newValue.isEmpty {
+                onDismiss()
+            }
+        }
+    }
+
+    private var navigationStack: some View {
         NavigationStack(path: $path) {
             Color.loopedBackground
                 .ignoresSafeArea()
@@ -47,12 +63,6 @@ struct LoopedMainOverlayNavigationHost: View {
                         UserSettingsView()
                     }
                 }
-        }
-        .edgeSwipeToDismiss { onDismiss() }
-        .onChange(of: path) { _, newValue in
-            if newValue.isEmpty {
-                onDismiss()
-            }
         }
     }
 }

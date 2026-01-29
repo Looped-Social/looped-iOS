@@ -192,12 +192,19 @@ struct ChatInputView: View {
             )
         }
         .fullScreenCover(isPresented: $showCamera) {
-            CameraPickerView(selectedImage: .init(
+            CameraMediaPickerView(selectedItem: .init(
                 get: { nil },
-                set: { image in
-                    if let image = image {
+                set: { item in
+                    guard let item else { return }
+                    switch item.type {
+                    case .image:
                         guard !isMediaSelectionFull else { return }
-                        selectedMedia.append(LocalMediaItem(type: .image, image: image))
+                        selectedMedia.append(LocalMediaItem(type: .image, image: item.image))
+                    case .video:
+                        selectedMedia.forEach { TemporaryMediaFile.deleteIfOwned($0.videoURL) }
+                        selectedMedia = [item]
+                    case .gif:
+                        break
                     }
                 }
             ))

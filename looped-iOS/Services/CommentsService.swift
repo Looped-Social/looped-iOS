@@ -274,7 +274,20 @@ private extension CommentsService {
             let byId = Dictionary(uniqueKeysWithValues: assets.compactMap { asset -> (Int, MediaAttachment)? in
                 guard let url = asset.cdnUrl, !url.isEmpty else { return nil }
                 let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
-                return (asset.id, MediaAttachment(id: "asset:\(asset.id)", type: type, url: url))
+                let thumbnailUrl = type == .video ? asset.thumbnailUrl : nil
+                let duration = asset.durationSeconds.map(TimeInterval.init)
+                return (
+                    asset.id,
+                    MediaAttachment(
+                        id: "asset:\(asset.id)",
+                        type: type,
+                        url: url,
+                        thumbnailUrl: thumbnailUrl,
+                        width: asset.width,
+                        height: asset.height,
+                        duration: duration
+                    )
+                )
             })
             if byId.isEmpty { return page }
             let resolved = page.comments.map { comment in

@@ -8,6 +8,12 @@ struct VerificationConfirmationView: View {
     let onSkip: (() -> Void)?
     let onComplete: () -> Void
     let showsHeader: Bool
+    let confirmationKind: ConfirmationKind
+
+    enum ConfirmationKind: Equatable {
+        case photoIdPending
+        case emailVerified(loopName: String)
+    }
 
     init(
         authViewModel: AuthViewModel,
@@ -16,7 +22,8 @@ struct VerificationConfirmationView: View {
         onBack: @escaping () -> Void,
         onSkip: (() -> Void)? = nil,
         onComplete: @escaping () -> Void,
-        showsHeader: Bool = true
+        showsHeader: Bool = true,
+        confirmationKind: ConfirmationKind = .photoIdPending
     ) {
         self.authViewModel = authViewModel
         self.currentStep = currentStep
@@ -25,6 +32,7 @@ struct VerificationConfirmationView: View {
         self.onSkip = onSkip
         self.onComplete = onComplete
         self.showsHeader = showsHeader
+        self.confirmationKind = confirmationKind
     }
 
     var body: some View {
@@ -50,11 +58,11 @@ struct VerificationConfirmationView: View {
                     .padding(.horizontal, 28)
 
                 VStack(spacing: 10) {
-                    Text("Thanks for submitting!")
+                    Text(titleText)
                         .font(.loopedSubheadMedium)
                         .foregroundColor(.loopedTextPrimary)
 
-                    Text("Give us 24 Hours to process your verification,\nyou're on your way to your first loop!")
+                    Text(subtitleText)
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                         .multilineTextAlignment(.center)
@@ -115,8 +123,32 @@ private extension VerificationConfirmationView {
             VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
         }
     }
+
+    var titleText: String {
+        switch confirmationKind {
+        case .photoIdPending:
+            return "Thanks for submitting!"
+        case .emailVerified:
+            return "You’re verified!"
+        }
+    }
+
+    var subtitleText: String {
+        switch confirmationKind {
+        case .photoIdPending:
+            return "Give us 24 Hours to process your verification,\nyou're on your way to your first loop!"
+        case .emailVerified(let loopName):
+            return "You’re verified for \(loopName).\nFollow the rules and have fun."
+        }
+    }
 }
 
 #Preview {
-    VerificationConfirmationView(authViewModel: AuthViewModel(), onBack: { }, onSkip: { }, onComplete: { })
+    VerificationConfirmationView(
+        authViewModel: AuthViewModel(),
+        onBack: { },
+        onSkip: { },
+        onComplete: { },
+        confirmationKind: .emailVerified(loopName: "Looped")
+    )
 }

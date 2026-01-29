@@ -2,7 +2,7 @@ import SwiftUI
 
 struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var draftStore = PostDraftStore()
+    @ObservedObject private var draftStore: PostDraftStore
     @State private var postText: String = ""
     @FocusState private var isPostTextFocused: Bool
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
@@ -29,11 +29,13 @@ struct CreatePostView: View {
 
     init(
         feedViewModel: FeedViewModel,
+        draftStore: PostDraftStore = PostDraftStore(),
         draft: PostDraft? = nil,
         onPostCreated: (() -> Void)? = nil,
         onPostStatus: ((ToastMessage) -> Void)? = nil
     ) {
         self.feedViewModel = feedViewModel
+        self.draftStore = draftStore
         self.draft = draft
         self.onPostCreated = onPostCreated
         self.onPostStatus = onPostStatus
@@ -377,20 +379,28 @@ struct CreatePostView: View {
             )
         }
 	        .fullScreenCover(isPresented: $showCamera) {
-	            CameraPickerView(selectedImage: .init(
-	                get: { nil },
-	                set: { image in
-	                    if let image = image {
-	                        let newItem = LocalMediaItem(type: .image, image: image)
-                        if selectedMedia.contains(where: { $0.type == .video }) || selectedMedia.count >= 4 {
-                            selectedMedia = [newItem]
-                            presentToast(message: "Replaced attachments (max 4 photos).", kind: .info)
-                        } else {
-                            selectedMedia.append(newItem)
+                CameraMediaPickerView(selectedItem: .init(
+                    get: { nil },
+                    set: { item in
+                        guard let item else { return }
+                        switch item.type {
+                        case .image:
+                            let newItem = LocalMediaItem(type: .image, image: item.image)
+                            if selectedMedia.contains(where: { $0.type == .video }) || selectedMedia.count >= 4 {
+                                selectedMedia.forEach { TemporaryMediaFile.deleteIfOwned($0.videoURL) }
+                                selectedMedia = [newItem]
+                                presentToast(message: "Replaced attachments (max 4 photos).", kind: .info)
+                            } else {
+                                selectedMedia.append(newItem)
+                            }
+                        case .video:
+                            selectedMedia.forEach { TemporaryMediaFile.deleteIfOwned($0.videoURL) }
+                            selectedMedia = [item]
+                        case .gif:
+                            break
                         }
-	                    }
-	                }
-	            ))
+                    }
+                ))
 	        }
         .onAppear {
             syncSelectedCommunity()
@@ -453,6 +463,9 @@ struct CreatePostView: View {
         let contentToSend = trimmedContent
         let mediaToSend = selectedMedia
         let pollDraftToSend = pollToSend
+        let payloadContentToSend = (contentToSend.isEmpty && pollDraftToSend != nil)
+            ? (pollDraftToSend?.question.trimmingCharacters(in: .whitespacesAndNewlines) ?? contentToSend)
+            : contentToSend
         let isAnonymousToSend = isAnonymous
         let activeDraftIdToCleanup = activeDraftId
         let communityName = selectedCommunity?.name
@@ -466,7 +479,7 @@ struct CreatePostView: View {
 
         Task {
             let result = await feedViewModel.createPost(
-                content: contentToSend,
+                content: payloadContentToSend,
                 isAnonymous: isAnonymousToSend,
                 communityId: communityId,
                 media: mediaToSend,
@@ -478,24 +491,23 @@ struct CreatePostView: View {
 
             await MainActor.run {
                 isSubmitting = false
-                if result == .created || result == .createdUnderReview {
+                if result == .created || result == .createdUnderReview || result == .queuedForReview {
                     if let activeDraftIdToCleanup {
-                        PostDraftStore().delete(id: activeDraftIdToCleanup)
+                        draftStore.delete(id: activeDraftIdToCleanup)
                     }
                     if result == .createdUnderReview {
                         onPostStatus?(ToastMessage(text: "Posted (under review)", kind: .success))
                     } else if result == .created {
                         onPostStatus?(ToastMessage(text: "Post created", kind: .success))
+                    } else if result == .queuedForReview {
+                        onPostStatus?(ToastMessage(text: "Under review", kind: .info))
                     }
-                } else if result == .queuedForReview {
-                    onPostStatus?(ToastMessage(text: "Under review", kind: .info))
                 } else {
                     var savedDraftId: UUID?
-                    let drafts = PostDraftStore()
                     if let activeDraftIdToCleanup {
                         savedDraftId = activeDraftIdToCleanup
                         if !contentToSend.isEmpty || pollDraftToSend != nil {
-                            _ = drafts.upsertDraft(
+                            _ = draftStore.upsertDraft(
                                 id: activeDraftIdToCleanup,
                                 content: contentToSend,
                                 communityId: communityId,
@@ -504,7 +516,7 @@ struct CreatePostView: View {
                             )
                         }
                     } else if !contentToSend.isEmpty || pollDraftToSend != nil {
-                        let draft = drafts.upsertDraft(
+                        let draft = draftStore.upsertDraft(
                             id: nil,
                             content: contentToSend,
                             communityId: communityId,
@@ -652,5 +664,5 @@ struct CreatePostView: View {
 }
 
 #Preview {
-    CreatePostView(feedViewModel: FeedViewModel())
+    CreatePostView(feedViewModel: FeedViewModel(), draftStore: PostDraftStore())
 }

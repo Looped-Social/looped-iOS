@@ -303,7 +303,8 @@ protocol MediaServiceProtocol {
         width: Int,
         height: Int,
         durationSeconds: Int,
-        actor: MediaUploadActor
+        actor: MediaUploadActor,
+        thumbnailMediaAssetId: Int?
     ) async throws -> MediaAsset
     func resolvePublicMedia(ids: [Int]) async throws -> [MediaAsset]
 }
@@ -316,6 +317,25 @@ enum MediaUploadActor: Equatable {
 extension MediaServiceProtocol {
     func uploadImage(data: Data, mimeType: String, width: Int, height: Int) async throws -> MediaAsset {
         try await uploadImage(data: data, mimeType: mimeType, width: width, height: height, actor: .user)
+    }
+
+    func uploadVideo(
+        fileURL: URL,
+        mimeType: String,
+        width: Int,
+        height: Int,
+        durationSeconds: Int,
+        actor: MediaUploadActor
+    ) async throws -> MediaAsset {
+        try await uploadVideo(
+            fileURL: fileURL,
+            mimeType: mimeType,
+            width: width,
+            height: height,
+            durationSeconds: durationSeconds,
+            actor: actor,
+            thumbnailMediaAssetId: nil
+        )
     }
 }
 

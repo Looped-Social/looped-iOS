@@ -496,17 +496,45 @@ private extension CommentsModalManager {
                 TemporaryMediaFile.deleteIfOwned(url)
             }
             let metadata = videoMetadata(url: mp4Url)
+            var thumbnailMediaAssetId: Int?
+            var thumbnailUrl: String?
+            if let thumbnailImage = item.image ?? makeVideoThumbnail(url: mp4Url),
+               let payload = makeUploadPayload(from: thumbnailImage) {
+                do {
+                    let thumbnailAsset = try await mediaService.uploadImage(
+                        data: payload.data,
+                        mimeType: payload.mimeType,
+                        width: payload.width,
+                        height: payload.height,
+                        actor: actor
+                    )
+                    thumbnailMediaAssetId = thumbnailAsset.id
+                    thumbnailUrl = thumbnailAsset.cdnUrl
+                } catch {
+                    thumbnailMediaAssetId = nil
+                    thumbnailUrl = nil
+                }
+            }
             let asset = try await mediaService.uploadVideo(
                 fileURL: mp4Url,
                 mimeType: "video/mp4",
                 width: metadata.width,
                 height: metadata.height,
                 durationSeconds: metadata.durationSeconds,
-                actor: actor
+                actor: actor,
+                thumbnailMediaAssetId: thumbnailMediaAssetId
             )
             let attachment = asset.cdnUrl.flatMap { url -> MediaAttachment? in
                 guard !url.isEmpty else { return nil }
-                return MediaAttachment(id: "asset:\(asset.id)", type: .video, url: url, width: metadata.width, height: metadata.height, duration: TimeInterval(metadata.durationSeconds))
+                return MediaAttachment(
+                    id: "asset:\(asset.id)",
+                    type: .video,
+                    url: url,
+                    thumbnailUrl: thumbnailUrl,
+                    width: metadata.width,
+                    height: metadata.height,
+                    duration: TimeInterval(metadata.durationSeconds)
+                )
             }
             return UploadResult(asset: asset, attachment: attachment)
         case .gif:
@@ -529,6 +557,19 @@ private extension CommentsModalManager {
         let width = Int(abs(transformed.width).rounded())
         let height = Int(abs(transformed.height).rounded())
         return (width: max(width, 0), height: max(height, 0), durationSeconds: max(duration, 0))
+    }
+
+    func makeVideoThumbnail(url: URL) -> UIImage? {
+        let asset = AVAsset(url: url)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+
+        do {
+            let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
+            return UIImage(cgImage: cgImage)
+        } catch {
+            return nil
+        }
     }
 }
 

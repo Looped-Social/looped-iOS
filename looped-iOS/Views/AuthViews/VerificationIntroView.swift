@@ -73,12 +73,12 @@ struct VerificationIntroView: View {
                             .foregroundColor(.loopedSecondary)
                     }
 
-                    if let onSkip {
-                        Button(action: onSkip) {
-                            Text("Skip for now")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
+	                    if currentStep > 1, let onSkip {
+	                        Button(action: onSkip) {
+	                            Text("Skip for now")
+	                                .font(.loopedBodyMedium)
+	                                .foregroundColor(.loopedTextSecondary)
+	                        }
                     }
                 }
                 .padding(.horizontal, 32)
@@ -114,12 +114,14 @@ private extension VerificationIntroView {
     }
 }
 
-#Preview {
-    VerificationIntroView(
-        loopName: "Looped",
-        onBack: {},
-        onContinue: {},
-        onSkip: {},
-        onHowItWorks: {}
-    )
-}
+	#Preview {
+	    VerificationIntroView(
+	        loopName: "Looped",
+	        currentStep: 2,
+	        totalSteps: 5,
+	        onBack: {},
+	        onContinue: {},
+	        onSkip: {},
+	        onHowItWorks: {}
+	    )
+	}

@@ -75,8 +75,7 @@ struct FeedView: View {
                             }
 
                             if viewModel.isLoadingMore {
-                                ProgressView()
-                                    .padding()
+                                LoopedInlineLoadingIndicator()
                             }
                         }
                     }
@@ -122,6 +121,15 @@ struct FeedView: View {
                 }
                 .animation(.easeInOut(duration: 0.2), value: viewModel.newPostsToastCount)
             }
+            .overlay(alignment: .bottom) {
+                if viewModel.isLoadingMore && !viewModel.posts.isEmpty {
+                    LoopedInlineLoadingIndicator()
+                        .background(Color.loopedBackground.opacity(0.92))
+                        .padding(.bottom, isTabBarVisible ? 72 : 12)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
 
             // Fixed header with proper safe area handling
             VStack(spacing: 0) {
@@ -161,6 +169,7 @@ struct FeedView: View {
             .background(
                 Color.loopedBackground
                     .ignoresSafeArea(.all, edges: .top)
+                    .allowsHitTesting(false)
             )
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)

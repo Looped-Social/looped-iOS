@@ -343,8 +343,7 @@ struct CommunityProfileView: View {
                 }
 
                 if viewModel.isLoadingMore {
-                    ProgressView()
-                        .padding(.vertical, 16)
+                    LoopedInlineLoadingIndicator()
                 }
             }
 

@@ -18,6 +18,7 @@ struct MediaCallbackRequestDTO: Encodable {
     let width: Int
     let height: Int
     let durationSeconds: Int?
+    let thumbnailMediaAssetId: Int?
 }
 
 struct MediaCallbackResponseDTO: Decodable {
@@ -25,6 +26,7 @@ struct MediaCallbackResponseDTO: Decodable {
     let key: String
     let mimeType: String
     let cdnUrl: String?
+    let thumbnailMediaAssetId: Int?
 }
 
 struct MediaResolveRequestDTO: Encodable {
@@ -40,4 +42,13 @@ struct MediaResolveItemDTO: Decodable {
     let key: String
     let mimeType: String
     let cdnUrl: String?
+    let width: Int?
+    let height: Int?
+    let durationSeconds: Int?
+    let thumbnailUrl: String?
+    let thumbnailMediaAssetId: Int?
+    let expiresAt: Date?
+    let ttlSeconds: Int?
+    let thumbnailExpiresAt: Date?
+    let thumbnailTtlSeconds: Int?
 }

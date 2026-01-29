@@ -1,5 +1,7 @@
 import SwiftUI
 import PhotosUI
+import AVFoundation
+import UniformTypeIdentifiers
 
 struct MediaPickerView: UIViewControllerRepresentable {
     @Binding var selectedMedia: [LocalMediaItem]
@@ -175,8 +177,6 @@ struct CameraPickerView: UIViewControllerRepresentable {
     }
 }
 
-import AVFoundation
-
 #Preview {
     struct PreviewWrapper: View {
         @State private var selectedMedia: [LocalMediaItem] = []
@@ -199,4 +199,88 @@ import AVFoundation
     }
 
     return PreviewWrapper()
+}
+
+// MARK: - Camera Media Picker (photo + video)
+struct CameraMediaPickerView: UIViewControllerRepresentable {
+    @Binding var selectedItem: LocalMediaItem?
+    @Environment(\.presentationMode) private var presentationMode
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.modalPresentationStyle = .fullScreen
+        picker.mediaTypes = [UTType.image.identifier, UTType.movie.identifier]
+        picker.videoQuality = .typeMedium
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        private let parent: CameraMediaPickerView
+
+        init(_ parent: CameraMediaPickerView) {
+            self.parent = parent
+        }
+
+        func imagePickerController(
+            _ picker: UIImagePickerController,
+            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+        ) {
+            defer { parent.presentationMode.wrappedValue.dismiss() }
+
+            let mediaType = info[.mediaType] as? String
+            if mediaType == UTType.movie.identifier {
+                guard let url = info[.mediaURL] as? URL else { return }
+                let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension
+                let tempURL = TemporaryMediaFile.makeURL(extension: ext)
+                try? FileManager.default.copyItem(at: url, to: tempURL)
+
+                let thumbnail = generateVideoThumbnail(url: tempURL)
+                let duration = getVideoDuration(url: tempURL)
+
+                parent.selectedItem = LocalMediaItem(
+                    type: .video,
+                    image: thumbnail,
+                    videoURL: tempURL,
+                    duration: duration
+                )
+                return
+            }
+
+            if mediaType == UTType.image.identifier || mediaType == "public.image" {
+                if let image = info[.originalImage] as? UIImage {
+                    parent.selectedItem = LocalMediaItem(type: .image, image: image)
+                }
+            }
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.presentationMode.wrappedValue.dismiss()
+        }
+
+        private func generateVideoThumbnail(url: URL) -> UIImage? {
+            let asset = AVAsset(url: url)
+            let imageGenerator = AVAssetImageGenerator(asset: asset)
+            imageGenerator.appliesPreferredTrackTransform = true
+
+            do {
+                let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
+                return UIImage(cgImage: cgImage)
+            } catch {
+                return nil
+            }
+        }
+
+        private func getVideoDuration(url: URL) -> TimeInterval {
+            let asset = AVAsset(url: url)
+            return CMTimeGetSeconds(asset.duration)
+        }
+    }
 }

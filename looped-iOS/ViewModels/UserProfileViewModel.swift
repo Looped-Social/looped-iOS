@@ -18,6 +18,7 @@ final class UserProfileViewModel: ObservableObject {
     private let currentUserId: Int?
     private let userService: UserServiceProtocol
     private let anonService: AnonService
+    private let followStateStore: FollowStateStore
 
     var isAnonymousProfile: Bool {
         if case .anon = source { return true }
@@ -29,13 +30,19 @@ final class UserProfileViewModel: ObservableObject {
         currentUserId: Int? = nil,
         initialProfile: UserProfile? = nil,
         userService: UserServiceProtocol = UserService(),
-        anonService: AnonService = .shared
+        anonService: AnonService = .shared,
+        followStateStore: FollowStateStore = .shared
     ) {
         self.source = source
         self.currentUserId = currentUserId
         self.userService = userService
         self.anonService = anonService
+        self.followStateStore = followStateStore
         self.profile = initialProfile
+
+        if case .user(let userId) = source {
+            self.isFollowing = followStateStore.isFollowing(userId: userId)
+        }
     }
 
     func loadProfile() async {
@@ -48,6 +55,7 @@ final class UserProfileViewModel: ObservableObject {
             case .user(let userId):
                 let user = try await userService.getUser(by: userId)
                 profile = UserProfile.from(user: user, isCurrentUser: user.backendId == currentUserId)
+                isFollowing = followStateStore.isFollowing(userId: userId)
             case .anon(let anonProfileId):
                 let anonProfile = try await anonService.fetchProfile(id: anonProfileId)
                 let currentIdentity = await anonService.currentIdentity()
@@ -68,7 +76,12 @@ final class UserProfileViewModel: ObservableObject {
         followErrorMessage = nil
 
         let wasFollowing = isFollowing
+        let previousProfile = profile
         isFollowing.toggle()
+        if let profile {
+            let delta = wasFollowing ? -1 : 1
+            self.profile = profile.updatingFollowersCount(max(0, profile.followersCount + delta))
+        }
 
         do {
             let result: UserFollowActionResult
@@ -78,8 +91,15 @@ final class UserProfileViewModel: ObservableObject {
                 result = try await userService.followUser(userId: userId, asAnonymousActor: asAnonymousActor, communityId: nil)
             }
             isFollowing = result.following
+            followStateStore.setFollowing(result.following, userId: userId)
+            if let previousProfile {
+                let delta = (result.following ? 1 : 0) - (wasFollowing ? 1 : 0)
+                let corrected = max(0, previousProfile.followersCount + delta)
+                profile = previousProfile.updatingFollowersCount(corrected)
+            }
         } catch {
             isFollowing = wasFollowing
+            profile = previousProfile
             followErrorMessage = followErrorMessage(from: error, wasFollowing: wasFollowing)
         }
 

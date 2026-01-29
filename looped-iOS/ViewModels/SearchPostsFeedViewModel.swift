@@ -74,7 +74,10 @@ final class SearchPostsFeedViewModel: ObservableObject {
     }
 
     func loadMoreIfNeeded(currentPost: Post) async {
-        guard let lastPost = posts.last, currentPost.id == lastPost.id else { return }
+        let prefetchThreshold = 6
+        guard nextCursor != nil else { return }
+        guard !posts.isEmpty else { return }
+        guard posts.suffix(prefetchThreshold).contains(where: { $0.id == currentPost.id }) else { return }
         await loadPosts(reset: false)
     }
 

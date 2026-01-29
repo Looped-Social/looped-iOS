@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct PostCard: View {
     let post: Post
@@ -22,10 +23,12 @@ struct PostCard: View {
     @State private var heartOpacity: Double = 0
     @State private var communityPermissions: CommunityPermissions?
     @State private var hasRequestedCommunityPermissions = false
-    @State private var viewerAnonProfileId: Int?
-    @State private var showShareSheet = false
-    @State private var shareCountOverride: Int?
-    @State private var isShareTracking = false
+	    @State private var viewerAnonProfileId: Int?
+	    @State private var showShareSheet = false
+        @State private var isPreparingShareSheet = false
+        @State private var shareItems: [Any] = []
+	    @State private var shareCountOverride: Int?
+	    @State private var isShareTracking = false
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
     @State private var selectedVideoUrl: String?
@@ -301,21 +304,23 @@ struct PostCard: View {
 	        }
 	    }
 
-	    private var shareButton: some View {
-	        Button(action: { showShareSheet = true }) {
-	            HStack(spacing: actionLabelSpacing) {
-	                Image("send-icon-fab")
-	                    .resizable()
-	                    .renderingMode(.template)
+		    private var shareButton: some View {
+		        Button(action: { prepareShareSheet() }) {
+		            HStack(spacing: actionLabelSpacing) {
+		                Image("send-icon-fab")
+		                    .resizable()
+		                    .renderingMode(.template)
 	                    .scaledToFit()
 	                    .frame(width: actionIconSize, height: actionIconSize)
 	                    .foregroundColor(.loopedTextSecondary)
 	                Text("\(currentShareCount)")
 	                    .font(.loopedSubheadlineScaled)
-	                    .foregroundColor(.loopedTextSecondary)
-	            }
-	        }
-	    }
+		                    .foregroundColor(.loopedTextSecondary)
+		            }
+		        }
+                .disabled(isPreparingShareSheet)
+                .opacity(isPreparingShareSheet ? 0.6 : 1)
+		    }
 
 	    private var repostButton: some View {
 	        Button(action: { toggleRepost() }) {
@@ -393,7 +398,7 @@ struct PostCard: View {
 		                authorAvatar
 		            }
 
-		            VStack(alignment: .leading, spacing: 2) {
+		            VStack(alignment: .leading, spacing: 0) {
 		                HStack(spacing: 6) {
 		                    authorName
 
@@ -416,33 +421,46 @@ struct PostCard: View {
 		                    }
 		                }
 
-		                if let communityContextText {
-		                    if let communityProfileData {
-		                        NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
-		                            Text(communityContextText)
-		                                .font(.loopedSubheadlineScaled)
-		                                .foregroundColor(.loopedTextSecondary)
-		                                .lineLimit(1)
-		                                .truncationMode(.tail)
-		                        }
-		                        .buttonStyle(PlainButtonStyle())
-		                    } else {
-		                        Text(communityContextText)
-		                            .font(.loopedSubheadlineScaled)
-		                            .foregroundColor(.loopedTextSecondary)
-		                            .lineLimit(1)
-		                            .truncationMode(.tail)
-		                    }
-		                }
-		            }
-		        }
-		    }
+			                if let communityContextText {
+			                    if let communityProfileData {
+			                        NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
+			                            HStack(spacing: 0) {
+			                                Text(communityContextText)
+			                                    .lineLimit(1)
+			                                    .truncationMode(.tail)
+			                                Spacer(minLength: 0)
+				                            }
+				                            .font(.loopedSubheadlineScaled)
+				                            .foregroundColor(.loopedTextSecondary)
+				                            .padding(.bottom, 6)
+				                            .contentShape(Rectangle())
+				                        }
+				                        .buttonStyle(PlainButtonStyle())
+				                    } else {
+				                        Text(communityContextText)
+				                            .font(.loopedSubheadlineScaled)
+				                            .foregroundColor(.loopedTextSecondary)
+				                            .padding(.bottom, 6)
+				                            .lineLimit(1)
+				                            .truncationMode(.tail)
+				                    }
+				                }
+			            }
+			        }
+			    }
 
 		    @ViewBuilder
 		    private var postTextSection: some View {
-		        if !post.content.isEmpty {
+		        let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+		        let shouldHideDuplicatePollQuestion: Bool = {
+		            guard let poll = post.poll else { return false }
+		            let trimmedQuestion = poll.question.trimmingCharacters(in: .whitespacesAndNewlines)
+		            return !trimmedQuestion.isEmpty && trimmedContent == trimmedQuestion
+		        }()
+
+		        if !trimmedContent.isEmpty, !shouldHideDuplicatePollQuestion {
 		            HashtagText(
-		                text: post.content,
+		                text: trimmedContent,
 		                font: .loopedBodyScaled,
 		                textColor: .loopedTextPrimary,
 		                hashtagColor: .loopedPrimary
@@ -464,18 +482,22 @@ struct PostCard: View {
 			        }
 			    }
 
-		    @ViewBuilder
-		    private var attachmentsSection: some View {
-		        if let attachments = post.attachments, !attachments.isEmpty {
-		            PostedMediaGrid(
-		                attachments: attachments,
-		                maxHeight: 350,
-		                onImageTap: handlePostedImageTap,
-		                onVideoTap: handlePostedVideoTap
-		            )
-		            .padding(.top, 8)
-		        }
-		    }
+			    @ViewBuilder
+			    private var attachmentsSection: some View {
+			        if let attachments = post.attachments, !attachments.isEmpty {
+			            VStack(spacing: 0) {
+			                Spacer()
+			                    .frame(height: 12)
+
+			                PostedMediaGrid(
+			                    attachments: attachments,
+			                    maxHeight: 350,
+			                    onImageTap: handlePostedImageTap,
+			                    onVideoTap: handlePostedVideoTap
+			                )
+			            }
+			        }
+			    }
 
 			    private func handlePostedImageTap(_ url: String) {
 			        guard !url.isEmpty, URL(string: url) != nil else { return }
@@ -503,13 +525,16 @@ struct PostCard: View {
 		        }
 		    }
 
-		    private var shareSheetContent: some View {
-		        ShareSheet(items: [shareText]) { completed in
-		            if completed {
-		                trackShare()
-		            }
-		        }
-		    }
+			    private var shareSheetContent: some View {
+			        ShareSheet(
+                        items: shareItems.isEmpty ? [shareText] : shareItems,
+                        excludedActivityTypes: [.copyToPasteboard]
+                    ) { completed in
+			            if completed {
+			                trackShare()
+			            }
+			        }
+			    }
 
 		    @ViewBuilder
 		    private var imageViewerContent: some View {
@@ -764,13 +789,15 @@ struct PostCard: View {
             }
     }
 
-    private var postCardPresentation: some View {
-        postCardLifecycle
-            .sheet(isPresented: $showShareSheet) {
-                shareSheetContent
-            }
-            .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
-                selectedImageUrl = nil
+	    private var postCardPresentation: some View {
+	        postCardLifecycle
+	            .sheet(isPresented: $showShareSheet, onDismiss: {
+                    shareItems = []
+                }) {
+	                shareSheetContent
+	            }
+	            .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
+	                selectedImageUrl = nil
             }) {
                 imageViewerContent
             }
@@ -874,14 +901,34 @@ struct PostCard: View {
 	            }
 	    }
 
-    private var shareText: String {
-        "\(post.resolvedAuthorName) posted on Looped:\n\n\(post.content)"
-    }
+	    private var shareText: String {
+	        "\(post.resolvedAuthorName) posted on Looped:\n\n\(post.content)"
+	    }
 
-	    private func trackShare() {
-	        guard let postId = post.backendId, !isShareTracking else { return }
-	        isShareTracking = true
-	        Task {
+        private func prepareShareSheet() {
+            guard !isPreparingShareSheet else { return }
+            isPreparingShareSheet = true
+
+            Task { @MainActor in
+                defer { isPreparingShareSheet = false }
+
+                var items: [Any] = []
+                if let shareImage = ShareImageRenderer.render(
+                    PostShareCard(post: post),
+                    size: CGSize(width: 360, height: 360)
+                ) {
+                    items.append(shareImage)
+                }
+                items.append(shareText)
+                shareItems = items
+                showShareSheet = true
+            }
+        }
+
+		    private func trackShare() {
+		        guard let postId = post.backendId, !isShareTracking else { return }
+		        isShareTracking = true
+		        Task {
 	            defer { isShareTracking = false }
 	            do {
 	                let response = try await feedService.sharePost(postId: postId)
@@ -1458,10 +1505,12 @@ struct EditPostSheet: View {
 // MARK: - Share Sheet
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
+    var excludedActivityTypes: [UIActivity.ActivityType] = []
     var onComplete: ((Bool) -> Void)? = nil
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.excludedActivityTypes = excludedActivityTypes
         controller.completionWithItemsHandler = { _, completed, _, _ in
             onComplete?(completed)
         }

@@ -363,7 +363,39 @@ class FeedService: FeedServiceProtocol {
         let data = try await apiClient.getData(resolved)
         let response = try decode(UserContentResponseDTO.self, from: data)
         let items = response.items.compactMap(UserContentItem.init(dto:))
-        return UserContentPage(items: items, nextCursor: response.nextCursor)
+        let resolvedItems = await resolveMediaIfNeeded(for: items)
+        return UserContentPage(items: resolvedItems, nextCursor: response.nextCursor)
+    }
+
+    private func resolveMediaIfNeeded(for items: [UserContentItem]) async -> [UserContentItem] {
+        let posts: [Post] = items.flatMap { item -> [Post] in
+            switch item.payload {
+            case .post(let post):
+                return [post]
+            case .reply(_, let postPreview):
+                return postPreview.map { [$0] } ?? []
+            }
+        }
+
+        guard !posts.isEmpty else { return items }
+
+        let resolvedPosts = await resolveMediaIfNeeded(for: posts)
+        var byId: [UUID: Post] = [:]
+        byId.reserveCapacity(resolvedPosts.count)
+        for post in resolvedPosts {
+            byId[post.id] = post
+        }
+
+        return items.map { item in
+            switch item.payload {
+            case .post(let post):
+                let resolvedPost = byId[post.id] ?? post
+                return UserContentItem(id: item.id, createdAt: item.createdAt, payload: .post(resolvedPost))
+            case .reply(let reply, let postPreview):
+                let resolvedPreview = postPreview.map { byId[$0.id] ?? $0 }
+                return UserContentItem(id: item.id, createdAt: item.createdAt, payload: .reply(reply, postPreview: resolvedPreview))
+            }
+        }
     }
 
     private func isNotFound(_ error: Error) -> Bool {
@@ -557,7 +589,20 @@ private extension FeedService {
             let byId = Dictionary(uniqueKeysWithValues: assets.compactMap { asset -> (Int, MediaAttachment)? in
                 guard let url = asset.cdnUrl, !url.isEmpty else { return nil }
                 let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
-                return (asset.id, MediaAttachment(id: "asset:\(asset.id)", type: type, url: url))
+                let thumbnailUrl = type == .video ? asset.thumbnailUrl : nil
+                let duration = asset.durationSeconds.map(TimeInterval.init)
+                return (
+                    asset.id,
+                    MediaAttachment(
+                        id: "asset:\(asset.id)",
+                        type: type,
+                        url: url,
+                        thumbnailUrl: thumbnailUrl,
+                        width: asset.width,
+                        height: asset.height,
+                        duration: duration
+                    )
+                )
             })
 
             if byId.isEmpty { return posts }

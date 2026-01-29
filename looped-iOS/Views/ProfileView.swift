@@ -136,6 +136,7 @@ struct ProfileView: View {
             .background(
                 Color.loopedBackground
                     .ignoresSafeArea(.all, edges: .top)
+                    .allowsHitTesting(false)
             )
             .background(
                 GeometryReader { proxy in
@@ -250,19 +251,19 @@ struct ProfileView: View {
 
 		// Show header when near top
 		if offset >= -50 {
-            withAnimation(.easeInOut(duration: 0.25)) {
+            withAnimation(.easeInOut(duration: 0.22)) {
                 headerVisible = true
             }
         }
-        // Hide when scrolling down significantly
-        else if delta < -30 && offset < -100 {
-            withAnimation(.easeInOut(duration: 0.25)) {
+        // Hide on any meaningful scroll down once we're past the top threshold
+        else if delta < -2 {
+            withAnimation(.easeInOut(duration: 0.22)) {
                 headerVisible = false
             }
         }
-        // Show when scrolling up significantly
-        else if delta > 30 {
-            withAnimation(.easeInOut(duration: 0.25)) {
+        // Show on any meaningful scroll up
+        else if delta > 2 {
+            withAnimation(.easeInOut(duration: 0.22)) {
                 headerVisible = true
             }
         }
