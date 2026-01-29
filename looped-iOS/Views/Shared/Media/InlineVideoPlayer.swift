@@ -534,6 +534,8 @@ struct InlineVideoPlayer: View {
     @State private var hasAttemptedPlayback = false
     @State private var lastLoggedVisibility: Double = -1
     @State private var controlsRequestedByUser = false
+    @State private var lastFrame: CGRect = .zero
+    @State private var visibilityRefreshTask: Task<Void, Never>?
 
     init(
         id: String,
@@ -681,11 +683,8 @@ struct InlineVideoPlayer: View {
         }
         .onAppear {
             VideoDebugLogger.log("id=\(id) bind url=\(videoUrl) thumbnail=\(thumbnailUrl ?? "nil")")
-            if visibleRatio <= 0 {
-                visibleRatio = 1
-                playbackManager.updateVisibility(id: id, visibleRatio: 1)
-            }
-            applyPlaybackGate()
+            refreshVisibility()
+            scheduleVisibilityRefresh()
 
             let cleanedUrl = videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
             let isRunningForPreviews = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -707,6 +706,8 @@ struct InlineVideoPlayer: View {
         .onDisappear {
             hideControlsTask?.cancel()
             hideControlsTask = nil
+            visibilityRefreshTask?.cancel()
+            visibilityRefreshTask = nil
             guard !viewModel.isExternallyPresented else { return }
             playbackManager.unregister(id: id)
             viewModel.pause()
@@ -740,12 +741,7 @@ struct InlineVideoPlayer: View {
             applyPlaybackGate()
         }
         .onReceive(NotificationCenter.default.publisher(for: VideoPlaybackManager.refreshVisibilityNotification)) { _ in
-            playbackManager.updateVisibility(id: id, visibleRatio: visibleRatio)
-            if playbackManager.activeVideoId == nil, playbackManager.isVisibleEnough(id), !viewModel.didReachEnd {
-                playbackManager.promoteToActive(id: id)
-                viewModel.play()
-            }
-            applyPlaybackGate()
+            refreshVisibility()
         }
     }
 
@@ -802,23 +798,52 @@ struct InlineVideoPlayer: View {
     }
 
     private func updateVisibility(frame: CGRect) {
-        let screen = UIScreen.main.bounds
-        // Ignore zero/invalid frames (can happen transiently in lazy lists).
-        guard frame.height > 1 else {
-            visibleRatio = 0
-            playbackManager.updateVisibility(id: id, visibleRatio: 0)
-            return
-        }
-        let visibleTop = max(frame.minY, 0)
-        let visibleBottom = min(frame.maxY, screen.height)
-        let visibleHeight = max(0, visibleBottom - visibleTop)
-        let ratio = Double(visibleHeight / frame.height)
+        lastFrame = frame
+        let ratio = computeVisibleRatio(frame: frame)
         visibleRatio = ratio
         playbackManager.updateVisibility(id: id, visibleRatio: ratio)
         if VideoDebugLogger.isEnabled {
             if lastLoggedVisibility < 0 || abs(ratio - lastLoggedVisibility) >= 0.05 {
                 lastLoggedVisibility = ratio
                 VideoDebugLogger.log("id=\(id) visibleRatio=\(String(format: "%.2f", ratio))")
+            }
+        }
+    }
+
+    private func computeVisibleRatio(frame: CGRect) -> Double {
+        let screen = UIScreen.main.bounds
+        guard frame.height > 1 else { return 0 }
+        let visibleTop = max(frame.minY, 0)
+        let visibleBottom = min(frame.maxY, screen.height)
+        let visibleHeight = max(0, visibleBottom - visibleTop)
+        return Double(visibleHeight / frame.height)
+    }
+
+    private func refreshVisibility() {
+        let ratio: Double
+        if lastFrame.height > 1 {
+            ratio = computeVisibleRatio(frame: lastFrame)
+        } else if visibleRatio > 0 {
+            ratio = visibleRatio
+        } else {
+            ratio = 1
+        }
+        visibleRatio = ratio
+        playbackManager.updateVisibility(id: id, visibleRatio: ratio)
+        if playbackManager.activeVideoId == nil, ratio >= 0.60, !viewModel.didReachEnd {
+            playbackManager.promoteToActive(id: id)
+            viewModel.play()
+        }
+        applyPlaybackGate()
+    }
+
+    private func scheduleVisibilityRefresh() {
+        visibilityRefreshTask?.cancel()
+        visibilityRefreshTask = Task {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                refreshVisibility()
             }
         }
     }
