@@ -262,19 +262,19 @@ class CommentsService: CommentsServiceProtocol {
 
 private extension CommentsService {
     func resolveMediaIfNeeded(in page: CommentPage) async -> CommentPage {
-        let ids: [Int] = page.comments.compactMap { comment in
-            guard comment.attachments?.isEmpty ?? true else { return nil }
-            return comment.mediaAssetId
-        }
+        let ids: [Int] = page.comments.compactMap(\.mediaAssetId)
         let uniqueIds = Array(Set(ids))
         guard !uniqueIds.isEmpty else { return page }
 
         do {
             let assets = try await mediaService.resolvePublicMedia(ids: uniqueIds)
             let byId = Dictionary(uniqueKeysWithValues: assets.compactMap { asset -> (Int, MediaAttachment)? in
-                guard let url = asset.cdnUrl, !url.isEmpty else { return nil }
-                let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
-                let thumbnailUrl = type == .video ? asset.thumbnailUrl : nil
+                let url = (asset.cdnUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !url.isEmpty else { return nil }
+                let mimeType = asset.mimeType.trimmingCharacters(in: .whitespacesAndNewlines)
+                let isVideo = mimeType.lowercased().hasPrefix("video/") || asset.durationSeconds != nil
+                let type: MediaType = isVideo ? .video : .image
+                let thumbnailUrl = isVideo ? asset.thumbnailUrl : nil
                 let duration = asset.durationSeconds.map(TimeInterval.init)
                 return (
                     asset.id,
@@ -291,7 +291,6 @@ private extension CommentsService {
             })
             if byId.isEmpty { return page }
             let resolved = page.comments.map { comment in
-                guard comment.attachments?.isEmpty ?? true else { return comment }
                 guard let mediaAssetId = comment.mediaAssetId,
                       let attachment = byId[mediaAssetId]
                 else { return comment }

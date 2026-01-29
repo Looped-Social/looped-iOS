@@ -8,7 +8,7 @@ private struct LoopedDoubleTapToLikeModifier: ViewModifier {
             .contentShape(Rectangle())
             .simultaneousGesture(
                 TapGesture(count: 2).onEnded(action),
-                including: .all
+                including: .gesture
             )
     }
 }

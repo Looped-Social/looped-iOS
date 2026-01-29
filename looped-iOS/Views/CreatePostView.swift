@@ -463,9 +463,6 @@ struct CreatePostView: View {
         let contentToSend = trimmedContent
         let mediaToSend = selectedMedia
         let pollDraftToSend = pollToSend
-        let payloadContentToSend = (contentToSend.isEmpty && pollDraftToSend != nil)
-            ? (pollDraftToSend?.question.trimmingCharacters(in: .whitespacesAndNewlines) ?? contentToSend)
-            : contentToSend
         let isAnonymousToSend = isAnonymous
         let activeDraftIdToCleanup = activeDraftId
         let communityName = selectedCommunity?.name
@@ -479,7 +476,7 @@ struct CreatePostView: View {
 
         Task {
             let result = await feedViewModel.createPost(
-                content: payloadContentToSend,
+                content: contentToSend,
                 isAnonymous: isAnonymousToSend,
                 communityId: communityId,
                 media: mediaToSend,

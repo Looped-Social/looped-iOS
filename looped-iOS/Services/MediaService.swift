@@ -48,17 +48,34 @@ class MediaService: MediaServiceProtocol {
         guard !deduped.isEmpty else { return [] }
         var resolved: [MediaAsset] = []
         resolved.reserveCapacity(deduped.count)
+        let shouldLog = ProcessInfo.processInfo.environment["LOOPED_LOG_MEDIA_RESOLVE"] == "1"
 
         var index = 0
         while index < deduped.count {
             let end = min(index + 50, deduped.count)
             let chunk = Array(deduped[index..<end])
             let request = MediaResolveRequestDTO(ids: chunk)
-            let dto: MediaResolveResponseDTO = try await apiClient.post(
-                "/v1/media/resolve",
-                body: request,
-                requiresAuth: false
-            )
+            let dto: MediaResolveResponseDTO
+            do {
+                dto = try await apiClient.post(
+                    "/v1/media/resolve",
+                    body: request,
+                    requiresAuth: true
+                )
+            } catch let error as APIError {
+                guard case .unauthorized = error else { throw error }
+                dto = try await apiClient.post(
+                    "/v1/media/resolve",
+                    body: request,
+                    requiresAuth: false
+                )
+            }
+            if shouldLog {
+                let summary = dto.items.map { item in
+                    "\(item.id) \(item.mimeType) url=\((item.cdnUrl ?? "").isEmpty ? "nil" : "ok") thumb=\((item.thumbnailUrl ?? "").isEmpty ? "nil" : "ok")"
+                }.joined(separator: ", ")
+                print("Media resolve chunk=\(chunk.count) → items=\(dto.items.count) [\(summary)]")
+            }
             resolved.append(contentsOf: dto.items.map(MediaAsset.init(dto:)))
             index = end
         }

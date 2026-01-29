@@ -7,12 +7,22 @@ struct VideoPlayerSheet: View {
     @Binding var isPresented: Bool
 
     @State private var player: AVPlayer?
+    @State private var isInvalidUrl = false
 
     var body: some View {
         ZStack {
             Color.loopedBlack.ignoresSafeArea()
 
-            if let player = player {
+            if isInvalidUrl {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.loopedCustom(size: 44))
+                        .foregroundColor(.loopedWhite.opacity(0.7))
+                    Text("Couldn't load this video")
+                        .font(.loopedSubheadlineScaled)
+                        .foregroundColor(.loopedWhite.opacity(0.8))
+                }
+            } else if let player = player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             } else {
@@ -43,10 +53,17 @@ struct VideoPlayerSheet: View {
             }
         }
         .onAppear {
-            if let url = URL(string: videoUrl) {
-                player = AVPlayer(url: url)
-                player?.play()
+            let cleaned = videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else {
+                isInvalidUrl = true
+                return
             }
+            guard let url = URL(string: cleaned) ?? URLComponents(string: cleaned)?.url else {
+                isInvalidUrl = true
+                return
+            }
+            player = AVPlayer(url: url)
+            player?.play()
         }
         .onDisappear {
             player?.pause()

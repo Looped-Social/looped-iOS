@@ -500,7 +500,8 @@ struct PostCard: View {
 			    }
 
 			    private func handlePostedImageTap(_ url: String) {
-			        guard !url.isEmpty, URL(string: url) != nil else { return }
+			        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+			        guard !trimmed.isEmpty else { return }
 			        if let index = imageUrls.firstIndex(of: url) {
 			            selectedImageIndex = index
 			        }
@@ -511,7 +512,8 @@ struct PostCard: View {
 			    }
 
 		    private func handlePostedVideoTap(_ url: String) {
-		        guard !url.isEmpty, URL(string: url) != nil else { return }
+		        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+		        guard !trimmed.isEmpty else { return }
 		        selectedVideoUrl = url
 		        showVideoPlayer = true
 		    }
@@ -567,7 +569,7 @@ struct PostCard: View {
 
 		    @ViewBuilder
 		    private var videoPlayerContent: some View {
-		        if let videoUrl = selectedVideoUrl, !videoUrl.isEmpty, URL(string: videoUrl) != nil {
+		        if let videoUrl = selectedVideoUrl, !videoUrl.isEmpty {
 		            VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
 		        } else {
 		            Color.loopedBlack.ignoresSafeArea()

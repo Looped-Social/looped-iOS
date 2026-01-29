@@ -502,7 +502,9 @@ class FeedViewModel: ObservableObject {
                     let byId = Dictionary(uniqueKeysWithValues: resolved.map { ($0.id, $0) })
                     let resolvedAttachments = mediaAssetIds.compactMap { id -> MediaAttachment? in
                         guard let asset = byId[id], let url = asset.cdnUrl, !url.isEmpty else { return nil }
-                        let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
+                        let mimeType = asset.mimeType.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let isVideo = mimeType.lowercased().hasPrefix("video/") || asset.durationSeconds != nil
+                        let type: MediaType = isVideo ? .video : .image
                         return MediaAttachment(id: "asset:\(asset.id)", type: type, url: url)
                     }
                     if !resolvedAttachments.isEmpty {
@@ -550,6 +552,8 @@ class FeedViewModel: ObservableObject {
                     errorMessage = message ?? "That attachment isn't supported."
                 case "media_too_many":
                     errorMessage = message ?? "Attach up to 4 photos or 1 video."
+                case "content_required":
+                    errorMessage = "Add a caption, media, or a poll."
                 default:
                     errorMessage = message ?? apiError
                 }

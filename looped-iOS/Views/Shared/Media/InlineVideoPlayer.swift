@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 private struct InlineVideoFramePreferenceKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
@@ -201,7 +202,9 @@ struct InlineVideoPlayer: View {
 
         let isRunningForPreviews = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
         let cleanedUrl = videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        let url = isRunningForPreviews ? nil : URL(string: cleanedUrl)
+        let url = isRunningForPreviews
+            ? nil
+            : (URL(string: cleanedUrl) ?? URLComponents(string: cleanedUrl)?.url)
         _viewModel = StateObject(wrappedValue: InlineVideoPlayerViewModel(url: url, startsMuted: true))
     }
 
@@ -260,6 +263,14 @@ struct InlineVideoPlayer: View {
         )
         .onPreferenceChange(InlineVideoFramePreferenceKey.self) { frame in
             updateVisibility(frame: frame)
+            applyPlaybackGate()
+        }
+        .onAppear {
+            // Fallback for cases where geometry callbacks are delayed/missed in lazy scroll containers.
+            // `onAppear` for a cell should only fire when it is on screen.
+            if !isVisibleEnough {
+                isVisibleEnough = true
+            }
             applyPlaybackGate()
         }
         .onDisappear {
@@ -358,10 +369,8 @@ struct InlineVideoPlayer: View {
 
     private func updateVisibility(frame: CGRect) {
         let screen = UIScreen.main.bounds
-        guard frame.height > 1 else {
-            isVisibleEnough = false
-            return
-        }
+        // Ignore zero/invalid frames (can happen transiently in lazy lists).
+        guard frame.height > 1 else { return }
         let visibleTop = max(frame.minY, 0)
         let visibleBottom = min(frame.maxY, screen.height)
         let visibleHeight = max(0, visibleBottom - visibleTop)
@@ -371,7 +380,6 @@ struct InlineVideoPlayer: View {
 
     private func applyPlaybackGate() {
         guard !isScrubbing else { return }
-        guard viewModel.isReady else { return }
         guard isVisibleEnough else {
             if controlsVisible {
                 hideControls()

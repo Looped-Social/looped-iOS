@@ -572,12 +572,10 @@ private extension FeedService {
         let missingIds: [Int] = posts.flatMap { post -> [Int] in
             let ids = (post.mediaAssetIds ?? []).filter { $0 > 0 }
             if !ids.isEmpty {
-                let existingCount = post.attachments?.count ?? 0
-                // Some endpoints still populate a single legacy media URL even when `media_asset_ids` is present.
-                // If we don't resolve in that case, the UI behaves like a single "merged" image.
-                return existingCount >= ids.count ? [] : ids
+                // Always prefer the canonical media resolve response when IDs are present.
+                // Some endpoints also populate legacy `cdnUrl`/`mediaUrl` fields (often a thumbnail for videos).
+                return ids
             }
-            guard post.attachments?.isEmpty ?? true else { return [] }
             if let id = post.mediaAssetId, id > 0 { return [id] }
             return []
         }
@@ -586,10 +584,20 @@ private extension FeedService {
 
         do {
             let assets = try await mediaService.resolvePublicMedia(ids: uniqueIds)
+            if ProcessInfo.processInfo.environment["LOOPED_LOG_MEDIA_RESOLVE"] == "1" {
+                let videoCount = assets.filter { asset in
+                    let mime = asset.mimeType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    return mime.hasPrefix("video/") || asset.durationSeconds != nil
+                }.count
+                print("Feed media resolve ids=\(uniqueIds.count) assets=\(assets.count) videos=\(videoCount)")
+            }
             let byId = Dictionary(uniqueKeysWithValues: assets.compactMap { asset -> (Int, MediaAttachment)? in
-                guard let url = asset.cdnUrl, !url.isEmpty else { return nil }
-                let type: MediaType = asset.mimeType.lowercased().hasPrefix("video/") ? .video : .image
-                let thumbnailUrl = type == .video ? asset.thumbnailUrl : nil
+                let url = (asset.cdnUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !url.isEmpty else { return nil }
+                let mimeType = asset.mimeType.trimmingCharacters(in: .whitespacesAndNewlines)
+                let isVideo = mimeType.lowercased().hasPrefix("video/") || asset.durationSeconds != nil
+                let type: MediaType = isVideo ? .video : .image
+                let thumbnailUrl = isVideo ? asset.thumbnailUrl : nil
                 let duration = asset.durationSeconds.map(TimeInterval.init)
                 return (
                     asset.id,
@@ -609,13 +617,10 @@ private extension FeedService {
             return posts.map { post in
                 let resolvedIds = (post.mediaAssetIds ?? []).filter { $0 > 0 }
                 if !resolvedIds.isEmpty {
-                    let existingCount = post.attachments?.count ?? 0
-                    guard existingCount < resolvedIds.count else { return post }
                     let attachments = resolvedIds.compactMap { byId[$0] }
-                    guard !attachments.isEmpty else { return post }
+                    guard attachments.count == resolvedIds.count, !attachments.isEmpty else { return post }
                     return post.updating(attachments: .some(attachments))
                 }
-                guard post.attachments?.isEmpty ?? true else { return post }
                 guard let mediaAssetId = post.mediaAssetId, let attachment = byId[mediaAssetId] else { return post }
                 return post.updating(attachments: .some([attachment]))
             }
