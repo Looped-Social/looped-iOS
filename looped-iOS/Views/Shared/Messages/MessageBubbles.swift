@@ -46,9 +46,8 @@ struct SentMessageBubble: View {
 
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
-    @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
-    @State private var showVideoPlayer = false
+    @State private var selectedVideo: VideoSelection?
 
     init(message: Message, isGroupStart: Bool = true, isGroupEnd: Bool = true) {
         self.message = message
@@ -92,8 +91,9 @@ struct SentMessageBubble: View {
                             }
                         }
                         .onTapGesture {
-                            selectedVideoUrl = attachment.url
-                            showVideoPlayer = true
+                            let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            selectedVideo = VideoSelection(url: trimmed)
                         }
                     } else {
                         MessageMediaTile(
@@ -142,10 +142,14 @@ struct SentMessageBubble: View {
                 )
             }
         }
-        .fullScreenCover(isPresented: $showVideoPlayer) {
-            if let videoUrl = selectedVideoUrl {
-                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
-            }
+        .fullScreenCover(item: $selectedVideo) { selection in
+            VideoPlayerSheet(
+                videoUrl: selection.url,
+                isPresented: Binding(
+                    get: { selectedVideo != nil },
+                    set: { if !$0 { selectedVideo = nil } }
+                )
+            )
         }
     }
 }
@@ -159,9 +163,8 @@ struct ReceivedMessageBubble: View {
 
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
-    @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
-    @State private var showVideoPlayer = false
+    @State private var selectedVideo: VideoSelection?
 
     init(
         message: Message,
@@ -220,8 +223,9 @@ struct ReceivedMessageBubble: View {
                                 }
 	                            }
 	                            .onTapGesture {
-	                                selectedVideoUrl = attachment.url
-	                                showVideoPlayer = true
+	                                let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+	                                guard !trimmed.isEmpty else { return }
+	                                selectedVideo = VideoSelection(url: trimmed)
 	                            }
 	                        } else {
 	                            MessageMediaTile(
@@ -271,10 +275,14 @@ struct ReceivedMessageBubble: View {
                 )
             }
         }
-        .fullScreenCover(isPresented: $showVideoPlayer) {
-            if let videoUrl = selectedVideoUrl {
-                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
-            }
+        .fullScreenCover(item: $selectedVideo) { selection in
+            VideoPlayerSheet(
+                videoUrl: selection.url,
+                isPresented: Binding(
+                    get: { selectedVideo != nil },
+                    set: { if !$0 { selectedVideo = nil } }
+                )
+            )
         }
     }
 }

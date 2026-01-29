@@ -31,9 +31,8 @@ struct PostCard: View {
 	    @State private var isShareTracking = false
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
-    @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
-    @State private var showVideoPlayer = false
+    @State private var selectedVideo: VideoSelection?
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
     @ScaledMetric private var actionIconSize: CGFloat = 22
@@ -517,8 +516,7 @@ struct PostCard: View {
 		    private func handlePostedVideoTap(_ url: String) {
 		        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
 		        guard !trimmed.isEmpty else { return }
-		        selectedVideoUrl = url
-		        showVideoPlayer = true
+		        selectedVideo = VideoSelection(url: trimmed)
 		    }
 
 		    private var timestampSection: some View {
@@ -570,29 +568,11 @@ struct PostCard: View {
 		        }
 		    }
 
-		    @ViewBuilder
-		    private var videoPlayerContent: some View {
-		        if let videoUrl = selectedVideoUrl, !videoUrl.isEmpty {
-		            VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
-		        } else {
-		            Color.loopedBlack.ignoresSafeArea()
-		                .overlay(
-		                    VStack(spacing: 16) {
-		                        Image(systemName: "exclamationmark.triangle")
-		                            .font(.loopedCustom(size: 60))
-		                            .foregroundColor(.loopedWhite.opacity(0.5))
-		                        Text("Invalid video URL")
-		                            .foregroundColor(.loopedWhite.opacity(0.7))
-		                        Button("Close") {
-		                            showVideoPlayer = false
-		                        }
-		                        .foregroundColor(.loopedWhite)
-		                        .padding()
-		                        .background(Color.loopedWhite.opacity(0.2))
-		                        .cornerRadius(8)
-		                    }
-		                )
-		        }
+		    private var videoPlayerBinding: Binding<Bool> {
+		        Binding(
+		            get: { selectedVideo != nil },
+		            set: { if !$0 { selectedVideo = nil } }
+		        )
 		    }
 
 		    @ViewBuilder
@@ -803,10 +783,8 @@ struct PostCard: View {
             }) {
                 imageViewerContent
             }
-            .fullScreenCover(isPresented: $showVideoPlayer, onDismiss: {
-                selectedVideoUrl = nil
-            }) {
-                videoPlayerContent
+            .fullScreenCover(item: $selectedVideo) { selection in
+                VideoPlayerSheet(videoUrl: selection.url, isPresented: videoPlayerBinding)
             }
     }
 

@@ -19,9 +19,8 @@ struct CommentRow: View {
     let onHashtagTap: ((String) -> Void)?
 
     @State private var selectedImageIndex: Int = 0
-    @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
-    @State private var showVideoPlayer = false
+    @State private var selectedVideo: VideoSelection?
 
     init(
         comment: Comment,
@@ -189,8 +188,9 @@ struct CommentRow: View {
 	                            },
 	                            onVideoTap: { url in
 	                                guard !url.isEmpty, URL(string: url) != nil else { return }
-	                                selectedVideoUrl = url
-                                showVideoPlayer = true
+	                                let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+	                                guard !trimmed.isEmpty else { return }
+	                                selectedVideo = VideoSelection(url: trimmed)
                             }
 		                        )
 		                    }
@@ -367,10 +367,14 @@ struct CommentRow: View {
                 )
             }
         }
-        .fullScreenCover(isPresented: $showVideoPlayer) {
-            if let videoUrl = selectedVideoUrl {
-                VideoPlayerSheet(videoUrl: videoUrl, isPresented: $showVideoPlayer)
-            }
+        .fullScreenCover(item: $selectedVideo) { selection in
+            VideoPlayerSheet(
+                videoUrl: selection.url,
+                isPresented: Binding(
+                    get: { selectedVideo != nil },
+                    set: { if !$0 { selectedVideo = nil } }
+                )
+            )
         }
         .contextMenu {
             if let canManage, canManage(comment), !comment.isDeleted {

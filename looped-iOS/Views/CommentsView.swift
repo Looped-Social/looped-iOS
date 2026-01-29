@@ -21,9 +21,8 @@ struct CommentsView: View {
     @State private var selectedHashtag: String?
     @State private var showHashtagFeed = false
     @State private var selectedImageIndex: Int = 0
-    @State private var selectedVideoUrl: String?
     @State private var showImageViewer = false
-    @State private var showVideoPlayer = false
+    @State private var selectedVideo: VideoSelection?
     @State private var anonProfileId: Int?
     @State private var pendingFocusCommentId: Int?
     @State private var showMediaPicker = false
@@ -171,10 +170,14 @@ struct CommentsView: View {
                     isPresented: $showImageViewer
                 )
             }
-            .fullScreenCover(isPresented: $showVideoPlayer) {
-                if let url = selectedVideoUrl {
-                    VideoPlayerSheet(videoUrl: url, isPresented: $showVideoPlayer)
-                }
+            .fullScreenCover(item: $selectedVideo) { selection in
+                VideoPlayerSheet(
+                    videoUrl: selection.url,
+                    isPresented: Binding(
+                        get: { selectedVideo != nil },
+                        set: { if !$0 { selectedVideo = nil } }
+                    )
+                )
             }
         }
     }
@@ -294,8 +297,9 @@ private extension CommentsView {
 	                        },
 	                        onVideoTap: { url in
 	                            guard !url.isEmpty, URL(string: url) != nil else { return }
-	                            selectedVideoUrl = url
-                            showVideoPlayer = true
+	                            let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+	                            guard !trimmed.isEmpty else { return }
+	                            selectedVideo = VideoSelection(url: trimmed)
                         }
                     )
                 }

@@ -56,6 +56,7 @@ struct VideoPlayerSheet: View {
             }
         }
         .onAppear {
+            isInvalidUrl = false
             let cleaned = videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !cleaned.isEmpty else {
                 isInvalidUrl = true
