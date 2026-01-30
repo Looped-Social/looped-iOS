@@ -603,6 +603,27 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             VideoDebugLogger.log("id=\(debugId) asset error=\(error.localizedDescription)")
         }
 
+        do {
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            if let track = tracks.first {
+                let natural = try await track.load(.naturalSize)
+                let transform = try await track.load(.preferredTransform)
+                let transformed = natural.applying(transform)
+                let width = abs(transformed.width)
+                let height = abs(transformed.height)
+                let fps = try await track.load(.nominalFrameRate)
+                let dataRate = try await track.load(.estimatedDataRate) // bits/sec (estimated)
+                let mbps = Double(dataRate) / 1_000_000
+                let trackInfo = "video=\(Int(width))x\(Int(height)) \(String(format: "%.1f", fps))fps ~\(String(format: "%.1f", mbps))Mbps"
+                VideoDebugLogger.log("id=\(debugId) \(trackInfo)")
+                await MainActor.run {
+                    debugAssetText = "\(debugAssetText) \(trackInfo)"
+                }
+            }
+        } catch {
+            VideoDebugLogger.log("id=\(debugId) track error=\(error.localizedDescription)")
+        }
+
         var head = URLRequest(url: url)
         head.httpMethod = "HEAD"
         head.timeoutInterval = 12
@@ -611,7 +632,8 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             if let http = response as? HTTPURLResponse {
                 let type = http.value(forHTTPHeaderField: "Content-Type") ?? "nil"
                 let ranges = http.value(forHTTPHeaderField: "Accept-Ranges") ?? "nil"
-                let text = "HEAD \(http.statusCode) \(type) ranges=\(ranges)"
+                let length = http.value(forHTTPHeaderField: "Content-Length") ?? "nil"
+                let text = "HEAD \(http.statusCode) \(type) len=\(length) ranges=\(ranges)"
                 await MainActor.run {
                     debugHTTPText = text
                 }
@@ -664,6 +686,7 @@ final class PlayerContainerUIView: UIView {
         layer.masksToBounds = true
         playerLayer.videoGravity = videoGravity
         playerLayer.masksToBounds = true
+        playerLayer.contentsScale = UIScreen.main.scale
         layer.addSublayer(playerLayer)
 
         readyObserver = playerLayer.observe(\.isReadyForDisplay, options: [.initial, .new]) { [weak self] layer, _ in
@@ -679,6 +702,13 @@ final class PlayerContainerUIView: UIView {
 
     deinit {
         readyObserver = nil
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if let scale = window?.screen.scale {
+            playerLayer.contentsScale = scale
+        }
     }
 
     override func layoutSubviews() {

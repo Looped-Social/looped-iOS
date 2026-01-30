@@ -211,7 +211,7 @@ struct CameraMediaPickerView: UIViewControllerRepresentable {
         picker.sourceType = .camera
         picker.modalPresentationStyle = .fullScreen
         picker.mediaTypes = [UTType.image.identifier, UTType.movie.identifier]
-        picker.videoQuality = .typeMedium
+        picker.videoQuality = .typeHigh
         picker.delegate = context.coordinator
         return picker
     }

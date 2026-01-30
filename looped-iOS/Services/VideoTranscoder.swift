@@ -22,7 +22,19 @@ enum VideoTranscoder {
         }
 
         let asset = AVAsset(url: url)
-        guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetMediumQuality) else {
+        let compatiblePresets = Set(AVAssetExportSession.exportPresets(compatibleWith: asset))
+        let presetCandidates = [
+            AVAssetExportPresetPassthrough,
+            AVAssetExportPreset1920x1080,
+            AVAssetExportPresetHighestQuality,
+            AVAssetExportPreset1280x720,
+            AVAssetExportPresetMediumQuality,
+        ]
+        let chosenPreset = presetCandidates.first(where: { compatiblePresets.contains($0) })
+
+        guard let chosenPreset,
+              let export = AVAssetExportSession(asset: asset, presetName: chosenPreset),
+              export.supportedFileTypes.contains(.mp4) else {
             throw VideoTranscoderError.exportUnavailable
         }
 
