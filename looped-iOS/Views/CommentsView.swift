@@ -307,6 +307,7 @@ private extension CommentsView {
                                 authorImageUrl: post.authorProfileImageURL,
                                 communityName: communityLabel,
                                 caption: post.content,
+                                inlineId: selection.inlineId,
                                 inlineViewModel: selection.inlineViewModel
                             )
                         }

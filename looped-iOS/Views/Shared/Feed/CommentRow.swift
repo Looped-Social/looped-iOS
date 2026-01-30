@@ -196,6 +196,7 @@ struct CommentRow: View {
 	                                    authorImageUrl: comment.authorProfileImageURL,
 	                                    communityName: nil,
 	                                    caption: comment.content,
+	                                    inlineId: selection.inlineId,
 	                                    inlineViewModel: selection.inlineViewModel
 	                                )
                             }

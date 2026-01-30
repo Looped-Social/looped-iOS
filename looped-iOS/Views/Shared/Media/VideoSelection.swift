@@ -8,6 +8,7 @@ struct VideoSelection: Identifiable {
     let authorImageUrl: String?
     let communityName: String?
     let caption: String?
+    let inlineId: String?
     let inlineViewModel: InlineVideoPlayerViewModel?
     let postActionConfig: PostActionBarConfig?
 
@@ -18,6 +19,7 @@ struct VideoSelection: Identifiable {
         authorImageUrl: String? = nil,
         communityName: String? = nil,
         caption: String? = nil,
+        inlineId: String? = nil,
         inlineViewModel: InlineVideoPlayerViewModel? = nil,
         postActionConfig: PostActionBarConfig? = nil
     ) {
@@ -27,6 +29,7 @@ struct VideoSelection: Identifiable {
         self.authorImageUrl = authorImageUrl
         self.communityName = communityName
         self.caption = caption
+        self.inlineId = inlineId
         self.inlineViewModel = inlineViewModel
         self.postActionConfig = postActionConfig
     }

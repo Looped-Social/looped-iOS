@@ -2,13 +2,7 @@ import SwiftUI
 import AVFoundation
 import UIKit
 import Foundation
-
-private struct InlineVideoFramePreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
+import QuartzCore
 
 private final class VisibilityUpdateCoordinator {
     private var pendingFrame: CGRect?
@@ -98,6 +92,84 @@ private struct TapCaptureView: UIViewRepresentable {
     }
 }
 
+private struct VisibilityProbeView: UIViewRepresentable {
+    let onFrameChange: (CGRect) -> Void
+
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.onFrameChange = onFrameChange
+        return view
+    }
+
+    func updateUIView(_ uiView: ProbeView, context: Context) {
+        uiView.onFrameChange = onFrameChange
+    }
+
+    final class ProbeView: UIView {
+        var onFrameChange: ((CGRect) -> Void)?
+
+        private var displayLink: CADisplayLink?
+        private var lastReportedFrame: CGRect = .zero
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            backgroundColor = .clear
+            isUserInteractionEnabled = false
+        }
+
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+            backgroundColor = .clear
+            isUserInteractionEnabled = false
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window == nil {
+                stopDisplayLink()
+            } else {
+                startDisplayLink()
+            }
+        }
+
+        private func startDisplayLink() {
+            guard displayLink == nil else { return }
+            let link = CADisplayLink(target: self, selector: #selector(tick))
+            if #available(iOS 15.0, *) {
+                link.preferredFrameRateRange = CAFrameRateRange(minimum: 8, maximum: 15, preferred: 12)
+            } else {
+                link.preferredFramesPerSecond = 12
+            }
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+
+        private func stopDisplayLink() {
+            displayLink?.invalidate()
+            displayLink = nil
+            lastReportedFrame = .zero
+        }
+
+        deinit {
+            stopDisplayLink()
+        }
+
+        @objc private func tick() {
+            guard window != nil else { return }
+            let frame = convert(bounds, to: nil)
+            let rounded = CGRect(
+                x: frame.origin.x.rounded(),
+                y: frame.origin.y.rounded(),
+                width: frame.size.width.rounded(),
+                height: frame.size.height.rounded()
+            )
+            guard rounded != lastReportedFrame else { return }
+            lastReportedFrame = rounded
+            onFrameChange?(rounded)
+        }
+    }
+}
+
 private struct VideoDebugLogger {
     static var isEnabled: Bool {
         let env = ProcessInfo.processInfo.environment
@@ -115,19 +187,24 @@ final class VideoPlaybackManager: ObservableObject {
     static let refreshVisibilityNotification = Foundation.Notification.Name("LoopedVideoRefreshVisibility")
 
     @Published private(set) var activeVideoId: String?
+    @Published private(set) var lockedActiveId: String?
 
     private struct VisibilityState {
         let ratio: Double
+        let visibleHeight: Double
+        let focusHeight: Double
         let lastUpdated: Date
     }
 
     private var visibilityById: [String: VisibilityState] = [:]
     private let visibilityThreshold: Double = 0.60
+    private let minVisibleHeight: Double = 180
     private let hysteresisDelta: Double = 0.08
     private let staleVisibilityInterval: TimeInterval = 1.2
 
     func resetVisibility() {
         visibilityById.removeAll()
+        lockedActiveId = nil
         if activeVideoId != nil {
             activeVideoId = nil
             VideoDebugLogger.log("activeVideoId cleared (reset)")
@@ -138,8 +215,8 @@ final class VideoPlaybackManager: ObservableObject {
         NotificationCenter.default.post(name: Self.refreshVisibilityNotification, object: nil)
     }
 
-    func updateVisibility(id: String, visibleRatio: Double) {
-        visibilityById[id] = VisibilityState(ratio: visibleRatio, lastUpdated: Date())
+    func updateVisibility(id: String, visibleRatio: Double, visibleHeight: Double, focusHeight: Double) {
+        visibilityById[id] = VisibilityState(ratio: visibleRatio, visibleHeight: visibleHeight, focusHeight: focusHeight, lastUpdated: Date())
         recomputeActive()
     }
 
@@ -152,37 +229,73 @@ final class VideoPlaybackManager: ObservableObject {
     }
 
     func promoteToActive(id: String) {
+        if let lockedActiveId, lockedActiveId != id { return }
         guard activeVideoId != id else { return }
         activeVideoId = id
         VideoDebugLogger.log("activeVideoId set to \(id)")
     }
 
     func isVisibleEnough(_ id: String) -> Bool {
-        (visibilityById[id]?.ratio ?? 0) >= visibilityThreshold
+        guard let state = visibilityById[id] else { return false }
+        return state.ratio >= visibilityThreshold || state.visibleHeight >= minVisibleHeight
     }
 
     func visibleRatio(for id: String) -> Double {
         visibilityById[id]?.ratio ?? 0
     }
 
+    func lockActive(id: String) {
+        lockedActiveId = id
+        activeVideoId = id
+        VideoDebugLogger.log("activeVideoId locked to \(id)")
+    }
+
+    func unlockActive(id: String) {
+        guard lockedActiveId == id else { return }
+        lockedActiveId = nil
+        VideoDebugLogger.log("activeVideoId unlocked")
+    }
+
     func isActiveStale() -> Bool {
+        guard lockedActiveId == nil else { return false }
         guard let activeVideoId, let state = visibilityById[activeVideoId] else { return true }
         return Date().timeIntervalSince(state.lastUpdated) > staleVisibilityInterval
     }
 
     func clearActiveIfStale() {
+        guard lockedActiveId == nil else { return }
         if isActiveStale() {
             activeVideoId = nil
         }
     }
 
     private func recomputeActive() {
+        if let lockedActiveId {
+            if activeVideoId != lockedActiveId {
+                activeVideoId = lockedActiveId
+            }
+            return
+        }
         let cutoff = Date().addingTimeInterval(-staleVisibilityInterval)
         if !visibilityById.isEmpty {
             visibilityById = visibilityById.filter { $0.value.lastUpdated >= cutoff }
         }
-        let candidates = visibilityById.filter { $0.value.ratio >= visibilityThreshold }
-        guard let best = candidates.max(by: { $0.value.ratio < $1.value.ratio }) else {
+        let candidates = visibilityById.filter {
+            $0.value.ratio >= visibilityThreshold || $0.value.visibleHeight >= minVisibleHeight
+        }
+
+        guard let best = candidates.max(by: { lhs, rhs in
+            if lhs.value.visibleHeight != rhs.value.visibleHeight {
+                return lhs.value.visibleHeight < rhs.value.visibleHeight
+            }
+            if lhs.value.focusHeight != rhs.value.focusHeight {
+                return lhs.value.focusHeight < rhs.value.focusHeight
+            }
+            if lhs.value.ratio != rhs.value.ratio {
+                return lhs.value.ratio < rhs.value.ratio
+            }
+            return lhs.value.lastUpdated < rhs.value.lastUpdated
+        }) else {
             if activeVideoId != nil {
                 activeVideoId = nil
                 VideoDebugLogger.log("activeVideoId cleared (no visible candidates)")
@@ -192,14 +305,17 @@ final class VideoPlaybackManager: ObservableObject {
 
         if let currentId = activeVideoId,
            let current = visibilityById[currentId],
-           current.ratio >= visibilityThreshold {
+           current.ratio >= visibilityThreshold || current.visibleHeight >= minVisibleHeight {
             if currentId == best.key { return }
-            if best.value.ratio - current.ratio < hysteresisDelta { return }
+            if best.value.visibleHeight - current.visibleHeight < (minVisibleHeight * 0.15),
+               best.value.ratio - current.ratio < hysteresisDelta {
+                return
+            }
         }
 
         if activeVideoId != best.key {
             activeVideoId = best.key
-            VideoDebugLogger.log("activeVideoId switched to \(best.key) ratio=\(best.value.ratio)")
+            VideoDebugLogger.log("activeVideoId switched to \(best.key) ratio=\(best.value.ratio) vh=\(Int(best.value.visibleHeight)) fh=\(Int(best.value.focusHeight))")
         }
     }
 }
@@ -598,7 +714,9 @@ struct InlineVideoPlayer: View {
     @State private var visibilityRefreshTask: Task<Void, Never>?
     @State private var visibilityCoordinator = VisibilityUpdateCoordinator()
     @State private var playbackGateCoordinator = PlaybackGateCoordinator()
-    @State private var isActive = false
+    @State private var isActive = true
+    @State private var lastVisibleHeight: Double = 0
+    @State private var lastGateState: String = ""
 
     init(
         id: String,
@@ -736,17 +854,15 @@ struct InlineVideoPlayer: View {
                 .padding(.trailing, 10)
         }
         .background(
-            GeometryReader { geo in
-                Color.loopedClear.preference(key: InlineVideoFramePreferenceKey.self, value: geo.frame(in: .global))
+            VisibilityProbeView { frame in
+                visibilityCoordinator.schedule(frame: frame, force: false) { frame in
+                    guard isActive else { return }
+                    updateVisibility(frame: frame)
+                    schedulePlaybackGate()
+                }
             }
+            .allowsHitTesting(false)
         )
-        .onPreferenceChange(InlineVideoFramePreferenceKey.self) { frame in
-            visibilityCoordinator.schedule(frame: frame, force: false) { frame in
-                guard isActive else { return }
-                updateVisibility(frame: frame)
-                schedulePlaybackGate()
-            }
-        }
         .onAppear {
             isActive = true
             VideoDebugLogger.log("id=\(id) bind url=\(videoUrl) thumbnail=\(thumbnailUrl ?? "nil")")
@@ -858,45 +974,51 @@ struct InlineVideoPlayer: View {
         )
     }
 
-    private func updateVisibility(frame: CGRect, ratioOverride: Double? = nil) {
-        let ratio = ratioOverride ?? computeVisibleRatio(frame: frame)
+    private func updateVisibility(frame: CGRect, ratioOverride: Double? = nil, visibleHeightOverride: Double? = nil) {
+        if ratioOverride == nil, frame.height <= 1 || frame.width <= 1 {
+            return
+        }
+        let metrics = computeVisibleMetrics(frame: frame)
+        let ratio = ratioOverride ?? metrics.ratio
+        let visibleHeight = visibleHeightOverride ?? metrics.visibleHeight
+        let focusHeight = metrics.focusHeight
         visibleRatio = ratio
-        playbackManager.updateVisibility(id: id, visibleRatio: ratio)
+        lastVisibleHeight = visibleHeight
+        playbackManager.updateVisibility(id: id, visibleRatio: ratio, visibleHeight: visibleHeight, focusHeight: focusHeight)
         if VideoDebugLogger.isEnabled {
             if lastLoggedVisibility < 0 || abs(ratio - lastLoggedVisibility) >= 0.05 {
                 lastLoggedVisibility = ratio
-                VideoDebugLogger.log("id=\(id) visibleRatio=\(String(format: "%.2f", ratio))")
+                VideoDebugLogger.log("id=\(id) visibleRatio=\(String(format: "%.2f", ratio)) vh=\(Int(visibleHeight)) fh=\(Int(focusHeight))")
             }
         }
     }
 
-    private func computeVisibleRatio(frame: CGRect) -> Double {
+    private func computeVisibleMetrics(frame: CGRect) -> (ratio: Double, visibleHeight: Double, focusHeight: Double) {
         let screen = UIScreen.main.bounds
-        guard frame.height > 1 else { return 0 }
+        guard frame.height > 1 else { return (0, 0, 0) }
         let visibleTop = max(frame.minY, 0)
         let visibleBottom = min(frame.maxY, screen.height)
         let visibleHeight = max(0, visibleBottom - visibleTop)
-        return Double(visibleHeight / frame.height)
+        let ratio = Double(visibleHeight / frame.height)
+        let focusTop = screen.height * 0.25
+        let focusBottom = screen.height * 0.75
+        let focusVisibleTop = max(frame.minY, focusTop)
+        let focusVisibleBottom = min(frame.maxY, focusBottom)
+        let focusHeight = max(0, focusVisibleBottom - focusVisibleTop)
+        return (ratio, Double(visibleHeight), Double(focusHeight))
     }
 
     private func refreshVisibility() {
         let frame = visibilityCoordinator.currentFrame
-        let ratio: Double
-        if frame.height > 1 {
-            ratio = computeVisibleRatio(frame: frame)
-        } else if visibleRatio > 0 {
-            ratio = visibleRatio
-        } else {
-            ratio = 1
+        guard frame.height > 1, frame.width > 1 else {
+            scheduleVisibilityRefresh()
+            return
         }
+        let metrics = computeVisibleMetrics(frame: frame)
         visibilityCoordinator.schedule(frame: frame, force: true) { frame in
             guard isActive else { return }
             playbackManager.clearActiveIfStale()
-            updateVisibility(frame: frame, ratioOverride: ratio)
-            if playbackManager.activeVideoId == nil, ratio >= 0.60, !viewModel.didReachEnd {
-                playbackManager.promoteToActive(id: id)
-                viewModel.play()
-            }
+            updateVisibility(frame: frame, ratioOverride: metrics.ratio, visibleHeightOverride: metrics.visibleHeight)
             schedulePlaybackGate()
         }
     }
@@ -920,25 +1042,35 @@ struct InlineVideoPlayer: View {
 
     private func applyPlaybackGate() {
         guard isActive else {
+            logGate("inactive")
             viewModel.pause()
             return
         }
-        guard !isScrubbing else { return }
-        guard !viewModel.isExternallyPresented else { return }
+        guard !isScrubbing else {
+            logGate("scrubbing")
+            return
+        }
+        guard !viewModel.isExternallyPresented else {
+            logGate("external")
+            return
+        }
         if viewModel.didReachEnd {
+            logGate("ended")
             viewModel.pause()
             return
         }
         playbackManager.clearActiveIfStale()
         let isVisibleEnough = playbackManager.isVisibleEnough(id)
         guard isVisibleEnough else {
+            logGate("notVisible")
             viewModel.pause()
             return
         }
-        if playbackManager.activeVideoId == nil && visibleRatio >= 0.60 {
+        if playbackManager.activeVideoId == nil {
             playbackManager.promoteToActive(id: id)
         }
         guard playbackManager.activeVideoId == id else {
+            logGate("notActive")
             viewModel.pause()
             return
         }
@@ -946,11 +1078,22 @@ struct InlineVideoPlayer: View {
         hasAttemptedPlayback = true
 
         if userPaused {
+            logGate("userPaused")
             viewModel.pause()
             return
         }
 
+        logGate("play")
         viewModel.play()
+    }
+
+    private func logGate(_ state: String) {
+        guard VideoDebugLogger.isEnabled else { return }
+        guard state != lastGateState else { return }
+        lastGateState = state
+        VideoDebugLogger.log(
+            "id=\(id) gate=\(state) ratio=\(String(format: "%.2f", visibleRatio)) vh=\(Int(lastVisibleHeight)) active=\(playbackManager.activeVideoId ?? "nil") locked=\(playbackManager.lockedActiveId ?? "nil")"
+        )
     }
 
     private func showControls() {

@@ -524,6 +524,7 @@ struct PostCard: View {
             authorImageUrl: post.authorProfileImageURL,
             communityName: communityContextText,
             caption: post.content,
+            inlineId: selection.inlineId,
             inlineViewModel: selection.inlineViewModel,
             postActionConfig: postActionBarConfig
         )

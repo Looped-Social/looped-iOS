@@ -148,12 +148,15 @@ private struct VideoPlayerSheetBody: View {
         .offset(y: dragOffset)
         .gesture(dragGesture)
         .onAppear {
-            playbackManager.resetVisibility()
             viewModel.setMuted(false)
             if usesSharedViewModel {
+                if let inlineId = selection.inlineId {
+                    playbackManager.lockActive(id: inlineId)
+                }
                 viewModel.setExternallyPresented(true)
                 viewModel.play()
             } else {
+                playbackManager.resetVisibility()
                 let cleaned = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
                 let url = URL(string: cleaned) ?? URLComponents(string: cleaned)?.url
                 viewModel.updateURLIfNeeded(url)
@@ -169,6 +172,9 @@ private struct VideoPlayerSheetBody: View {
             dragOffset = 0
             if usesSharedViewModel {
                 viewModel.setExternallyPresented(false)
+                if let inlineId = selection.inlineId {
+                    playbackManager.unlockActive(id: inlineId)
+                }
             } else {
                 viewModel.pause()
             }

@@ -254,6 +254,7 @@ struct SinglePostedMedia: View {
                         VideoSelection(
                             url: attachment.url,
                             thumbnailUrl: attachment.thumbnailUrl,
+                            inlineId: attachment.id,
                             inlineViewModel: viewModel
                         )
                     )
