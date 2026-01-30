@@ -10,6 +10,7 @@ class FeedViewModel: ObservableObject {
     @Published var isLoadingMore = false
     @Published var errorMessage: String?
     @Published var feedMode: FeedMode = .forYou
+    @Published var showSkeleton = false
     @Published var followedCommunities: [CommunitySummary] = []
     @Published var selectedCommunity: CommunitySummary?
     @Published var isLoadingCommunities = false
@@ -38,6 +39,8 @@ class FeedViewModel: ObservableObject {
     private var communitiesNextCursor: String?
     private let pageSize = 20
     private let communityPageSize = 50
+    private var activeFeedRequestId = UUID()
+    private var skeletonDelayTask: Task<Void, Never>?
     private let lastPostedCommunityKey = "lastPostedCommunityId"
     private let lastSelectedCommunityKey = "lastSelectedCommunityId"
     private let feedActiveCommunityKey = "feedActiveCommunityId"
@@ -233,11 +236,36 @@ class FeedViewModel: ObservableObject {
         }
     }
     
-    func loadPosts(reset: Bool = true) async {
+    func loadPosts(reset: Bool = true, clearExistingPosts: Bool = false, force: Bool = false) async {
+        let requestId = UUID()
+        let contextId: UUID
         if reset {
-            if isLoading { return }
+            activeFeedRequestId = requestId
+            contextId = requestId
+        } else {
+            contextId = activeFeedRequestId
+        }
+        if reset {
+            if isLoading, !force { return }
             isLoading = true
+            isLoadingMore = false
             newPostsToastCount = nil
+            showSkeleton = false
+            skeletonDelayTask?.cancel()
+            skeletonDelayTask = nil
+            if clearExistingPosts {
+                posts = []
+            }
+            if posts.isEmpty {
+                let delayContextId = contextId
+                skeletonDelayTask = Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    guard !Task.isCancelled else { return }
+                    guard activeFeedRequestId == delayContextId else { return }
+                    guard isLoading, posts.isEmpty else { return }
+                    showSkeleton = true
+                }
+            }
         } else {
             if isLoadingMore || nextCursor == nil { return }
             isLoadingMore = true
@@ -246,12 +274,16 @@ class FeedViewModel: ObservableObject {
         if reset { nextCursor = nil }
         
         do {
+            let requestedMode = feedMode
+            let requestedCommunityId = selectedCommunity?.id
             let page = try await feedService.fetchFeed(
                 limit: pageSize,
                 cursor: reset ? nil : nextCursor,
-                communityId: selectedCommunity?.id,
-                mode: feedMode
+                communityId: requestedCommunityId,
+                mode: requestedMode
             )
+            guard activeFeedRequestId == contextId else { return }
+            guard requestedMode == feedMode, requestedCommunityId == selectedCommunity?.id else { return }
             if reset {
                 posts = page.posts
             } else {
@@ -259,13 +291,21 @@ class FeedViewModel: ObservableObject {
             }
             nextCursor = page.nextCursor
         } catch {
+            guard activeFeedRequestId == contextId else { return }
             errorMessage = error.localizedDescription
         }
         
         if reset {
-            isLoading = false
+            if activeFeedRequestId == contextId {
+                isLoading = false
+                showSkeleton = false
+                skeletonDelayTask?.cancel()
+                skeletonDelayTask = nil
+            }
         } else {
-            isLoadingMore = false
+            if activeFeedRequestId == contextId {
+                isLoadingMore = false
+            }
         }
     }
 
@@ -273,7 +313,7 @@ class FeedViewModel: ObservableObject {
         guard feedMode != mode else { return }
         feedMode = mode
         resetNewPostsToast()
-        await loadPosts(reset: true)
+        await loadPosts(reset: true, clearExistingPosts: true, force: true)
     }
     
     func refreshPosts() async {

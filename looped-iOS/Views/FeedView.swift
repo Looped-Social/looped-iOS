@@ -35,12 +35,19 @@ struct FeedView: View {
                             .id(topAnchorId)
 
                         if viewModel.isLoading && viewModel.posts.isEmpty {
-                            ForEach(0..<6, id: \.self) { index in
-                                PostCardSkeleton(showsMedia: index % 3 != 0)
+                            if viewModel.showSkeleton {
+                                ForEach(0..<6, id: \.self) { index in
+                                    PostCardSkeleton(showsMedia: index % 3 != 0)
 
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                    Rectangle()
+                                        .frame(height: 1)
+                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                }
+                            } else {
+                                ProgressView()
+                                    .tint(.loopedPrimary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 26)
                             }
                         } else if viewModel.posts.isEmpty {
                             EmptyFeedView()
