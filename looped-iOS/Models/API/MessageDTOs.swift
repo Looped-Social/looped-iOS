@@ -67,7 +67,27 @@ struct ChannelDTO: Codable {
 
 struct SendMessageRequestDTO: Codable {
     let content: String
-    let attachments: [String]?
+    let attachments: [SendMessageAttachmentDTO]?
+}
+
+struct SendMessageAttachmentDTO: Codable {
+    let url: String
+    let type: String?
+    let width: Int?
+    let height: Int?
+    let durationSeconds: Int?
+    let sizeBytes: Int64?
+    let thumbnailUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case type
+        case width
+        case height
+        case durationSeconds = "duration_seconds"
+        case sizeBytes = "size_bytes"
+        case thumbnailUrl = "thumbnail_url"
+    }
 }
 
 struct CreateChannelRequestDTO: Codable {

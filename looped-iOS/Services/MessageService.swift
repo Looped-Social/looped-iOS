@@ -93,7 +93,7 @@ class MessageService: MessageServiceProtocol {
         return MessagePage(messages: messages.sorted { $0.createdAt < $1.createdAt }, nextCursor: response.nextCursor)
     }
     
-    func sendConversationMessage(conversationId: Int, content: String, attachments: [String]?) async throws -> Message {
+    func sendConversationMessage(conversationId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message {
         let request = SendMessageRequestDTO(content: content, attachments: attachments)
         let dto: MessageDTO = try await apiClient.post("/v1/conversations/\(conversationId)/messages", body: request)
         return try await resolveMessage(
@@ -331,7 +331,7 @@ class MessageService: MessageServiceProtocol {
         return MessagePage(messages: messages.sorted { $0.createdAt < $1.createdAt }, nextCursor: response.nextCursor)
     }
     
-    func sendChannelMessage(channelBackendId: Int, content: String, attachments: [String]?) async throws -> Message {
+    func sendChannelMessage(channelBackendId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message {
         let request = SendMessageRequestDTO(content: content, attachments: attachments)
         let dto: MessageDTO = try await apiClient.post("/v1/channels/\(channelBackendId)/messages", body: request)
         return try await resolveMessage(
@@ -473,13 +473,19 @@ private extension MessageService {
     }
 
     func attachmentKeys(from attachments: [MediaAttachmentDTO]) -> [String] {
-        attachments.compactMap { attachment in
-            let raw = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !raw.isEmpty else { return nil }
-            guard URL(string: raw)?.scheme == nil else { return nil }
-            guard raw.hasPrefix("dm/") else { return nil }
-            return raw
+        var keys: [String] = []
+        keys.reserveCapacity(attachments.count * 2)
+        for attachment in attachments {
+            let candidates = [attachment.url, attachment.thumbnailUrl].compactMap { $0 }
+            for candidate in candidates {
+                let raw = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !raw.isEmpty else { continue }
+                guard URL(string: raw)?.scheme == nil else { continue }
+                guard raw.hasPrefix("dm/") else { continue }
+                keys.append(raw)
+            }
         }
+        return keys
     }
 
     func resolveAttachmentMap(for keys: [String]) async throws -> [String: MessageMediaResolvedItem] {
@@ -505,23 +511,80 @@ private extension MessageService {
         resolved.reserveCapacity(attachments.count)
 
         for attachment in attachments {
-            let raw = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !raw.isEmpty else { continue }
+            let rawUrl = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !rawUrl.isEmpty else { continue }
 
-            if URL(string: raw)?.scheme != nil {
-                resolved.append(MediaAttachment(dto: attachment))
-                continue
+            let urlKey: String?
+            let resolvedUrl: String
+            let resolvedMimeType: String?
+            if URL(string: rawUrl)?.scheme == nil, rawUrl.hasPrefix("dm/") {
+                urlKey = rawUrl
+                guard let item = byKey[rawUrl], !item.downloadUrl.isEmpty else { continue }
+                resolvedUrl = item.downloadUrl
+                resolvedMimeType = item.mimeType?.lowercased()
+            } else {
+                urlKey = nil
+                resolvedUrl = rawUrl
+                resolvedMimeType = nil
             }
 
-            guard raw.hasPrefix("dm/"), let item = byKey[raw], !item.downloadUrl.isEmpty else { continue }
-            let mime = item.mimeType?.lowercased()
-            let isVideo = mime?.hasPrefix("video/") == true || item.downloadUrl.lowercased().contains(".mp4")
+            let rawThumb = attachment.thumbnailUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let thumbKey: String?
+            let resolvedThumbUrl: String?
+            if let rawThumb, !rawThumb.isEmpty {
+                if URL(string: rawThumb)?.scheme == nil, rawThumb.hasPrefix("dm/") {
+                    thumbKey = rawThumb
+                    if let item = byKey[rawThumb], !item.downloadUrl.isEmpty {
+                        resolvedThumbUrl = item.downloadUrl
+                    } else {
+                        resolvedThumbUrl = nil
+                    }
+                } else {
+                    thumbKey = nil
+                    resolvedThumbUrl = rawThumb
+                }
+            } else {
+                thumbKey = nil
+                resolvedThumbUrl = nil
+            }
+
+            let trimmedType = attachment.type?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let resolvedType: MediaType
+            if let trimmedType, !trimmedType.isEmpty {
+                if let type = MediaType(rawValue: trimmedType) {
+                    resolvedType = type
+                } else if trimmedType.hasPrefix("video") || trimmedType.contains("video/") {
+                    resolvedType = .video
+                } else if trimmedType.hasPrefix("image") || trimmedType.contains("image/") {
+                    resolvedType = .image
+                } else {
+                    let isVideo = resolvedMimeType?.hasPrefix("video/") == true
+                        || resolvedUrl.lowercased().contains(".mp4")
+                        || attachment.durationSeconds != nil
+                    resolvedType = isVideo ? .video : .image
+                }
+            } else {
+                let isVideo = resolvedMimeType?.hasPrefix("video/") == true
+                    || resolvedUrl.lowercased().contains(".mp4")
+                    || attachment.durationSeconds != nil
+                resolvedType = isVideo ? .video : .image
+            }
+
+            #if DEBUG
+            if resolvedType == .video {
+                let idForLog = urlKey ?? resolvedUrl
+                let thumbStatus = resolvedThumbUrl == nil ? "missing" : "present"
+                print("LOOPED_MESSAGE_MEDIA resolved video id=\(idForLog) thumbnail=\(thumbStatus)")
+            }
+            #endif
+
             resolved.append(
                 MediaAttachment(
-                    id: raw,
-                    type: isVideo ? .video : .image,
-                    url: item.downloadUrl,
-                    thumbnailUrl: attachment.thumbnailUrl,
+                    id: urlKey ?? resolvedUrl,
+                    type: resolvedType,
+                    url: resolvedUrl,
+                    thumbnailUrl: resolvedThumbUrl,
+                    thumbnailKey: thumbKey,
                     width: attachment.width,
                     height: attachment.height,
                     duration: attachment.durationSeconds,

@@ -91,7 +91,7 @@ protocol MessageServiceProtocol {
     func listConversations(cursor: String?) async throws -> ConversationPage
     func startConversation(with participantBackendId: Int) async throws -> Conversation
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage
-    func sendConversationMessage(conversationId: Int, content: String, attachments: [String]?) async throws -> Message
+    func sendConversationMessage(conversationId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message
     func searchMessages(query: String, limit: Int, cursor: String?) async throws -> MessageSearchPage
     func getChannels(cursor: String?) async throws -> ChannelPage
     func createChannel(name: String, memberUserIds: [Int]) async throws -> Channel
@@ -100,7 +100,7 @@ protocol MessageServiceProtocol {
     func removeChannelMember(channelBackendId: Int, userId: Int) async throws
     func updateChannelMemberPermission(channelBackendId: Int, userId: Int, canManageMembers: Bool) async throws
     func getChannelMessages(channelBackendId: Int, cursor: String?) async throws -> MessagePage
-    func sendChannelMessage(channelBackendId: Int, content: String, attachments: [String]?) async throws -> Message
+    func sendChannelMessage(channelBackendId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message
     func fetchMessageRequests(cursor: String?) async throws -> MessageRequestPage
     func approveMessageRequest(requestId: Int) async throws
     func rejectMessageRequest(requestId: Int) async throws

@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 import UIKit
+import AVFoundation
 
 private enum ChatConversationPreviewUpdate {
     static let name = Foundation.Notification.Name("ChatConversationPreviewUpdate")
@@ -498,7 +499,7 @@ class ChatViewModel: ObservableObject {
         errorMessage = userFacingErrorMessage(for: error)
     }
 
-    private func normalizedMessageContent(_ trimmedContent: String, attachments: [String]) -> String? {
+    private func normalizedMessageContent(_ trimmedContent: String, attachments: [SendMessageAttachmentDTO]) -> String? {
         if !trimmedContent.isEmpty { return trimmedContent }
         if !attachments.isEmpty {
             // Some backends reject empty strings; send an invisible character to represent attachment-only messages.
@@ -534,10 +535,10 @@ class ChatViewModel: ObservableObject {
         return error.localizedDescription
     }
 
-    private func uploadAttachments(from media: [LocalMediaItem]) async throws -> [String] {
+    private func uploadAttachments(from media: [LocalMediaItem]) async throws -> [SendMessageAttachmentDTO] {
         guard !media.isEmpty else { return [] }
-        var keys: [String] = []
-        keys.reserveCapacity(media.count)
+        var attachments: [SendMessageAttachmentDTO] = []
+        attachments.reserveCapacity(media.count)
 
         for item in media {
             switch item.type {
@@ -546,7 +547,17 @@ class ChatViewModel: ObservableObject {
                 guard let payload = makeUploadPayload(from: image) else { throw ChatMediaUploadError.unreadableImage }
                 let key = try await messageMediaService.uploadImage(data: payload.data, mimeType: payload.mimeType)
                 guard key.hasPrefix("dm/") else { throw ChatMediaUploadError.invalidAttachmentKey }
-                keys.append(key)
+                attachments.append(
+                    SendMessageAttachmentDTO(
+                        url: key,
+                        type: "image",
+                        width: payload.width,
+                        height: payload.height,
+                        durationSeconds: nil,
+                        sizeBytes: Int64(payload.data.count),
+                        thumbnailUrl: nil
+                    )
+                )
             case .video:
                 guard let url = item.videoURL else { throw ChatMediaUploadError.unreadableVideo }
                 let mp4Url = try await VideoTranscoder.ensureMP4(at: url)
@@ -554,20 +565,96 @@ class ChatViewModel: ObservableObject {
                     TemporaryMediaFile.deleteIfOwned(mp4Url)
                     TemporaryMediaFile.deleteIfOwned(url)
                 }
-                let key = try await messageMediaService.uploadVideo(fileURL: mp4Url, mimeType: "video/mp4")
-                guard key.hasPrefix("dm/") else { throw ChatMediaUploadError.invalidAttachmentKey }
-                keys.append(key)
+                let metadata = videoUploadMetadata(url: mp4Url)
+
+                var thumbnailKey: String?
+                if let thumbnailImage = item.image ?? makeVideoThumbnail(url: mp4Url) {
+                    let preparedThumbnail = opaqueThumbnailImage(thumbnailImage, background: .white)
+                    if let payload = makeUploadPayload(from: preparedThumbnail) {
+                    do {
+                        let key = try await messageMediaService.uploadImage(data: payload.data, mimeType: payload.mimeType)
+                        if key.hasPrefix("dm/") {
+                            thumbnailKey = key
+                        }
+                    } catch {
+                        #if DEBUG
+                        print("LOOPED_MESSAGE_MEDIA thumbnail upload failed: \(error)")
+                        #endif
+                        thumbnailKey = nil
+                    }
+                    }
+                }
+
+                let videoKey = try await messageMediaService.uploadVideo(fileURL: mp4Url, mimeType: "video/mp4")
+                guard videoKey.hasPrefix("dm/") else { throw ChatMediaUploadError.invalidAttachmentKey }
+                #if DEBUG
+                print("LOOPED_MESSAGE_MEDIA upload videoKey=\(videoKey) thumbnailKey=\(thumbnailKey ?? "nil") duration=\(metadata.durationSeconds)s size=\(metadata.sizeBytes)")
+                #endif
+                attachments.append(
+                    SendMessageAttachmentDTO(
+                        url: videoKey,
+                        type: "video",
+                        width: metadata.width,
+                        height: metadata.height,
+                        durationSeconds: metadata.durationSeconds,
+                        sizeBytes: metadata.sizeBytes,
+                        thumbnailUrl: thumbnailKey
+                    )
+                )
             case .gif:
                 throw ChatMediaUploadError.unsupportedMedia
             }
         }
 
-        return keys
+        return attachments
+    }
+
+    private func videoUploadMetadata(url: URL) -> (width: Int, height: Int, durationSeconds: Int, sizeBytes: Int64) {
+        let asset = AVAsset(url: url)
+        let duration = Int((asset.duration.seconds.isFinite ? asset.duration.seconds : 0).rounded())
+        var width = 0
+        var height = 0
+        if let track = asset.tracks(withMediaType: .video).first {
+            let transformed = track.naturalSize.applying(track.preferredTransform)
+            width = Int(abs(transformed.width).rounded())
+            height = Int(abs(transformed.height).rounded())
+        }
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+        return (
+            width: max(width, 0),
+            height: max(height, 0),
+            durationSeconds: max(duration, 0),
+            sizeBytes: max(size, 0)
+        )
+    }
+
+    private func makeVideoThumbnail(url: URL) -> UIImage? {
+        let asset = AVAsset(url: url)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        do {
+            let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
+            return UIImage(cgImage: cgImage)
+        } catch {
+            return nil
+        }
     }
 
     private func makeUploadPayload(from image: UIImage) -> ChatImageUploadPayload? {
         guard let output = ImageUploadTranscoder.makeUploadPayload(from: image) else { return nil }
         return ChatImageUploadPayload(data: output.data, mimeType: output.mimeType, width: output.width, height: output.height)
+    }
+
+    private func opaqueThumbnailImage(_ image: UIImage, background: UIColor) -> UIImage {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = image.scale
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: image.size, format: format)
+        return renderer.image { context in
+            background.setFill()
+            context.fill(CGRect(origin: .zero, size: image.size))
+            image.draw(in: CGRect(origin: .zero, size: image.size))
+        }
     }
     
     private func setupWebSocketListeners() {

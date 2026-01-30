@@ -6,6 +6,7 @@ struct MediaAttachment: Codable, Identifiable, Equatable {
     let type: MediaType
     let url: String
     let thumbnailUrl: String?
+    let thumbnailKey: String?
     let width: Int?
     let height: Int?
     let duration: TimeInterval? // For videos
@@ -17,6 +18,7 @@ struct MediaAttachment: Codable, Identifiable, Equatable {
         type: MediaType,
         url: String,
         thumbnailUrl: String? = nil,
+        thumbnailKey: String? = nil,
         width: Int? = nil,
         height: Int? = nil,
         duration: TimeInterval? = nil,
@@ -28,6 +30,7 @@ struct MediaAttachment: Codable, Identifiable, Equatable {
         self.type = type
         self.url = resolvedUrl
         self.thumbnailUrl = thumbnailUrl
+        self.thumbnailKey = thumbnailKey
         self.width = width
         self.height = height
         self.duration = duration
@@ -46,10 +49,19 @@ extension MediaAttachment {
     init(dto: MediaAttachmentDTO) {
         let resolvedUrl = dto.url.trimmingCharacters(in: .whitespacesAndNewlines)
         self.id = resolvedUrl
-        let trimmedType = dto.type?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedType = dto.type?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let resolvedType: MediaType
-        if let trimmedType, !trimmedType.isEmpty, let type = MediaType(rawValue: trimmedType) {
-            resolvedType = type
+        if let trimmedType, !trimmedType.isEmpty {
+            if let type = MediaType(rawValue: trimmedType) {
+                resolvedType = type
+            } else if trimmedType.hasPrefix("video") || trimmedType.contains("video/") {
+                resolvedType = .video
+            } else if trimmedType.hasPrefix("image") || trimmedType.contains("image/") {
+                resolvedType = .image
+            } else {
+                let lowercased = resolvedUrl.lowercased()
+                resolvedType = lowercased.contains(".mp4") ? .video : .image
+            }
         } else {
             let lowercased = resolvedUrl.lowercased()
             resolvedType = lowercased.contains(".mp4") ? .video : .image
@@ -57,6 +69,7 @@ extension MediaAttachment {
         self.type = resolvedType
         self.url = resolvedUrl
         self.thumbnailUrl = dto.thumbnailUrl
+        self.thumbnailKey = nil
         self.width = dto.width
         self.height = dto.height
         self.duration = dto.durationSeconds

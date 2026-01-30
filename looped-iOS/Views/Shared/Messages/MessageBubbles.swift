@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -48,6 +49,7 @@ struct SentMessageBubble: View {
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
     @State private var selectedVideo: VideoSelection?
+    @State private var forcedVideoAttachmentIds: Set<String> = []
 
     init(message: Message, isGroupStart: Bool = true, isGroupEnd: Bool = true) {
         self.message = message
@@ -56,7 +58,9 @@ struct SentMessageBubble: View {
     }
 
     private var imageUrls: [String] {
-        message.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
+        message.attachments?
+            .filter { $0.type == .image && !forcedVideoAttachmentIds.contains($0.id) }
+            .map { $0.url } ?? []
     }
 
     var body: some View {
@@ -64,15 +68,23 @@ struct SentMessageBubble: View {
             // Show media if present
             if let attachments = message.attachments, !attachments.isEmpty {
                 ForEach(Array(attachments.enumerated()), id: \.element.id) { index, attachment in
-                    if attachment.type == .video {
+                    if attachment.type == .video || forcedVideoAttachmentIds.contains(attachment.id) {
                         // Video thumbnail with play button
                         ZStack {
+                            let thumbnailURL = firstValidURL(from: [attachment.thumbnailUrl])
+                            let videoURL = firstValidURL(from: [attachment.url])
+                            if let thumbnailURL {
                             MessageMediaTile(
-                                url: firstValidURL(from: [attachment.thumbnailUrl, attachment.url]),
-                                resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+                                    url: thumbnailURL,
+                                    resolveKey: attachment.thumbnailKey
                             )
                                 .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            } else {
+                                MessageVideoThumbnailView(url: videoURL)
+                                    .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
 
                             // Play button overlay
                             Circle()
@@ -106,7 +118,10 @@ struct SentMessageBubble: View {
                     } else {
                         MessageMediaTile(
                             url: firstValidURL(from: [attachment.url]),
-                            resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+                            resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil,
+                            onFailure: {
+                                inferVideoTypeIfNeeded(for: attachment)
+                            }
                         )
                             .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -160,6 +175,22 @@ struct SentMessageBubble: View {
             )
         }
     }
+
+    private func inferVideoTypeIfNeeded(for attachment: MediaAttachment) {
+        guard !forcedVideoAttachmentIds.contains(attachment.id) else { return }
+        let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed) else { return }
+
+        Task { @MainActor in
+            guard !forcedVideoAttachmentIds.contains(attachment.id) else { return }
+            let detected = await MessageAttachmentTypeDetector.shared.mediaType(
+                for: url,
+                cacheKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+            )
+            guard detected == .video else { return }
+            forcedVideoAttachmentIds.insert(attachment.id)
+        }
+    }
 }
 
 // MARK: - Received Message Bubble (Other Users' Messages)
@@ -173,6 +204,7 @@ struct ReceivedMessageBubble: View {
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
     @State private var selectedVideo: VideoSelection?
+    @State private var forcedVideoAttachmentIds: Set<String> = []
 
     init(
         message: Message,
@@ -187,7 +219,9 @@ struct ReceivedMessageBubble: View {
     }
 
     private var imageUrls: [String] {
-        message.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
+        message.attachments?
+            .filter { $0.type == .image && !forcedVideoAttachmentIds.contains($0.id) }
+            .map { $0.url } ?? []
     }
 
     var body: some View {
@@ -204,19 +238,27 @@ struct ReceivedMessageBubble: View {
                 // Show media if present
                 if let attachments = message.attachments, !attachments.isEmpty {
                     ForEach(Array(attachments.enumerated()), id: \.element.id) { index, attachment in
-	                        if attachment.type == .video {
-	                            // Video thumbnail with play button
-	                            ZStack {
-	                                MessageMediaTile(
-	                                    url: firstValidURL(from: [attachment.thumbnailUrl, attachment.url]),
-	                                    resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
-	                                )
-	                                    .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
-	                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+		                        if attachment.type == .video || forcedVideoAttachmentIds.contains(attachment.id) {
+		                            // Video thumbnail with play button
+		                            ZStack {
+		                                let thumbnailURL = firstValidURL(from: [attachment.thumbnailUrl])
+                                        let videoURL = firstValidURL(from: [attachment.url])
+		                                if let thumbnailURL {
+		                                MessageMediaTile(
+		                                        url: thumbnailURL,
+		                                        resolveKey: attachment.thumbnailKey
+		                                )
+		                                    .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+		                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+		                                } else {
+                                            MessageVideoThumbnailView(url: videoURL)
+                                                .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+		                                }
 
-                                // Play button overlay
-                                Circle()
-                                    .fill(Color.loopedBlack.opacity(0.6))
+		                                // Play button overlay
+		                                Circle()
+		                                    .fill(Color.loopedBlack.opacity(0.6))
                                     .frame(width: 50, height: 50)
                                     .overlay(
                                         Image(systemName: "play.fill")
@@ -244,15 +286,18 @@ struct ReceivedMessageBubble: View {
 	                                )
 	                            }
 	                        } else {
-	                            MessageMediaTile(
+                            MessageMediaTile(
 	                                url: firstValidURL(from: [attachment.url]),
-	                                resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
-	                            )
-	                                .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
-	                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-	                            .overlay(alignment: .bottomTrailing) {
-	                                if !message.hasVisibleContent, index == attachments.count - 1 {
-	                                    MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
+	                                resolveKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil,
+                                    onFailure: {
+                                        inferVideoTypeIfNeeded(for: attachment)
+                                    }
+                            )
+                                    .frame(width: MessageBubbleLayout.mediaTileSize, height: MessageBubbleLayout.mediaTileSize)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(alignment: .bottomTrailing) {
+                                if !message.hasVisibleContent, index == attachments.count - 1 {
+                                    MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                                 }
                             }
 	                            .onTapGesture {
@@ -299,6 +344,22 @@ struct ReceivedMessageBubble: View {
                     set: { if !$0 { selectedVideo = nil } }
                 )
             )
+        }
+    }
+
+    private func inferVideoTypeIfNeeded(for attachment: MediaAttachment) {
+        guard !forcedVideoAttachmentIds.contains(attachment.id) else { return }
+        let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed) else { return }
+
+        Task { @MainActor in
+            guard !forcedVideoAttachmentIds.contains(attachment.id) else { return }
+            let detected = await MessageAttachmentTypeDetector.shared.mediaType(
+                for: url,
+                cacheKey: attachment.id.hasPrefix("dm/") ? attachment.id : nil
+            )
+            guard detected == .video else { return }
+            forcedVideoAttachmentIds.insert(attachment.id)
         }
     }
 }
@@ -389,6 +450,7 @@ struct ImageMessageBubble: View {
 private struct MessageMediaTile: View {
     let url: URL?
     let resolveKey: String?
+    let onFailure: (() -> Void)?
 
     @State private var resolvedUrl: URL?
     @State private var showSpinner = true
@@ -398,12 +460,14 @@ private struct MessageMediaTile: View {
     @State private var reloadToken = UUID()
     @State private var resolveAttemptCount = 0
     @State private var resolveInFlight = false
+    @State private var didNotifyFailure = false
 
     private static let messageMediaService: MessageMediaServiceProtocol = MessageMediaService()
 
-    init(url: URL?, resolveKey: String?) {
+    init(url: URL?, resolveKey: String?, onFailure: (() -> Void)? = nil) {
         self.url = url
         self.resolveKey = resolveKey
+        self.onFailure = onFailure
         _resolvedUrl = State(initialValue: url)
     }
 
@@ -422,6 +486,9 @@ private struct MessageMediaTile: View {
                             }
                     case .failure:
                         placeholder(showSpinner: retryCount < 2, showErrorIcon: true)
+                            .task {
+                                notifyFailureIfNeeded()
+                            }
                             .task {
                                 await refreshSignedUrlIfPossible()
                             }
@@ -461,8 +528,16 @@ private struct MessageMediaTile: View {
             reloadToken = UUID()
             resolveAttemptCount = 0
             resolveInFlight = false
+            didNotifyFailure = false
             resolvedUrl = url
         }
+    }
+
+    @MainActor
+    private func notifyFailureIfNeeded() {
+        guard !didNotifyFailure else { return }
+        didNotifyFailure = true
+        onFailure?()
     }
 
     @MainActor
@@ -527,6 +602,110 @@ private struct MessageMediaTile: View {
         } catch {
             // Best-effort: keep showing placeholder/retry.
         }
+    }
+}
+
+private actor MessageVideoThumbnailCache {
+    static let shared = MessageVideoThumbnailCache()
+
+    private var cache: [String: UIImage] = [:]
+
+    func thumbnail(for url: URL) async -> UIImage? {
+        let key = url.absoluteString
+        if let cached = cache[key] { return cached }
+        let image = await Self.generateThumbnail(for: url)
+        if let image { cache[key] = image }
+        return image
+    }
+
+    private static func generateThumbnail(for url: URL) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let asset = AVURLAsset(url: url)
+                let generator = AVAssetImageGenerator(asset: asset)
+                generator.appliesPreferredTrackTransform = true
+                generator.maximumSize = CGSize(width: 720, height: 720)
+
+                do {
+                    let cgImage = try generator.copyCGImage(at: CMTime(seconds: 0.1, preferredTimescale: 600), actualTime: nil)
+                    continuation.resume(returning: UIImage(cgImage: cgImage))
+                } catch {
+                    do {
+                        let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+                        continuation.resume(returning: UIImage(cgImage: cgImage))
+                    } catch {
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MessageVideoThumbnailView: View {
+    let url: URL?
+
+    @State private var image: UIImage?
+    @State private var isLoading = false
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Rectangle()
+                    .fill(Color.loopedMutedBackground)
+                    .overlay {
+                        if isLoading {
+                            ProgressView()
+                                .tint(.loopedTextSecondary.opacity(0.9))
+                        }
+                    }
+            }
+        }
+        .task(id: url?.absoluteString) {
+            guard image == nil else { return }
+            guard let url else { return }
+            isLoading = true
+            defer { isLoading = false }
+            image = await MessageVideoThumbnailCache.shared.thumbnail(for: url)
+        }
+    }
+}
+
+private actor MessageAttachmentTypeDetector {
+    static let shared = MessageAttachmentTypeDetector()
+
+    private var cache: [String: MediaType] = [:]
+
+    func mediaType(for url: URL, cacheKey: String? = nil) async -> MediaType? {
+        let key = (cacheKey?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+            ?? url.absoluteString
+        if let cached = cache[key] { return cached }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("bytes=0-0", forHTTPHeaderField: "Range")
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { return nil }
+            let contentType = (httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
+            if contentType.hasPrefix("video/") {
+                cache[key] = .video
+                return .video
+            }
+            if contentType.hasPrefix("image/") {
+                cache[key] = .image
+                return .image
+            }
+        } catch {
+            return nil
+        }
+
+        return nil
     }
 }
 
