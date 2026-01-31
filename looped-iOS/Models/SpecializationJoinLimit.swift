@@ -3,6 +3,8 @@ import Foundation
 enum SpecializationJoinBlockedReason: String {
     case limit
     case cooldown
+    case verifyCompany = "verify_company"
+    case verifySchool = "verify_school"
     case verificationRequired = "verification_required"
 }
 
@@ -60,6 +62,24 @@ extension SpecializationJoinLimit {
             return "Fields"
         case .unknown:
             return "Specializations"
+        }
+    }
+
+    var requiresVerificationForJoin: Bool {
+        joinBlockedReason == .verificationRequired || blockedReason == .verifyCompany || blockedReason == .verifySchool
+    }
+
+    var requiredVerificationKind: SpecializationJoinRequiresVerificationKind? {
+        if let joinRequiresVerificationKind {
+            return joinRequiresVerificationKind
+        }
+        switch blockedReason {
+        case .verifyCompany:
+            return .company
+        case .verifySchool:
+            return .school
+        default:
+            return nil
         }
     }
 }

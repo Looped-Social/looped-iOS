@@ -4,6 +4,7 @@ import Foundation
 final class CommunityVerificationsViewModel: ObservableObject {
     @Published var items: [CommunityVerification] = []
     @Published var joinLimits: [SpecializationJoinLimit] = []
+    @Published var joinedSpecializations: [DisplayCommunity] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var isUnverifying = false
@@ -29,12 +30,15 @@ final class CommunityVerificationsViewModel: ObservableObject {
         do {
             async let verifications = service.fetchCommunityVerifications()
             async let limits = communityService.fetchSpecializationJoinLimits(type: nil)
+            async let joined = communityService.fetchJoinedSpecializations(type: nil)
             items = try await verifications
             joinLimits = (try? await limits) ?? []
+            joinedSpecializations = (try? await joined) ?? []
         } catch {
             errorMessage = error.localizedDescription
             items = []
             joinLimits = []
+            joinedSpecializations = []
         }
     }
 

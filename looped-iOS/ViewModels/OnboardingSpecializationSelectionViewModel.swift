@@ -10,15 +10,18 @@ final class OnboardingSpecializationSelectionViewModel: ObservableObject {
 
     private let kind: CommunitySearchKind
     private let communityService: CommunityServiceProtocol
+    private let discoveryService: DiscoveryServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var searchTask: Task<Void, Never>?
 
     init(
         kind: CommunitySearchKind,
-        communityService: CommunityServiceProtocol = CommunityService()
+        communityService: CommunityServiceProtocol = CommunityService(),
+        discoveryService: DiscoveryServiceProtocol = DiscoveryService()
     ) {
         self.kind = kind
         self.communityService = communityService
+        self.discoveryService = discoveryService
         bindQuery()
     }
 
@@ -50,7 +53,15 @@ final class OnboardingSpecializationSelectionViewModel: ObservableObject {
         do {
             let items: [CommunitySearchResult]
             if trimmed.isEmpty {
-                items = try await communityService.fetchRecommendedCommunities(kind: kind, limit: 50)
+                let recommended = try await discoveryService.fetchRecommendedSpecializations(limit: 50)
+                switch kind {
+                case .major:
+                    items = recommended.majors
+                case .field:
+                    items = recommended.fields
+                default:
+                    items = recommended.majors + recommended.fields
+                }
             } else {
                 let page = try await communityService.searchCommunities(
                     query: trimmed,

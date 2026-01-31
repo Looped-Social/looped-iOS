@@ -1,13 +1,23 @@
 import Foundation
 
+enum CommunityVerificationStatus: String, Codable {
+    case pending
+    case rejected
+    case expired
+    case active
+    case unknown
+}
+
 enum CommunityVerificationMethod: String, CaseIterable {
     case email
+    case photoId = "photo_id"
     case video
     case thirdparty
 
     var displayName: String {
         switch self {
         case .email: return "Email"
+        case .photoId: return "Photo ID"
         case .video: return "Video"
         case .thirdparty: return "Third-Party"
         }
@@ -23,16 +33,32 @@ struct CommunityVerification: Identifiable, Equatable {
     let verifiedAt: Date?
     let expiresAt: Date?
     let active: Bool
+    let status: CommunityVerificationStatus
+    let rejectReason: String?
 
     var id: Int { communityId }
 
     var isExpired: Bool {
-        guard let expiresAt else { return false }
-        return Date() >= expiresAt
+        switch status {
+        case .expired:
+            return true
+        case .active, .pending, .rejected:
+            return false
+        case .unknown:
+            guard let expiresAt else { return false }
+            return Date() >= expiresAt
+        }
     }
 
     var isActive: Bool {
-        verified && active && !isExpired
+        switch status {
+        case .active:
+            return true
+        case .pending, .rejected, .expired:
+            return false
+        case .unknown:
+            return verified && active && !isExpired
+        }
     }
 }
 
@@ -46,6 +72,23 @@ extension CommunityVerification {
         verifiedAt = dto.verifiedAt
         expiresAt = dto.expiresAt
         active = dto.active ?? dto.verified
+        status = dto.status
+            .flatMap(CommunityVerificationStatus.init(rawValue:))
+            ?? CommunityVerificationStatus.fallback(
+                verified: dto.verified,
+                active: dto.active ?? dto.verified,
+                expiresAt: dto.expiresAt
+            )
+        rejectReason = dto.rejectReason
+    }
+}
+
+extension CommunityVerificationStatus {
+    static func fallback(verified: Bool, active: Bool, expiresAt: Date?) -> CommunityVerificationStatus {
+        if !verified { return .pending }
+        if !active { return .expired }
+        if let expiresAt, Date() >= expiresAt { return .expired }
+        return .active
     }
 }
 
@@ -62,6 +105,7 @@ struct CommunityVerificationFinishRequest {
     let code: String?
     let mediaKey: String?
     let token: String?
+    let email: String?
 }
 
 struct CommunityVerificationFinishResponse: Equatable {

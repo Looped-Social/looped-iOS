@@ -22,6 +22,7 @@ final class CommunityProfileViewModel: ObservableObject {
     private var nextCursor: String?
     private let pageSize = 20
     private var hasLoadedDetails = false
+    private var isLoadingJoinLimit = false
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -51,12 +52,14 @@ final class CommunityProfileViewModel: ObservableObject {
         if posts.isEmpty {
             await loadPosts(reset: true)
         }
+        await loadSpecializationJoinLimit()
         await loadVerification()
     }
 
     func refresh() async {
         await loadCommunityDetails(force: true)
         await loadPosts(reset: true)
+        await loadSpecializationJoinLimit(force: true)
         await loadVerification()
     }
 
@@ -125,6 +128,7 @@ final class CommunityProfileViewModel: ObservableObject {
                 try await communityService.joinSpecialization(id: community.id)
             }
             await loadCommunityDetails(force: true)
+            await loadSpecializationJoinLimit(force: true)
         } catch {
             updateCommunity { community in
                 community.isJoined = wasJoined
@@ -134,6 +138,28 @@ final class CommunityProfileViewModel: ObservableObject {
         }
 
         isJoinActionInFlight = false
+    }
+
+    func loadSpecializationJoinLimit(force: Bool = false) async {
+        guard community.kind == .specialization else { return }
+        guard !isLoadingJoinLimit else { return }
+
+        let specializationType = community.specializationType
+        guard specializationType != .unknown else { return }
+
+        isLoadingJoinLimit = true
+        defer { isLoadingJoinLimit = false }
+
+        do {
+            let limits = try await communityService.fetchSpecializationJoinLimits(type: specializationType)
+            if let limit = limits.first(where: { $0.specializationType == specializationType }) ?? limits.first {
+                updateCommunity { community in
+                    community.joinLimit = limit
+                }
+            }
+        } catch {
+            // Ignore: join-limit preflight shouldn't block the UI.
+        }
     }
 
     func loadVerification() async {
@@ -256,30 +282,24 @@ final class CommunityProfileViewModel: ObservableObject {
         let label = community.specializationLabel ?? "Specialization"
         switch apiError {
         case "specialization_verification_required":
-            let required: String
-            switch community.specializationType {
-            case .field:
-                required = "company"
-            case .major:
-                required = "school"
-            case .unknown:
-                required = "community"
-            }
+            let required = community.joinLimit?.requiredVerificationKind?.rawValue ?? "company or school"
             return specializationMessage(
                 message,
                 fallback: "Verify your \(required) before joining \(label.lowercased()) communities.",
                 label: label
             )
         case "specialization_join_limit":
+            let limit = max(1, community.joinLimit?.limit ?? 2)
             return specializationMessage(
                 message,
-                fallback: "You can only join up to 2 \(label.lowercased()) communities.",
+                fallback: "You can only join up to \(limit) \(label.lowercased()) communities.",
                 label: label
             )
         case "specialization_join_cooldown":
+            let months = max(1, community.joinLimit?.cooldownMonths ?? 6)
             return specializationMessage(
                 message,
-                fallback: "You must wait 6 months before changing \(label.lowercased()) communities.",
+                fallback: "You must wait \(months) months before changing \(label.lowercased()) communities.",
                 label: label
             )
         default:

@@ -20,10 +20,10 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
     @Published var isVerifyingCode = false
     @Published var errorMessage: String?
     @Published var statusMessage: String?
-    @Published var debugMessage: String?
 
     private let communityService: CommunityServiceProtocol
     private let verificationService: CommunityVerificationServiceProtocol
+    private var pendingEmail: String?
 
     init(
         communityId: Int?,
@@ -90,29 +90,25 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         defer { isSendingCode = false }
         errorMessage = nil
         statusMessage = nil
-        resetDebug()
-        appendDebug("start request: communityId=\(communityId), email=\(email)")
         do {
-            let response = try await verificationService.startVerification(
+            _ = try await verificationService.startVerification(
                 communityId: communityId,
                 method: .email,
                 email: email
             )
             stage = .enterCode
             code = ""
-            statusMessage = "Verification code sent to \(email)."
-            appendDebug(debugStartResponse(response))
+            pendingEmail = email
+            statusMessage = "Check your email. If you don’t see it, check spam."
             return true
         } catch {
             errorMessage = mapError(error)
-            appendDebug(debugApiError(error, prefix: "start"))
             return false
         }
     }
 
     func resendCode() async {
         statusMessage = nil
-        resetDebug()
         _ = await sendCode()
     }
 
@@ -131,23 +127,21 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         defer { isVerifyingCode = false }
         errorMessage = nil
         statusMessage = nil
-        resetDebug()
-        appendDebug("finish request: communityId=\(communityId), code=\(trimmedCode)")
+        let email = pendingEmail ?? composedEmail
         do {
-            let response = try await verificationService.finishVerification(
+            _ = try await verificationService.finishVerification(
                 communityId: communityId,
                 request: CommunityVerificationFinishRequest(
                     method: .email,
                     code: trimmedCode,
                     mediaKey: nil,
-                    token: nil
+                    token: nil,
+                    email: email
                 )
             )
-            appendDebug("finish response: status=\(response.status), verified=\(response.verified)")
             return true
         } catch {
             errorMessage = mapError(error)
-            appendDebug(debugApiError(error, prefix: "finish"))
             return false
         }
     }
@@ -155,9 +149,9 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
     func resetToEmailEntry() {
         stage = .enterEmail
         code = ""
+        pendingEmail = nil
         errorMessage = nil
         statusMessage = nil
-        resetDebug()
     }
 
     private var trimmedLocalPart: String {
@@ -167,18 +161,30 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
     private func mapError(_ error: Error) -> String {
         if case let APIError.apiError(_, apiError, message) = error {
             switch apiError {
+            case "community_not_found":
+                return "That community no longer exists."
+            case "user_not_provisioned":
+                return "Finish setting up your account before verifying."
             case "email_send_failed":
                 return "We couldn't send the email. Try again in a moment."
+            case "email_required":
+                return "Enter your email to continue."
             case "invalid_code":
                 return "That code looks wrong. Try again."
+            case "code_required":
+                return "Enter the 6-digit code."
             case "invalid_email":
                 return "Enter a valid email address."
-            case "domain_not_allowed":
-                return "Use your \(selectedDomain) email to verify."
+            case "domains_not_configured":
+                return "Email verification isn't configured for this community."
+            case "email_domain_not_allowed", "domain_not_allowed":
+                return "That email domain isn't allowed for this community."
+            case "unsupported_method":
+                return "That verification method isn't supported."
             case "verification_not_supported":
                 return "Email verification isn't available for this community."
             case "email_in_use":
-                return "That email is already verified for this community. Unverify it in Settings → Community verifications, or use a different email."
+                return "That email is already actively verified for this community by another account. Use a different email, or unverify it from the verified account (Settings → Community verifications); it can also be used again after the verification expires."
             default:
                 if let message, !message.isEmpty {
                     return message
@@ -189,37 +195,5 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         return error.localizedDescription
     }
 
-    private func debugStartResponse(_ response: CommunityVerificationStartResponse) -> String {
-        let parts: [String] = [
-            "start response",
-            "status=\(response.status)",
-            response.method.map { "method=\($0.rawValue)" } ?? nil,
-            response.sessionId.map { "session=\($0)" } ?? nil,
-            response.devCode.map { "devCode=\($0)" } ?? nil,
-            response.instructions.map { "instructions=\($0)" } ?? nil
-        ].compactMap { $0 }
-        return parts.joined(separator: " • ")
-    }
-
-    private func debugApiError(_ error: Error, prefix: String) -> String {
-        guard case let APIError.apiError(code, apiError, message) = error else {
-            return "\(prefix) error: \(error.localizedDescription)"
-        }
-        if let message, !message.isEmpty {
-            return "\(prefix) error: \(code) \(apiError) (\(message))"
-        }
-        return "\(prefix) error: \(code) \(apiError)"
-    }
-
-    private func resetDebug() {
-        debugMessage = nil
-    }
-
-    private func appendDebug(_ line: String) {
-        if let debugMessage, !debugMessage.isEmpty {
-            self.debugMessage = debugMessage + "\n" + line
-        } else {
-            debugMessage = line
-        }
-    }
+    // Intentionally no user-facing debug output in production UI.
 }

@@ -3,6 +3,7 @@ import SwiftUI
 struct CommunityVerificationFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var authViewModel: AuthViewModel
     let community: CommunityProfileData
     let onComplete: () -> Void
 
@@ -80,13 +81,26 @@ struct CommunityVerificationFlowView: View {
                     showsHeader: false
                 )
             case .confirmation:
-                VerificationSubmittedView(
-                    currentStep: 4,
-                    totalSteps: 4,
-                    onBack: {},
-                    onComplete: handleComplete,
-                    showsHeader: false
-                )
+                if selectedOptionId == "email" {
+                    VerificationConfirmationView(
+                        authViewModel: authViewModel,
+                        currentStep: 4,
+                        totalSteps: 4,
+                        onBack: {},
+                        onSkip: nil,
+                        onComplete: handleComplete,
+                        showsHeader: false,
+                        confirmationKind: .emailVerified(loopName: community.name)
+                    )
+                } else {
+                    VerificationSubmittedView(
+                        currentStep: 4,
+                        totalSteps: 4,
+                        onBack: {},
+                        onComplete: handleComplete,
+                        showsHeader: false
+                    )
+                }
             }
         }
         .toolbar {
@@ -143,4 +157,5 @@ struct CommunityVerificationFlowView: View {
         ),
         onComplete: {}
     )
+    .environmentObject(AuthViewModel())
 }

@@ -186,12 +186,11 @@ GET /v1/me/joined/specializations?type=major|field|all&limit=&cursor=
   - 400 `{ "error": "invalid_specialization_type" }`
   - 409 `{ "error": "user_not_provisioned" }`
 
-POST /v1/communities/{id}/join
-DELETE /v1/communities/{id}/join
+POST /v1/specializations/{id}/join
+DELETE /v1/specializations/{id}/join
 - Auth: `Authorization: Bearer <firebase_jwt>`
 - Notes:
-  - For `community.kind == specialization`, this applies join-limit + cooldown rules.
-  - For non-specializations, this is treated as follow/unfollow server-side.
+  - Applies join-limit + cooldown rules for majors/fields.
 
 ### Feed & Posts
 

@@ -142,9 +142,9 @@ private extension OrganizationDetailSelectionView {
     var infoText: String {
         switch kind {
         case .field:
-            return "Follow a field to personalize your experience. You can change this later."
+            return "Pick a field to personalize your experience. After verification, you’ll join it (with limited changes)."
         case .major:
-            return "Follow a major to personalize your experience. You can change this later."
+            return "Pick a major to personalize your experience. After verification, you’ll join it (with limited changes)."
         default:
             return "Pick what you want featured on your profile. You can update this later."
         }

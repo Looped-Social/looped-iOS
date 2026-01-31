@@ -51,7 +51,7 @@ struct VerificationConfirmationView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 24)
 
-                Image("confirm-verify")
+                Image(confirmationImageName)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(maxHeight: geometry.size.height * 0.36)
@@ -130,6 +130,15 @@ private extension VerificationConfirmationView {
             return "Thanks for submitting!"
         case .emailVerified:
             return "You’re verified!"
+        }
+    }
+
+    var confirmationImageName: String {
+        switch confirmationKind {
+        case .photoIdPending:
+            return "confirm-verify"
+        case .emailVerified:
+            return "confirmed-verified"
         }
     }
 

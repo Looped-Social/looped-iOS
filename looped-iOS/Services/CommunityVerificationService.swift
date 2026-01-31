@@ -33,7 +33,8 @@ class CommunityVerificationService: CommunityVerificationServiceProtocol {
             method: request.method.rawValue,
             code: request.code,
             mediaKey: request.mediaKey,
-            token: request.token
+            token: request.token,
+            email: request.email
         )
         let response: CommunityVerificationFinishResponseDTO = try await apiClient.post(
             "/v1/communities/\(communityId)/verification/finish",

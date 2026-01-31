@@ -13,6 +13,8 @@ struct CommunityVerificationDTO: Decodable {
     let verifiedAt: Date?
     let expiresAt: Date?
     let active: Bool?
+    let status: String?
+    let rejectReason: String?
 }
 
 struct CommunityVerificationStartRequestDTO: Encodable {
@@ -33,6 +35,7 @@ struct CommunityVerificationFinishRequestDTO: Encodable {
     let code: String?
     let mediaKey: String?
     let token: String?
+    let email: String?
 }
 
 struct CommunityVerificationFinishResponseDTO: Decodable {

@@ -25,6 +25,39 @@ struct CommunityVerificationsView: View {
                 }
             }
 
+            Section("Joined Majors & Fields") {
+                if viewModel.isLoading && viewModel.joinedSpecializations.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    }
+                    .listRowBackground(Color.loopedBackground)
+                } else if viewModel.joinedSpecializations.isEmpty {
+                    Text("None yet")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .listRowBackground(Color.loopedBackground)
+                } else {
+                    ForEach(viewModel.joinedSpecializations, id: \.id) { specialization in
+                        HStack(spacing: 12) {
+                            Text(specialization.displayText)
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            Spacer()
+
+                            if let type = specialization.specializationType?.displayName {
+                                Text(type)
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+
             Section {
                 if viewModel.isLoading && viewModel.items.isEmpty {
                     HStack {
@@ -134,12 +167,22 @@ struct CommunityVerificationsView: View {
                     .foregroundColor(.loopedTextSecondary)
             }
 
-            Text(expiryText(for: verification))
-                .font(.loopedSubBodyRegular)
-                .foregroundColor(verification.isExpired ? .loopedError : .loopedTextSecondary)
+            if let expiryText = expiryText(for: verification) {
+                Text(expiryText)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(verification.isExpired ? .loopedError : .loopedTextSecondary)
+            }
 
-            if verification.isExpired || !verification.active {
-                Text("Re-verify to post, comment, like, and repost in this community.")
+            if verification.status == .rejected,
+               let reason = verification.rejectReason?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !reason.isEmpty {
+                Text(reason)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            if let helperText = helperText(for: verification) {
+                Text(helperText)
                     .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedTextSecondary)
             }
@@ -154,32 +197,75 @@ struct CommunityVerificationsView: View {
         .disabled(viewModel.isUnverifying)
     }
 
-    private func expiryText(for verification: CommunityVerification) -> String {
+    private func expiryText(for verification: CommunityVerification) -> String? {
+        if verification.status == .pending || verification.status == .rejected {
+            return nil
+        }
         guard let expiresAt = verification.expiresAt else {
-            return "Never expires"
+            return verification.isExpired ? "Expired" : "Never expires"
         }
         let dateText = Self.expiryFormatter.string(from: expiresAt)
         return verification.isExpired ? "Expired \(dateText)" : "Expires \(dateText)"
     }
 
     private func statusText(for verification: CommunityVerification) -> String {
-        if !verification.verified {
+        switch verification.status {
+        case .pending:
             return "Pending"
-        }
-        if verification.isExpired || !verification.active {
+        case .rejected:
+            return "Rejected"
+        case .expired:
             return "Expired"
+        case .active:
+            return "Active"
+        case .unknown:
+            if !verification.verified {
+                return "Pending"
+            }
+            if verification.isExpired || !verification.active {
+                return "Expired"
+            }
+            return "Active"
         }
-        return "Active"
     }
 
     private func statusColor(for verification: CommunityVerification) -> Color {
-        if !verification.verified {
+        switch verification.status {
+        case .pending:
             return .loopedSecondary
-        }
-        if verification.isExpired || !verification.active {
+        case .rejected:
             return .loopedError
+        case .expired:
+            return .loopedError
+        case .active:
+            return .loopedPrimary
+        case .unknown:
+            if !verification.verified {
+                return .loopedSecondary
+            }
+            if verification.isExpired || !verification.active {
+                return .loopedError
+            }
+            return .loopedPrimary
         }
-        return .loopedPrimary
+    }
+
+    private func helperText(for verification: CommunityVerification) -> String? {
+        switch verification.status {
+        case .pending:
+            return "Pending review. You’ll see the result here when it’s ready."
+        case .rejected:
+            return "Rejected. Re-submit to verify again."
+        case .expired:
+            return "Re-verify to post, comment, like, and repost in this community."
+        case .active:
+            return nil
+        case .unknown:
+            if verification.isExpired || !verification.active {
+                return "Re-verify to post, comment, like, and repost in this community."
+            }
+            return nil
+        }
     }
 
     private func statusBanner(text: String, color: Color) -> some View {
@@ -200,10 +286,10 @@ struct CommunityVerificationsView: View {
             parts.append("Resets \(Self.expiryFormatter.string(from: cooldownEndsAt))")
         } else if limit.canJoin {
             parts.append("\(limit.remaining)/\(limit.limit) joins left")
-        } else if limit.joinBlockedReason == .verificationRequired {
-            let required = limit.joinRequiresVerificationKind?.displayName ?? "Company/School"
+        } else if limit.requiresVerificationForJoin {
+            let required = limit.requiredVerificationKind?.displayName ?? "Company/School"
             parts.append("Verify your \(required.lowercased())")
-        } else if limit.blockedReason == .limit {
+        } else if limit.joinBlockedReason == .limit || limit.blockedReason == .limit {
             parts.append("Limit reached")
         }
 

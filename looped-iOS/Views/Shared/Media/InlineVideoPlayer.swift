@@ -375,6 +375,8 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     }
 
     deinit {
+        VideoAudioSessionManager.shared.setWantsPlaybackAudio(false, id: debugId)
+
         if let timeObserver {
             player.removeTimeObserver(timeObserver)
         }
@@ -475,6 +477,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             self.isPlaying = false
             self.didReachEnd = true
             self.player.pause()
+            self.updatePlaybackAudioSession()
         }
 
         failedToPlayObserver = NotificationCenter.default.addObserver(
@@ -487,6 +490,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             let err = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
             self.errorDescription = err?.localizedDescription ?? item.error?.localizedDescription ?? "Video failed"
             VideoDebugLogger.log("id=\(self.debugId) failedToPlay error=\(self.errorDescription ?? "unknown")")
+            self.updatePlaybackAudioSession()
         }
 
         stalledObserver = NotificationCenter.default.addObserver(
@@ -502,17 +506,20 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     func setMuted(_ muted: Bool) {
         isMuted = muted
         player.isMuted = muted
+        updatePlaybackAudioSession()
     }
 
     func play() {
         isPlaying = true
         didReachEnd = false
+        updatePlaybackAudioSession()
         player.play()
     }
 
     func pause() {
         isPlaying = false
         player.pause()
+        updatePlaybackAudioSession()
     }
 
     func beginScrub() {
@@ -537,6 +544,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     func replay() {
         didReachEnd = false
         isPlaying = true
+        updatePlaybackAudioSession()
         player.seek(to: .zero) { [weak self] _ in
             self?.player.play()
         }
@@ -546,6 +554,10 @@ final class InlineVideoPlayerViewModel: ObservableObject {
         if isExternallyPresented == value { return }
         isExternallyPresented = value
         VideoDebugLogger.log("id=\(debugId) externalPresentation=\(value)")
+    }
+
+    private func updatePlaybackAudioSession() {
+        VideoAudioSessionManager.shared.setWantsPlaybackAudio(!isMuted && isPlaying, id: debugId)
     }
 
     private func statusLabel(_ status: AVPlayerItem.Status) -> String {

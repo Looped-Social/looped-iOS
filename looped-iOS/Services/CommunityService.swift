@@ -146,11 +146,11 @@ class CommunityService: CommunityServiceProtocol {
     }
 
     func joinSpecialization(id: Int) async throws {
-        let _: EmptyResponse = try await apiClient.post("/v1/communities/\(id)/join", body: EmptyBody())
+        let _: EmptyResponse = try await apiClient.post("/v1/specializations/\(id)/join", body: EmptyBody())
     }
 
     func unjoinSpecialization(id: Int) async throws {
-        try await apiClient.delete("/v1/communities/\(id)/join")
+        try await apiClient.delete("/v1/specializations/\(id)/join")
     }
 
     func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions {

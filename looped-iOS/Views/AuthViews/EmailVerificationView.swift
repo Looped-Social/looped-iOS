@@ -76,14 +76,6 @@ struct EmailVerificationView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
                     }
-
-                    if let debugMessage = viewModel.debugMessage {
-                        Text(debugMessage)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 8)
-                    }
                 }
                 .padding(.vertical, 24)
                 .padding(.horizontal, 18)
@@ -184,6 +176,12 @@ private extension EmailVerificationView {
 	            Text("Use your \(communityName) email")
 	                .font(.loopedSubBodyMedium)
 	                .foregroundColor(.loopedTextSecondary)
+
+                Text("An email can only be actively verified by one account in this community at a time.")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
 
             HStack(spacing: 10) {
                 TextField("username", text: $viewModel.emailLocalPart)

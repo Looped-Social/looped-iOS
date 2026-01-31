@@ -282,20 +282,21 @@ private extension AuthView {
 	                    return .photoIdPending
 	                }
 	            }()
-	            VerificationConfirmationView(
-	                authViewModel: authViewModel,
-	                currentStep: verificationStep(for: .verificationConfirmation),
-	                totalSteps: verificationTotalSteps,
-	                onBack: {},
-	                onSkip: {
-	                    skipToNotifications()
-	                },
-	                onComplete: {
-	                    navigate(to: .verificationNotifications)
-	                },
-	                showsHeader: false,
-	                confirmationKind: confirmationKind
-	            )
+		            VerificationConfirmationView(
+		                authViewModel: authViewModel,
+		                currentStep: verificationStep(for: .verificationConfirmation),
+		                totalSteps: verificationTotalSteps,
+		                onBack: {},
+		                onSkip: {
+		                    skipToNotifications()
+		                },
+		                onComplete: {
+		                    joinSelectedSpecializationAfterVerificationIfPossible()
+		                    navigate(to: .verificationNotifications)
+		                },
+		                showsHeader: false,
+		                confirmationKind: confirmationKind
+		            )
         case .verificationNotifications:
             VerificationNotificationsView(
                 loopName: selectedLoopName,
@@ -403,15 +404,24 @@ private extension AuthView {
         }
     }
 
-    func followSpecializationIfPossible(_ specializationId: Int?) {
-        guard let specializationId else { return }
-        Task {
-            try? await communityService.followSpecialization(id: specializationId)
-        }
-    }
+	    func followSpecializationIfPossible(_ specializationId: Int?) {
+	        guard let specializationId else { return }
+	        Task {
+	            try? await communityService.followSpecialization(id: specializationId)
+	        }
+	    }
 
-    // Intentionally no "pick communities" step in onboarding; users only choose their org + field/major.
-}
+	    func joinSelectedSpecializationAfterVerificationIfPossible() {
+	        let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
+	        let specializationId = isStudent ? selectedDegree?.id : selectedDepartment?.id
+	        guard let specializationId else { return }
+	        Task {
+	            try? await communityService.joinSpecialization(id: specializationId)
+	        }
+	    }
+
+	    // Intentionally no "pick communities" step in onboarding; users only choose their org + field/major.
+	}
 
 enum AuthScreen: Hashable {
     case onboarding
