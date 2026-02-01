@@ -39,6 +39,8 @@ enum AnonAction {
     case unblockPrincipal(principalId: Int)
     case followUser(userId: Int)
     case unfollowUser(userId: Int)
+    case followAnonProfile(anonProfileId: Int)
+    case unfollowAnonProfile(anonProfileId: Int)
 }
 
 enum AnonProfileAction {
@@ -121,6 +123,38 @@ actor AnonService {
     func fetchProfile(id: Int) async throws -> AnonProfile {
         let dto: AnonProfileDTO = try await apiClient.get("/v1/anon/\(id)")
         return AnonProfile(dto: dto)
+    }
+
+    func fetchFollowers(anonProfileId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage {
+        let resolvedLimit = limit > 0 ? limit : 20
+        var endpoint = "/v1/anon/\(anonProfileId)/followers?limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
+        }
+        let trimmedQuery = (query ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            endpoint += "&query=\(URLQueryEncoding.encode(trimmedQuery))"
+        }
+
+        let response: UserFollowListResponseDTO = try await apiClient.get(endpoint)
+        let items = response.items.map(UserFollowListItem.init(dto:))
+        return UserFollowListPage(items: items, nextCursor: response.nextCursor)
+    }
+
+    func fetchFollowing(anonProfileId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage {
+        let resolvedLimit = limit > 0 ? limit : 20
+        var endpoint = "/v1/anon/\(anonProfileId)/following?limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
+        }
+        let trimmedQuery = (query ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            endpoint += "&query=\(URLQueryEncoding.encode(trimmedQuery))"
+        }
+
+        let response: UserFollowListResponseDTO = try await apiClient.get(endpoint)
+        let items = response.items.map(UserFollowListItem.init(dto:))
+        return UserFollowListPage(items: items, nextCursor: response.nextCursor)
     }
 
     func updateDisplayCommunity(communityId: Int?) async throws -> AnonProfile {
@@ -263,17 +297,21 @@ actor AnonService {
         case .commentUserReplies(let userId):
             canonical = "comment_user_replies|v1|\(userId)"
         case .blockUser(let userId):
-            canonical = "block_user|v1|\(userId)"
+            canonical = "block|v1|\(userId)"
         case .unblockUser(let userId):
-            canonical = "unblock_user|v1|\(userId)"
+            canonical = "unblock|v1|\(userId)"
         case .blockPrincipal(let principalId):
-            canonical = "block_principal|v1|\(principalId)"
+            canonical = "block|v1|\(principalId)"
         case .unblockPrincipal(let principalId):
-            canonical = "unblock_principal|v1|\(principalId)"
+            canonical = "unblock|v1|\(principalId)"
         case .followUser(let userId):
             canonical = "follow|v1|\(userId)"
         case .unfollowUser(let userId):
             canonical = "unfollow|v1|\(userId)"
+        case .followAnonProfile(let anonProfileId):
+            canonical = "follow_anon|v1|\(anonProfileId)"
+        case .unfollowAnonProfile(let anonProfileId):
+            canonical = "unfollow_anon|v1|\(anonProfileId)"
         }
 
         let signature = try sign(message: canonical, privateKey: privateKey)

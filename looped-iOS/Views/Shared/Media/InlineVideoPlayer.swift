@@ -965,7 +965,10 @@ struct InlineVideoPlayer: View {
     }
 
     private var muteButton: some View {
-        Button {
+        let iconSize: CGFloat = 22
+        let buttonSize: CGFloat = 44
+
+        return Button {
             viewModel.setMuted(!viewModel.isMuted)
             scheduleAutoHideControlsIfNeeded()
         } label: {
@@ -973,9 +976,9 @@ struct InlineVideoPlayer: View {
                 .resizable()
                 .renderingMode(.template)
                 .scaledToFit()
-                .frame(width: 20, height: 20)
+                .frame(width: iconSize, height: iconSize)
                 .foregroundColor(.loopedWhite)
-                .frame(width: 36, height: 36)
+                .frame(width: buttonSize, height: buttonSize)
         }
         .buttonStyle(.plain)
         .zIndex(4)

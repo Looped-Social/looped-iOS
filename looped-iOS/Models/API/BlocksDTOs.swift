@@ -8,11 +8,12 @@ struct BlockedUsersResponseDTO: Codable {
 struct BlockedUserDTO: Codable {
     let principalId: Int
     let id: Int
+    let kind: String?
     let handle: String
     let displayName: String?
     let profileImageUrl: String?
     let companyId: Int
-    let isAnonymous: Bool
+    let isAnonymous: Bool?
 }
 
 struct BlockActionResponseDTO: Codable {

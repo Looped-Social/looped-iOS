@@ -3,6 +3,7 @@ import SwiftUI
 struct FeedView: View {
     let onProfileTap: () -> Void
     @Binding private var isTabBarVisible: Bool
+    @Environment(\.floatingActionButtonState) private var fabState
     @EnvironmentObject var viewModel: FeedViewModel
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
@@ -188,6 +189,7 @@ struct FeedView: View {
             await viewModel.loadInitial()
         }
         .onAppear {
+            fabState.isHidden = false
             headerVisible = true
             isTabBarVisible = true
             lastScrollOffset = 0

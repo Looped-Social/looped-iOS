@@ -30,7 +30,7 @@ struct BlockedUsersView: View {
                     ForEach(viewModel.blockedUsers) { user in
                         BlockedUserRow(
                             user: user,
-                            isUnblocking: viewModel.unblockingUserIds.contains(user.backendId)
+                            isUnblocking: viewModel.unblockingPrincipalIds.contains(user.principalId)
                         ) {
                             Task { await viewModel.unblock(user) }
                         }

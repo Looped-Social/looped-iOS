@@ -707,22 +707,19 @@ struct ProfileStatsView: View {
             if showFollowerStats {
                 if let followingCount = followingCount, let followersCount = followersCount {
                     HStack(spacing: 16) {
-                        HStack(spacing: 4) {
-                            Text("\(followingCount)")
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedContrast)
-                            Text("Following")
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedTextSecondary)
-                        }
+                        if let subject = followListSubject {
+                            NavigationLink(destination: UserFollowListView(subject: subject, kind: .following)) {
+                                statLabel(count: followingCount, title: "Following")
+                            }
+                            .buttonStyle(PlainButtonStyle())
 
-                        HStack(spacing: 4) {
-                            Text("\(followersCount)")
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedContrast)
-                            Text("Followers")
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedTextSecondary)
+                            NavigationLink(destination: UserFollowListView(subject: subject, kind: .followers)) {
+                                statLabel(count: followersCount, title: "Followers")
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        } else {
+                            statLabel(count: followingCount, title: "Following")
+                            statLabel(count: followersCount, title: "Followers")
                         }
 
                         Spacer()
@@ -807,6 +804,27 @@ struct ProfileStatsView: View {
             return true
         }
         return !isAnonymous
+    }
+
+    private func statLabel(count: Int, title: String) -> some View {
+        HStack(spacing: 4) {
+            Text("\(count)")
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedContrast)
+            Text(title)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .contentShape(Rectangle())
+    }
+
+    private var followListSubject: UserFollowListSubject? {
+        if isAnonymous {
+            guard let anonProfileId = userProfile?.backendId else { return nil }
+            return .anon(anonProfileId: anonProfileId)
+        }
+        guard let userId = userProfile?.backendId ?? authViewModel.currentUser?.backendId else { return nil }
+        return .user(userId: userId)
     }
 }
 

@@ -40,8 +40,11 @@ final class UserProfileViewModel: ObservableObject {
         self.followStateStore = followStateStore
         self.profile = initialProfile
 
-        if case .user(let userId) = source {
+        switch source {
+        case .user(let userId):
             self.isFollowing = followStateStore.isFollowing(userId: userId)
+        case .anon(let anonProfileId):
+            self.isFollowing = followStateStore.isFollowing(anonProfileId: anonProfileId)
         }
     }
 
@@ -61,6 +64,7 @@ final class UserProfileViewModel: ObservableObject {
                 let currentIdentity = await anonService.currentIdentity()
                 let isCurrentUser = currentIdentity?.profileId == anonProfileId
                 profile = anonProfile.asUserProfile(companyName: nil, isCurrentUser: isCurrentUser)
+                isFollowing = followStateStore.isFollowing(anonProfileId: anonProfileId)
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -70,7 +74,6 @@ final class UserProfileViewModel: ObservableObject {
     }
 
     func toggleFollow(asAnonymousActor: Bool) async {
-        guard case .user(let userId) = source else { return }
         guard !isFollowActionInFlight else { return }
         isFollowActionInFlight = true
         followErrorMessage = nil
@@ -84,16 +87,46 @@ final class UserProfileViewModel: ObservableObject {
         }
 
         do {
-            let result: UserFollowActionResult
-            if wasFollowing {
-                result = try await userService.unfollowUser(userId: userId, asAnonymousActor: asAnonymousActor, communityId: nil)
-            } else {
-                result = try await userService.followUser(userId: userId, asAnonymousActor: asAnonymousActor, communityId: nil)
+            let resolvedFollowing: Bool
+            switch source {
+            case .user(let userId):
+                let result: UserFollowActionResult
+                if wasFollowing {
+                    result = try await userService.unfollowUser(
+                        userId: userId,
+                        asAnonymousActor: asAnonymousActor,
+                        communityId: nil
+                    )
+                } else {
+                    result = try await userService.followUser(
+                        userId: userId,
+                        asAnonymousActor: asAnonymousActor,
+                        communityId: nil
+                    )
+                }
+                resolvedFollowing = result.following
+                followStateStore.setFollowing(result.following, userId: userId)
+            case .anon(let anonProfileId):
+                let result: AnonProfileFollowActionResult
+                if wasFollowing {
+                    result = try await userService.unfollowAnonProfile(
+                        anonProfileId: anonProfileId,
+                        asAnonymousActor: asAnonymousActor,
+                        communityId: nil
+                    )
+                } else {
+                    result = try await userService.followAnonProfile(
+                        anonProfileId: anonProfileId,
+                        asAnonymousActor: asAnonymousActor,
+                        communityId: nil
+                    )
+                }
+                resolvedFollowing = result.following
+                followStateStore.setFollowing(result.following, anonProfileId: anonProfileId)
             }
-            isFollowing = result.following
-            followStateStore.setFollowing(result.following, userId: userId)
+            isFollowing = resolvedFollowing
             if let previousProfile {
-                let delta = (result.following ? 1 : 0) - (wasFollowing ? 1 : 0)
+                let delta = (resolvedFollowing ? 1 : 0) - (wasFollowing ? 1 : 0)
                 let corrected = max(0, previousProfile.followersCount + delta)
                 profile = previousProfile.updatingFollowersCount(corrected)
             }
@@ -117,10 +150,14 @@ final class UserProfileViewModel: ObservableObject {
             return "That user no longer exists."
         case "invalid_target":
             return "You can’t follow that user."
+        case "forbidden":
+            return "You can’t follow that profile."
         case "user_not_provisioned":
             return "Finish setting up your account to follow people."
         case "unauthorized":
             return "Please sign in to follow people."
+        case "invalid_actor":
+            return "Anonymous follow requires the X-Actor: anon header."
         case "anon_jwt_not_allowed":
             return "Anonymous follow can’t use an authenticated session."
         case "invalid_anon_proof":

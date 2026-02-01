@@ -3,30 +3,19 @@ import SwiftUI
 struct MessageRequestRow: View {
     let request: MessageRequest
     let isProcessing: Bool
+    let onPreview: () -> Void
+    let onProfileTap: (Int) -> Void
     let onApprove: () -> Void
     let onReject: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                if request.isGroup {
-                    Circle()
-                        .fill(Color.loopedSecondary)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            Text(String(request.displayName.prefix(1)).uppercased())
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedWhite)
-                        )
-                } else {
-                    ProfileAvatarView(imageURL: request.senderProfileImageUrl, size: 44)
-                }
+                profileAvatar
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Text(request.displayName)
-                            .font(.loopedBodyStrong)
-                            .foregroundColor(.loopedTextPrimary)
+                        profileName
 
                         if request.isGroup {
                             Text("Group")
@@ -75,6 +64,54 @@ struct MessageRequestRow: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.loopedMutedBackground)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture {
+            onPreview()
+        }
+    }
+
+    @ViewBuilder
+    private var profileAvatar: some View {
+        if let backendId = request.senderBackendId {
+            Button(action: { onProfileTap(backendId) }) {
+                avatarContent
+            }
+            .buttonStyle(.plain)
+        } else {
+            avatarContent
+        }
+    }
+
+    @ViewBuilder
+    private var avatarContent: some View {
+        if request.isGroup {
+            Circle()
+                .fill(Color.loopedSecondary)
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Text(String(request.displayName.prefix(1)).uppercased())
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedWhite)
+                )
+        } else {
+            ProfileAvatarView(imageURL: request.senderProfileImageUrl, size: 44)
+        }
+    }
+
+    @ViewBuilder
+    private var profileName: some View {
+        if let backendId = request.senderBackendId {
+            Button(action: { onProfileTap(backendId) }) {
+                Text(request.displayName)
+                    .font(.loopedBodyStrong)
+                    .foregroundColor(.loopedTextPrimary)
+            }
+            .buttonStyle(.plain)
+        } else {
+            Text(request.displayName)
+                .font(.loopedBodyStrong)
+                .foregroundColor(.loopedTextPrimary)
+        }
     }
 }
 
@@ -137,6 +174,8 @@ private struct RequestActionButton: View {
                 isGroup: false
             ),
             isProcessing: false,
+            onPreview: {},
+            onProfileTap: { _ in },
             onApprove: {},
             onReject: {}
         )

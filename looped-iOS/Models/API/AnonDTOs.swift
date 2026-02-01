@@ -97,3 +97,33 @@ struct AnonResetResponseDTO: Decodable {
     let reset: Bool
     let cleared: Bool
 }
+
+struct AnonProfileFollowActionResponseDTO: Decodable {
+    let anonProfileId: Int
+    let following: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case anonProfileId
+        case id
+        case following
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if let anonProfileId = try container.decodeIfPresent(Int.self, forKey: .anonProfileId)
+            ?? container.decodeIfPresent(Int.self, forKey: .id) {
+            self.anonProfileId = anonProfileId
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.anonProfileId,
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Missing anon_profile_id/id"
+                )
+            )
+        }
+
+        following = (try? container.decode(Bool.self, forKey: .following)) ?? false
+    }
+}

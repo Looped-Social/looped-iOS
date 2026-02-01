@@ -30,6 +30,8 @@ struct MessageRequestsView: View {
                         MessageRequestRow(
                             request: request,
                             isProcessing: viewModel.processingRequestIds.contains(request.backendId),
+                            onPreview: {},
+                            onProfileTap: { _ in },
                             onApprove: {
                                 Task { await viewModel.approveMessageRequest(request) }
                             },

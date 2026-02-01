@@ -7,7 +7,7 @@ final class BlockedUsersViewModel: ObservableObject {
     @Published var isLoadingMore = false
     @Published var errorMessage: String?
     @Published var actionErrorMessage: String?
-    @Published var unblockingUserIds: Set<Int> = []
+    @Published var unblockingPrincipalIds: Set<Int> = []
 
     private let blockService: BlockServiceProtocol
     private var nextCursor: String?
@@ -49,12 +49,12 @@ final class BlockedUsersViewModel: ObservableObject {
     }
 
     func unblock(_ user: BlockedUser) async {
-        guard !unblockingUserIds.contains(user.backendId) else { return }
-        unblockingUserIds.insert(user.backendId)
-        defer { unblockingUserIds.remove(user.backendId) }
+        guard !unblockingPrincipalIds.contains(user.principalId) else { return }
+        unblockingPrincipalIds.insert(user.principalId)
+        defer { unblockingPrincipalIds.remove(user.principalId) }
         do {
             _ = try await blockService.unblockPrincipal(principalId: user.principalId, asAnonymousActor: false, communityId: nil)
-            blockedUsers.removeAll { $0.backendId == user.backendId }
+            blockedUsers.removeAll { $0.principalId == user.principalId }
         } catch {
             actionErrorMessage = error.localizedDescription
         }

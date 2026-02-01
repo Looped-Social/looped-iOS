@@ -87,6 +87,104 @@ class UserService: UserServiceProtocol {
         )
         return UserFollowActionResult(userId: response.userId, following: response.following)
     }
+
+    func followAnonProfile(
+        anonProfileId: Int,
+        asAnonymousActor: Bool,
+        communityId: Int?
+    ) async throws -> AnonProfileFollowActionResult {
+        if asAnonymousActor {
+            let anonContext = try await anonService.actionContext(
+                for: .followAnonProfile(anonProfileId: anonProfileId),
+                communityId: communityId
+            )
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: AnonProfileFollowActionResponseDTO = try await apiClient.post(
+                "/v1/anon/\(anonProfileId)/follow",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+            return AnonProfileFollowActionResult(anonProfileId: response.anonProfileId, following: response.following)
+        }
+
+        let response: AnonProfileFollowActionResponseDTO = try await apiClient.post(
+            "/v1/anon/\(anonProfileId)/follow",
+            body: EmptyBody()
+        )
+        return AnonProfileFollowActionResult(anonProfileId: response.anonProfileId, following: response.following)
+    }
+
+    func unfollowAnonProfile(
+        anonProfileId: Int,
+        asAnonymousActor: Bool,
+        communityId: Int?
+    ) async throws -> AnonProfileFollowActionResult {
+        if asAnonymousActor {
+            let anonContext = try await anonService.actionContext(
+                for: .unfollowAnonProfile(anonProfileId: anonProfileId),
+                communityId: communityId
+            )
+            let request = AnonActionRequestDTO(
+                asAnon: true,
+                anonProfileId: anonContext.profileId,
+                anonCert: anonContext.cert,
+                anonCertKid: anonContext.certKid,
+                anonSig: anonContext.signature
+            )
+            let response: AnonProfileFollowActionResponseDTO = try await apiClient.delete(
+                "/v1/anon/\(anonProfileId)/follow",
+                body: request,
+                requiresAuth: false,
+                headers: ["X-Actor": "anon"]
+            )
+            return AnonProfileFollowActionResult(anonProfileId: response.anonProfileId, following: response.following)
+        }
+
+        let response: AnonProfileFollowActionResponseDTO = try await apiClient.delete(
+            "/v1/anon/\(anonProfileId)/follow",
+            expecting: AnonProfileFollowActionResponseDTO.self
+        )
+        return AnonProfileFollowActionResult(anonProfileId: response.anonProfileId, following: response.following)
+    }
+
+    func fetchUserFollowers(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage {
+        let resolvedLimit = limit > 0 ? limit : 20
+        var endpoint = "/v1/users/\(userId)/followers?limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
+        }
+        let trimmedQuery = (query ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            endpoint += "&query=\(URLQueryEncoding.encode(trimmedQuery))"
+        }
+
+        let response: UserFollowListResponseDTO = try await apiClient.get(endpoint)
+        let items = response.items.map(UserFollowListItem.init(dto:))
+        return UserFollowListPage(items: items, nextCursor: response.nextCursor)
+    }
+
+    func fetchUserFollowing(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage {
+        let resolvedLimit = limit > 0 ? limit : 20
+        var endpoint = "/v1/users/\(userId)/following?limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
+        }
+        let trimmedQuery = (query ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            endpoint += "&query=\(URLQueryEncoding.encode(trimmedQuery))"
+        }
+
+        let response: UserFollowListResponseDTO = try await apiClient.get(endpoint)
+        let items = response.items.map(UserFollowListItem.init(dto:))
+        return UserFollowListPage(items: items, nextCursor: response.nextCursor)
+    }
     
     func updateProfile(
         displayName: String?,

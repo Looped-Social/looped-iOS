@@ -91,7 +91,6 @@ struct UserProfileView: View {
             .modifier(profileActionsModifier)
             .onPreferenceChange(UserProfileHeaderHeightKey.self, perform: handleHeaderHeightChange)
             .onAppear { fabState.isHidden = true }
-            .onDisappear { fabState.isHidden = false }
             .fullScreenCover(isPresented: $showChat) {
                 ChatNavigationHost(conversation: startedConversation, channel: nil) {
                     showChat = false
@@ -136,7 +135,6 @@ struct UserProfileView: View {
 
     private var followConfig: ProfileActionButtons.FollowConfig? {
         guard viewModel.profile != nil else { return nil }
-        guard !viewModel.isAnonymousProfile else { return nil }
         return ProfileActionButtons.FollowConfig(
             isFollowing: viewModel.isFollowing,
             isInFlight: viewModel.isFollowActionInFlight,
@@ -629,22 +627,19 @@ struct UserProfileInfoSection: View {
 
             if userProfile.showFollowerCount {
                 HStack(spacing: 16) {
-                    HStack(spacing: 4) {
-                        Text("\(userProfile.followingCount)")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedContrast)
-                        Text("Following")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
+                    if let subject = followListSubject {
+                        NavigationLink(destination: UserFollowListView(subject: subject, kind: .following)) {
+                            statLabel(count: userProfile.followingCount, title: "Following")
+                        }
+                        .buttonStyle(PlainButtonStyle())
 
-                    HStack(spacing: 4) {
-                        Text("\(userProfile.followersCount)")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedContrast)
-                        Text("Followers")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
+                        NavigationLink(destination: UserFollowListView(subject: subject, kind: .followers)) {
+                            statLabel(count: userProfile.followersCount, title: "Followers")
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    } else {
+                        statLabel(count: userProfile.followingCount, title: "Following")
+                        statLabel(count: userProfile.followersCount, title: "Followers")
                     }
 
                     Spacer()
@@ -662,6 +657,26 @@ struct UserProfileInfoSection: View {
         guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return nil }
         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return nil }
         return trimmed
+    }
+
+    private func statLabel(count: Int, title: String) -> some View {
+        HStack(spacing: 4) {
+            Text("\(count)")
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedContrast)
+            Text(title)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        .contentShape(Rectangle())
+    }
+
+    private var followListSubject: UserFollowListSubject? {
+        guard let backendId = userProfile.backendId else { return nil }
+        if userProfile.isAnonymous {
+            return .anon(anonProfileId: backendId)
+        }
+        return .user(userId: backendId)
     }
 }
 

@@ -30,6 +30,7 @@ struct MessageRequestDTO: Decodable {
 
         let status = try container.decodeIfPresent(MessageRequestStatus.self, forKey: .status)
         let senderProfile = try container.decodeIfPresent(ConversationUserProfileDTO.self, forKey: .senderProfile)
+            ?? container.decodeIfPresent(ConversationUserProfileDTO.self, forKey: .requesterProfile)
             ?? container.decodeIfPresent(ConversationUserProfileDTO.self, forKey: .sender)
             ?? container.decodeIfPresent(ConversationUserProfileDTO.self, forKey: .userProfile)
             ?? container.decodeIfPresent(ConversationUserProfileDTO.self, forKey: .otherUserProfile)
@@ -38,6 +39,9 @@ struct MessageRequestDTO: Decodable {
             ?? container.decodeIfPresent(MessagePreviewDTO.self, forKey: .message)
 
         var senderId = try container.decodeIfPresent(Int.self, forKey: .senderId)
+        if senderId == nil {
+            senderId = try container.decodeIfPresent(Int.self, forKey: .requesterId)
+        }
         if senderId == nil {
             senderId = preview?.senderId ?? senderProfile?.id
         }
@@ -71,6 +75,7 @@ struct MessageRequestDTO: Decodable {
         case requestId
         case messageRequestId
         case senderId
+        case requesterId
         case status
         case preview
         case message
@@ -81,6 +86,7 @@ struct MessageRequestDTO: Decodable {
         case channelId
         case isGroup
         case senderProfile
+        case requesterProfile
         case sender
         case userProfile
         case otherUserProfile

@@ -143,6 +143,10 @@ protocol UserServiceProtocol {
     func getUser(by id: Int) async throws -> User
     func followUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult
     func unfollowUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult
+    func followAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult
+    func unfollowAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult
+    func fetchUserFollowers(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage
+    func fetchUserFollowing(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage
     func updateProfile(
         displayName: String?,
         bio: String?,
@@ -166,6 +170,11 @@ protocol UserServiceProtocol {
 
 struct UserFollowActionResult {
     let userId: Int
+    let following: Bool
+}
+
+struct AnonProfileFollowActionResult {
+    let anonProfileId: Int
     let following: Bool
 }
 

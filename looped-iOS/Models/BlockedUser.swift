@@ -4,6 +4,7 @@ struct BlockedUser: Identifiable {
     let id: UUID
     let backendId: Int
     let principalId: Int
+    let kind: String?
     let handle: String
     let displayName: String?
     let profileImageURL: String?
@@ -11,14 +12,26 @@ struct BlockedUser: Identifiable {
     let isAnonymous: Bool
 
     init(dto: BlockedUserDTO) {
-        id = UUID.fromBackendId(dto.id)
+        id = UUID.fromBackendId(dto.principalId)
         backendId = dto.id
         principalId = dto.principalId
+        kind = dto.kind
         handle = dto.handle
         displayName = dto.displayName
         profileImageURL = dto.profileImageUrl
         companyId = dto.companyId
-        isAnonymous = dto.isAnonymous
+        if let kind = dto.kind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            switch kind {
+            case "anon":
+                isAnonymous = true
+            case "user":
+                isAnonymous = false
+            default:
+                isAnonymous = dto.isAnonymous ?? false
+            }
+        } else {
+            isAnonymous = dto.isAnonymous ?? false
+        }
     }
 
     var resolvedDisplayName: String {

@@ -2,28 +2,44 @@ import SwiftUI
 
 struct MessageRequestPreviewSheet: View {
     let request: MessageRequest
+    @ObservedObject var viewModel: MessagesViewModel
+    let onApproved: (Conversation?) -> Void
+    let onRejected: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showImageViewer = false
-    @State private var selectedImageIndex: Int = 0
-    @State private var selectedVideo: VideoSelection?
-
-    private var imageUrls: [String] {
-        request.previewAttachments
-            .filter { $0.type != .video }
-            .map { $0.url }
+    private var isProcessing: Bool {
+        viewModel.processingRequestIds.contains(request.backendId)
     }
 
-    private var resolvedMessageText: String {
+    private var previewMessage: Message {
         let trimmed = request.previewText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let content: String
         if !trimmed.isEmpty {
-            return trimmed
+            content = trimmed
+        } else if request.previewAttachments.isEmpty {
+            content = "Sent a message"
+        } else {
+            // Match ChatViewModel behavior for attachment-only messages.
+            content = "\u{200B}"
         }
-        if !request.previewAttachments.isEmpty {
-            return "Sent an attachment"
-        }
-        return "Sent a message"
+
+        let resolvedSenderBackendId = request.senderBackendId ?? 0
+
+        return Message(
+            id: UUID.fromBackendId(request.backendId),
+            backendId: request.backendId,
+            content: content,
+            senderId: UUID.fromBackendId(resolvedSenderBackendId),
+            senderDisplayName: request.displayName,
+            receiverId: nil,
+            conversationBackendId: request.conversationBackendId,
+            channelBackendId: request.channelBackendId,
+            messageType: .direct,
+            isRead: true,
+            attachments: request.previewAttachments,
+            createdAt: request.previewCreatedAt
+        )
     }
 
     var body: some View {
@@ -32,33 +48,17 @@ struct MessageRequestPreviewSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     headerSection
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(resolvedMessageText)
-                            .font(.loopedBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        if !request.previewAttachments.isEmpty {
-                            PostedMediaGrid(
-                                attachments: request.previewAttachments,
-                                maxHeight: 260,
-                                onImageTap: handleImageTap(_:),
-                                onVideoTap: handleVideoTap(_:)
-                            )
-                        }
+                    HStack(alignment: .bottom, spacing: 8) {
+                        ReceivedMessageBubble(message: previewMessage, showSenderName: false)
+                        Spacer(minLength: 0)
                     }
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.loopedMutedBackground)
-                    )
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 24)
+                .padding(.bottom, 16)
             }
             .background(Color.loopedBackground.ignoresSafeArea())
-            .navigationTitle("Preview")
+            .navigationTitle("Message request")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -66,23 +66,13 @@ struct MessageRequestPreviewSheet: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showImageViewer) {
-            if !imageUrls.isEmpty {
-                FullScreenImageViewer(
-                    imageUrls: imageUrls,
-                    initialIndex: selectedImageIndex,
-                    isPresented: $showImageViewer
+        .safeAreaInset(edge: .bottom) {
+            actionBar
+                .background(
+                    Color.loopedBackground
+                        .opacity(0.98)
+                        .ignoresSafeArea()
                 )
-            }
-        }
-        .fullScreenCover(item: $selectedVideo) { selection in
-            VideoPlayerSheet(
-                selection: selection,
-                isPresented: Binding(
-                    get: { selectedVideo != nil },
-                    set: { if !$0 { selectedVideo = nil } }
-                )
-            )
         }
     }
 
@@ -94,6 +84,19 @@ struct MessageRequestPreviewSheet: View {
 
     @ViewBuilder
     private var headerSection: some View {
+        Group {
+            if let backendId = request.senderBackendId {
+                NavigationLink(destination: UserProfileView(userId: backendId)) {
+                    headerContent
+                }
+                .buttonStyle(.plain)
+            } else {
+                headerContent
+            }
+        }
+    }
+
+    private var headerContent: some View {
         HStack(spacing: 12) {
             if request.isGroup {
                 Circle()
@@ -109,9 +112,23 @@ struct MessageRequestPreviewSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.displayName)
-                    .font(.loopedBodyStrong)
-                    .foregroundColor(.loopedTextPrimary)
+                HStack(spacing: 6) {
+                    Text(request.displayName)
+                        .font(.loopedBodyStrong)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    if request.isGroup {
+                        Text("Group")
+                            .font(.loopedSmallTextMedium)
+                            .foregroundColor(.loopedPrimary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.loopedPrimary.opacity(0.12))
+                            )
+                    }
+                }
 
                 Text(timestampText)
                     .font(.loopedSmallText)
@@ -127,30 +144,85 @@ struct MessageRequestPreviewSheet: View {
         )
     }
 
-    private func handleImageTap(_ url: String) {
-        guard !imageUrls.isEmpty else { return }
-        if let index = imageUrls.firstIndex(of: url) {
-            selectedImageIndex = index
-        } else {
-            selectedImageIndex = 0
+    private var actionBar: some View {
+        HStack(spacing: 12) {
+            MessageRequestActionButton(
+                title: "Reject",
+                style: .secondary,
+                isLoading: isProcessing,
+                action: rejectTapped
+            )
+
+            MessageRequestActionButton(
+                title: "Approve",
+                style: .primary,
+                isLoading: isProcessing,
+                action: approveTapped
+            )
         }
-        DispatchQueue.main.async {
-            showImageViewer = true
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func approveTapped() {
+        Task { @MainActor in
+            let conversation = await viewModel.approveMessageRequest(request)
+            let didRemoveRequest = !viewModel.messageRequests.contains(where: { $0.backendId == request.backendId })
+            guard didRemoveRequest else { return }
+            dismiss()
+            onApproved(conversation)
         }
     }
 
-    private func handleVideoTap(_ selection: VideoSelection) {
-        selectedVideo = VideoSelection(
-            url: selection.url,
-            thumbnailUrl: selection.thumbnailUrl,
-            authorName: request.displayName,
-            authorImageUrl: request.senderProfileImageUrl,
-            communityName: nil,
-            caption: resolvedMessageText,
-            inlineId: selection.inlineId,
-            inlineViewModel: selection.inlineViewModel,
-            postActionConfig: nil
-        )
+    private func rejectTapped() {
+        Task { @MainActor in
+            await viewModel.rejectMessageRequest(request)
+            let didRemoveRequest = !viewModel.messageRequests.contains(where: { $0.backendId == request.backendId })
+            guard didRemoveRequest else { return }
+            dismiss()
+            onRejected()
+        }
+    }
+}
+
+private struct MessageRequestActionButton: View {
+    enum Style {
+        case primary
+        case secondary
+    }
+
+    let title: String
+    let style: Style
+    let isLoading: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: style == .primary ? .loopedWhite : .loopedPrimary))
+                        .scaleEffect(0.8)
+                }
+
+                Text(title)
+                    .font(.loopedSubBodyBold)
+                    .foregroundColor(style == .primary ? .loopedWhite : .loopedPrimary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(style == .primary ? Color.loopedPrimary : Color.loopedClear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(style == .primary ? Color.loopedClear : Color.loopedPrimary, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
     }
 }
 
@@ -169,7 +241,9 @@ struct MessageRequestPreviewSheet: View {
             conversationBackendId: 11,
             channelBackendId: nil,
             isGroup: false
-        )
+        ),
+        viewModel: MessagesViewModel(),
+        onApproved: { _ in },
+        onRejected: {}
     )
 }
-

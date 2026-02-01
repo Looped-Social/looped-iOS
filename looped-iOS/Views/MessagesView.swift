@@ -1,12 +1,15 @@
 import SwiftUI
 
 struct MessagesView: View {
+    @Environment(\.floatingActionButtonState) private var fabState
     @ObservedObject var viewModel: MessagesViewModel
     let onChatSelected: (Conversation?, Channel?) -> Void
 
     @State private var selectedTab: MessageTab = .messages
     @State private var searchText = ""
     @State private var showNewMessage = false
+    @State private var previewingRequest: MessageRequest?
+    @State private var selectedProfileDestination: ProfileDestination?
     @State private var isAtTop = true
     @AppStorage("anonymousMode") private var isAnonymousMode = false
 
@@ -231,6 +234,10 @@ struct MessagesView: View {
                                 MessageRequestRow(
                                     request: request,
                                     isProcessing: viewModel.processingRequestIds.contains(request.backendId),
+                                    onPreview: { previewingRequest = request },
+                                    onProfileTap: { backendId in
+                                        selectedProfileDestination = .user(backendId)
+                                    },
                                     onApprove: {
                                         Task {
                                             let conversation = await viewModel.approveMessageRequest(request)
@@ -369,6 +376,12 @@ struct MessagesView: View {
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarHidden(true)
+        .navigationDestination(item: $selectedProfileDestination) { destination in
+            switch destination {
+            case .user(let backendId):
+                UserProfileView(userId: backendId)
+            }
+        }
         .task {
             if viewModel.conversations.isEmpty && viewModel.messageRequests.isEmpty && viewModel.channels.isEmpty {
                 await viewModel.loadInbox()
@@ -390,6 +403,23 @@ struct MessagesView: View {
         .sheet(isPresented: $showNewMessage) {
             NewMessageView(onChatSelected: onChatSelected)
         }
+        .sheet(item: $previewingRequest) { request in
+            MessageRequestPreviewSheet(
+                request: request,
+                viewModel: viewModel,
+                onApproved: { conversation in
+                    searchText = ""
+                    selectedTab = request.isGroup ? .groups : .messages
+                    if let conversation {
+                        onChatSelected(conversation, nil)
+                    }
+                },
+                onRejected: {}
+            )
+        }
+        .onAppear {
+            fabState.isHidden = false
+        }
     }
 
     private var headerTitle: String {
@@ -400,6 +430,17 @@ struct MessagesView: View {
             return "Requests"
         case .groups:
             return "Groups"
+        }
+    }
+}
+
+private enum ProfileDestination: Hashable, Identifiable {
+    case user(Int)
+
+    var id: String {
+        switch self {
+        case .user(let backendId):
+            return "user:\(backendId)"
         }
     }
 }
