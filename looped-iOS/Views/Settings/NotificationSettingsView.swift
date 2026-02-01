@@ -1,7 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct NotificationSettingsView: View {
     @StateObject private var viewModel = NotificationPreferencesViewModel()
+    @State private var showPushPermissionAlert = false
 
     var body: some View {
         List {
@@ -52,6 +54,17 @@ struct NotificationSettingsView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await viewModel.loadPreferences()
+        }
+        .alert("Enable Push Notifications", isPresented: $showPushPermissionAlert) {
+            Button("Open iOS Settings") {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Looped can’t send you push notifications until they’re allowed in iOS Settings.")
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
         }
     }
 }
@@ -194,7 +207,16 @@ private extension NotificationSettingsView {
         Binding(
             get: { viewModel.preferences?.channels.channel(channel).enabled ?? false },
             set: { newValue in
-                Task { await viewModel.setChannelEnabled(channel, isOn: newValue) }
+                Task {
+                    if channel == .push, newValue {
+                        let granted = await NotificationAuthorizationManager.shared.requestAuthorization()
+                        guard granted else {
+                            await MainActor.run { showPushPermissionAlert = true }
+                            return
+                        }
+                    }
+                    await viewModel.setChannelEnabled(channel, isOn: newValue)
+                }
             }
         )
     }

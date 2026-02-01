@@ -54,6 +54,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
       let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+      #if DEBUG
+      print("APNs device token: \(token)")
+      #endif
       NotificationDeviceRegistrar.shared.storeDeviceToken(token)
 
       #if canImport(FirebaseAuth)
@@ -69,6 +72,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   }
 
   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+      #if DEBUG
+      print("Failed to register for remote notifications: \(error)")
+      #endif
   }
 
   func application(
