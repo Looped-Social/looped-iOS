@@ -12,6 +12,7 @@ This is an early-stage MVP focusing on core functionality with a privacy-first a
 
 - Ignore Xcode user/workspace state files (e.g. anything under `*.xcodeproj/**/xcuserdata/**` and `**/*.xcuserstate`) unless explicitly asked.
 - Don’t try to “fix” or revert those files as part of feature work; they’re local-machine artifacts.
+- Don’t delete or revert unrelated modified/untracked files to “clean up” unless explicitly asked; if a clean diff is needed, ask first.
 
 ## Technical Stack
 

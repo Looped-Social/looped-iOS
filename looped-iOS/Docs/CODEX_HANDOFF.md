@@ -1,5 +1,9 @@
 # Codex Handoff – Wiring Progress
 
+## Working Agreement (repo hygiene)
+- Don’t delete or revert unrelated modified/untracked files to “clean up” unless explicitly asked; if a clean diff is needed, ask first.
+- Ignore Xcode user/workspace state files (anything under `*.xcodeproj/**/xcuserdata/**` and `**/*.xcuserstate`) unless explicitly asked.
+
 ## What’s Live (ready today)
 - **Authentication:** Firebase email/password + Google + Apple. Tokens automatically pulled via FirebaseAuth token provider; API client adds `Authorization: Bearer <Firebase ID token>` on every call.
 - **Identity:** `/v1/me` wired into `UserService` + `AuthViewModel`. Signed-in user data (display name, @handle, company, bio) is propagated via `AuthViewModel.currentUser`.

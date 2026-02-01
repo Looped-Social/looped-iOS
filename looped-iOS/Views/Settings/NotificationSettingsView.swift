@@ -25,26 +25,8 @@ struct NotificationSettingsView: View {
             }
 
             if viewModel.preferences != nil {
-                notificationChannelSection(
-                    title: "In-App Notifications",
-                    channel: .inApp,
-                    primaryIcon: "app.badge",
-                    primarySubtitle: "Show notifications inside the app"
-                )
-
-                notificationChannelSection(
-                    title: "Push Notifications",
-                    channel: .push,
-                    primaryIcon: "bell.fill",
-                    primarySubtitle: "Receive notifications on this device"
-                )
-
-                notificationChannelSection(
-                    title: "Email Notifications",
-                    channel: .email,
-                    primaryIcon: "envelope.circle.fill",
-                    primarySubtitle: "Receive updates via email"
-                )
+                deliverySection
+                notificationTypesSection
             }
         }
         .listStyle(.insetGrouped)
@@ -78,8 +60,8 @@ private extension NotificationSettingsView {
         let isSystem: Bool
     }
 
-	    var typeDescriptors: [NotificationTypeDescriptor] {
-	        [
+		    var typeDescriptors: [NotificationTypeDescriptor] {
+		        [
 	            NotificationTypeDescriptor(
 	                id: .messageRequest,
 	                icon: "tray.fill",
@@ -165,40 +147,61 @@ private extension NotificationSettingsView {
                 isSystem: true
             )
         ]
-    }
+	    }
 
-    @ViewBuilder
-    func notificationChannelSection(
-        title: String,
-        channel: NotificationPreferenceChannel,
-        primaryIcon: String,
-        primarySubtitle: String
-    ) -> some View {
+    var deliverySection: some View {
         let isLoaded = viewModel.preferences != nil
-        let isEnabled = viewModel.preferences?.channels.channel(channel).enabled ?? false
-        Section(title) {
-            Toggle(isOn: channelEnabledBinding(channel)) {
+        return Section("Delivery") {
+            Toggle(isOn: channelEnabledBinding(.inApp)) {
                 SettingsRowLabel(
-                    icon: .system(primaryIcon),
-                    title: "Enable \(title)",
-                    subtitle: primarySubtitle
+                    icon: .system("app.badge"),
+                    title: "In-App Notifications",
+                    subtitle: "Show notifications inside the app"
                 )
             }
             .tint(.loopedSecondary)
             .disabled(!isLoaded)
 
-            if isEnabled {
-                ForEach(typeDescriptors) { descriptor in
-                    Toggle(isOn: typeBinding(channel: channel, type: descriptor.id)) {
-                        SettingsRowLabel(
-                            icon: .system(descriptor.icon),
-                            title: descriptor.title,
-                            subtitle: descriptor.subtitle
-                        )
-                    }
-                    .tint(.loopedSecondary)
-                    .disabled(!isLoaded || descriptor.isSystem)
+            Toggle(isOn: channelEnabledBinding(.push)) {
+                SettingsRowLabel(
+                    icon: .system("bell.fill"),
+                    title: "Push Notifications",
+                    subtitle: "Receive notifications on this device"
+                )
+            }
+            .tint(.loopedSecondary)
+            .disabled(!isLoaded)
+
+            Toggle(isOn: channelEnabledBinding(.email)) {
+                SettingsRowLabel(
+                    icon: .system("envelope.circle.fill"),
+                    title: "Email Notifications",
+                    subtitle: "Receive updates via email"
+                )
+            }
+            .tint(.loopedSecondary)
+            .disabled(!isLoaded)
+        }
+    }
+
+    var notificationTypesSection: some View {
+        let isLoaded = viewModel.preferences != nil
+        return Section("Notification Types") {
+            Text("Applies to all enabled delivery methods above.")
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+                .listRowBackground(Color.loopedBackground)
+
+            ForEach(typeDescriptors) { descriptor in
+                Toggle(isOn: typeBinding(type: descriptor.id)) {
+                    SettingsRowLabel(
+                        icon: .system(descriptor.icon),
+                        title: descriptor.title,
+                        subtitle: descriptor.subtitle
+                    )
                 }
+                .tint(.loopedSecondary)
+                .disabled(!isLoaded || descriptor.isSystem)
             }
         }
     }
@@ -221,16 +224,16 @@ private extension NotificationSettingsView {
         )
     }
 
-    func typeBinding(
-        channel: NotificationPreferenceChannel,
-        type: NotificationPreferenceType
-    ) -> Binding<Bool> {
+    func typeBinding(type: NotificationPreferenceType) -> Binding<Bool> {
         Binding(
             get: {
-                viewModel.preferences?.channels.channel(channel).types.value(for: type) ?? false
+                guard let preferences = viewModel.preferences else { return false }
+                return NotificationPreferenceChannel.allCases.contains { channel in
+                    preferences.channels.channel(channel).types.value(for: type)
+                }
             },
             set: { newValue in
-                Task { await viewModel.setTypeEnabled(channel: channel, type: type, isOn: newValue) }
+                Task { await viewModel.setTypeEnabled(type: type, isOn: newValue) }
             }
         )
     }

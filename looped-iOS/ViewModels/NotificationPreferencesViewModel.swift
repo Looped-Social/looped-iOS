@@ -45,6 +45,21 @@ class NotificationPreferencesViewModel: ObservableObject {
         }
     }
 
+    func setTypeEnabled(
+        type: NotificationPreferenceType,
+        isOn: Bool,
+        channels: [NotificationPreferenceChannel] = NotificationPreferenceChannel.allCases
+    ) async {
+        let update = makeTypeUpdate(channels: channels, type: type, isOn: isOn)
+        await applyUpdate(update) { preferences in
+            for channel in channels {
+                var channelPrefs = preferences.channels.channel(channel)
+                channelPrefs.types.set(isOn, for: type)
+                preferences.channels.setChannel(channel, to: channelPrefs)
+            }
+        }
+    }
+
     private func applyUpdate(
         _ update: NotificationPreferencesUpdateRequest,
         applyLocal: (inout NotificationPreferencesDTO) -> Void
@@ -81,6 +96,21 @@ class NotificationPreferencesViewModel: ObservableObject {
         let channelUpdate = NotificationChannelUpdateDTO(enabled: nil, types: types)
         var channels = NotificationChannelsUpdateDTO()
         channels.setChannel(channel, update: channelUpdate)
+        return NotificationPreferencesUpdateRequest(channels: channels)
+    }
+
+    private func makeTypeUpdate(
+        channels targetChannels: [NotificationPreferenceChannel],
+        type: NotificationPreferenceType,
+        isOn: Bool
+    ) -> NotificationPreferencesUpdateRequest {
+        var types = NotificationTypePreferencesUpdateDTO()
+        types.set(isOn, for: type)
+        let channelUpdate = NotificationChannelUpdateDTO(enabled: nil, types: types)
+        var channels = NotificationChannelsUpdateDTO()
+        for channel in targetChannels {
+            channels.setChannel(channel, update: channelUpdate)
+        }
         return NotificationPreferencesUpdateRequest(channels: channels)
     }
 }
