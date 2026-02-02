@@ -17,7 +17,7 @@ struct CommunityProfileView: View {
     @State private var showSpecializationJoinInfo = false
     @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
-    @State private var canPop = false
+    @State private var canPop: Bool?
     @State private var isAtTop = true
 
     init(community: CommunityProfileData) {
@@ -54,7 +54,7 @@ struct CommunityProfileView: View {
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            if !canPop {
+            if canPop == false {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")

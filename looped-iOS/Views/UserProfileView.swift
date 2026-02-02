@@ -24,7 +24,7 @@ struct UserProfileView: View {
     @State private var lastScrollOffset: CGFloat = 0
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
-    @State private var canPop = false
+    @State private var canPop: Bool?
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var showBlockConfirm = false
     @State private var blockErrorMessage: String?
@@ -163,7 +163,7 @@ struct UserProfileView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if !canPop {
+        if canPop == false {
             ToolbarItem(placement: .topBarLeading) {
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")

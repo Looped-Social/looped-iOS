@@ -110,7 +110,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
       willPresent notification: UNNotification,
       withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-      completionHandler([.badge, .sound, .banner])
+      completionHandler(notificationPresentationOptions(userInfo: notification.request.content.userInfo))
   }
 
   func userNotificationCenter(
@@ -147,6 +147,34 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
       Task {
           try? await NotificationService().markRead(notificationId: notificationId)
       }
+  }
+
+  private func notificationPresentationOptions(userInfo: [AnyHashable: Any]) -> UNNotificationPresentationOptions {
+      guard let deeplink = userInfo["deeplink"] as? String,
+            let url = URL(string: deeplink),
+            url.scheme == "looped"
+      else {
+          return [.badge, .sound, .banner]
+      }
+
+      let host = (url.host ?? "").lowercased()
+      let pathComponents = url.pathComponents.filter { $0 != "/" }
+      let idValue = pathComponents.first.flatMap(Int.init)
+
+      switch host {
+      case "conversations":
+          if let idValue, MutedChatStore.shared.isConversationMuted(idValue) {
+              return [.badge]
+          }
+      case "channels":
+          if let idValue, MutedChatStore.shared.isChannelMuted(idValue) {
+              return [.badge]
+          }
+      default:
+          break
+      }
+
+      return [.badge, .sound, .banner]
   }
 }
 

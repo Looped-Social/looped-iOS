@@ -354,6 +354,7 @@ struct ChatView: View {
             await viewModel.loadChannelMessages(channelBackendId: channelId)
         } else {
             await viewModel.loadDirectMessages()
+            notifyConversationReadIfNeeded()
         }
     }
 
@@ -429,6 +430,16 @@ private extension ChatView {
         DispatchQueue.main.async {
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
+    }
+
+    func notifyConversationReadIfNeeded() {
+        guard let conversationBackendId else { return }
+        guard viewModel.errorMessage == nil else { return }
+        NotificationCenter.default.post(
+            name: Foundation.Notification.Name("ChatConversationReadUpdate"),
+            object: nil,
+            userInfo: ["conversationBackendId": conversationBackendId]
+        )
     }
 }
 

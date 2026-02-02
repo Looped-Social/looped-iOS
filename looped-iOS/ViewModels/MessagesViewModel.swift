@@ -11,6 +11,11 @@ private enum ChatConversationPreviewUpdate {
     static let timestampKey = "timestamp"
 }
 
+private enum ChatConversationReadUpdate {
+    static let name = Foundation.Notification.Name("ChatConversationReadUpdate")
+    static let conversationBackendIdKey = "conversationBackendId"
+}
+
 @MainActor
 class MessagesViewModel: ObservableObject {
     @Published var channels: [Channel] = []
@@ -56,6 +61,17 @@ class MessagesViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: ChatConversationReadUpdate.name)
+            .compactMap { notification -> Int? in
+                notification.userInfo?[ChatConversationReadUpdate.conversationBackendIdKey] as? Int
+            }
+            .sink { [weak self] backendId in
+                Task { @MainActor in
+                    self?.applyConversationReadUpdate(conversationBackendId: backendId)
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func applyConversationPreviewUpdate(conversationBackendId: Int, previewText: String, timestamp: Date) {
@@ -79,6 +95,29 @@ class MessagesViewModel: ObservableObject {
         )
         conversations.remove(at: existingIndex)
         conversations.insert(updated, at: 0)
+    }
+
+    private func applyConversationReadUpdate(conversationBackendId: Int) {
+        guard let existingIndex = conversations.firstIndex(where: { $0.backendId == conversationBackendId }) else { return }
+        let existing = conversations[existingIndex]
+        guard existing.unreadCount != 0 else { return }
+        let updated = Conversation(
+            id: existing.id,
+            backendId: existing.backendId,
+            userId: existing.userId,
+            backendUserId: existing.backendUserId,
+            userName: existing.userName,
+            userProfileImageUrl: existing.userProfileImageUrl,
+            lastMessage: existing.lastMessage,
+            lastMessageTimestamp: existing.lastMessageTimestamp,
+            unreadCount: 0,
+            hasTypingIndicator: existing.hasTypingIndicator,
+            hasSpecialStatus: existing.hasSpecialStatus,
+            isOnline: existing.isOnline,
+            isGroup: existing.isGroup,
+            memberIds: existing.memberIds
+        )
+        conversations[existingIndex] = updated
     }
 
     func loadChannels() async {

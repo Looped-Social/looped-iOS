@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 struct ChatDetailsView: View {
     let conversation: Conversation?
@@ -11,6 +12,7 @@ struct ChatDetailsView: View {
 
     @State private var groupName: String
     @State private var isMuted = false
+    @State private var isSyncingMuteState = false
     @State private var showAddMembers = false
     @State private var showLeaveGroupAlert = false
     @State private var showBlockUserAlert = false
@@ -27,6 +29,21 @@ struct ChatDetailsView: View {
 
     private var isGroupChat: Bool {
         return channel != nil
+    }
+
+    private enum MuteTarget: Equatable {
+        case conversation(Int)
+        case channel(Int)
+    }
+
+    private var muteTarget: MuteTarget? {
+        if let channel {
+            return .channel(channel.backendId)
+        }
+        if let conversation {
+            return .conversation(conversation.backendId)
+        }
+        return nil
     }
 
     private var chatTitle: String {
@@ -137,13 +154,17 @@ struct ChatDetailsView: View {
                     VStack(spacing: 0) {
                         if isGroupChat {
                             // Group actions
-                            ChatDetailsActionRow(
-                                icon: "person.badge.plus",
-                                title: "Add Members",
-                                action: {
-                                    showAddMembers = true
-                                }
-                            )
+                            Button(action: {
+                                let impact = UIImpactFeedbackGenerator(style: .light)
+                                impact.impactOccurred()
+                                showAddMembers = true
+                            }) {
+                                ChatDetailsActionRow(
+                                    icon: "person.badge.plus",
+                                    title: "Add Members"
+                                )
+                            }
+                            .buttonStyle(.plain)
 
                             Divider().padding(.leading, 60)
                         } else {
@@ -167,18 +188,23 @@ struct ChatDetailsView: View {
                             title: "Mute Notifications",
                             isOn: $isMuted
                         )
+                        .disabled(muteTarget == nil)
 
                         if !isGroupChat {
                             Divider().padding(.leading, 60)
 
-                            ChatDetailsActionRow(
-                                icon: "hand.raised",
-                                title: "Block User",
-                                textColor: .loopedError,
-                                action: {
-                                    showBlockUserAlert = true
-                                }
-                            )
+                            Button(action: {
+                                let impact = UIImpactFeedbackGenerator(style: .light)
+                                impact.impactOccurred()
+                                showBlockUserAlert = true
+                            }) {
+                                ChatDetailsActionRow(
+                                    icon: "hand.raised",
+                                    title: "Block User",
+                                    textColor: .loopedError
+                                )
+                            }
+                            .buttonStyle(.plain)
                             .disabled(isBlockingUser)
                         }
                     }
@@ -221,6 +247,13 @@ struct ChatDetailsView: View {
             }
         }
         .toast($toastMessage)
+        .onAppear {
+            syncMutedStateFromStore()
+        }
+        .onChange(of: isMuted) { _, newValue in
+            guard !isSyncingMuteState else { return }
+            persistMutedStateToStore(newValue)
+        }
         .sheet(isPresented: $showAddMembers) {
             NewMessageView(
                 onChatSelected: { _, _ in },
@@ -261,6 +294,39 @@ struct ChatDetailsView: View {
                 await loadMembers(channelBackendId: channel.backendId)
             }
         }
+    }
+
+    private func syncMutedStateFromStore() {
+        guard let muteTarget else { return }
+        isSyncingMuteState = true
+        defer { isSyncingMuteState = false }
+        switch muteTarget {
+        case .conversation(let id):
+            isMuted = MutedChatStore.shared.isConversationMuted(id)
+        case .channel(let id):
+            isMuted = MutedChatStore.shared.isChannelMuted(id)
+        }
+    }
+
+    private func persistMutedStateToStore(_ muted: Bool) {
+        guard let muteTarget else {
+            if muted {
+                toastMessage = ToastMessage(text: "This chat can’t be muted yet.", kind: .info)
+            }
+            isSyncingMuteState = true
+            isMuted = false
+            isSyncingMuteState = false
+            return
+        }
+
+        switch muteTarget {
+        case .conversation(let id):
+            MutedChatStore.shared.setConversationMuted(muted, conversationId: id)
+        case .channel(let id):
+            MutedChatStore.shared.setChannelMuted(muted, channelId: id)
+        }
+
+        toastMessage = ToastMessage(text: muted ? "Notifications muted" : "Notifications unmuted", kind: .success)
     }
 
     private var groupInitials: String {
@@ -446,36 +512,28 @@ struct ChatDetailsActionRow: View {
     let title: String
     var textColor: Color = .loopedTextPrimary
     var showChevron: Bool = false
-    var action: (() -> Void)? = nil
 
     var body: some View {
-        Button(action: {
-            let impact = UIImpactFeedbackGenerator(style: .light)
-            impact.impactOccurred()
-            action?()
-        }) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.loopedCustom(.medium, size: 20))
-                    .foregroundColor(.loopedPrimary)
-                    .frame(width: 28, height: 28)
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.loopedCustom(.medium, size: 20))
+                .foregroundColor(.loopedPrimary)
+                .frame(width: 28, height: 28)
 
-                Text(title)
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(textColor)
+            Text(title)
+                .font(.loopedBodyMedium)
+                .foregroundColor(textColor)
 
-                Spacer()
+            Spacer()
 
-                if showChevron {
-                    Image(systemName: "chevron.right")
-                        .font(.loopedCustom(.semibold, size: 14))
-                        .foregroundColor(.loopedTextSecondary)
-                }
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.loopedCustom(.semibold, size: 14))
+                    .foregroundColor(.loopedTextSecondary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 }
 
@@ -619,25 +677,33 @@ struct GroupMemberDetailsView: View {
 
                         Divider().padding(.leading, 60)
 
-                        ChatDetailsActionRow(
-                            icon: "person.fill.xmark",
-                            title: "Remove from Group",
-                            textColor: .loopedError,
-                            action: {
-                                showRemoveMemberAlert = true
-                            }
-                        )
+                        Button(action: {
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
+                            showRemoveMemberAlert = true
+                        }) {
+                            ChatDetailsActionRow(
+                                icon: "person.fill.xmark",
+                                title: "Remove from Group",
+                                textColor: .loopedError
+                            )
+                        }
+                        .buttonStyle(.plain)
 
                         Divider().padding(.leading, 60)
 
-                        ChatDetailsActionRow(
-                            icon: "hand.raised",
-                            title: "Block User",
-                            textColor: .loopedError,
-                            action: {
-                                showBlockUserAlert = true
-                            }
-                        )
+                        Button(action: {
+                            let impact = UIImpactFeedbackGenerator(style: .light)
+                            impact.impactOccurred()
+                            showBlockUserAlert = true
+                        }) {
+                            ChatDetailsActionRow(
+                                icon: "hand.raised",
+                                title: "Block User",
+                                textColor: .loopedError
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                     .background(Color.loopedTextSecondary.opacity(0.05))
                     .cornerRadius(12)
