@@ -5,6 +5,7 @@ final class VideoAudioSessionManager {
     static let shared = VideoAudioSessionManager()
 
     private var requestingIds = Set<String>()
+    private var hasConfiguredSession = false
 
     private init() {}
 
@@ -28,19 +29,20 @@ final class VideoAudioSessionManager {
         }
 
         let isActive = !requestingIds.isEmpty
-        guard isActive != wasActive else { return }
+        guard isActive != wasActive || !hasConfiguredSession else { return }
         applySession(shouldBeActive: isActive)
+        hasConfiguredSession = true
     }
 
     private func applySession(shouldBeActive: Bool) {
         let session = AVAudioSession.sharedInstance()
         do {
             if shouldBeActive {
-                try session.setCategory(.playback, mode: .moviePlayback, options: [.duckOthers])
+                try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers, .duckOthers])
                 try session.setActive(true)
             } else {
+                try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
                 try session.setActive(false, options: [.notifyOthersOnDeactivation])
-                try session.setCategory(.soloAmbient, mode: .default, options: [])
             }
         } catch {
             #if DEBUG
