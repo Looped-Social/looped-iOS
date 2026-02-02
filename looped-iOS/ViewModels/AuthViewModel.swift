@@ -43,6 +43,7 @@ class AuthViewModel: ObservableObject {
         self.notificationService = notificationService
         self.isAuthenticated = authService.isAuthenticated
         self.didLoadIdentity = !authService.isAuthenticated
+        self.deviceRegistrar.updateAuthState(isAuthenticated: authService.isAuthenticated)
         
         authService.authStateChanged
             .receive(on: DispatchQueue.main)

@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UserNotifications)
+import UserNotifications
+#endif
 #if canImport(FirebaseAuth)
 import FirebaseAuth
 #endif
@@ -39,12 +42,14 @@ struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var feedViewModel = FeedViewModel()
     @State private var keepBootstrapVisible = false
+    @State private var showNotificationPermissionPrompt = false
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
     @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
     @AppStorage("defaultProfileImageUrlFetchedAt") private var defaultProfileImageUrlFetchedAt = 0.0
+    @AppStorage("didShowNotificationPermissionPrompt") private var didShowNotificationPermissionPrompt = false
 
     var body: some View {
         Group {
@@ -67,6 +72,15 @@ struct ContentView: View {
         }
         .task {
             await loadDefaultProfileImageIfNeeded()
+        }
+        .task(id: notificationPromptKey) {
+            await evaluateNotificationPermissionPromptIfNeeded()
+        }
+        .fullScreenCover(isPresented: $showNotificationPermissionPrompt) {
+            NotificationPermissionPromptView {
+                didShowNotificationPermissionPrompt = true
+                showNotificationPermissionPrompt = false
+            }
         }
         .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
             Button("OK", role: .cancel) {
@@ -93,6 +107,45 @@ struct ContentView: View {
 
     private var preferredColorScheme: ColorScheme? {
         AppearanceMode.from(rawValue: appearanceMode).colorScheme
+    }
+
+    private var notificationPromptKey: String {
+        [
+            authViewModel.isAuthenticated ? "auth" : "noauth",
+            authViewModel.didLoadIdentity ? "id" : "noid",
+            authViewModel.onboardingComplete ? "onboarded" : "notonboarded",
+            didShowNotificationPermissionPrompt ? "prompted" : "unprompted"
+        ].joined(separator: "|")
+    }
+
+    private func evaluateNotificationPermissionPromptIfNeeded() async {
+        guard authViewModel.isAuthenticated else { return }
+        guard authViewModel.didLoadIdentity else { return }
+        guard authViewModel.onboardingComplete else { return }
+        guard !didShowNotificationPermissionPrompt else { return }
+        guard !showNotificationPermissionPrompt else { return }
+
+        #if canImport(UserNotifications)
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        switch settings.authorizationStatus {
+        case .notDetermined:
+            await MainActor.run {
+                showNotificationPermissionPrompt = true
+            }
+        case .authorized, .provisional, .ephemeral, .denied:
+            await MainActor.run {
+                didShowNotificationPermissionPrompt = true
+            }
+        @unknown default:
+            await MainActor.run {
+                didShowNotificationPermissionPrompt = true
+            }
+        }
+        #else
+        await MainActor.run {
+            didShowNotificationPermissionPrompt = true
+        }
+        #endif
     }
 
     private func loadDefaultProfileImageIfNeeded() async {

@@ -16,7 +16,8 @@
 - **Loop/hashtag search:** Search results now call `/v1/loops/search` and `/v1/hashtags/search` with cursor paging (treat `next_cursor` as opaque; just pass it back as `cursor`).
 - **Onboarding org + verification:** Company/school picker uses `/v1/communities/search` (`kind=company|school`) and email verification uses `/v1/communities/{id}/domains` + `/v1/communities/{id}/verification/start|finish`.
 - **Messaging (polling):** Conversations/channels/messages are wired to `/v1/conversations` and `/v1/channels` endpoints. Mock conversations/messages removed; ChatView/ConversationRow use backend IDs.
-- **Notifications:** wired to `/v1/notifications` + `/v1/notifications/{id}/read` (polling). Mock notifications removed.
+- **Notifications (in-app):** wired to `/v1/notifications` + `/v1/notifications/{id}/read` (polling). Mock notifications removed.
+- **Push notifications (APNs):** device token is stored on successful APNs registration and sent to `POST /v1/devices`. If APNs callbacks never fire, confirm `Info.plist` has `FirebaseAppDelegateProxyEnabled=false` (FirebaseAuth + proxying can prevent `didRegister/didFail` from being invoked).
 - **Comments:** Feed/post comments now hit `/v1/posts/{id}/comments` (list/create) and `/v1/comments/{id}/like`; replies load via `/v1/comments/{id}/replies`. Counts come from backend.
 - **Default profile images:** Profile image URLs come back filled from the backend; the app also supports optionally caching `GET /v1/app-config` (`default_profile_image_url`) for placeholder usage.
 - **Docs:** `Docs/API_REFERENCE.md` documents identity, profile, collections, comments, and discovery endpoints per backend spec.
