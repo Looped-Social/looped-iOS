@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 struct ChatView: View {
     enum PresentationStyle {
@@ -131,6 +132,7 @@ struct ChatView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 10)
                 }
+                .modifier(ChatKeyboardDismissalModifier(onDismiss: dismissKeyboard))
                 .onChange(of: viewModel.messages.count) { _ in
                     if let lastMessage = viewModel.messages.last {
                         withAnimation(.easeOut(duration: 0.3)) {
@@ -403,6 +405,30 @@ struct ChatView: View {
         }
 
         return 1
+    }
+}
+
+private struct ChatKeyboardDismissalModifier: ViewModifier {
+    let onDismiss: () -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content
+                .scrollDismissesKeyboard(.interactively)
+                .loopedDismissKeyboardOnTap(onDismiss)
+        } else {
+            content
+                .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in onDismiss() })
+                .loopedDismissKeyboardOnTap(onDismiss)
+        }
+    }
+}
+
+private extension ChatView {
+    func dismissKeyboard() {
+        DispatchQueue.main.async {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
 }
 

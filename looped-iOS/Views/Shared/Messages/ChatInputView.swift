@@ -87,7 +87,7 @@ struct ChatInputView: View {
                     showAttachmentOptions.toggle()
                 }) {
                     Image(systemName: "plus")
-                        .font(.loopedCustom(.medium, size: 20))
+                        .font(.loopedCustom(.medium, size: 18))
                         .foregroundColor(.loopedPrimary)
                 }
                 .disabled(isMediaSelectionFull)
@@ -95,46 +95,23 @@ struct ChatInputView: View {
                 // Text input field
                 HStack(spacing: 8) {
                     TextField("Type a message...", text: $messageText, axis: .vertical)
-                        .font(.loopedBody)
+                        .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .lineLimit(1...6)
                         .textFieldStyle(PlainTextFieldStyle())
 
-                    Spacer()
-
-                    HStack(spacing: 16) {
-                        // Camera button
-                        Button(action: {
-                            showCamera = true
-                        }) {
-                            Image(systemName: "camera")
-                                .font(.loopedCustom(size: 20))
+                    // Send button - show when there's text or media
+                    if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedMedia.isEmpty {
+                        Button(action: onSendTapped) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.loopedCustom(size: 24))
                                 .foregroundColor(.loopedPrimary)
-                        }
-                        .disabled(isMediaSelectionFull)
-
-                        // Photo library button (replaced microphone)
-                        Button(action: {
-                            showMediaPicker = true
-                        }) {
-                            Image(systemName: "photo")
-                                .font(.loopedCustom(size: 20))
-                                .foregroundColor(.loopedPrimary)
-                        }
-                        .disabled(isMediaSelectionFull)
-
-                        // Send button - show when there's text or media
-                        if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedMedia.isEmpty {
-                            Button(action: onSendTapped) {
-                                Image(systemName: "arrow.up.circle.fill")
-                                    .font(.loopedCustom(size: 28))
-                                    .foregroundColor(.loopedPrimary)
-                            }
                         }
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 24)
                         .fill(Color.loopedMessageMutedColor)

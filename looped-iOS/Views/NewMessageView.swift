@@ -155,6 +155,7 @@ struct NewMessageView: View {
             selectedRecipients.remove(at: index)
         } else {
             selectedRecipients.append(recipient)
+            searchText = ""
         }
     }
 

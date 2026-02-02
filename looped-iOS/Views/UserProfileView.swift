@@ -606,21 +606,16 @@ struct UserProfileInfoSection: View {
                 }
 
                 if userProfile.displaySpecializationLine != nil {
-                    DisplaySpecializationRow(
+                    UserProfileMembershipLinksRow(
                         specialization: userProfile.displaySpecialization,
                         displayCommunity: userProfile.displayCommunity,
-                        fallbackText: "Member",
-                        font: .loopedSubBodyRegular,
-                        textColor: .loopedTextSecondary,
-                        iconSize: 16
+                        fallbackText: "Member"
                     )
                 } else {
-                    DisplayCommunityRow(
+                    UserProfileMembershipLinksRow(
+                        specialization: nil,
                         displayCommunity: userProfile.displayCommunity,
-                        fallbackText: "No primary community selected",
-                        font: .loopedSubBodyRegular,
-                        textColor: .loopedTextSecondary,
-                        iconSize: 16
+                        fallbackText: "No primary community selected"
                     )
                 }
             }
@@ -677,6 +672,97 @@ struct UserProfileInfoSection: View {
             return .anon(anonProfileId: backendId)
         }
         return .user(userId: backendId)
+    }
+}
+
+private struct UserProfileMembershipLinksRow: View {
+    let specialization: DisplayCommunity?
+    let displayCommunity: DisplayCommunity?
+    let fallbackText: String
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: iconSystemName)
+                .foregroundColor(.loopedTextSecondary)
+                .font(.loopedCustom(size: 16))
+
+            HStack(spacing: 0) {
+                memberLabelView
+
+                if let specializationLabel, (displayCommunityLabel != nil || displayCommunity != nil) {
+                    Text(" @ ")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .accessibilityHidden(true)
+
+                    if let displayCommunity {
+                        NavigationLink(destination: CommunityProfileView(community: CommunityProfileData(displayCommunity: displayCommunity))) {
+                            Text(displayCommunityLabel ?? displayCommunity.displayText)
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    } else if let displayCommunityLabel {
+                        Text(displayCommunityLabel)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                }
+            }
+
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private var memberLabelView: some View {
+        if let specialization, let specializationLabel {
+            NavigationLink(destination: CommunityProfileView(community: CommunityProfileData(displayCommunity: specialization))) {
+                Text(specializationLabel)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else if let displayCommunity, specialization == nil {
+            NavigationLink(destination: CommunityProfileView(community: CommunityProfileData(displayCommunity: displayCommunity))) {
+                Text(displayCommunityLabel ?? displayCommunity.displayText)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            Text(baseText)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+        }
+    }
+
+    private var iconSystemName: String {
+        if specialization != nil {
+            return specializationLabel == nil ? "graduationcap" : "graduationcap.fill"
+        }
+        return displayCommunity == nil ? "briefcase" : "briefcase.fill"
+    }
+
+    private var baseText: String {
+        specializationLabel ?? displayCommunityLabel ?? fallbackText
+    }
+
+    private var specializationLabel: String? {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: specialization?.name,
+            shortName: specialization?.shortName
+        )
+    }
+
+    private var displayCommunityLabel: String? {
+        CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: displayCommunity?.name,
+            shortName: displayCommunity?.shortName
+        )
     }
 }
 

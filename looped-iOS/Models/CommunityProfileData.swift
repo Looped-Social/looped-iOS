@@ -81,6 +81,22 @@ extension CommunityProfileData {
 }
 
 extension CommunityProfileData {
+    init(displayCommunity: DisplayCommunity) {
+        self.id = displayCommunity.id
+        self.name = displayCommunity.name
+        self.shortName = displayCommunity.shortName
+        self.description = ""
+        self.kind = displayCommunity.kind
+        self.specializationType = displayCommunity.specializationType ?? .unknown
+        self.memberCount = 0
+        self.imageUrl = nil
+        self.isFollowing = false
+        self.isJoined = false
+        self.joinLimit = nil
+    }
+}
+
+extension CommunityProfileData {
     var specializationLabel: String? {
         guard kind == .specialization else { return nil }
         return specializationType.displayName
