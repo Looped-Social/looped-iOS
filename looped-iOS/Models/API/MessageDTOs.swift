@@ -11,6 +11,7 @@ struct ConversationDTO: Codable {
     let lastMessage: String?
     let lastMessageTimestamp: Date?
     let unreadCount: Int
+    let muted: Bool
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -18,6 +19,7 @@ struct ConversationDTO: Codable {
         case lastMessage
         case lastMessageTimestamp
         case unreadCount
+        case muted
     }
 
     init(from decoder: Decoder) throws {
@@ -27,6 +29,7 @@ struct ConversationDTO: Codable {
         self.lastMessage = try container.decodeIfPresent(String.self, forKey: .lastMessage)
         self.lastMessageTimestamp = try container.decodeIfPresent(Date.self, forKey: .lastMessageTimestamp)
         self.unreadCount = try container.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
+        self.muted = try container.decodeIfPresent(Bool.self, forKey: .muted) ?? false
     }
 }
 

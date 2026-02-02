@@ -13,6 +13,7 @@ struct ChatDetailsView: View {
     @State private var groupName: String
     @State private var isMuted = false
     @State private var isSyncingMuteState = false
+    @State private var isUpdatingMute = false
     @State private var showAddMembers = false
     @State private var showLeaveGroupAlert = false
     @State private var showBlockUserAlert = false
@@ -85,6 +86,8 @@ struct ChatDetailsView: View {
         } else {
             _groupName = State(initialValue: "")
         }
+
+        _isMuted = State(initialValue: conversation?.isMuted ?? false)
     }
 
     var body: some View {
@@ -188,7 +191,7 @@ struct ChatDetailsView: View {
                             title: "Mute Notifications",
                             isOn: $isMuted
                         )
-                        .disabled(muteTarget == nil)
+                        .disabled(muteTarget == nil || isUpdatingMute || (isAnonymousMode && !isGroupChat))
 
                         if !isGroupChat {
                             Divider().padding(.leading, 60)
@@ -250,9 +253,9 @@ struct ChatDetailsView: View {
         .onAppear {
             syncMutedStateFromStore()
         }
-        .onChange(of: isMuted) { _, newValue in
+        .onChange(of: isMuted) { oldValue, newValue in
             guard !isSyncingMuteState else { return }
-            persistMutedStateToStore(newValue)
+            Task { await handleMuteToggle(from: oldValue, to: newValue) }
         }
         .sheet(isPresented: $showAddMembers) {
             NewMessageView(
@@ -308,25 +311,63 @@ struct ChatDetailsView: View {
         }
     }
 
-    private func persistMutedStateToStore(_ muted: Bool) {
+    private func handleMuteToggle(from oldValue: Bool, to newValue: Bool) async {
         guard let muteTarget else {
-            if muted {
-                toastMessage = ToastMessage(text: "This chat can’t be muted yet.", kind: .info)
-            }
-            isSyncingMuteState = true
-            isMuted = false
-            isSyncingMuteState = false
+            await revertMuteToggle(to: false, message: "This chat can’t be muted yet.")
+            return
+        }
+
+        if isAnonymousMode && !isGroupChat {
+            await revertMuteToggle(to: oldValue, message: "Mute isn’t available in anonymous mode.")
             return
         }
 
         switch muteTarget {
         case .conversation(let id):
-            MutedChatStore.shared.setConversationMuted(muted, conversationId: id)
+            isUpdatingMute = true
+            defer { isUpdatingMute = false }
+            do {
+                let persisted = try await messageService.updateConversationPreferences(conversationId: id, muted: newValue)
+                MutedChatStore.shared.setConversationMuted(persisted, conversationId: id)
+                toastMessage = ToastMessage(text: persisted ? "Notifications muted" : "Notifications unmuted", kind: .success)
+                if persisted != newValue {
+                    await revertMuteToggle(to: persisted, message: nil)
+                }
+            } catch {
+                await revertMuteToggle(to: oldValue, message: userFacingMuteError(error))
+            }
         case .channel(let id):
-            MutedChatStore.shared.setChannelMuted(muted, channelId: id)
+            MutedChatStore.shared.setChannelMuted(newValue, channelId: id)
+            toastMessage = ToastMessage(text: newValue ? "Notifications muted" : "Notifications unmuted", kind: .success)
         }
+    }
 
-        toastMessage = ToastMessage(text: muted ? "Notifications muted" : "Notifications unmuted", kind: .success)
+    @MainActor
+    private func revertMuteToggle(to value: Bool, message: String?) {
+        isSyncingMuteState = true
+        isMuted = value
+        isSyncingMuteState = false
+        if let message, !message.isEmpty {
+            toastMessage = ToastMessage(text: message, kind: .info)
+        }
+    }
+
+    private func userFacingMuteError(_ error: Error) -> String {
+        if case let APIError.apiError(_, code, _) = error {
+            switch code {
+            case "anonymous_not_allowed":
+                return "Mute isn’t available in anonymous mode."
+            case "forbidden":
+                return "You can’t mute this conversation."
+            case "not_found":
+                return "This conversation no longer exists."
+            case "user_not_provisioned":
+                return "Messaging isn’t ready yet. Try again."
+            default:
+                return code
+            }
+        }
+        return error.localizedDescription
     }
 
     private var groupInitials: String {

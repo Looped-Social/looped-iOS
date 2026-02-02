@@ -87,6 +87,7 @@ class MessagesViewModel: ObservableObject {
             lastMessage: previewText,
             lastMessageTimestamp: timestamp,
             unreadCount: existing.unreadCount,
+            isMuted: existing.isMuted,
             hasTypingIndicator: existing.hasTypingIndicator,
             hasSpecialStatus: existing.hasSpecialStatus,
             isOnline: existing.isOnline,
@@ -111,6 +112,7 @@ class MessagesViewModel: ObservableObject {
             lastMessage: existing.lastMessage,
             lastMessageTimestamp: existing.lastMessageTimestamp,
             unreadCount: 0,
+            isMuted: existing.isMuted,
             hasTypingIndicator: existing.hasTypingIndicator,
             hasSpecialStatus: existing.hasSpecialStatus,
             isOnline: existing.isOnline,
@@ -141,6 +143,7 @@ class MessagesViewModel: ObservableObject {
         do {
             let page = try await messageService.listConversations(cursor: nil)
             conversations = page.conversations
+            syncMutedConversationStore(with: conversations)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -157,6 +160,7 @@ class MessagesViewModel: ObservableObject {
             async let requestsPage = messageService.fetchMessageRequests(cursor: nil)
             let (conversationResult, requestsResult) = try await (conversationsPage, requestsPage)
             conversations = conversationResult.conversations
+            syncMutedConversationStore(with: conversations)
             messageRequests = requestsResult.requests.filter { $0.status == .pending }
             await hydrateSenderProfiles(for: messageRequests)
         } catch {
@@ -164,6 +168,12 @@ class MessagesViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    private func syncMutedConversationStore(with conversations: [Conversation]) {
+        for conversation in conversations {
+            MutedChatStore.shared.setConversationMuted(conversation.isMuted, conversationId: conversation.backendId)
+        }
     }
 
     func loadMessageRequests() async {

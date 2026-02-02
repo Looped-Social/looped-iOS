@@ -417,10 +417,12 @@ private struct ChatKeyboardDismissalModifier: ViewModifier {
             content
                 .scrollDismissesKeyboard(.interactively)
                 .loopedDismissKeyboardOnTap(onDismiss)
+                .simultaneousGesture(TapGesture().onEnded { onDismiss() })
         } else {
             content
                 .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in onDismiss() })
                 .loopedDismissKeyboardOnTap(onDismiss)
+                .simultaneousGesture(TapGesture().onEnded { onDismiss() })
         }
     }
 }

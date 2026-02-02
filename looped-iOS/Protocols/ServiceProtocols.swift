@@ -90,6 +90,7 @@ protocol PollsServiceProtocol {
 protocol MessageServiceProtocol {
     func listConversations(cursor: String?) async throws -> ConversationPage
     func startConversation(with participantBackendId: Int) async throws -> Conversation
+    func updateConversationPreferences(conversationId: Int, muted: Bool) async throws -> Bool
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage
     func sendConversationMessage(conversationId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message
     func searchMessages(query: String, limit: Int, cursor: String?) async throws -> MessageSearchPage

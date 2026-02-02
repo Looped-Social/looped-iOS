@@ -45,14 +45,17 @@ enum TabItem: String, CaseIterable {
 struct CustomTabBar: View {
     @Binding var selectedTab: TabItem
     let showsUpdateDot: (TabItem) -> Bool
+    let onReselect: ((TabItem) -> Void)?
     @AppStorage("anonymousMode") private var isAnonymous = false
 
     init(
         selectedTab: Binding<TabItem>,
-        showsUpdateDot: @escaping (TabItem) -> Bool = { _ in false }
+        showsUpdateDot: @escaping (TabItem) -> Bool = { _ in false },
+        onReselect: ((TabItem) -> Void)? = nil
     ) {
         _selectedTab = selectedTab
         self.showsUpdateDot = showsUpdateDot
+        self.onReselect = onReselect
     }
     
     var body: some View {
@@ -69,7 +72,11 @@ struct CustomTabBar: View {
                         isSelected: selectedTab == tab,
                         showsUpdateDot: showsUpdateDot(tab)
                     ) {
-                        selectedTab = tab
+                        if selectedTab == tab {
+                            onReselect?(tab)
+                        } else {
+                            selectedTab = tab
+                        }
                     }
                 }
             }

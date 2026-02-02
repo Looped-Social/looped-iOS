@@ -266,6 +266,10 @@ struct MainTabView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @State private var selectedTab: TabItem = .home
+    @State private var homePopToRootSignal = 0
+    @State private var homePopToRootProcessedSignal = 0
+    @State private var homeDidPopOnReselect = false
+    @State private var feedScrollToTopSignal = 0
     @State private var showCreatePost = false
     @State private var showNewMessage = false
     @State private var isRightMenuOpen = false
@@ -328,6 +332,12 @@ struct MainTabView: View {
             } else {
                 VideoPlaybackManager.shared.resetVisibility()
             }
+        }
+        .onChange(of: homePopToRootProcessedSignal) { _, _ in
+            guard selectedTab == .home else { return }
+            guard homePopToRootProcessedSignal == homePopToRootSignal else { return }
+            guard homeDidPopOnReselect == false else { return }
+            feedScrollToTopSignal += 1
         }
         .onChange(of: isRightMenuOpen) { _, _ in
             startFeedDiscoveryIfNeeded()
@@ -518,7 +528,8 @@ struct MainTabView: View {
 		                if isTabBarVisible {
 		                    CustomTabBar(
 		                        selectedTab: $selectedTab,
-		                        showsUpdateDot: { tab in shouldShowUpdateDot(for: tab) }
+		                        showsUpdateDot: { tab in shouldShowUpdateDot(for: tab) },
+                                onReselect: handleTabReselect
 	                    )
 		                        .transition(.move(edge: .bottom).combined(with: .opacity))
 	                }
@@ -565,6 +576,7 @@ struct MainTabView: View {
             NavigationStack {
                 FeedView(
                     isTabBarVisible: $isTabBarVisible,
+                    scrollToTopSignal: $feedScrollToTopSignal,
                     onProfileTap: {
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                             isRightMenuOpen.toggle()
@@ -573,6 +585,13 @@ struct MainTabView: View {
                 )
                 .environmentObject(feedViewModel)
                 .environmentObject(commentsManager)
+                .background(
+                    NavigationPopToRootHandler(
+                        popToRootSignal: $homePopToRootSignal,
+                        lastProcessedSignal: $homePopToRootProcessedSignal,
+                        didPopOnLastSignal: $homeDidPopOnReselect
+                    )
+                )
             }
         case .messages:
             NavigationStack {
@@ -598,6 +617,18 @@ struct MainTabView: View {
                 ProfileView()
             }
         }
+    }
+
+    private func handleTabReselect(_ tab: TabItem) {
+        guard tab == .home else { return }
+
+        if isRightMenuOpen {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                isRightMenuOpen = false
+            }
+        }
+
+        homePopToRootSignal += 1
     }
 
     private func shouldShowUpdateDot(for tab: TabItem) -> Bool {

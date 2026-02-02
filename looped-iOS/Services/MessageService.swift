@@ -40,6 +40,7 @@ class MessageService: MessageServiceProtocol {
                 lastMessage: dto.lastMessage ?? "",
                 lastMessageTimestamp: dto.lastMessageTimestamp ?? Date(),
                 unreadCount: dto.unreadCount,
+                isMuted: dto.muted,
                 hasTypingIndicator: false,
                 hasSpecialStatus: false,
                 isOnline: false,
@@ -69,12 +70,32 @@ class MessageService: MessageServiceProtocol {
             lastMessage: dto.lastMessage ?? "",
             lastMessageTimestamp: dto.lastMessageTimestamp ?? Date(),
             unreadCount: dto.unreadCount,
+            isMuted: dto.muted,
             hasTypingIndicator: false,
             hasSpecialStatus: false,
             isOnline: false,
             isGroup: false,
             memberIds: nil
         )
+    }
+
+    func updateConversationPreferences(conversationId: Int, muted: Bool) async throws -> Bool {
+        struct RequestDTO: Codable { let muted: Bool }
+        struct ResponseDTO: Codable {
+            let conversationId: Int
+            let muted: Bool
+
+            enum CodingKeys: String, CodingKey {
+                case conversationId = "conversation_id"
+                case muted
+            }
+        }
+
+        let response: ResponseDTO = try await apiClient.put(
+            "/v1/conversations/\(conversationId)/preferences",
+            body: RequestDTO(muted: muted)
+        )
+        return response.muted
     }
     
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage {
@@ -139,6 +160,7 @@ class MessageService: MessageServiceProtocol {
                     lastMessage: lastMessage,
                     lastMessageTimestamp: lastMessageTimestamp,
                     unreadCount: 0,
+                    isMuted: false,
                     hasTypingIndicator: false,
                     hasSpecialStatus: false,
                     isOnline: false,

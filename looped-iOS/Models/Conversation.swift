@@ -10,6 +10,7 @@ struct Conversation: Codable, Identifiable {
     let lastMessage: String
     let lastMessageTimestamp: Date
     let unreadCount: Int
+    let isMuted: Bool
     let hasTypingIndicator: Bool
     let hasSpecialStatus: Bool
     let isOnline: Bool
@@ -26,6 +27,7 @@ struct Conversation: Codable, Identifiable {
         lastMessage: String,
         lastMessageTimestamp: Date,
         unreadCount: Int = 0,
+        isMuted: Bool = false,
         hasTypingIndicator: Bool = false,
         hasSpecialStatus: Bool = false,
         isOnline: Bool = false,
@@ -41,6 +43,7 @@ struct Conversation: Codable, Identifiable {
         self.lastMessage = lastMessage
         self.lastMessageTimestamp = lastMessageTimestamp
         self.unreadCount = unreadCount
+        self.isMuted = isMuted
         self.hasTypingIndicator = hasTypingIndicator
         self.hasSpecialStatus = hasSpecialStatus
         self.isOnline = isOnline

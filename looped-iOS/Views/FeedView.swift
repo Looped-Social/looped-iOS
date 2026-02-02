@@ -3,6 +3,7 @@ import SwiftUI
 struct FeedView: View {
     let onProfileTap: () -> Void
     @Binding private var isTabBarVisible: Bool
+    @Binding private var scrollToTopSignal: Int
     @Environment(\.floatingActionButtonState) private var fabState
     @EnvironmentObject var viewModel: FeedViewModel
     @State private var headerVisible = true
@@ -18,9 +19,11 @@ struct FeedView: View {
 
     init(
         isTabBarVisible: Binding<Bool> = .constant(true),
+        scrollToTopSignal: Binding<Int> = .constant(0),
         onProfileTap: @escaping () -> Void = {}
     ) {
         self._isTabBarVisible = isTabBarVisible
+        self._scrollToTopSignal = scrollToTopSignal
         self.onProfileTap = onProfileTap
     }
 
@@ -95,6 +98,9 @@ struct FeedView: View {
                                 }
                         }
                     )
+                }
+                .onChange(of: scrollToTopSignal) { _, _ in
+                    scrollToTop(proxy: proxy)
                 }
                 .safeAreaInset(edge: .top, spacing: 0) {
                     Color.loopedClear.frame(height: headerHeight)
@@ -196,6 +202,9 @@ struct FeedView: View {
             startPolling()
         }
         .onDisappear {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isTabBarVisible = true
+            }
             stopPolling()
         }
     }
@@ -265,9 +274,24 @@ struct FeedView: View {
         viewModel.dismissNewPostsToast()
         Task {
             await viewModel.refreshPosts()
-            withAnimation(.easeInOut(duration: 0.25)) {
+            scrollToTop(proxy: proxy)
+        }
+    }
+
+    private func scrollToTop(proxy: ScrollViewProxy) {
+        if !headerVisible || !isTabBarVisible {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 headerVisible = true
                 isTabBarVisible = true
+            }
+        } else {
+            headerVisible = true
+            isTabBarVisible = true
+        }
+
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(.easeInOut(duration: 0.35)) {
                 proxy.scrollTo(topAnchorId, anchor: .top)
             }
         }
