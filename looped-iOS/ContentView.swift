@@ -323,6 +323,7 @@ struct MainTabView: View {
             }
             updateLastSeen(for: selectedTab)
             startFeedDiscoveryIfNeeded()
+            syncFloatingActionButtonVisibility()
             if selectedTab == .home {
                 VideoPlaybackManager.shared.requestVisibilityRefresh()
                 Task { @MainActor in
@@ -665,11 +666,20 @@ struct MainTabView: View {
         }
     }
 
+    private func syncFloatingActionButtonVisibility() {
+        switch selectedTab {
+        case .home, .messages, .profile:
+            fabState.isHidden = false
+        default:
+            fabState.isHidden = true
+        }
+    }
+
     @ViewBuilder
     private var floatingActionButton: some View {
-        if (selectedTab == .home || selectedTab == .messages)
+        if (selectedTab == .home || selectedTab == .messages || selectedTab == .profile)
             && !commentsManager.isPresented
-            && !isRightMenuOpen
+            && (selectedTab != .home || !isRightMenuOpen)
             && !fabState.isHidden {
             VStack {
                 Spacer()

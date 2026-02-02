@@ -30,6 +30,9 @@ struct CommentsView: View {
     @State private var keyboardWillShowObserver: NSObjectProtocol?
     @State private var keyboardWillHideObserver: NSObjectProtocol?
     @FocusState private var isCommentFieldFocused: Bool
+    @State private var isJoiningSpecialization = false
+
+    private let communityService: CommunityServiceProtocol = CommunityService()
 
     private var comments: [Comment] {
         commentsManager.currentComments
@@ -49,6 +52,11 @@ struct CommentsView: View {
             return community.canPost
         }
         return true
+    }
+
+    private var joinIsRequired: Bool {
+        guard let permissions = commentsManager.communityPermissions else { return false }
+        return permissions.requiresJoin && !permissions.canPost
     }
 
     private var postAuthorName: String {
@@ -639,25 +647,74 @@ private extension CommentsView {
 
     var restrictedInteractionMessage: String {
         if commentsManager.isLoadingPermissions {
-            return "Checking verification..."
+            return "Checking permissions..."
+        }
+        if joinIsRequired {
+            return "Join this major or field to comment or interact."
         }
         return "You can’t comment or interact with comments because you aren’t verified."
     }
 
     var restrictedInteractionNotice: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "checkmark.seal")
-                .font(.loopedCustom(.semibold, size: 16))
-                .foregroundColor(.loopedSecondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "checkmark.seal")
+                    .font(.loopedCustom(.semibold, size: 16))
+                    .foregroundColor(.loopedSecondary)
 
-            Text(restrictedInteractionMessage)
-                .font(.loopedSubBodyRegular)
-                .foregroundColor(.loopedTextSecondary)
+                Text(restrictedInteractionMessage)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            if joinIsRequired {
+                Button(action: { Task { await joinSpecializationIfNeeded() } }) {
+                    Text(isJoiningSpecialization ? "Joining..." : "Join")
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedWhite)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.loopedPrimary)
+                        .clipShape(Capsule())
+                }
+                .disabled(isJoiningSpecialization)
+                .opacity(isJoiningSpecialization ? 0.7 : 1)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.loopedBackground)
+    }
+
+    @MainActor
+    func joinSpecializationIfNeeded() async {
+        guard joinIsRequired else { return }
+        guard let specializationId = post.communityId else { return }
+        guard !isJoiningSpecialization else { return }
+        isJoiningSpecialization = true
+        defer { isJoiningSpecialization = false }
+
+        do {
+            try await communityService.joinSpecialization(id: specializationId)
+            await CommunityPermissionsCache.shared.invalidate(communityId: specializationId)
+            await commentsManager.refreshCommunityPermissions()
+            await feedViewModel.loadFollowedCommunities(reset: true)
+            commentsManager.toastMessage = ToastMessage(text: "Joined", kind: .success)
+        } catch {
+            if case let APIError.apiError(_, apiError, message) = error {
+                let text: String
+                switch apiError {
+                case "specialization_verification_required":
+                    text = message ?? "Verification required to join."
+                default:
+                    text = message ?? apiError
+                }
+                commentsManager.toastMessage = ToastMessage(text: text, kind: .error)
+            } else {
+                commentsManager.toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+            }
+        }
     }
 
     func loadAnonProfileId() async {

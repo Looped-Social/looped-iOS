@@ -7,6 +7,7 @@ enum ProfileTab: String, CaseIterable {
 }
 
 struct ProfileView: View {
+    @Environment(\.floatingActionButtonState) private var fabState
     @State private var selectedTab: ProfileTab = .content
     @StateObject private var viewModel = ProfileViewModel()
     @StateObject private var contentViewModel = UserContentViewModel()
@@ -167,6 +168,7 @@ struct ProfileView: View {
 	        .navigationBarHidden(true)
 		        .task { await refreshAll() }
 	        .onAppear {
+                fabState.isHidden = false
 	            headerVisible = true
 	            lastScrollOffset = 0
 	            startProfileDiscoveryIfNeeded()

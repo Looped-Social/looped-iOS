@@ -36,6 +36,9 @@ struct AnonCommunityResolver {
             guard let permissions = try? await communityService.fetchCommunityPermissions(communityId: communityId) else {
                 return activeVerificationIds.contains(communityId)
             }
+            if permissions.requiresJoin {
+                return permissions.canPost
+            }
             if !permissions.requiresVerification {
                 return true
             }

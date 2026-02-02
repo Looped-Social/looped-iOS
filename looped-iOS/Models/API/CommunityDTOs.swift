@@ -73,6 +73,7 @@ struct CommunityDomainsResponseDTO: Codable {
 struct CommunityPermissionsDTO: Codable {
     let canPost: Bool
     let requiresVerification: Bool
+    let requiresJoin: Bool?
 }
 
 struct DisplayCommunityDTO: Codable {

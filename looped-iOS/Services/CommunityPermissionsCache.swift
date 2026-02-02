@@ -6,6 +6,11 @@ actor CommunityPermissionsCache {
     private var cachedByCommunityId: [Int: CommunityPermissions] = [:]
     private var inFlightByCommunityId: [Int: Task<CommunityPermissions?, Never>] = [:]
 
+    func invalidate(communityId: Int) {
+        cachedByCommunityId[communityId] = nil
+        inFlightByCommunityId[communityId] = nil
+    }
+
     func permissions(
         communityId: Int,
         communityService: CommunityServiceProtocol = CommunityService()
@@ -30,4 +35,3 @@ actor CommunityPermissionsCache {
         return resolved
     }
 }
-

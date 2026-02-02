@@ -42,6 +42,7 @@ struct PostCard: View {
     @ScaledMetric private var engagementBarSpacing: CGFloat = 10
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject private var feedViewModel: FeedViewModel
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var showActionMenu = false
@@ -59,6 +60,7 @@ struct PostCard: View {
 	    @State private var editErrorMessage: String?
 	    @State private var repostErrorMessage: String?
 	    @State private var actionError: PostActionError?
+        @State private var isJoiningSpecialization = false
 
 	    private let moderationService: ModerationServiceProtocol = ModerationService()
 	    private let blockService: BlockServiceProtocol = BlockService()
@@ -288,7 +290,7 @@ struct PostCard: View {
                             .frame(width: actionIconSize, height: actionIconSize)
                             .foregroundColor(isLiked ? .loopedError : .loopedTextSecondary)
 
-                        if isReactionLockedByVerification {
+                        if isReactionLocked {
                             Image(systemName: "lock.fill")
                                 .font(.loopedCustom(.bold, size: 10))
                                 .foregroundColor(.loopedTextSecondary)
@@ -334,7 +336,7 @@ struct PostCard: View {
                             .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
                             .opacity(isRepostLoading ? 0.6 : 1)
 
-                        if isReactionLockedByVerification {
+                        if isReactionLocked {
                             Image(systemName: "lock.fill")
                                 .font(.loopedCustom(.bold, size: 10))
                                 .foregroundColor(.loopedTextSecondary)
@@ -829,7 +831,7 @@ struct PostCard: View {
             .onChange(of: isPreparingShareSheet) { _, _ in
                 syncActionBarState()
             }
-            .onChange(of: isReactionLockedByVerification) { _, _ in
+            .onChange(of: isReactionLocked) { _, _ in
                 syncActionBarState()
             }
     }
@@ -936,7 +938,17 @@ struct PostCard: View {
 	                Text(repostErrorMessage ?? "")
 	            }
 	            .alert(item: $actionError) { error in
-	                Alert(
+                    if let action = error.primaryAction {
+                        return Alert(
+                            title: Text(error.title),
+                            message: Text(error.message),
+                            primaryButton: .default(Text("Join")) {
+                                handlePrimaryAction(action)
+                            },
+                            secondaryButton: .cancel()
+                        )
+                    }
+	                return Alert(
 	                    title: Text(error.title),
 	                    message: Text(error.message),
 	                    dismissButton: .default(Text("OK"))
@@ -1135,10 +1147,11 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle() {
-        if isReactionLockedByVerification {
+        if isReactionLocked {
             actionError = PostActionError(
-                title: "Verification required",
-                message: "You must be verified in this community to like posts. Verify in Settings → Community Verifications."
+                title: reactionLockTitle,
+                message: reactionLockMessage(verb: "like"),
+                primaryAction: joinPrimaryAction
             )
             return
         }
@@ -1232,12 +1245,17 @@ struct PostCard: View {
         postActionState.isRepostLoading = isRepostLoading
         postActionState.isBookmarkLoading = isBookmarkLoading
         postActionState.isPreparingShareSheet = isPreparingShareSheet
-        postActionState.isReactionLocked = isReactionLockedByVerification
+        postActionState.isReactionLocked = isReactionLocked
     }
 
     private func toggleRepost() {
-        if isReactionLockedByVerification {
-            repostErrorMessage = "You must be verified in this community to repost. Verify in Settings → Community Verifications."
+        if isReactionLocked {
+            repostErrorMessage = nil
+            actionError = PostActionError(
+                title: reactionLockTitle,
+                message: reactionLockMessage(verb: "repost"),
+                primaryAction: joinPrimaryAction
+            )
             return
         }
         guard let postId = post.backendId, !isRepostLoading else { return }
@@ -1268,6 +1286,19 @@ struct PostCard: View {
                     handleContentUnavailable()
                     return
                 }
+                if let apiError = error as? APIError,
+                   case .apiError(_, let code, let message) = apiError,
+                   code == "specialization_not_joined",
+                   let communityId = post.communityId,
+                   communityId > 0 {
+                    repostErrorMessage = nil
+                    actionError = PostActionError(
+                        title: "Join required",
+                        message: message ?? "Join this major or field to repost.",
+                        primaryAction: PostActionError.PrimaryAction.joinSpecialization(communityId: communityId)
+                    )
+                    return
+                }
                 repostErrorMessage = repostErrorMessage(for: error)
             }
         }
@@ -1280,6 +1311,9 @@ struct PostCard: View {
 	                if error == "community_not_verified" {
 	                    return "You must be verified in this community to repost. Verify in Settings → Community Verifications."
 	                }
+                    if error == "specialization_not_joined" {
+                        return "Join this major or field to repost."
+                    }
 	                if error == "self_repost_not_allowed" {
 	                    return "You cannot repost your own post."
 	                }
@@ -1302,6 +1336,9 @@ struct PostCard: View {
 	                if error == "community_not_verified" {
 	                    return "You must be verified in this community to \(verb). Verify in Settings → Community Verifications."
 	                }
+                    if error == "specialization_not_joined" {
+                        return "Join this major or field to \(verb)."
+                    }
 	                return message ?? error
 	            default:
 	                return apiError.localizedDescription
@@ -1314,6 +1351,17 @@ struct PostCard: View {
         if let apiError = error as? APIError {
             switch apiError {
             case .unauthorized, .apiError, .serverError:
+                if case .apiError(_, let code, let message) = apiError,
+                   code == "specialization_not_joined",
+                   let communityId = post.communityId,
+                   communityId > 0 {
+                    actionError = PostActionError(
+                        title: "Join required",
+                        message: message ?? "Join this major or field to \(verb).",
+                        primaryAction: PostActionError.PrimaryAction.joinSpecialization(communityId: communityId)
+                    )
+                    return
+                }
                 actionError = PostActionError(
                     title: title,
                     message: actionErrorMessage(verb: verb, error: error)
@@ -1353,10 +1401,11 @@ struct PostCard: View {
         return false
     }
 
-    private var isReactionLockedByVerification: Bool {
+    private var isReactionLocked: Bool {
         guard shouldLoadCommunityPermissions else { return false }
         guard let communityPermissions else { return false }
-        return communityPermissions.requiresVerification && !communityPermissions.canPost
+        let requiresGate = communityPermissions.requiresVerification || communityPermissions.requiresJoin
+        return requiresGate && !communityPermissions.canPost
     }
 
     private func loadCommunityPermissionsIfNeeded() async {
@@ -1369,10 +1418,82 @@ struct PostCard: View {
 
     private var shouldLoadCommunityPermissions: Bool {
         guard post.communityId != nil else { return false }
-        if post.communityKind == .specialization {
-            return false
-        }
         return true
+    }
+
+    private var reactionLockTitle: String {
+        guard let communityPermissions else { return "Action unavailable" }
+        if communityPermissions.requiresJoin && !communityPermissions.canPost {
+            return "Join required"
+        }
+        if communityPermissions.requiresVerification && !communityPermissions.canPost {
+            return "Verification required"
+        }
+        return "Action unavailable"
+    }
+
+    private func reactionLockMessage(verb: String) -> String {
+        guard let communityPermissions else { return "You can’t \(verb) right now." }
+        if communityPermissions.requiresJoin && !communityPermissions.canPost {
+            return "Join this major or field to \(verb)."
+        }
+        if communityPermissions.requiresVerification && !communityPermissions.canPost {
+            return "You must be verified in this community to \(verb). Verify in Settings → Community Verifications."
+        }
+        return "You can’t \(verb) right now."
+    }
+
+    private var joinPrimaryAction: PostActionError.PrimaryAction? {
+        guard let communityPermissions else { return nil }
+        guard communityPermissions.requiresJoin && !communityPermissions.canPost else { return nil }
+        guard let communityId = post.communityId, communityId > 0 else { return nil }
+        return .joinSpecialization(communityId: communityId)
+    }
+
+    private func handlePrimaryAction(_ action: PostActionError.PrimaryAction) {
+        switch action {
+        case .joinSpecialization(let communityId):
+            joinSpecialization(communityId: communityId)
+        }
+    }
+
+    private func joinSpecialization(communityId: Int) {
+        guard communityId > 0 else { return }
+        guard !isJoiningSpecialization else { return }
+        isJoiningSpecialization = true
+        Task {
+            defer { isJoiningSpecialization = false }
+            do {
+                let service = CommunityService()
+                try await service.joinSpecialization(id: communityId)
+                await CommunityPermissionsCache.shared.invalidate(communityId: communityId)
+                communityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
+                await feedViewModel.loadFollowedCommunities(reset: true)
+            } catch {
+                actionError = PostActionError(
+                    title: "Couldn't join",
+                    message: joinErrorMessage(from: error)
+                )
+            }
+        }
+    }
+
+    private func joinErrorMessage(from error: Error) -> String {
+        if case let APIError.apiError(_, apiError, message) = error {
+            switch apiError {
+            case "specialization_verification_required":
+                return message ?? "Verification is required to join."
+            case "specialization_join_limit":
+                return message ?? "You’ve reached the join limit."
+            case "specialization_join_cooldown":
+                return message ?? "You can’t change this right now."
+            case "invalid_specialization":
+                return message ?? "That specialization can't be joined."
+            default:
+                return message ?? apiError
+            }
+        }
+        return error.localizedDescription
     }
 
     private func syncViewerAnonProfileId() {
@@ -1438,9 +1559,20 @@ struct PostCard: View {
 }
 
 private struct PostActionError: Identifiable {
+    enum PrimaryAction {
+        case joinSpecialization(communityId: Int)
+    }
+
     let id = UUID()
     let title: String
     let message: String
+    let primaryAction: PrimaryAction?
+
+    init(title: String, message: String, primaryAction: PrimaryAction? = nil) {
+        self.title = title
+        self.message = message
+        self.primaryAction = primaryAction
+    }
 }
 
 private extension PostCard {
@@ -1597,4 +1729,5 @@ struct ShareSheet: UIViewControllerRepresentable {
         .background(Color.loopedBackground)
         .environmentObject(CommentsModalManager())
         .environmentObject(AuthViewModel())
+        .environmentObject(FeedViewModel())
 }

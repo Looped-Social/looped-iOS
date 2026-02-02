@@ -138,6 +138,8 @@ class AuthViewModel: ObservableObject {
         onboardingComplete = true
         onboardingStep = .verificationNotifications
         shouldEnterOnboardingFlow = false
+
+        await loadCurrentUser()
     }
     
     // MARK: - Google Sign-In (triggered from View)

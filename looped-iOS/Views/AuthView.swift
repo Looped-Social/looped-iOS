@@ -4,6 +4,7 @@ import Foundation
 struct AuthView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var feedViewModel: FeedViewModel
     @State private var path: [AuthScreen] = []
     @State private var selectedLoopName: String = "Looped"
     @State private var selectedCommunityId: Int?
@@ -235,8 +236,8 @@ private extension AuthView {
                 },
                 showsHeader: false
             )
-	        case .photoIdVerification(let isStudent):
-	            PhotoIdVerificationView(
+        case .photoIdVerification(let isStudent):
+            PhotoIdVerificationView(
                 communityId: selectedCommunityId,
                 currentStep: verificationStep(for: .photoIdVerification(isStudent: isStudent)),
                 totalSteps: verificationTotalSteps,
@@ -249,6 +250,9 @@ private extension AuthView {
 	                        verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
 	                        onboardingStore.saveVerificationMethod("photo_id")
 	                    }
+                        Task {
+                            await feedViewModel.loadFollowedCommunities(reset: true)
+                        }
 	                    pushIfNeeded(.verificationConfirmation)
 	                },
 	                showsHeader: false
@@ -268,6 +272,9 @@ private extension AuthView {
 	                        verificationContext = VerificationContext(isStudent: isStudent, method: .email)
 	                        onboardingStore.saveVerificationMethod("email")
 	                    }
+                        Task {
+                            await feedViewModel.loadFollowedCommunities(reset: true)
+                        }
 	                    pushIfNeeded(.verificationConfirmation)
 	                },
 	                showsHeader: false
@@ -412,6 +419,7 @@ private extension AuthView {
 	    }
 
 	    func joinSelectedSpecializationAfterVerificationIfPossible() {
+	        guard verificationContext?.method == .email else { return }
 	        let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
 	        let specializationId = isStudent ? selectedDegree?.id : selectedDepartment?.id
 	        guard let specializationId else { return }
@@ -660,4 +668,5 @@ private extension AuthScreen {
 
 #Preview {
     AuthView(authViewModel: AuthViewModel())
+        .environmentObject(FeedViewModel())
 }

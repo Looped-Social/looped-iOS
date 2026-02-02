@@ -186,7 +186,13 @@ class CommentsModalManager: ObservableObject {
     func postComment(content: String, media: [LocalMediaItem]) async {
         guard let postId = currentPostBackendId else { return }
         if let permissions = communityPermissions, !permissions.canPost {
-            errorMessage = "Verification is required to comment, like, or repost in this community."
+            if permissions.requiresJoin {
+                errorMessage = "Join this major or field to comment, like, or repost."
+            } else if permissions.requiresVerification {
+                errorMessage = "Verification is required to comment, like, or repost in this community."
+            } else {
+                errorMessage = "You can’t comment in this community right now."
+            }
             return
         }
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -246,7 +252,18 @@ class CommentsModalManager: ObservableObject {
                 errorMessage = nil
                 return
             }
-            errorMessage = error.localizedDescription
+            if case let APIError.apiError(_, apiError, message) = error {
+                switch apiError {
+                case "community_not_verified":
+                    errorMessage = message ?? "You must be verified in this community to comment. Verify in Settings → Community Verifications."
+                case "specialization_not_joined":
+                    errorMessage = message ?? "Join this major or field to comment."
+                default:
+                    errorMessage = message ?? apiError
+                }
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -359,9 +376,15 @@ class CommentsModalManager: ObservableObject {
                 errorMessage = nil
                 return
             }
-            if case let APIError.apiError(_, apiError, message) = error,
-               apiError == "community_not_verified" {
-                errorMessage = message ?? "You must be verified in this community to like comments. Verify in Settings → Community Verifications."
+            if case let APIError.apiError(_, apiError, message) = error {
+                switch apiError {
+                case "community_not_verified":
+                    errorMessage = message ?? "You must be verified in this community to like comments. Verify in Settings → Community Verifications."
+                case "specialization_not_joined":
+                    errorMessage = message ?? "Join this major or field to like comments."
+                default:
+                    errorMessage = message ?? apiError
+                }
             } else {
                 errorMessage = error.localizedDescription
             }
@@ -425,6 +448,10 @@ class CommentsModalManager: ObservableObject {
         } catch {
             communityPermissions = nil
         }
+    }
+
+    func refreshCommunityPermissions() async {
+        await loadPermissions()
     }
 
     private func isNotFound(_ error: Error) -> Bool {

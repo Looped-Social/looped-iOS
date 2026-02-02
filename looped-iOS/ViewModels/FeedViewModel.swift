@@ -584,6 +584,23 @@ class FeedViewModel: ObservableObject {
                apiError == "content_under_review" {
                 return .queuedForReview
             }
+            if case let APIError.apiError(code, apiError, message) = error, code == 403 {
+                switch apiError {
+                case "community_not_verified":
+                    errorMessage = "You must be verified in this community to post. Verify in Settings → Community Verifications."
+                case "specialization_not_joined":
+                    errorMessage = "Join this major or field to post."
+                case "user_not_verified":
+                    errorMessage = "You must be verified before posting."
+                case "verification_expired":
+                    errorMessage = "Your verification expired. Verify again to post."
+                case "user_not_provisioned":
+                    errorMessage = "Finish setting up your account before posting."
+                default:
+                    errorMessage = message ?? apiError
+                }
+                return .failed
+            }
             if case let APIError.apiError(code, apiError, message) = error, code == 422 {
                 switch apiError {
                 case "media_not_found":

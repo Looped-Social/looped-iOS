@@ -37,7 +37,10 @@ struct UserProfileView: View {
 	    private let blockService: BlockServiceProtocol = BlockService()
 	    private let messageService: MessageServiceProtocol = MessageService()
 
+    private let requestedBackendUserId: Int?
+
     init(userId: Int, currentUserId: Int? = nil, preloadedProfile: UserProfile? = nil) {
+        requestedBackendUserId = userId
         _viewModel = StateObject(
             wrappedValue: UserProfileViewModel(
                 source: .user(id: userId),
@@ -60,6 +63,7 @@ struct UserProfileView: View {
     }
 
     init(anonProfileId: Int, preloadedProfile: UserProfile? = nil) {
+        requestedBackendUserId = nil
         _viewModel = StateObject(
             wrappedValue: UserProfileViewModel(
                 source: .anon(id: anonProfileId),
@@ -90,7 +94,16 @@ struct UserProfileView: View {
             .background(NavigationCanPopReader(canPop: $canPop))
             .modifier(profileActionsModifier)
             .onPreferenceChange(UserProfileHeaderHeightKey.self, perform: handleHeaderHeightChange)
-            .onAppear { fabState.isHidden = true }
+            .onAppear { syncFloatingActionButtonVisibility() }
+            .onChange(of: viewModel.profile?.backendId) { _ in
+                syncFloatingActionButtonVisibility()
+            }
+            .onChange(of: viewModel.profile?.isCurrentUser) { _ in
+                syncFloatingActionButtonVisibility()
+            }
+            .onChange(of: authViewModel.currentUser?.backendId) { _ in
+                syncFloatingActionButtonVisibility()
+            }
             .fullScreenCover(isPresented: $showChat) {
                 ChatNavigationHost(conversation: startedConversation, channel: nil) {
                     showChat = false
@@ -131,6 +144,30 @@ struct UserProfileView: View {
 
     private var tabs: [UserProfileTab] {
         [.content, .reposts]
+    }
+
+    private func syncFloatingActionButtonVisibility() {
+        fabState.isHidden = !shouldShowPostButton
+    }
+
+    private var shouldShowPostButton: Bool {
+        if viewModel.isAnonymousProfile {
+            return viewModel.profile?.isCurrentUser == true
+        }
+
+        if let requestedBackendUserId,
+           let currentBackendId = authViewModel.currentUser?.backendId,
+           requestedBackendUserId == currentBackendId {
+            return true
+        }
+
+        if let profileBackendId = viewModel.profile?.backendId,
+           let currentBackendId = authViewModel.currentUser?.backendId,
+           profileBackendId == currentBackendId {
+            return true
+        }
+
+        return viewModel.profile?.isCurrentUser == true
     }
 
     private var followConfig: ProfileActionButtons.FollowConfig? {

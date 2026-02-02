@@ -131,6 +131,15 @@ struct CommunitySearchResult: Identifiable, Equatable {
 struct CommunityPermissions: Equatable {
     let canPost: Bool
     let requiresVerification: Bool
+    let requiresJoin: Bool
+}
+
+extension CommunityPermissions {
+    init(dto: CommunityPermissionsDTO) {
+        canPost = dto.canPost
+        requiresVerification = dto.requiresVerification
+        requiresJoin = dto.requiresJoin ?? false
+    }
 }
 
 extension CommunitySummary {
@@ -180,9 +189,4 @@ extension CommunitySearchResult {
     }
 }
 
-extension CommunityPermissions {
-    init(dto: CommunityPermissionsDTO) {
-        canPost = dto.canPost
-        requiresVerification = dto.requiresVerification
-    }
-}
+// `CommunityPermissionsDTO` -> `CommunityPermissions` mapping is defined above.
