@@ -99,23 +99,11 @@ struct CommentRow: View {
     }
 
     private var avatarView: some View {
-        Group {
-            if comment.isAnonymous {
-                Circle()
-                    .fill(Color.loopedTextSecondary.opacity(0.15))
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.loopedCustom(.semibold, size: 12))
-                            .foregroundColor(.loopedTextSecondary)
-                    )
-                    .frame(width: profileSize, height: profileSize)
-            } else {
-                ProfileAvatarView(
-                    imageURL: comment.authorProfileImageURL,
-                    size: profileSize
-                )
-            }
-        }
+        ProfileAvatarView(
+            imageURL: comment.authorProfileImageURL,
+            size: profileSize,
+            variant: comment.isAnonymous ? .anonymous : .standard
+        )
     }
 
     private var collapsedRepliesLabel: String? {

@@ -245,20 +245,11 @@ private extension CommentsView {
 
     var threadHeader: some View {
         HStack(alignment: .top, spacing: 12) {
-            Group {
-                if post.isAnonymous {
-                    Circle()
-                        .fill(Color.loopedTextSecondary.opacity(0.15))
-                        .overlay(
-                            Text(String(postAuthorName.prefix(1)).uppercased())
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedTextPrimary)
-                        )
-                        .frame(width: 40, height: 40)
-                } else {
-                    ProfileAvatarView(imageURL: post.authorProfileImageURL, size: 40)
-                }
-            }
+            ProfileAvatarView(
+                imageURL: post.authorProfileImageURL,
+                size: 40,
+                variant: post.isAnonymous ? .anonymous : .standard
+            )
 
             VStack(alignment: .leading, spacing: 8) {
                 let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)

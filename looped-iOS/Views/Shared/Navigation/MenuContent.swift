@@ -20,20 +20,11 @@ struct MenuContent: View {
                 // Profile Header Section
                 VStack(alignment: .center, spacing: 12) {
                     // Profile Avatar
-                    Group {
-                        if isAnonymous {
-                            Circle()
-                                .fill(Color.loopedSecondary)
-                                .overlay(
-                                    Image(systemName: "person.fill")
-                                        .font(.loopedCustom(.semibold, size: 30))
-                                        .foregroundColor(.loopedWhite)
-                                )
-                        } else {
-                            ProfileAvatarView(imageURL: authViewModel.currentUser?.profileImageURL, size: 72)
-                        }
-                    }
-                    .frame(width: 72, height: 72)
+                    ProfileAvatarView(
+                        imageURL: authViewModel.currentUser?.profileImageURL,
+                        size: 72,
+                        variant: isAnonymous ? .anonymous : .standard
+                    )
                         .padding(.top, 16)
 
                     // Display Name

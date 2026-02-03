@@ -12,20 +12,11 @@ struct SimplifiedPostCard: View {
             // Header with user info only
             HStack(alignment: .top, spacing: 12) {
                 // Avatar
-                Group {
-                    if post.isAnonymous {
-                        Circle()
-                            .fill(Color.loopedTextSecondary.opacity(0.3))
-                            .overlay(
-                                Text(String(authorName.prefix(1)).uppercased())
-                                    .font(.loopedCustom(.semibold, size: 16))
-                                    .foregroundColor(.loopedPrimary)
-                            )
-                            .frame(width: 40, height: 40)
-                    } else {
-                        ProfileAvatarView(imageURL: post.authorProfileImageURL, size: 40)
-                    }
-                }
+                ProfileAvatarView(
+                    imageURL: post.authorProfileImageURL,
+                    size: 40,
+                    variant: post.isAnonymous ? .anonymous : .standard
+                )
                 
                 VStack(alignment: .leading, spacing: 8) {
                     // Name only (no username, job title, or timestamp)

@@ -112,19 +112,12 @@ struct MiniaturePostCard: View {
             // Mini header
             HStack(spacing: 6) {
                 // Small avatar circle
-                Group {
-                    if post.isAnonymous {
-                        Circle()
-                            .fill(Color.loopedSecondary.opacity(0.3))
-                            .frame(width: 16, height: 16)
-                    } else {
-                        ProfileAvatarView(
-                            imageURL: post.authorProfileImageURL,
-                            size: 16,
-                            iconScale: 0.5
-                        )
-                    }
-                }
+                ProfileAvatarView(
+                    imageURL: post.authorProfileImageURL,
+                    size: 16,
+                    iconScale: 0.5,
+                    variant: post.isAnonymous ? .anonymous : .standard
+                )
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(post.resolvedAuthorName)

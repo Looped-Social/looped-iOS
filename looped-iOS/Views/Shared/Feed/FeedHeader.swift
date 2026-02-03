@@ -4,6 +4,7 @@ struct FeedHeader: View {
     let onProfileTap: () -> Void
     @EnvironmentObject private var authViewModel: AuthViewModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     init(onProfileTap: @escaping (() -> Void) = {}) {
         self.onProfileTap = onProfileTap
@@ -22,23 +23,11 @@ struct FeedHeader: View {
                 Button(action: {
                     onProfileTap()
                 }) {
-                    Group {
-                        if authViewModel.currentUser?.isAnonymous == true {
-                            Circle()
-                                .fill(Color.loopedTextSecondary.opacity(0.1))
-                                .overlay(
-                                    Text(initials)
-                                        .font(.loopedCustom(.semibold, size: 16))
-                                        .foregroundColor(.loopedTextPrimary)
-                                )
-                                .frame(width: 40, height: 40)
-                        } else {
-                            ProfileAvatarView(
-                                imageURL: authViewModel.currentUser?.profileImageURL,
-                                size: 40
-                            )
-                        }
-                    }
+                    ProfileAvatarView(
+                        imageURL: authViewModel.currentUser?.profileImageURL,
+                        size: 40,
+                        variant: isAnonymousMode ? .anonymous : .standard
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -49,14 +38,6 @@ struct FeedHeader: View {
 
     private var bannerHeight: CGFloat {
         horizontalSizeClass == .regular ? 80 : 60
-    }
-
-    private var initials: String {
-        if let name = authViewModel.currentUser?.displayName,
-           let first = name.split(separator: " ").first?.first {
-            return String(first).uppercased()
-        }
-        return "LU"
     }
 }
 

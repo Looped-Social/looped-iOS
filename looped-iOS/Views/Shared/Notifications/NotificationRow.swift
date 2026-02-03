@@ -27,20 +27,11 @@ struct NotificationRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             // Profile Picture
-            Group {
-                if notification.actorIsAnonymous && notification.type != .announcement && notification.type != .system {
-                    Circle()
-                        .fill(Color.loopedPrimary.opacity(0.2))
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.loopedCustom(.semibold, size: 16))
-                                .foregroundColor(.loopedPrimary)
-                        )
-                        .frame(width: 40, height: 40)
-                } else {
-                    ProfileAvatarView(imageURL: notification.actorProfileImageUrl, size: 40)
-                }
-            }
+            ProfileAvatarView(
+                imageURL: notification.actorProfileImageUrl,
+                size: 40,
+                variant: notification.actorIsAnonymous && notification.type != .announcement && notification.type != .system ? .anonymous : .standard
+            )
             .onTapGesture {
                 guard !notification.actorIsAnonymous else { return }
                 onActorTapped?()

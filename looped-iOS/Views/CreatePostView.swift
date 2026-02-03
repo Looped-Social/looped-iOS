@@ -230,10 +230,15 @@ struct CreatePostView: View {
 	                                    .font(.loopedCustom(size: 16))
 	                                Text("Photo")
                                     .font(.loopedSubBodyMedium)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .minimumScaleFactor(0.85)
+                                    .allowsTightening(true)
                             }
-                            .foregroundColor(.loopedPrimary)
+                            .foregroundColor(.loopedContrast)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
 	                            .background(Color.loopedMutedBackground)
 	                            .clipShape(RoundedRectangle(cornerRadius: 8))
 	                        }
@@ -247,10 +252,15 @@ struct CreatePostView: View {
                                     .font(.loopedCustom(size: 16))
                                 Text("Camera")
                                     .font(.loopedSubBodyMedium)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .minimumScaleFactor(0.85)
+                                    .allowsTightening(true)
                             }
-                            .foregroundColor(.loopedPrimary)
+                            .foregroundColor(.loopedContrast)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
 	                            .background(Color.loopedMutedBackground)
 	                            .clipShape(RoundedRectangle(cornerRadius: 8))
 	                        }
@@ -261,15 +271,18 @@ struct CreatePostView: View {
                                     .font(.loopedCustom(size: 16))
                                 Text(pollDraft == nil ? "Poll" : "Remove Poll")
                                     .font(.loopedSubBodyMedium)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .minimumScaleFactor(0.75)
+                                    .allowsTightening(true)
                             }
-                            .foregroundColor(.loopedPrimary)
+                            .foregroundColor(.loopedContrast)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-
-                        Spacer()
                     }
 
                     if let pollDraftBinding = bindingForPollDraft() {

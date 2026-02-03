@@ -578,13 +578,11 @@ struct ProfileHeaderView: View {
             HStack(spacing: 12) {
                 Group {
                     if isAnonymous {
-                        Circle()
-                            .fill(Color.loopedSecondary)
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.loopedCustom(.semibold, size: 28))
-                                    .foregroundColor(.loopedWhite)
-                            )
+                        ProfileAvatarView(
+                            imageURL: nil,
+                            size: 64,
+                            variant: .anonymous
+                        )
                     } else {
                         Group {
                             if let avatarViewerUrl {
@@ -890,16 +888,16 @@ private struct CompanyIconView: View {
 	    }
 
 	    var body: some View {
-	        HStack(spacing: 0) {
+	        HStack(spacing: 12) {
 	            if isCurrentUser {
 	                Button(action: { presentMainOverlay(.editProfile) }) {
-	                    ProfileActionButton(
-	                        title: "Edit Profile",
-	                        style: .outline,
-	                        textColor: .loopedTextSecondary,
-	                        borderColor: .loopedTextSecondary
-	                    )
-	                        .coachMarkTarget(.profileEditButton)
+                        PillButtonLabel(
+                            title: "Edit Profile",
+                            variant: .muted,
+                            size: .profile,
+                            fillWidth: true
+                        )
+                        .coachMarkTarget(.profileEditButton)
 	                }
 	                .buttonStyle(PlainButtonStyle())
 	                .frame(maxWidth: .infinity, alignment: .center)
@@ -907,12 +905,11 @@ private struct CompanyIconView: View {
                 Button(action: {
                     isAnonymous.toggle()
                 }) {
-                    ProfileActionButton(
+                    PillButtonLabel(
                         title: "Anonymous",
-                        style: isAnonymous ? .filled : .outline,
-                        textColor: isAnonymous ? .loopedWhite : .loopedTextSecondary,
-                        borderColor: isAnonymous ? .loopedWhite : .loopedTextSecondary,
-                        showBorderWhenFilled: true
+                        variant: isAnonymous ? .secondary : .muted,
+                        size: .profile,
+                        fillWidth: true
                     )
                     .coachMarkTarget(.profileAnonymousButton)
                 }
@@ -925,8 +922,10 @@ private struct CompanyIconView: View {
                         FollowPillButtonLabel(
                             title: followButtonTitle,
                             isFollowing: followConfig?.isFollowing == true,
-                            size: .compact,
-                            isEnabled: followConfig != nil
+                            size: .profile,
+                            fillWidth: true,
+                            isEnabled: followConfig != nil && followConfig?.isInFlight != true,
+                            showsLoadingIndicator: followConfig?.isInFlight == true
                         )
 	                }
 	                .buttonStyle(PlainButtonStyle())
@@ -938,12 +937,14 @@ private struct CompanyIconView: View {
 	                    Button(action: {
 	                        messageConfig?.onTap()
 	                    }) {
-	                        ProfileActionButton(
-	                            title: "Message",
-	                            style: .outline,
-	                            textColor: .loopedTextSecondary,
-	                            borderColor: .loopedTextSecondary
-	                        )
+                            PillButtonLabel(
+                                title: "Message",
+                                variant: .muted,
+                                size: .profile,
+                                fillWidth: true,
+                                isEnabled: messageConfig != nil && messageConfig?.isInFlight != true,
+                                showsLoadingIndicator: messageConfig?.isInFlight == true
+                            )
 	                    }
 	                    .buttonStyle(PlainButtonStyle())
 	                    .disabled(isMessageDisabled)
@@ -978,47 +979,6 @@ private struct CompanyIconView: View {
         followConfig?.isFollowing == true ? "Following" : "Follow"
     }
 	}
-
-private enum ProfileActionButtonStyle {
-    case outline
-    case filled
-}
-
-		private struct ProfileActionButton: View {
-			let title: String
-			let style: ProfileActionButtonStyle
-			var textColor: Color? = nil
-			var borderColor: Color? = nil
-			var showBorderWhenFilled: Bool = false
-			var filledBackgroundColor: Color? = nil
-
-			var body: some View {
-				Text(title)
-					.font(.loopedSubBodyRegular)
-					.foregroundColor(textColor ?? (style == .filled ? .loopedWhite : .loopedTextPrimary))
-				.padding(.vertical, 8)
-				.padding(.horizontal, 16)
-				.frame(minWidth: 120)
-				.fixedSize(horizontal: true, vertical: false)
-					.background(
-						Group {
-							if style == .filled {
-								filledBackgroundColor ?? Color.loopedSecondary
-							} else {
-	                        Color.loopedClear
-	                    }
-	                }
-	            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(
-                        borderColor ?? Color.loopedTextSecondary.opacity(0.3),
-                        lineWidth: style == .filled && !showBorderWhenFilled ? 0 : 1
-                    )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-}
 
 struct ProfileTabsView: View {
     @Binding var selectedTab: ProfileTab

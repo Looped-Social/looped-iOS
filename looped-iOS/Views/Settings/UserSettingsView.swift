@@ -65,7 +65,7 @@ struct UserSettingsView: View {
             VStack(spacing: 24) {
                     if isAnonymousMode {
                         VStack(spacing: 12) {
-                            ProfileAvatarView(imageURL: nil, size: 96, iconScale: 0.4)
+                            ProfileAvatarView(imageURL: nil, size: 96, iconScale: 0.4, variant: .anonymous)
 
                             Text("Anonymous profiles don’t have a profile photo")
                                 .font(.loopedBodyMedium)

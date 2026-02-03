@@ -279,8 +279,8 @@ private extension AuthView {
 	                },
 	                showsHeader: false
 	            )
-	        case .verificationConfirmation:
-	            let confirmationKind: VerificationConfirmationView.ConfirmationKind = {
+        case .verificationConfirmation:
+            let confirmationKind: VerificationConfirmationView.ConfirmationKind = {
 	                guard let verificationContext else { return .photoIdPending }
 	                switch verificationContext.method {
 	                case .email:
@@ -299,32 +299,13 @@ private extension AuthView {
 		                },
 		                onComplete: {
 		                    joinSelectedSpecializationAfterVerificationIfPossible()
-		                    navigate(to: .verificationNotifications)
+                            Task {
+                                await authViewModel.finishOnboardingFromNotificationsStep()
+                            }
 		                },
 		                showsHeader: false,
 		                confirmationKind: confirmationKind
 		            )
-        case .verificationNotifications:
-            VerificationNotificationsView(
-                loopName: selectedLoopName,
-                currentStep: verificationStep(for: .verificationNotifications),
-                totalSteps: verificationTotalSteps,
-                onBack: {},
-                onEnableNotifications: { wantsRecommendations in
-                    Task {
-                        await authViewModel.enableNotificationsDuringOnboarding(
-                            wantsRecommendations: wantsRecommendations
-                        )
-                        await authViewModel.finishOnboardingFromNotificationsStep()
-                    }
-                },
-                onSkip: {
-                    Task {
-                        await authViewModel.finishOnboardingFromNotificationsStep()
-                    }
-                },
-                showsHeader: false
-            )
         case .login:
             LoginView(viewModel: authViewModel)
         case .signUp:
@@ -370,7 +351,7 @@ private extension AuthView {
     }
 
     var verificationTotalSteps: Int {
-        verificationFlowMode == .full ? 5 : 1
+        verificationFlowMode == .full ? 4 : 1
     }
 
     func verificationStep(for screen: AuthScreen) -> Int {
@@ -384,24 +365,17 @@ private extension AuthView {
             return 3
         case .verificationConfirmation:
             return 4
-        case .verificationNotifications:
-            return 5
         default:
             return 1
         }
     }
 
 	    func skipToNotifications() {
-	        verificationFlowMode = .skipped
 	        verificationContext = nil
 	        onboardingStore.clearVerificationMethod()
-	        if let introIndex = path.lastIndex(where: { screen in
-	            if case .verificationIntro = screen { return true }
-	            return false
-	        }) {
-            path = Array(path.prefix(introIndex + 1))
-        }
-        pushIfNeeded(.verificationNotifications)
+            Task {
+                await authViewModel.finishOnboardingFromNotificationsStep()
+            }
     }
 
     func followCommunityIfPossible(_ communityId: Int?) {
@@ -444,7 +418,6 @@ enum AuthScreen: Hashable {
     case photoIdVerification(isStudent: Bool)
     case emailVerification(isStudent: Bool)
     case verificationConfirmation
-    case verificationNotifications
     case login
     case signUp
 }
@@ -503,10 +476,6 @@ private extension AuthView {
         case .verificationConfirmation:
             let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
             return navigationStack(for: .verificationIntro(isStudent: isStudent)) + [.verificationConfirmation]
-        case .verificationNotifications:
-            let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
-            return navigationStack(for: .verificationIntro(isStudent: isStudent))
-                + [.verificationConfirmation, .verificationNotifications]
         case .login:
             return [.login]
         case .signUp:
@@ -606,8 +575,6 @@ private extension AuthScreen {
             return isStudent ? .emailVerificationStudent : .emailVerificationCompany
         case .verificationConfirmation:
             return .verificationConfirmation
-        case .verificationNotifications:
-            return .verificationNotifications
         default:
             return nil
         }
@@ -648,7 +615,7 @@ private extension AuthScreen {
         case .verificationConfirmation:
             return .verificationConfirmation
         case .verificationNotifications:
-            return .verificationNotifications
+            return .verificationConfirmation
         }
     }
 
@@ -661,7 +628,7 @@ private extension AuthScreen {
         case .verification:
             return .verificationIntro(isStudent: isStudent)
         case .verificationNotifications:
-            return .verificationNotifications
+            return .verificationConfirmation
         }
     }
 }

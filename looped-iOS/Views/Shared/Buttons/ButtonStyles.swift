@@ -29,6 +29,15 @@ struct SecondaryButtonStyle: LoopedButtonStyle {
     let borderWidth: CGFloat = 2
 }
 
+struct MutedSecondaryButtonStyle: LoopedButtonStyle {
+    let backgroundColor: Color = .clear
+    let foregroundColor: Color = .loopedTextSecondary
+    let cornerRadius: CGFloat = 12
+    let height: CGFloat = 50
+    let borderColor: Color? = .loopedTextSecondary.opacity(0.6)
+    let borderWidth: CGFloat = 1
+}
+
 struct DestructiveButtonStyle: LoopedButtonStyle {
     let backgroundColor: Color = .loopedError
     let foregroundColor: Color = .loopedWhite

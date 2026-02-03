@@ -1,17 +1,31 @@
 import SwiftUI
 
 struct ProfileAvatarView: View {
+    enum Variant: Equatable {
+        case standard
+        case anonymous
+    }
+
     let imageURL: String?
     let size: CGFloat
     var iconScale: CGFloat = 0.45
-    @AppStorage("anonymousMode") private var isAnonymousMode = false
+    var variant: Variant = .standard
     @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
 
     private var iconSize: CGFloat {
         size * iconScale
     }
 
+    private var ringInset: CGFloat {
+        max(1, size * 0.07)
+    }
+
     private var resolvedImageURL: String? {
+        if variant == .anonymous {
+            let fallback = defaultProfileImageUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+            return fallback.isEmpty ? nil : fallback
+        }
+
         let trimmed = (imageURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return trimmed }
 
@@ -29,6 +43,24 @@ struct ProfileAvatarView: View {
     }
 
     var body: some View {
+        if variant == .anonymous {
+            ZStack {
+                Circle()
+                    .fill(Color.loopedSecondary)
+
+                avatarContent
+                    .padding(ringInset)
+                    .clipShape(Circle())
+            }
+            .frame(width: size, height: size)
+        } else {
+            avatarContent
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+        }
+    }
+
+    private var avatarContent: some View {
         Group {
             if isRemoteDefaultAvatar {
                 defaultAvatar
@@ -44,8 +76,6 @@ struct ProfileAvatarView: View {
                 defaultAvatar
             }
         }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
     }
 
     @ViewBuilder
@@ -56,7 +86,7 @@ struct ProfileAvatarView: View {
                 .scaledToFill()
         } else {
             Circle()
-                .fill(Color.loopedAccent(isAnonymousMode: isAnonymousMode))
+                .fill(variant == .anonymous ? Color.loopedSecondary : Color.loopedPrimary)
                 .overlay(
                     Image(systemName: "person.fill")
                         .font(.loopedCustom(.semibold, size: iconSize))

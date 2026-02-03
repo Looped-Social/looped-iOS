@@ -45,7 +45,7 @@ struct NotificationPermissionPromptView: View {
 
                     StyledButton(
                         title: "Not Now",
-                        style: SecondaryButtonStyle(),
+                        style: MutedSecondaryButtonStyle(),
                         isEnabled: !isRequesting
                     ) {
                         onDismiss()

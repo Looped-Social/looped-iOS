@@ -214,20 +214,11 @@ struct PostCard: View {
     }
 
     private var avatarContent: some View {
-        Group {
-            if post.isAnonymous {
-                Circle()
-                    .fill(Color.loopedTextSecondary.opacity(0.2))
-                    .overlay(
-                        Text(initials(from: post.resolvedAuthorName))
-                            .font(.loopedCustom(.semibold, size: 16))
-                            .foregroundColor(.loopedTextPrimary)
-                    )
-                    .frame(width: 40, height: 40)
-            } else {
-                ProfileAvatarView(imageURL: post.authorProfileImageURL, size: 40)
-            }
-        }
+        ProfileAvatarView(
+            imageURL: post.authorProfileImageURL,
+            size: 40,
+            variant: post.isAnonymous ? .anonymous : .standard
+        )
     }
 
     @ViewBuilder

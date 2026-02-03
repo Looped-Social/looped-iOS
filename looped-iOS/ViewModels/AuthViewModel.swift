@@ -132,14 +132,23 @@ class AuthViewModel: ObservableObject {
     func finishOnboardingFromNotificationsStep() async {
         await reportOnboardingStep(.verificationNotifications)
 
-        guard !onboardingComplete else { return }
+        // If the backend marked onboarding complete, `reportOnboardingStep` already refreshed identity.
+        if onboardingComplete {
+            shouldEnterOnboardingFlow = false
+            return
+        }
+
+        // Best-effort: if we haven't confirmed provisioning yet, refresh once.
+        if !isProvisioned {
+            await loadCurrentUser()
+        }
+
         guard isProvisioned else { return }
 
+        // Fallback: don't block the UI on eventual-consistency for `onboardingComplete`.
         onboardingComplete = true
         onboardingStep = .verificationNotifications
         shouldEnterOnboardingFlow = false
-
-        await loadCurrentUser()
     }
     
     // MARK: - Google Sign-In (triggered from View)

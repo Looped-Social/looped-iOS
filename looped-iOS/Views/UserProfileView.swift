@@ -560,14 +560,11 @@ struct UserProfileInfoSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 if userProfile.isAnonymous {
-                    Circle()
-                        .fill(Color.loopedSecondary)
-                        .frame(width: 64, height: 64)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.loopedCustom(.semibold, size: 28))
-                                .foregroundColor(.loopedWhite)
-                        )
+                    ProfileAvatarView(
+                        imageURL: nil,
+                        size: 64,
+                        variant: .anonymous
+                    )
                 } else {
                     Group {
                         if let avatarViewerUrl {

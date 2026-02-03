@@ -151,17 +151,10 @@ private struct UserFollowListRow: View {
 
     @ViewBuilder
     private var avatar: some View {
-        if item.kind == .anon {
-            Circle()
-                .fill(Color.loopedSecondary)
-                .frame(width: 44, height: 44)
-                .overlay(
-                    Image(systemName: "person.fill")
-                        .font(.loopedCustom(.semibold, size: 18))
-                        .foregroundColor(.loopedWhite)
-                )
-        } else {
-            ProfileAvatarView(imageURL: item.profileImageURL, size: 44)
-        }
+        ProfileAvatarView(
+            imageURL: item.profileImageURL,
+            size: 44,
+            variant: item.kind == .anon ? .anonymous : .standard
+        )
     }
 }
