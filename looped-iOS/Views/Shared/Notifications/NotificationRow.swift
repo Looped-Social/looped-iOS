@@ -44,23 +44,25 @@ struct NotificationRow: View {
                     notificationTextView
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Spacer()
+                    HStack(spacing: 6) {
+                        // Unread Indicator
+                        if !notification.isRead {
+                            Circle()
+                                .fill(Color.loopedSecondary)
+                                .frame(width: 8, height: 8)
+                                .padding(.top, 4)
+                        }
 
-                    // Unread Indicator
-                    if !notification.isRead {
-                        Circle()
-                            .fill(Color.loopedSecondary)
-                            .frame(width: 8, height: 8)
-                            .padding(.top, 4)
+                        // Timestamp
+                        Text(notification.relativeTimeString)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                            .lineLimit(1)
                     }
-
-                    // Timestamp
-                    Text(notification.relativeTimeString)
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedTextSecondary)
-                        .lineLimit(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Content Preview (for post/comment notifications)
                 if let previewText = notification.previewText, !previewText.isEmpty {

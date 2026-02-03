@@ -471,7 +471,14 @@ struct PostCard: View {
 		    @ViewBuilder
 			    private var pollSection: some View {
 			        if let poll = post.poll {
-			            PollCard(poll: poll) { updatedPoll in
+			            PollCard(
+                            poll: poll,
+                            communityId: post.communityId,
+                            communityName: post.communityName,
+                            communityShortName: post.communityShortName,
+                            communityKind: post.communityKind,
+                            communityPermissions: communityPermissions
+                        ) { updatedPoll in
 			                onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
 			            }
 			            .padding(.top, 4)

@@ -2,27 +2,18 @@ import SwiftUI
 
 struct MessagesHeader: View {
     let title: String
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
-        HStack {
-            Image("logo-banner")
-                .resizable()
-                .scaledToFit()
-                .frame(height: bannerHeight)
-
-            Spacer()
-
-            // Right side: Dynamic title
+        HStack(spacing: 0) {
             Text(title)
-                .font(.loopedLogo)
+                .font(.loopedHeaderStrong)
                 .foregroundColor(.loopedTextPrimary)
+
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
-    }
-
-    private var bannerHeight: CGFloat {
-        horizontalSizeClass == .regular ? 80 : 60
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 }
 

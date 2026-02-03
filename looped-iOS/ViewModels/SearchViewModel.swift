@@ -10,6 +10,7 @@ class SearchViewModel: ObservableObject {
     @Published var majors: [CommunitySearchResult] = []
     @Published var fields: [CommunitySearchResult] = []
     @Published var isLoadingSpecializations = false
+    @Published var isLoadingMoreRecommendedCommunities = false
     @Published var isLoadingMoreMajors = false
     @Published var isLoadingMoreFields = false
     @Published var specializationsError: String?
@@ -17,10 +18,15 @@ class SearchViewModel: ObservableObject {
     private let communityService: CommunityServiceProtocol
     private let feedService: FeedServiceProtocol
     private let discoveryService: DiscoveryServiceProtocol
+    private var recommendedCommunitiesNextCursor: String?
     private var majorsNextCursor: String?
     private var fieldsNextCursor: String?
     private let initialSpecializationsLimit = 24
     private let loadMoreSpecializationsLimit = 40
+    private let recommendedCommunitiesLimit = 8
+
+    var majorsHasMorePages: Bool { majorsNextCursor?.isEmpty == false }
+    var fieldsHasMorePages: Bool { fieldsNextCursor?.isEmpty == false }
 
     init(
         communityService: CommunityServiceProtocol = CommunityService(),
@@ -141,9 +147,38 @@ class SearchViewModel: ObservableObject {
 
     func loadRecommendedCommunities() async {
         do {
-            recommendedCommunities = try await communityService.fetchRecommendedCommunities(kind: nil, limit: 8)
+            isLoadingMoreRecommendedCommunities = false
+            recommendedCommunitiesNextCursor = nil
+            let page = try await communityService.fetchRecommendedCommunities(
+                kind: nil,
+                limit: recommendedCommunitiesLimit,
+                cursor: nil
+            )
+            recommendedCommunities = page.items
+            recommendedCommunitiesNextCursor = page.nextCursor
         } catch {
             recommendedCommunities = []
+            recommendedCommunitiesNextCursor = nil
+        }
+    }
+
+    func loadMoreRecommendedCommunities() async {
+        guard !isLoadingMoreRecommendedCommunities else { return }
+        guard let recommendedCommunitiesNextCursor, !recommendedCommunitiesNextCursor.isEmpty else { return }
+
+        isLoadingMoreRecommendedCommunities = true
+        defer { isLoadingMoreRecommendedCommunities = false }
+
+        do {
+            let page = try await communityService.fetchRecommendedCommunities(
+                kind: nil,
+                limit: recommendedCommunitiesLimit,
+                cursor: recommendedCommunitiesNextCursor
+            )
+            self.recommendedCommunitiesNextCursor = page.nextCursor
+            appendUnique(items: page.items, to: &recommendedCommunities)
+        } catch {
+            // Keep the cursor so we can retry when the last card appears again.
         }
     }
 }

@@ -6,11 +6,12 @@ struct TrendingPostCard: View {
     let title: String
     let subtitle: String
 
+    private let cornerRadius: CGFloat = 12
+
     var body: some View {
         VStack(spacing: 0) {
             // Image with loading placeholder (supports either asset name or remote URL string)
-            trendingImage
-                .aspectRatio(1.6, contentMode: .fit)
+            trendingImageContainer
 
             // Content overlay at bottom
             VStack(alignment: .leading, spacing: 4) {
@@ -24,14 +25,25 @@ struct TrendingPostCard: View {
                     .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedTextSecondary)
                     .lineLimit(1)
+                    // Prevent descenders (e.g. “g”) from getting clipped in tight layouts.
+                    .padding(.bottom, 1)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.loopedBackground)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .shadow(color: Color.loopedBlack.opacity(0.05), radius: 2, x: 0, y: 1)
+    }
+
+    private var trendingImageContainer: some View {
+        ZStack {
+            Color.loopedMutedBackground
+            trendingImage
+        }
+        .aspectRatio(1.6, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     private var trendingImage: some View {

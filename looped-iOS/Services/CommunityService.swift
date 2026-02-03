@@ -24,13 +24,21 @@ class CommunityService: CommunityServiceProtocol {
         return CommunityPage(items: items, nextCursor: response.nextCursor)
     }
 
-    func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int) async throws -> [CommunitySearchResult] {
+    func fetchRecommendedCommunities(
+        kind: CommunitySearchKind?,
+        limit: Int,
+        cursor: String?
+    ) async throws -> SearchResultPage<CommunitySearchResult> {
         var endpoint = "/v1/communities/recommended?limit=\(limit > 0 ? limit : defaultLimit)"
         if let kindValue = kind?.queryValue {
             endpoint += "&kind=\(kindValue)"
         }
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
+        }
         let response: CommunityRecommendedResponseDTO = try await apiClient.get(endpoint)
-        return response.items.map(CommunitySearchResult.init(dto:))
+        let items = response.items.map(CommunitySearchResult.init(dto:))
+        return SearchResultPage(items: items, nextCursor: response.nextCursor)
     }
 
     func fetchCommunityDetails(communityId: Int) async throws -> CommunityProfileData {
@@ -162,16 +170,42 @@ class CommunityService: CommunityServiceProtocol {
     }
 
     func joinSpecialization(id: Int) async throws {
-        let _: EmptyResponse = try await apiClient.post("/v1/specializations/\(id)/join", body: EmptyBody())
+        do {
+            let _: EmptyResponse = try await apiClient.post("/v1/communities/\(id)/join", body: EmptyBody())
+        } catch {
+            if shouldFallbackToLegacySpecializationJoinEndpoint(error) {
+                let _: EmptyResponse = try await apiClient.post("/v1/specializations/\(id)/join", body: EmptyBody())
+                return
+            }
+            throw error
+        }
     }
 
     func unjoinSpecialization(id: Int) async throws {
-        try await apiClient.delete("/v1/specializations/\(id)/join")
+        do {
+            try await apiClient.delete("/v1/communities/\(id)/join")
+        } catch {
+            if shouldFallbackToLegacySpecializationJoinEndpoint(error) {
+                try await apiClient.delete("/v1/specializations/\(id)/join")
+                return
+            }
+            throw error
+        }
     }
 
     func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions {
         let dto: CommunityPermissionsDTO = try await apiClient.get("/v1/communities/\(communityId)/permissions")
         return CommunityPermissions(dto: dto)
+    }
+
+    private func shouldFallbackToLegacySpecializationJoinEndpoint(_ error: Error) -> Bool {
+        if case let APIError.serverError(code) = error {
+            return code == 404
+        }
+        if case let APIError.apiError(code, _, _) = error {
+            return code == 404
+        }
+        return false
     }
 }
 

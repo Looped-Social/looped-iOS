@@ -249,7 +249,7 @@ extension CommentsServiceProtocol {
 
 protocol CommunityServiceProtocol {
     func fetchFollowedCommunities(limit: Int, cursor: String?, order: CommunityFollowOrder) async throws -> CommunityPage
-    func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int) async throws -> [CommunitySearchResult]
+    func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult>
     func fetchCommunityDetails(communityId: Int) async throws -> CommunityProfileData
     func fetchCommunityDetailsDTO(communityId: Int, kind: CommunityKind) async throws -> CommunityDetailsDTO
     func fetchCommunityDomains(communityId: Int) async throws -> [String]
@@ -263,6 +263,13 @@ protocol CommunityServiceProtocol {
     func joinSpecialization(id: Int) async throws
     func unjoinSpecialization(id: Int) async throws
     func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions
+}
+
+extension CommunityServiceProtocol {
+    func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int) async throws -> [CommunitySearchResult] {
+        let page = try await fetchRecommendedCommunities(kind: kind, limit: limit, cursor: nil)
+        return page.items
+    }
 }
 
 protocol CommunityVerificationServiceProtocol {

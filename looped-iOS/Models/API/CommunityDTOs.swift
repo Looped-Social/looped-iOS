@@ -37,6 +37,7 @@ struct CommunitySearchDTO: Codable {
 
 struct CommunityRecommendedResponseDTO: Codable {
     let items: [CommunityRecommendedDTO]
+    let nextCursor: String?
 }
 
 struct CommunityRecommendedDTO: Codable {

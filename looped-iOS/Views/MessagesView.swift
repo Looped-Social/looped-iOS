@@ -86,7 +86,7 @@ struct MessagesView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            MessagesHeader(title: headerTitle)
+            MessagesHeader(title: "Messages")
 
             // Search Bar
             MessagesSearchBar(searchText: $searchText)
@@ -419,17 +419,6 @@ struct MessagesView: View {
         }
         .onAppear {
             fabState.isHidden = false
-        }
-    }
-
-    private var headerTitle: String {
-        switch selectedTab {
-        case .messages:
-            return "Messages"
-        case .requests:
-            return "Requests"
-        case .groups:
-            return "Groups"
         }
     }
 }

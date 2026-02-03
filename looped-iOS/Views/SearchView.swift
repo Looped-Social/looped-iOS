@@ -43,7 +43,7 @@ struct SearchView: View {
                         // Trending Post Section
                         VStack(alignment: .leading, spacing: 16) {
                             HStack {
-                                Text("Trending Post")
+                                Text("Trending Posts")
                                     .font(.loopedSubheadMedium)
                                     .foregroundColor(.loopedTextPrimary)
                                 Spacer()
@@ -60,26 +60,24 @@ struct SearchView: View {
                                     // Snap-to-center trending posts with TabView
                                     TabView(selection: $viewModel.selectedTrendingIndex) {
                                         ForEach(Array(viewModel.trendingPosts.enumerated()), id: \.element.id) { index, post in
-                                            Button {
-                                                openTrendingPost(postId: post.id)
-                                            } label: {
-                                                TrendingPostCard(
-                                                    imageName: post.imageURL ?? "",
-                                                    title: post.title,
-                                                    subtitle: post.subtitleText(preferShortNames: preferCommunityShortNames)
-                                                )
-                                                .overlay {
-                                                    if openingTrendingPostId == post.id {
-                                                        ZStack {
-                                                            Color.loopedBlack.opacity(0.25)
-                                                            ProgressView()
-                                                                .tint(.loopedWhite.opacity(0.92))
-                                                        }
+                                            TrendingPostCard(
+                                                imageName: post.imageURL ?? "",
+                                                title: post.title,
+                                                subtitle: post.subtitleText(preferShortNames: preferCommunityShortNames)
+                                            )
+                                            .overlay {
+                                                if openingTrendingPostId == post.id {
+                                                    ZStack {
+                                                        Color.loopedBlack.opacity(0.25)
+                                                        ProgressView()
+                                                            .tint(.loopedWhite.opacity(0.92))
                                                     }
                                                 }
                                             }
-                                            .buttonStyle(PlainButtonStyle())
-                                            .disabled(openingTrendingPostId != nil)
+                                            .contentShape(Rectangle())
+                                            .simultaneousGesture(TapGesture().onEnded {
+                                                openTrendingPost(postId: post.id)
+                                            })
                                             .padding(.horizontal, 16)
                                             .tag(index)
                                         }
@@ -139,6 +137,15 @@ struct SearchView: View {
                                             )
                                         }
                                         .buttonStyle(PlainButtonStyle())
+                                        .onAppear {
+                                            if community.id == viewModel.recommendedCommunities.last?.id {
+                                                Task { await viewModel.loadMoreRecommendedCommunities() }
+                                            }
+                                        }
+                                    }
+
+                                    if viewModel.isLoadingMoreRecommendedCommunities {
+                                        LoadingLoopCard()
                                     }
                                 }
                                 .padding(.horizontal, 16)
@@ -200,6 +207,7 @@ struct SearchView: View {
             items: viewModel.majors,
             emptyMessage: emptyMessage,
             selectedPageIndex: $selectedMajorsPageIndex,
+            hasMorePages: viewModel.majorsHasMorePages,
             isLoadingMore: viewModel.isLoadingMoreMajors,
             onReachedEnd: { Task { await viewModel.loadMoreMajors() } }
         )
@@ -216,6 +224,7 @@ struct SearchView: View {
             items: viewModel.fields,
             emptyMessage: emptyMessage,
             selectedPageIndex: $selectedFieldsPageIndex,
+            hasMorePages: viewModel.fieldsHasMorePages,
             isLoadingMore: viewModel.isLoadingMoreFields,
             onReachedEnd: { Task { await viewModel.loadMoreFields() } }
         )
@@ -238,17 +247,45 @@ struct SearchView: View {
     }
 }
 
+private struct LoadingLoopCard: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.loopedMutedBackground.opacity(0.12))
+                .frame(height: 64)
+                .overlay {
+                    ProgressView()
+                        .tint(.loopedTextSecondary)
+                }
+
+            Text("Loading…")
+                .font(.loopedSmallText)
+                .foregroundColor(.loopedTextSecondary)
+                .lineLimit(1)
+        }
+        .padding(12)
+        .frame(width: 140)
+        .background(Color.loopedBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.loopedMutedBackground, lineWidth: 1)
+        )
+    }
+}
+
 private struct SpecializationPagerSection: View {
     let title: String
     let items: [CommunitySearchResult]
     let emptyMessage: String
     @Binding var selectedPageIndex: Int
+    let hasMorePages: Bool
     let isLoadingMore: Bool
     let onReachedEnd: () -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
     private let pageSize = 8
     private let pageHeight: CGFloat = 220
+    private let pageIndicatorDots = 5
 
     var body: some View {
         let pages = chunked(items, size: pageSize)
@@ -304,33 +341,37 @@ private struct SpecializationPagerSection: View {
                     guard newValue >= pageCount - 1 else { return }
                     onReachedEnd()
                 }
-                .onChange(of: pageCount) { _, newValue in
-                    guard newValue > 0 else {
-                        selectedPageIndex = 0
-                        return
-                    }
-                    if selectedPageIndex >= newValue {
-                        selectedPageIndex = max(newValue - 1, 0)
-                    }
-                }
 
-                if pageCount > 1 {
+                if pageCount > 1 || hasMorePages {
+                    let start = pageIndicatorStartIndex(
+                        totalPages: pageCount,
+                        selectedPage: selectedPageIndex,
+                        hasMorePages: hasMorePages
+                    )
+
                     HStack(spacing: 8) {
-                        if pageCount <= 7 {
-                            ForEach(0..<pageCount, id: \.self) { index in
-                                Circle()
-                                    .fill(index == selectedPageIndex ? Color.loopedTextSecondary : Color.loopedTextSecondary.opacity(0.3))
-                                    .frame(width: 8, height: 8)
-                            }
-                        } else {
-                            Text("\(selectedPageIndex + 1)/\(pageCount)")
-                                .font(.loopedSmallTextMedium)
-                                .foregroundColor(.loopedTextSecondary)
+                        ForEach(0..<pageIndicatorDots, id: \.self) { offset in
+                            pageIndicatorDot(
+                                pageIndex: start + offset,
+                                totalPages: pageCount,
+                                selectedPage: selectedPageIndex,
+                                hasMorePages: hasMorePages
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 4)
                 }
+            }
+        }
+        .onChange(of: pageCount) { _, newValue in
+            guard newValue > 0 else {
+                selectedPageIndex = 0
+                return
+            }
+
+            if selectedPageIndex >= newValue {
+                selectedPageIndex = max(newValue - 1, 0)
             }
         }
     }
@@ -345,6 +386,42 @@ private struct SpecializationPagerSection: View {
             index = end
         }
         return result
+    }
+
+    private func pageIndicatorStartIndex(totalPages: Int, selectedPage: Int, hasMorePages: Bool) -> Int {
+        let halfWindow = pageIndicatorDots / 2
+        var start = max(selectedPage - halfWindow, 0)
+
+        if hasMorePages == false {
+            start = min(start, max(totalPages - pageIndicatorDots, 0))
+        }
+
+        return start
+    }
+
+    @ViewBuilder
+    private func pageIndicatorDot(pageIndex: Int, totalPages: Int, selectedPage: Int, hasMorePages: Bool) -> some View {
+        let dotSize: CGFloat = 8
+        let isActive = pageIndex == selectedPage
+        let isLoadedPage = pageIndex >= 0 && pageIndex < totalPages
+
+        if isActive {
+            Circle()
+                .fill(Color.loopedTextSecondary)
+                .frame(width: dotSize, height: dotSize)
+        } else if isLoadedPage {
+            Circle()
+                .fill(Color.loopedTextSecondary.opacity(0.3))
+                .frame(width: dotSize, height: dotSize)
+        } else if hasMorePages {
+            Circle()
+                .fill(Color.loopedTextSecondary.opacity(0.18))
+                .frame(width: dotSize, height: dotSize)
+        } else {
+            Circle()
+                .stroke(Color.loopedTextSecondary.opacity(0.22), lineWidth: 1)
+                .frame(width: dotSize, height: dotSize)
+        }
     }
 }
 

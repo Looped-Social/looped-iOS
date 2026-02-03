@@ -186,6 +186,14 @@ GET /v1/me/joined/specializations?type=major|field|all&limit=&cursor=
   - 400 `{ "error": "invalid_specialization_type" }`
   - 409 `{ "error": "user_not_provisioned" }`
 
+GET /v1/specializations/browse?type=major|field&limit=&cursor=
+- Auth: `Authorization: Bearer <firebase_jwt>`
+- Ordering: stable “popular” order by `member_count` (DESC), then `created_at` (DESC), then `id` (DESC).
+- 200 OK: same shape as communities search: `{ "items": [...], "next_cursor": "..." }` (`next_cursor` omitted on last page)
+- Errors:
+  - 400 `{ "error": "invalid_specialization_type" }`
+  - 409 `{ "error": "user_not_provisioned" }`
+
 POST /v1/specializations/{id}/join
 DELETE /v1/specializations/{id}/join
 - Auth: `Authorization: Bearer <firebase_jwt>`
@@ -322,6 +330,12 @@ GET /v1/communities/search?query=&kind=&limit=&cursor=
 - `kind` filters community type (e.g., workplaces use `kind=company`)
 - Response: `{ "items": [{ "id": 1, "name": "...", "description": "...", "kind": "company", "specialization_type": null, "member_count": 123, "image_url": "..." }], "next_cursor": "..." }`
 - Cursor notes: `next_cursor` is opaque; treat it as an opaque string and pass it back as `cursor` (don’t parse or persist it long-term).
+
+GET /v1/communities/recommended?kind=&limit=&cursor=
+- Auth required
+- `kind` optional: `company|school|specialization|major|field|unknown` (`unknown` treated as no filter; `major|field` treated as specializations)
+- Response: `{ "items": [...], "next_cursor": "..." }` (`next_cursor` omitted on last page)
+- Errors: 400 `{ "error": "invalid_kind" }`, 401 unauthorized
 
 GET /v1/loops/search?query=&limit=&cursor=
 - Auth required; same-company scope; 422 if `query` missing, 409 if caller not provisioned
