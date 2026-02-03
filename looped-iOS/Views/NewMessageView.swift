@@ -250,6 +250,7 @@ struct RecipientChip: View {
                 Image(systemName: "xmark")
                     .font(.loopedCustom(.medium, size: 12))
                     .foregroundColor(.loopedPrimary)
+                    .loopedTapTarget(minSize: 28)
             }
         }
         .padding(.horizontal, 8)

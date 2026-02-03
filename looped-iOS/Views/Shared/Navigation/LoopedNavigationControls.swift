@@ -7,7 +7,7 @@ struct LoopedBackButton: View {
     var foregroundColor: Color = .loopedTextSecondary
     var iconSize: CGFloat = 24
     var iconWeight: LoopedFontWeight = .medium
-    var hitWidth: CGFloat = 36
+    var hitWidth: CGFloat = 44
     var hitHeight: CGFloat = 44
 
     var body: some View {

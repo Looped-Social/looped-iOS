@@ -166,16 +166,11 @@ struct CommunityProfileView: View {
         return Button(action: {
             Task { await viewModel.toggleFollow() }
         }) {
-            Text(viewModel.community.isFollowing ? "Following" : "Follow")
-                .font(.loopedBodyStrong)
-                .foregroundColor(viewModel.community.isFollowing ? .loopedTextPrimary : .loopedWhite)
-                .padding(.horizontal, 32)
-                .padding(.vertical, 12)
-                .frame(minHeight: 44)
-                .background(
-                    viewModel.community.isFollowing ? Color.loopedMutedBackground : Color.loopedPrimary
-                )
-                .clipShape(Capsule())
+            FollowPillButtonLabel(
+                title: viewModel.community.isFollowing ? "Following" : "Follow",
+                isFollowing: viewModel.community.isFollowing,
+                size: .regular
+            )
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(viewModel.isFollowActionInFlight || viewModel.isJoinActionInFlight)

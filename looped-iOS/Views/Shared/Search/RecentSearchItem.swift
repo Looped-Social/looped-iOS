@@ -24,6 +24,7 @@ struct RecentSearchItem: View {
                     .font(.loopedCustom(.medium, size: 16))
                     .foregroundColor(.loopedTextSecondary)
                     .frame(width: 20, height: 20)
+                    .loopedTapTarget()
             }
             .buttonStyle(PlainButtonStyle())
         }

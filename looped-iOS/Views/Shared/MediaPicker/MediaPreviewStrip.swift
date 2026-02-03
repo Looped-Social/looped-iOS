@@ -69,9 +69,9 @@ private struct MediaPreviewStripItem: View {
                     )
             }
             .padding(6)
+            .loopedTapTarget()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.type == .video ? "Selected video" : "Selected photo")
     }
 }
-

@@ -100,6 +100,7 @@ struct SingleMediaPreview: View {
                     )
             }
             .padding(8)
+            .loopedTapTarget()
         }
     }
 }
@@ -151,6 +152,7 @@ struct MediaThumbnail: View {
                     )
             }
             .padding(6)
+            .loopedTapTarget()
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }

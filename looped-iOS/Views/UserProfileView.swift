@@ -216,7 +216,7 @@ struct UserProfileView: View {
         if canShowActionMenu {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    if canBlockUser || canBlockPrincipal {
+                    if canBlockUser {
                         Button(role: .destructive) {
                             showBlockConfirm = true
                         } label: {
@@ -419,7 +419,7 @@ struct UserProfileView: View {
     }
 
 	    private var canShowActionMenu: Bool {
-	        canBlockUser || canBlockPrincipal
+	        canBlockUser
 	    }
 
 	    private var canBlockUser: Bool {
@@ -428,12 +428,6 @@ struct UserProfileView: View {
 	            return false
 	        }
 	        guard !viewModel.isAnonymousProfile else { return false }
-	        return true
-	    }
-
-	    private var canBlockPrincipal: Bool {
-	        guard viewModel.isAnonymousProfile else { return false }
-	        guard viewModel.profile?.backendId != nil else { return false }
 	        return true
 	    }
 
@@ -453,17 +447,8 @@ struct UserProfileView: View {
 	        defer { isBlocking = false }
 
 	        do {
-	            if viewModel.isAnonymousProfile {
-	                guard canBlockPrincipal else { return }
-	                _ = try await blockService.blockPrincipal(
-	                    principalId: profileId,
-	                    asAnonymousActor: isAnonymousMode,
-	                    communityId: nil
-	                )
-	            } else {
-	                guard canBlockUser else { return }
-	                _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
-	            }
+	            guard canBlockUser else { return }
+	            _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
 	            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
 	            dismiss()
 	        } catch {
@@ -509,7 +494,7 @@ private struct ProfileActionsModifier: ViewModifier {
                 .disabled(isBlocking)
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("You won't see posts or messages from \(blockTargetLabel) anymore.")
+                Text("You won't see posts from \(blockTargetLabel) anymore.")
             }
             .alert(
                 "Couldn't block user",

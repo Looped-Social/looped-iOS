@@ -295,6 +295,10 @@ struct MainTabView: View {
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
+    @AppStorage("unverifiedSearchDiscoveryLastShownAt") private var unverifiedSearchDiscoveryLastShownAt = 0.0
+    @AppStorage("unverifiedSearchDiscoveryParity") private var unverifiedSearchDiscoveryParity = 0
+    @State private var isShowingUnverifiedSearchDiscovery = false
+    @State private var didEvaluateUnverifiedSearchDiscoveryThisSession = false
     @State private var toastMessage: ToastMessage?
     private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
     private let deepLinkFeedService: FeedServiceProtocol = FeedService()
@@ -305,6 +309,7 @@ struct MainTabView: View {
         }
         .environment(\.floatingActionButtonState, fabState)
         .task {
+            didEvaluateUnverifiedSearchDiscoveryThisSession = false
             async let loadCommunities: Void = feedViewModel.loadFollowedCommunities()
             async let loadNotifications: Void = notificationsViewModel.loadNotifications()
             if !isAnonymousMode {
@@ -313,9 +318,12 @@ struct MainTabView: View {
             } else {
                 _ = await (loadCommunities, loadNotifications)
             }
+            startFeedDiscoveryIfNeeded()
+            startUnverifiedSearchDiscoveryIfNeeded()
         }
         .onAppear {
             startFeedDiscoveryIfNeeded()
+            startUnverifiedSearchDiscoveryIfNeeded()
         }
         .onChange(of: selectedTab) { _, _ in
             withAnimation(.easeInOut(duration: 0.25)) {
@@ -323,6 +331,7 @@ struct MainTabView: View {
             }
             updateLastSeen(for: selectedTab)
             startFeedDiscoveryIfNeeded()
+            startUnverifiedSearchDiscoveryIfNeeded()
             syncFloatingActionButtonVisibility()
             if selectedTab == .home {
                 VideoPlaybackManager.shared.requestVisibilityRefresh()
@@ -342,12 +351,15 @@ struct MainTabView: View {
         }
         .onChange(of: isRightMenuOpen) { _, _ in
             startFeedDiscoveryIfNeeded()
+            startUnverifiedSearchDiscoveryIfNeeded()
         }
         .onChange(of: commentsManager.isPresented) { _, _ in
             startFeedDiscoveryIfNeeded()
+            startUnverifiedSearchDiscoveryIfNeeded()
         }
         .onChange(of: showingChat) { _, _ in
             startFeedDiscoveryIfNeeded()
+            startUnverifiedSearchDiscoveryIfNeeded()
         }
         .onReceive(notificationsViewModel.$notifications) { _ in
             guard selectedTab == .notifications else { return }
@@ -422,11 +434,19 @@ struct MainTabView: View {
             switch destination {
             case .settings:
                 SettingsModalHost()
+                    .environmentObject(authViewModel)
+                    .environmentObject(feedViewModel)
+                    .environmentObject(commentsManager)
+                    .environment(\.floatingActionButtonState, fabState)
                     .preferredColorScheme(preferredColorScheme)
             default:
                 NavigationStack {
                     destinationView(for: destination)
                 }
+                .environmentObject(authViewModel)
+                .environmentObject(feedViewModel)
+                .environmentObject(commentsManager)
+                .environment(\.floatingActionButtonState, fabState)
                 .preferredColorScheme(preferredColorScheme)
             }
         }
@@ -442,6 +462,10 @@ struct MainTabView: View {
                     UserProfileView(userId: profile.profileId)
                 }
             }
+            .environmentObject(authViewModel)
+            .environmentObject(feedViewModel)
+            .environmentObject(commentsManager)
+            .environment(\.floatingActionButtonState, fabState)
             .preferredColorScheme(preferredColorScheme)
         }
         .onOpenURL { url in
@@ -468,6 +492,7 @@ struct MainTabView: View {
         .overlayPreferenceValue(CoachMarkTargetKey.self) { targets in
             ZStack {
                 feedDiscoveryOverlay(targets: targets)
+                unverifiedSearchDiscoveryOverlay(targets: targets)
                 presentedCoachMarkOverlay(targets: targets)
             }
         }
@@ -748,6 +773,29 @@ struct MainTabView: View {
     }
 
     @ViewBuilder
+    private func unverifiedSearchDiscoveryOverlay(targets: [CoachMarkTarget: Anchor<CGRect>]) -> some View {
+        if isShowingUnverifiedSearchDiscovery,
+           selectedTab == .home,
+           isTabBarVisible,
+           !isRightMenuOpen,
+           !commentsManager.isPresented,
+           !showingChat,
+           feedDiscoveryStep == nil,
+           coachMarkPresenter.overlay == nil,
+           targets[.mainTabSearch] != nil {
+            CoachMarkOverlay(
+                target: .mainTabSearch,
+                targets: targets,
+                message: "Search for the community you want to verify in. You can verify from the community page.",
+                primaryTitle: "Got it",
+                secondaryTitle: nil,
+                onPrimary: dismissUnverifiedSearchDiscovery,
+                onSecondary: nil
+            )
+        }
+    }
+
+    @ViewBuilder
     private func destinationView(for destination: MenuDestination) -> some View {
         MenuDestinationView(destination: destination)
     }
@@ -758,13 +806,47 @@ struct MainTabView: View {
 
     private func startFeedDiscoveryIfNeeded() {
         guard !didShowFeedDiscovery else { return }
+        guard isVerifiedInAnyCommunity else { return }
         guard selectedTab == .home else { return }
         guard !isRightMenuOpen, !commentsManager.isPresented, !showingChat else { return }
         guard feedDiscoveryStep == nil else { return }
+        guard !isShowingUnverifiedSearchDiscovery else { return }
         DispatchQueue.main.async {
             guard feedDiscoveryStep == nil else { return }
             feedDiscoveryStep = .postButton
         }
+    }
+
+    private func startUnverifiedSearchDiscoveryIfNeeded() {
+        guard !isVerifiedInAnyCommunity else {
+            isShowingUnverifiedSearchDiscovery = false
+            return
+        }
+        guard !isShowingUnverifiedSearchDiscovery else { return }
+        guard selectedTab == .home else { return }
+        guard isTabBarVisible else { return }
+        guard !isRightMenuOpen, !commentsManager.isPresented, !showingChat else { return }
+        guard feedDiscoveryStep == nil else { return }
+        guard coachMarkPresenter.overlay == nil else { return }
+        guard !didEvaluateUnverifiedSearchDiscoveryThisSession else { return }
+
+        let now = Date().timeIntervalSince1970
+        let minInterval: TimeInterval = 18 * 60 * 60
+        if unverifiedSearchDiscoveryLastShownAt > 0,
+           now - unverifiedSearchDiscoveryLastShownAt < minInterval {
+            return
+        }
+
+        didEvaluateUnverifiedSearchDiscoveryThisSession = true
+        unverifiedSearchDiscoveryParity += 1
+        guard unverifiedSearchDiscoveryParity % 2 == 1 else { return }
+
+        unverifiedSearchDiscoveryLastShownAt = now
+        isShowingUnverifiedSearchDiscovery = true
+    }
+
+    private func dismissUnverifiedSearchDiscovery() {
+        isShowingUnverifiedSearchDiscovery = false
     }
 
     private func advanceFeedDiscovery() {
@@ -780,6 +862,10 @@ struct MainTabView: View {
     private func skipFeedDiscovery() {
         didShowFeedDiscovery = true
         feedDiscoveryStep = nil
+    }
+
+    private var isVerifiedInAnyCommunity: Bool {
+        feedViewModel.followedCommunities.contains(where: { $0.canPost })
     }
 
     private func handleDeepLink(_ url: URL) {

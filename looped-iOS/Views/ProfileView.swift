@@ -155,7 +155,7 @@ struct ProfileView: View {
 							.font(.loopedCustom(.semibold, size: 18))
 							.foregroundColor(.loopedTextSecondary)
 							.frame(width: 28, height: 28)
-							.contentShape(Rectangle())
+							.loopedTapTarget()
 							.coachMarkTarget(.profileSettingsButton)
 					}
 					.buttonStyle(PlainButtonStyle())
@@ -922,14 +922,12 @@ private struct CompanyIconView: View {
 	                Button(action: {
 	                    followConfig?.onToggle()
 	                }) {
-	                    ProfileActionButton(
-	                        title: followButtonTitle,
-	                        style: followButtonStyle,
-	                        textColor: followButtonTextColor,
-	                        borderColor: followButtonBorderColor,
-	                        showBorderWhenFilled: followButtonStyle == .filled,
-	                        filledBackgroundColor: followButtonFilledBackgroundColor
-	                    )
+                        FollowPillButtonLabel(
+                            title: followButtonTitle,
+                            isFollowing: followConfig?.isFollowing == true,
+                            size: .compact,
+                            isEnabled: followConfig != nil
+                        )
 	                }
 	                .buttonStyle(PlainButtonStyle())
 	                .disabled(isFollowDisabled)
@@ -976,28 +974,9 @@ private struct CompanyIconView: View {
 	        messageConfig == nil || messageConfig?.isInFlight == true
 	    }
 
-    private var followButtonStyle: ProfileActionButtonStyle {
-        followConfig?.isFollowing == true ? .filled : .outline
-    }
-
     private var followButtonTitle: String {
         followConfig?.isFollowing == true ? "Following" : "Follow"
     }
-
-	    private var followButtonTextColor: Color {
-	        followButtonStyle == .filled ? .loopedWhite : .loopedTextSecondary
-	    }
-
-	    private var followButtonFilledBackgroundColor: Color? {
-	        guard followButtonStyle == .filled else { return nil }
-	        return isAnonymous ? .loopedSecondary : .loopedPrimary
-	    }
-
-	    private var followButtonBorderColor: Color {
-	        followButtonStyle == .filled
-	            ? (followButtonFilledBackgroundColor ?? .loopedPrimary)
-	            : .loopedTextSecondary
-	    }
 	}
 
 private enum ProfileActionButtonStyle {

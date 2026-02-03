@@ -137,6 +137,15 @@ struct NotificationRow: View {
 
     @ViewBuilder
     private func notificationActionButtonLabel(title: String) -> some View {
+        if notification.type == .follow {
+            FollowPillButtonLabel(
+                title: title,
+                isFollowing: title == "Following",
+                size: .compact,
+                isEnabled: isActionEnabled,
+                showsLoadingIndicator: isActionLoading
+            )
+        } else {
         let style = actionButtonStyle(for: title)
         let textColor: Color = {
             guard isActionEnabled else { return .loopedTextSecondary.opacity(0.75) }
@@ -188,6 +197,7 @@ struct NotificationRow: View {
                 .stroke(borderColor, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
     }
 
     private enum NotificationActionButtonStyle {
@@ -197,8 +207,6 @@ struct NotificationRow: View {
 
     private func actionButtonStyle(for title: String) -> NotificationActionButtonStyle {
         switch notification.type {
-        case .follow:
-            return title == "Following" ? .filled : .outline
         case .loopInvite, .groupInvite:
             return .filled
         default:

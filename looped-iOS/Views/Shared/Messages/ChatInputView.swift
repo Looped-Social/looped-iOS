@@ -72,6 +72,7 @@ struct ChatInputView: View {
                                         )
                                 }
                                 .padding(4)
+                                .loopedTapTarget()
                             }
                         }
                     }
@@ -89,6 +90,7 @@ struct ChatInputView: View {
                     Image(systemName: "plus")
                         .font(.loopedCustom(.medium, size: 18))
                         .foregroundColor(.loopedPrimary)
+                        .loopedTapTarget()
                 }
                 .disabled(isMediaSelectionFull)
 
@@ -107,6 +109,7 @@ struct ChatInputView: View {
                             Image(systemName: "arrow.up.circle.fill")
                                 .font(.loopedCustom(size: 24))
                                 .foregroundColor(.loopedPrimary)
+                                .loopedTapTarget()
                         }
                     }
                 }

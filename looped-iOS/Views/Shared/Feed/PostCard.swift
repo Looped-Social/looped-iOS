@@ -869,7 +869,7 @@ struct PostCard: View {
     }
 
     private var blockConfirmDialogMessage: some View {
-        Text("You won't see posts or messages from \(blockTargetLabel) anymore.")
+        Text("You won't see posts from \(blockTargetLabel) anymore.")
     }
 
     private var postCardDialogs: some View {
@@ -1133,7 +1133,7 @@ struct PostCard: View {
                 throw ModerationError.missingTarget
             }
             NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
-            blockAlertMessage = "You won't see posts or messages from \(blockTargetLabel) anymore."
+            blockAlertMessage = "You won't see posts from \(blockTargetLabel) anymore."
         } catch {
             blockErrorMessage = error.localizedDescription
         }

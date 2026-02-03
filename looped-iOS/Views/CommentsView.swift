@@ -26,17 +26,14 @@ struct CommentsView: View {
     @State private var anonProfileId: Int?
     @State private var pendingFocusCommentId: Int?
     @State private var showMediaPicker = false
-    @State private var showCamera = false
-    @State private var keyboardWillShowObserver: NSObjectProtocol?
-    @State private var keyboardWillHideObserver: NSObjectProtocol?
-    @FocusState private var isCommentFieldFocused: Bool
-    @State private var isJoiningSpecialization = false
+	@State private var showCamera = false
+	@State private var keyboardWillShowObserver: NSObjectProtocol?
+	@State private var keyboardWillHideObserver: NSObjectProtocol?
+	@FocusState private var isCommentFieldFocused: Bool
 
-    private let communityService: CommunityServiceProtocol = CommunityService()
-
-    private var comments: [Comment] {
-        commentsManager.currentComments
-    }
+	private var comments: [Comment] {
+		commentsManager.currentComments
+	}
 
     private var canComment: Bool {
         guard let communityId = post.communityId else {
@@ -423,6 +420,7 @@ private extension CommentsView {
                     Button(action: { commentsManager.clearReplyTarget() }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.loopedTextSecondary)
+                            .loopedTapTarget()
                     }
                 }
                 .padding(.horizontal, 4)
@@ -440,6 +438,7 @@ private extension CommentsView {
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.loopedTextSecondary)
+                            .loopedTapTarget()
                     }
                 }
                 .padding(.horizontal, 4)
@@ -455,6 +454,7 @@ private extension CommentsView {
                     Image(systemName: "paperclip")
                         .font(.loopedCustom(.medium, size: 18))
                         .foregroundColor(.loopedPrimary)
+                        .loopedTapTarget()
                 }
                 .disabled(commentsManager.editTarget != nil)
 
@@ -462,6 +462,7 @@ private extension CommentsView {
                     Image(systemName: "camera")
                         .font(.loopedCustom(.medium, size: 18))
                         .foregroundColor(.loopedPrimary)
+                        .loopedTapTarget()
                 }
                 .disabled(commentsManager.editTarget != nil)
 
@@ -499,6 +500,7 @@ private extension CommentsView {
                             ? .loopedTextSecondary
                             : .loopedPrimary
                         )
+                        .loopedTapTarget()
                 }
                 .disabled(
                     (commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedMedia.isEmpty)
@@ -655,71 +657,27 @@ private extension CommentsView {
         return "You can’t comment or interact with comments because you aren’t verified."
     }
 
-    var restrictedInteractionNotice: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "checkmark.seal")
+	var restrictedInteractionNotice: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			HStack(alignment: .top, spacing: 8) {
+				Image(systemName: "checkmark.seal")
                     .font(.loopedCustom(.semibold, size: 16))
                     .foregroundColor(.loopedSecondary)
 
-                Text(restrictedInteractionMessage)
-                    .font(.loopedSubBodyRegular)
-                    .foregroundColor(.loopedTextSecondary)
-            }
+				Text(restrictedInteractionMessage)
+					.font(.loopedSubBodyRegular)
+					.foregroundColor(.loopedTextSecondary)
+			}
+		}
+		.padding(.horizontal, 20)
+		.padding(.vertical, 12)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.background(Color.loopedBackground)
+	}
 
-            if joinIsRequired {
-                Button(action: { Task { await joinSpecializationIfNeeded() } }) {
-                    Text(isJoiningSpecialization ? "Joining..." : "Join")
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedWhite)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.loopedPrimary)
-                        .clipShape(Capsule())
-                }
-                .disabled(isJoiningSpecialization)
-                .opacity(isJoiningSpecialization ? 0.7 : 1)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.loopedBackground)
-    }
-
-    @MainActor
-    func joinSpecializationIfNeeded() async {
-        guard joinIsRequired else { return }
-        guard let specializationId = post.communityId else { return }
-        guard !isJoiningSpecialization else { return }
-        isJoiningSpecialization = true
-        defer { isJoiningSpecialization = false }
-
-        do {
-            try await communityService.joinSpecialization(id: specializationId)
-            await CommunityPermissionsCache.shared.invalidate(communityId: specializationId)
-            await commentsManager.refreshCommunityPermissions()
-            await feedViewModel.loadFollowedCommunities(reset: true)
-            commentsManager.toastMessage = ToastMessage(text: "Joined", kind: .success)
-        } catch {
-            if case let APIError.apiError(_, apiError, message) = error {
-                let text: String
-                switch apiError {
-                case "specialization_verification_required":
-                    text = message ?? "Verification required to join."
-                default:
-                    text = message ?? apiError
-                }
-                commentsManager.toastMessage = ToastMessage(text: text, kind: .error)
-            } else {
-                commentsManager.toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
-            }
-        }
-    }
-
-    func loadAnonProfileId() async {
-        if isAnonymousMode {
-            anonProfileId = await AnonService.shared.currentIdentity()?.profileId
+	func loadAnonProfileId() async {
+		if isAnonymousMode {
+			anonProfileId = await AnonService.shared.currentIdentity()?.profileId
         } else {
             anonProfileId = nil
         }

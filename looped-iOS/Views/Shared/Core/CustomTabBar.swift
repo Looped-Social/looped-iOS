@@ -121,32 +121,43 @@ struct TabBarButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 0) {
-                ZStack(alignment: .topTrailing) {
-                    Image(isSelected ? tab.selectedIconName : tab.iconName)
-                        .resizable()
-                        .renderingMode(isSelected ? .original : .template)
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: TabItem.iconSize.width, height: TabItem.iconSize.height)
-                        .foregroundColor(isSelected ? nil : .loopedTextSecondary)
-
-                    if showsUpdateDot {
-                        Circle()
-                            .fill(Color.loopedSecondary)
-                            .frame(width: 8, height: 8)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.loopedBackground, lineWidth: 1)
-                            )
-                            .offset(x: 6, y: -2)
-                            .accessibilityHidden(true)
-                    }
+            Group {
+                if tab == .search {
+                    tabIcon
+                        .coachMarkTarget(.mainTabSearch)
+                } else {
+                    tabIcon
                 }
             }
-            .frame(maxWidth: .infinity)
-            .animation(nil, value: isSelected)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var tabIcon: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .topTrailing) {
+                Image(isSelected ? tab.selectedIconName : tab.iconName)
+                    .resizable()
+                    .renderingMode(isSelected ? .original : .template)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: TabItem.iconSize.width, height: TabItem.iconSize.height)
+                    .foregroundColor(isSelected ? nil : .loopedTextSecondary)
+
+                if showsUpdateDot {
+                    Circle()
+                        .fill(Color.loopedSecondary)
+                        .frame(width: 8, height: 8)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.loopedBackground, lineWidth: 1)
+                        )
+                        .offset(x: 6, y: -2)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .animation(nil, value: isSelected)
     }
 }
 

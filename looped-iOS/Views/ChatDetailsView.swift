@@ -656,6 +656,7 @@ struct GroupMemberDetailsView: View {
                                             .foregroundColor(.loopedWhite)
                                     )
                             }
+                            .loopedTapTarget()
                             .offset(x: -5, y: -5)
                         }
 

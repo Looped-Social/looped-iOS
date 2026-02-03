@@ -1,5 +1,10 @@
 import SwiftUI
 
+private enum BlockedUsersDestination: Hashable {
+    case user(id: Int)
+    case anon(profileId: Int)
+}
+
 struct BlockedUsersView: View {
     @StateObject private var viewModel = BlockedUsersViewModel()
 
@@ -54,6 +59,14 @@ struct BlockedUsersView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationDestination(for: BlockedUsersDestination.self) { destination in
+            switch destination {
+            case .user(let id):
+                UserProfileView(userId: id)
+            case .anon(let profileId):
+                UserProfileView(anonProfileId: profileId)
+            }
+        }
         .task {
             await viewModel.loadBlockedUsers()
         }
@@ -95,7 +108,7 @@ private struct BlockedUserRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            NavigationLink(destination: destinationView) {
+            NavigationLink(value: destination) {
                 HStack(spacing: 12) {
                     ProfileAvatarView(imageURL: user.profileImageURL, size: 44)
 
@@ -138,13 +151,8 @@ private struct BlockedUserRow: View {
         }
     }
 
-    @ViewBuilder
-    private var destinationView: some View {
-        if user.isAnonymous {
-            UserProfileView(anonProfileId: user.backendId)
-        } else {
-            UserProfileView(userId: user.backendId)
-        }
+    private var destination: BlockedUsersDestination {
+        user.isAnonymous ? .anon(profileId: user.backendId) : .user(id: user.backendId)
     }
 }
 

@@ -9,11 +9,9 @@ struct NavigationCanPopReader: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
         DispatchQueue.main.async {
-            guard let navigationController = uiViewController.navigationController else {
-                return
-            }
-
-            canPop = navigationController.viewControllers.count > 1
+            let canPopNow = (uiViewController.navigationController?.viewControllers.count ?? 0) > 1
+            guard canPop != canPopNow else { return }
+            canPop = canPopNow
         }
     }
 }
