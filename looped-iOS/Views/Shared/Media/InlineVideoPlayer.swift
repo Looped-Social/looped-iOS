@@ -49,49 +49,6 @@ private final class PlaybackGateCoordinator {
     }
 }
 
-private struct TapCaptureView: UIViewRepresentable {
-    let onTap: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onTap: onTap)
-    }
-
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        view.backgroundColor = .clear
-        view.isUserInteractionEnabled = true
-
-        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
-        tap.numberOfTapsRequired = 1
-        tap.cancelsTouchesInView = false
-        tap.delaysTouchesBegan = false
-        tap.delaysTouchesEnded = false
-        tap.delegate = context.coordinator
-        view.addGestureRecognizer(tap)
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.onTap = onTap
-    }
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        var onTap: () -> Void
-
-        init(onTap: @escaping () -> Void) {
-            self.onTap = onTap
-        }
-
-        @objc func handleTap() {
-            onTap()
-        }
-
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-            true
-        }
-    }
-}
-
 private struct VisibilityProbeView: UIViewRepresentable {
     let onFrameChange: (CGRect) -> Void
 
@@ -853,7 +810,7 @@ struct InlineVideoPlayer: View {
                 .zIndex(2)
             }
 
-            TapCaptureView {
+            LoopedScrollSafeTapCaptureView {
                 VideoDebugLogger.log("id=\(id) tapped")
                 playbackManager.promoteToActive(id: id)
                 if let onFullScreen {

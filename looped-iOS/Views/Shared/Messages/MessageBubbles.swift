@@ -102,7 +102,7 @@ struct SentMessageBubble: View {
                                 MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                             }
                         }
-                        .onTapGesture {
+                        .loopedScrollSafeTap {
                             let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !trimmed.isEmpty else { return }
                             selectedVideo = VideoSelection(
@@ -130,7 +130,7 @@ struct SentMessageBubble: View {
                                 MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                             }
                         }
-	                        .onTapGesture {
+	                        .loopedScrollSafeTap {
 	                            // Find the index of the tapped image among all images
 	                            if let index = imageUrls.firstIndex(of: attachment.url) {
 	                                selectedImageIndex = index
@@ -271,12 +271,12 @@ struct ReceivedMessageBubble: View {
                                 if !message.hasVisibleContent, index == attachments.count - 1 {
                                     MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                                 }
-	                            }
-	                            .onTapGesture {
-	                                let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
-	                                guard !trimmed.isEmpty else { return }
-	                                selectedVideo = VideoSelection(
-	                                    url: trimmed,
+		                            }
+		                            .loopedScrollSafeTap {
+		                                let trimmed = attachment.url.trimmingCharacters(in: .whitespacesAndNewlines)
+		                                guard !trimmed.isEmpty else { return }
+		                                selectedVideo = VideoSelection(
+		                                    url: trimmed,
 	                                    thumbnailUrl: attachment.thumbnailUrl,
 	                                    authorName: message.senderDisplayName,
 	                                    authorImageUrl: nil,
@@ -300,11 +300,11 @@ struct ReceivedMessageBubble: View {
                                     MessageMediaTimeBadge(timeText: formatBubbleTime(message.createdAt))
                                 }
                             }
-	                            .onTapGesture {
-	                                // Find the index of the tapped image among all images
-	                                if let index = imageUrls.firstIndex(of: attachment.url) {
-	                                    selectedImageIndex = index
-	                                }
+		                            .loopedScrollSafeTap {
+		                                // Find the index of the tapped image among all images
+		                                if let index = imageUrls.firstIndex(of: attachment.url) {
+		                                    selectedImageIndex = index
+		                                }
 	                                selectedImageUrl = attachment.url
 	                                DispatchQueue.main.async {
 	                                    showImageViewer = true
@@ -402,7 +402,7 @@ struct ImageMessageBubble: View {
                         MessageMediaTile(url: firstValidURL(from: [imageUrl]), resolveKey: nil)
                             .frame(width: 200, height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .onTapGesture {
+                        .loopedScrollSafeTap {
                             showImageViewer = true
                         }
 
