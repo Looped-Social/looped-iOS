@@ -3,6 +3,7 @@
 ## Working Agreement (repo hygiene)
 - Don’t delete or revert unrelated modified/untracked files to “clean up” unless explicitly asked; if a clean diff is needed, ask first.
 - Ignore Xcode user/workspace state files (anything under `*.xcodeproj/**/xcuserdata/**` and `**/*.xcuserstate`) unless explicitly asked.
+- **IMPORTANT (multi-agent repo):** other agents may be working in parallel. Don’t include `git diff`/`git status` “noise” in handoffs or responses; only mention unrelated changes if they directly conflict with your work or the user asks.
 
 ## What’s Live (ready today)
 - **Authentication:** Firebase email/password + Google + Apple. Tokens automatically pulled via FirebaseAuth token provider; API client adds `Authorization: Bearer <Firebase ID token>` on every call.

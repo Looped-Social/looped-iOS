@@ -33,7 +33,7 @@ struct NotificationRow: View {
                 variant: notification.actorIsAnonymous && notification.type != .announcement && notification.type != .system ? .anonymous : .standard
             )
             .onTapGesture {
-                guard !notification.actorIsAnonymous else { return }
+                guard canTapActor else { return }
                 onActorTapped?()
             }
 
@@ -104,24 +104,39 @@ struct NotificationRow: View {
 
     // MARK: - Helper Properties
     private var notificationTextView: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            if onActorTapped != nil, !notification.actorIsAnonymous {
+        ZStack(alignment: .topLeading) {
+            notificationText
+                .multilineTextAlignment(.leading)
+
+            if canTapActor {
                 Button(action: { onActorTapped?() }) {
                     Text(notification.actorName)
                         .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
+                        .foregroundColor(.loopedClear)
                 }
                 .buttonStyle(PlainButtonStyle())
-            } else {
-                Text(notification.actorName)
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedTextPrimary)
+                .accessibilityLabel(notification.actorName)
+                .accessibilityHint("View profile")
             }
+        }
+    }
 
-            Text(notificationSuffixText)
+    private var notificationText: Text {
+        let fullText = notification.notificationText
+        let suffixText = notificationSuffixText
+
+        guard suffixText != fullText else {
+            return Text(fullText)
                 .font(.loopedSubBodyRegular)
                 .foregroundColor(.loopedTextPrimary)
         }
+
+        return Text(notification.actorName)
+            .font(.loopedSubBodyMedium)
+            .foregroundColor(.loopedTextPrimary)
+            + Text(suffixText)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextPrimary)
     }
 
     private var notificationSuffixText: String {
@@ -133,6 +148,13 @@ struct NotificationRow: View {
             return String(full[range.upperBound...])
         }
         return full
+    }
+
+    private var canTapActor: Bool {
+        guard onActorTapped != nil else { return false }
+        guard notification.actorIsAnonymous == false else { return false }
+        guard notification.actorId?.backendInt != nil else { return false }
+        return true
     }
 
     @ViewBuilder

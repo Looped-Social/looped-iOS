@@ -21,8 +21,8 @@ struct LoopedScrollSafeTapCaptureView: UIViewRepresentable {
         view.isUserInteractionEnabled = true
         view.isAccessibilityElement = false
 
-        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
-        tap.numberOfTapsRequired = 1
+        let tap = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tap.minimumPressDuration = 0
         tap.cancelsTouchesInView = false
         tap.delaysTouchesBegan = false
         tap.delaysTouchesEnded = false
@@ -41,13 +41,14 @@ struct LoopedScrollSafeTapCaptureView: UIViewRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onTap: () -> Void
-        weak var tapRecognizer: UITapGestureRecognizer?
+        weak var tapRecognizer: UILongPressGestureRecognizer?
 
         init(onTap: @escaping () -> Void) {
             self.onTap = onTap
         }
 
-        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+        @objc func handleTap(_ recognizer: UILongPressGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
             if shouldSuppressTap(for: recognizer.view) { return }
             onTap()
         }
