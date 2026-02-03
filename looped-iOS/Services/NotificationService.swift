@@ -27,6 +27,12 @@ class NotificationService: NotificationServiceProtocol {
                 isAnonymous: actorIsAnonymous
             )
             let mentionContext = payload?.context.flatMap(NotificationMentionContext.init(rawValue:))
+            let announcementKind: NotificationAnnouncementKind? = {
+                guard let rawKind = payload?.kind?.trimmingCharacters(in: .whitespacesAndNewlines), !rawKind.isEmpty else {
+                    return nil
+                }
+                return NotificationAnnouncementKind(rawValue: rawKind.lowercased())
+            }()
             return Notification(
                 id: UUID.fromBackendId(dto.id),
                 type: type,
@@ -41,6 +47,8 @@ class NotificationService: NotificationServiceProtocol {
                 targetContent: nil,
                 title: payload?.title,
                 body: payload?.body,
+                announcementKind: announcementKind,
+                announcementYears: payload?.years,
                 deeplink: payload?.deeplink,
                 actionDeeplink: payload?.actionDeeplink,
                 mentionContext: mentionContext,

@@ -39,6 +39,17 @@ class NotificationsViewModel: ObservableObject {
                 self?.followedActorIds = ids
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .notificationMarkedRead)
+            .compactMap { notification in
+                notification.userInfo?[LoopedNotificationUserInfoKey.notificationId] as? Int
+            }
+            .sink { [weak self] backendId in
+                Task { @MainActor in
+                    self?.applyMarkedRead(notificationBackendId: backendId)
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Load Notifications
@@ -325,6 +336,14 @@ class NotificationsViewModel: ObservableObject {
                 if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
                 return lhs.id.uuidString > rhs.id.uuidString
             }
+    }
+
+    private func applyMarkedRead(notificationBackendId: Int) {
+        let notificationId = UUID.fromBackendId(notificationBackendId)
+        guard let index = notifications.firstIndex(where: { $0.id == notificationId }) else { return }
+        guard notifications[index].isRead == false else { return }
+        notifications[index] = notifications[index].markingRead()
+        cacheStore.save(notifications)
     }
 }
 

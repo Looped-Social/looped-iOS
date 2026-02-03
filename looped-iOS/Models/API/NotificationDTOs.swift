@@ -14,6 +14,7 @@ struct NotificationDTO: Codable {
 }
 
 struct NotificationPayloadDTO: Codable {
+    let kind: String?
     let actorPrincipalId: Int?
     let actorUserId: Int?
     let actorAnonProfileId: Int?
@@ -27,6 +28,7 @@ struct NotificationPayloadDTO: Codable {
     let context: String?
     let title: String?
     let body: String?
+    let years: Int?
     let deeplink: String?
     let actionDeeplink: String?
     let companyId: Int?

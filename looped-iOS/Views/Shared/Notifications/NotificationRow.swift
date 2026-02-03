@@ -64,13 +64,22 @@ struct NotificationRow: View {
 
                 // Content Preview (for post/comment notifications)
                 if let previewText = notification.previewText, !previewText.isEmpty {
-                    Text(previewText)
-                        .font(.loopedSmallText)
-                        .lineLimit(2)
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 12)
-                        .background(Color.loopedMutedBackground)
-                        .cornerRadius(8)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(previewText)
+                            .font(.loopedSmallText)
+                            .lineLimit(2)
+
+                        if let anniversaryYearsText {
+                            Text(anniversaryYearsText)
+                                .font(.loopedSmallTextMedium)
+                                .foregroundColor(.loopedTextSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .background(Color.loopedMutedBackground)
+                    .cornerRadius(8)
                 }
 
                 // Action Button (for follow/invite notifications)
@@ -203,6 +212,13 @@ struct NotificationRow: View {
         default:
             return .outline
         }
+    }
+
+    private var anniversaryYearsText: String? {
+        guard notification.type == .announcement else { return nil }
+        guard notification.announcementKind == .anniversary else { return nil }
+        guard let years = notification.announcementYears, years > 0 else { return nil }
+        return years == 1 ? "1 year" : "\(years) years"
     }
 }
 

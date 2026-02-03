@@ -144,6 +144,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
       }()
       guard let notificationId else { return }
 
+      NotificationCenter.default.post(
+          name: .notificationMarkedRead,
+          object: nil,
+          userInfo: [LoopedNotificationUserInfoKey.notificationId: notificationId]
+      )
+
       Task {
           try? await NotificationService().markRead(notificationId: notificationId)
       }

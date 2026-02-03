@@ -15,6 +15,8 @@ struct Notification: Codable, Identifiable {
     let targetContent: String? // Preview of post/comment content
     let title: String?
     let body: String?
+    let announcementKind: NotificationAnnouncementKind?
+    let announcementYears: Int?
     let deeplink: String?
     let actionDeeplink: String?
     let mentionContext: NotificationMentionContext?
@@ -35,6 +37,8 @@ struct Notification: Codable, Identifiable {
         targetContent: String? = nil,
         title: String? = nil,
         body: String? = nil,
+        announcementKind: NotificationAnnouncementKind? = nil,
+        announcementYears: Int? = nil,
         deeplink: String? = nil,
         actionDeeplink: String? = nil,
         mentionContext: NotificationMentionContext? = nil,
@@ -54,6 +58,8 @@ struct Notification: Codable, Identifiable {
         self.targetContent = targetContent
         self.title = title
         self.body = body
+        self.announcementKind = announcementKind
+        self.announcementYears = announcementYears
         self.deeplink = deeplink
         self.actionDeeplink = actionDeeplink
         self.mentionContext = mentionContext
@@ -81,6 +87,11 @@ enum NotificationType: String, Codable {
 enum NotificationMentionContext: String, Codable {
     case post
     case comment
+}
+
+enum NotificationAnnouncementKind: String, Codable {
+    case birthday
+    case anniversary
 }
 
 // MARK: - Additional Actor (for grouped notifications)
@@ -265,6 +276,8 @@ extension Notification {
             targetContent: targetContent,
             title: title,
             body: body,
+            announcementKind: announcementKind,
+            announcementYears: announcementYears,
             deeplink: deeplink,
             actionDeeplink: actionDeeplink,
             mentionContext: mentionContext,
@@ -288,6 +301,8 @@ extension Notification {
             targetContent: targetContent,
             title: title,
             body: body,
+            announcementKind: announcementKind,
+            announcementYears: announcementYears,
             deeplink: deeplink,
             actionDeeplink: actionDeeplink,
             mentionContext: mentionContext,
