@@ -284,6 +284,7 @@ protocol DiscoveryServiceProtocol {
     func searchLoops(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<LoopDTO>
     func searchHashtags(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<HashtagDTO>
     func fetchRecommendedSpecializations(limit: Int) async throws -> RecommendedSpecializations
+    func browseSpecializations(type: CommunitySpecializationType, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult>
 }
 
 protocol NotificationServiceProtocol {

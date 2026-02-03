@@ -51,6 +51,28 @@ class DiscoveryService: DiscoveryServiceProtocol {
         return RecommendedSpecializations(majors: majors, fields: fields)
     }
 
+    func browseSpecializations(
+        type: CommunitySpecializationType,
+        limit: Int,
+        cursor: String?
+    ) async throws -> SearchResultPage<CommunitySearchResult> {
+        guard type == .major || type == .field else {
+            throw APIError.invalidResponse
+        }
+
+        let resolvedLimit = min(max(limit, 1), 100)
+        var endpoint = "/v1/specializations/browse?type=\(type.rawValue)&limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
+        }
+
+        let response: CommunitySearchResponseDTO = try await apiClient.get(endpoint)
+        return SearchResultPage(
+            items: response.items.map(CommunitySearchResult.init(dto:)),
+            nextCursor: response.nextCursor
+        )
+    }
+
     private func parseRecommendedSpecializations(_ response: SpecializationsRecommendedResponseDTO) -> RecommendedSpecializations {
         let majors: [CommunitySearchResult]
         let fields: [CommunitySearchResult]

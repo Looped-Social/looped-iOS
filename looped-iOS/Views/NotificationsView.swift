@@ -119,11 +119,21 @@ struct NotificationsView: View {
             }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationTitle("Notifications")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 0) {
+                    Text("Notifications")
+                        .font(.loopedHeaderStrong)
+                        .foregroundColor(.loopedTextPrimary)
+
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     Task { await viewModel.markAllAsRead() }

@@ -8,6 +8,7 @@ struct TrendingPost: Identifiable {
     let communityName: String?
     let communityShortName: String?
     let communityKind: String?
+    let mediaAssetIds: [Int]?
 
     init(
         id: Int,
@@ -16,7 +17,8 @@ struct TrendingPost: Identifiable {
         subtitle: String,
         communityName: String? = nil,
         communityShortName: String? = nil,
-        communityKind: String? = nil
+        communityKind: String? = nil,
+        mediaAssetIds: [Int]? = nil
     ) {
         self.id = id
         self.imageURL = imageURL
@@ -25,6 +27,7 @@ struct TrendingPost: Identifiable {
         self.communityName = communityName
         self.communityShortName = communityShortName
         self.communityKind = communityKind
+        self.mediaAssetIds = mediaAssetIds
     }
 
     func subtitleText(preferShortNames: Bool) -> String {
@@ -44,6 +47,14 @@ struct TrendingPost: Identifiable {
 
 extension TrendingPost {
     init(dto: TrendingPostDTO) {
+        let resolvedMediaAssetIds: [Int]? = {
+            let camel = (dto.mediaAssetIds ?? []).filter { $0 > 0 }
+            if !camel.isEmpty { return camel }
+            let snake = (dto.mediaAssetIdsSnake ?? []).filter { $0 > 0 }
+            if !snake.isEmpty { return snake }
+            if let single = dto.mediaAssetId, single > 0 { return [single] }
+            return nil
+        }()
         let trimmedTitle = dto.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let fallbackTitle = TrendingPost.snippet(from: dto.content)
         let title = trimmedTitle.isEmpty ? fallbackTitle : trimmedTitle
@@ -68,7 +79,8 @@ extension TrendingPost {
             subtitle: subtitle,
             communityName: dto.communityName,
             communityShortName: dto.communityShortName,
-            communityKind: dto.communityKind
+            communityKind: dto.communityKind,
+            mediaAssetIds: resolvedMediaAssetIds
         )
     }
 
@@ -79,6 +91,21 @@ extension TrendingPost {
             return String(trimmed.prefix(80)) + "..."
         }
         return trimmed
+    }
+}
+
+extension TrendingPost {
+    func updating(imageURL: String?) -> TrendingPost {
+        TrendingPost(
+            id: id,
+            imageURL: imageURL,
+            title: title,
+            subtitle: subtitle,
+            communityName: communityName,
+            communityShortName: communityShortName,
+            communityKind: communityKind,
+            mediaAssetIds: mediaAssetIds
+        )
     }
 }
 

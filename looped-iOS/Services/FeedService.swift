@@ -31,7 +31,8 @@ class FeedService: FeedServiceProtocol {
         }
         let data = try await apiClient.getData(endpoint)
         let response = try decode(TrendingFeedResponseDTO.self, from: data)
-        return response.items.map(TrendingPost.init(dto:))
+        let posts = response.items.map(TrendingPost.init(dto:))
+        return await resolveTrendingMediaIfNeeded(for: posts)
     }
 
     func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage {
@@ -46,7 +47,8 @@ class FeedService: FeedServiceProtocol {
         let data = try await apiClient.getData(endpoint)
         let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
-        return FeedPage(posts: posts, nextCursor: response.nextCursor)
+        let resolved = await resolveMediaIfNeeded(for: posts)
+        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
     }
     
     func createPost(
@@ -563,6 +565,29 @@ class FeedService: FeedServiceProtocol {
 }
 
 private extension FeedService {
+    func resolveTrendingMediaIfNeeded(for posts: [TrendingPost]) async -> [TrendingPost] {
+        let assetIds = posts
+            .flatMap { ($0.mediaAssetIds ?? []).filter { $0 > 0 } }
+        let uniqueIds = Array(Set(assetIds))
+        guard !uniqueIds.isEmpty else { return posts }
+
+        do {
+            let assets = try await mediaService.resolvePublicMedia(ids: uniqueIds)
+            let byId = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
+            return posts.map { post in
+                guard let previewId = post.mediaAssetIds?.first, let asset = byId[previewId] else { return post }
+                let mimeType = asset.mimeType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let isVideo = mimeType.hasPrefix("video/") || asset.durationSeconds != nil
+                let candidateUrl = isVideo ? (asset.thumbnailUrl ?? asset.cdnUrl) : asset.cdnUrl
+                let trimmed = (candidateUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return post }
+                return post.updating(imageURL: trimmed)
+            }
+        } catch {
+            return posts
+        }
+    }
+
     func resolveMediaIfNeeded(for post: Post) async -> Post {
         let resolved = await resolveMediaIfNeeded(for: [post])
         return resolved.first ?? post

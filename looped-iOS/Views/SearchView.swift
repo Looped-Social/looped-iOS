@@ -3,7 +3,15 @@ import SwiftUI
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
     @State private var showSearchResults = false
+    @State private var selectedMajorsPageIndex = 0
+    @State private var selectedFieldsPageIndex = 0
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
+    @EnvironmentObject private var commentsManager: CommentsModalManager
+    @EnvironmentObject private var feedViewModel: FeedViewModel
+    @State private var openingTrendingPostId: Int?
+    @State private var trendingOpenError: String?
+
+    private let feedService: FeedServiceProtocol = FeedService()
 
     var body: some View {
         NavigationStack {
@@ -52,11 +60,26 @@ struct SearchView: View {
                                     // Snap-to-center trending posts with TabView
                                     TabView(selection: $viewModel.selectedTrendingIndex) {
                                         ForEach(Array(viewModel.trendingPosts.enumerated()), id: \.element.id) { index, post in
-                                            TrendingPostCard(
-                                                imageName: post.imageURL ?? "",
-                                                title: post.title,
-                                                subtitle: post.subtitleText(preferShortNames: preferCommunityShortNames)
-                                            )
+                                            Button {
+                                                openTrendingPost(postId: post.id)
+                                            } label: {
+                                                TrendingPostCard(
+                                                    imageName: post.imageURL ?? "",
+                                                    title: post.title,
+                                                    subtitle: post.subtitleText(preferShortNames: preferCommunityShortNames)
+                                                )
+                                                .overlay {
+                                                    if openingTrendingPostId == post.id {
+                                                        ZStack {
+                                                            Color.loopedBlack.opacity(0.25)
+                                                            ProgressView()
+                                                                .tint(.loopedWhite.opacity(0.92))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                            .disabled(openingTrendingPostId != nil)
                                             .padding(.horizontal, 16)
                                             .tag(index)
                                         }
@@ -124,74 +147,12 @@ struct SearchView: View {
 
                         // Majors & Fields Section
                         VStack(alignment: .leading, spacing: 24) {
-                            VStack(alignment: .leading, spacing: 16) {
-                                HStack {
-                                    Text("Majors")
-                                        .font(.loopedSubheadMedium)
-                                        .foregroundColor(.loopedTextPrimary)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-
-                                if viewModel.majors.isEmpty {
-                                    Text(viewModel.specializationsError ?? "No majors yet.")
-                                        .font(.loopedSubBodyRegular)
-                                        .foregroundColor(.loopedTextSecondary)
-                                        .padding(.horizontal, 16)
-                                } else {
-                                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-                                        ForEach(viewModel.majors) { major in
-                                            NavigationLink(
-                                                destination: CommunityProfileView(
-                                                    community: CommunityProfileData(community: major)
-                                                )
-                                            ) {
-                                                SpecializationIcon(
-                                                    name: major.name,
-                                                    memberCount: major.memberCount,
-                                                    specializationType: major.specializationType
-                                                )
-                                            }
-                                            .buttonStyle(PlainButtonStyle())
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                }
-                            }
-
-                            VStack(alignment: .leading, spacing: 16) {
-                                HStack {
-                                    Text("Fields")
-                                        .font(.loopedSubheadMedium)
-                                        .foregroundColor(.loopedTextPrimary)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-
-                                if viewModel.fields.isEmpty {
-                                    Text(viewModel.specializationsError ?? "No fields yet.")
-                                        .font(.loopedSubBodyRegular)
-                                        .foregroundColor(.loopedTextSecondary)
-                                        .padding(.horizontal, 16)
-                                } else {
-                                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-                                        ForEach(viewModel.fields) { field in
-                                            NavigationLink(
-                                                destination: CommunityProfileView(
-                                                    community: CommunityProfileData(community: field)
-                                                )
-                                            ) {
-                                                SpecializationIcon(
-                                                    name: field.name,
-                                                    memberCount: field.memberCount,
-                                                    specializationType: field.specializationType
-                                                )
-                                            }
-                                            .buttonStyle(PlainButtonStyle())
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                }
+                            if shouldShowFieldsFirst {
+                                fieldsSection
+                                majorsSection
+                            } else {
+                                majorsSection
+                                fieldsSection
                             }
                         }
 
@@ -206,11 +167,190 @@ struct SearchView: View {
         .fullScreenCover(isPresented: $showSearchResults) {
             SearchResultsView()
         }
+        .alert(
+            "Couldn't open post",
+            isPresented: Binding(
+                get: { trendingOpenError != nil },
+                set: { if !$0 { trendingOpenError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(trendingOpenError ?? "Unknown error")
+        }
+    }
+
+    private var shouldShowFieldsFirst: Bool {
+        let hasCompany = feedViewModel.followedCommunities.contains(where: { $0.kind == .company })
+        let hasSchool = feedViewModel.followedCommunities.contains(where: { $0.kind == .school })
+
+        if hasCompany && !hasSchool { return true }
+        if hasSchool && !hasCompany { return false }
+        return false
+    }
+
+    private var majorsSection: some View {
+        let emptyMessage: String = {
+            if viewModel.isLoadingSpecializations { return "Loading majors..." }
+            return viewModel.specializationsError ?? "No majors yet."
+        }()
+
+        return SpecializationPagerSection(
+            title: "Majors",
+            items: viewModel.majors,
+            emptyMessage: emptyMessage,
+            selectedPageIndex: $selectedMajorsPageIndex,
+            isLoadingMore: viewModel.isLoadingMoreMajors,
+            onReachedEnd: { Task { await viewModel.loadMoreMajors() } }
+        )
+    }
+
+    private var fieldsSection: some View {
+        let emptyMessage: String = {
+            if viewModel.isLoadingSpecializations { return "Loading fields..." }
+            return viewModel.specializationsError ?? "No fields yet."
+        }()
+
+        return SpecializationPagerSection(
+            title: "Fields",
+            items: viewModel.fields,
+            emptyMessage: emptyMessage,
+            selectedPageIndex: $selectedFieldsPageIndex,
+            isLoadingMore: viewModel.isLoadingMoreFields,
+            onReachedEnd: { Task { await viewModel.loadMoreFields() } }
+        )
+    }
+
+    private func openTrendingPost(postId: Int) {
+        guard openingTrendingPostId == nil else { return }
+        openingTrendingPostId = postId
+        trendingOpenError = nil
+
+        Task { @MainActor in
+            defer { openingTrendingPostId = nil }
+            do {
+                let post = try await feedService.fetchPost(postId: postId)
+                commentsManager.showComments(for: post)
+            } catch {
+                trendingOpenError = error.localizedDescription
+            }
+        }
+    }
+}
+
+private struct SpecializationPagerSection: View {
+    let title: String
+    let items: [CommunitySearchResult]
+    let emptyMessage: String
+    @Binding var selectedPageIndex: Int
+    let isLoadingMore: Bool
+    let onReachedEnd: () -> Void
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
+    private let pageSize = 8
+    private let pageHeight: CGFloat = 220
+
+    var body: some View {
+        let pages = chunked(items, size: pageSize)
+        let pageCount = pages.count
+
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(title)
+                    .font(.loopedSubheadMedium)
+                    .foregroundColor(.loopedTextPrimary)
+
+                Spacer()
+
+                if isLoadingMore {
+                    ProgressView()
+                        .tint(.loopedTextSecondary)
+                }
+            }
+            .padding(.horizontal, 16)
+
+            if items.isEmpty {
+                Text(emptyMessage)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .padding(.horizontal, 16)
+            } else {
+                TabView(selection: $selectedPageIndex) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, pageItems in
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(pageItems) { specialization in
+                                NavigationLink(
+                                    destination: CommunityProfileView(
+                                        community: CommunityProfileData(community: specialization)
+                                    )
+                                ) {
+                                    SpecializationIcon(
+                                        name: specialization.name,
+                                        memberCount: specialization.memberCount,
+                                        specializationType: specialization.specializationType
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                .frame(height: pageHeight)
+                .onChange(of: selectedPageIndex) { _, newValue in
+                    guard pageCount > 0 else { return }
+                    guard newValue >= pageCount - 1 else { return }
+                    onReachedEnd()
+                }
+                .onChange(of: pageCount) { _, newValue in
+                    guard newValue > 0 else {
+                        selectedPageIndex = 0
+                        return
+                    }
+                    if selectedPageIndex >= newValue {
+                        selectedPageIndex = max(newValue - 1, 0)
+                    }
+                }
+
+                if pageCount > 1 {
+                    HStack(spacing: 8) {
+                        if pageCount <= 7 {
+                            ForEach(0..<pageCount, id: \.self) { index in
+                                Circle()
+                                    .fill(index == selectedPageIndex ? Color.loopedTextSecondary : Color.loopedTextSecondary.opacity(0.3))
+                                    .frame(width: 8, height: 8)
+                            }
+                        } else {
+                            Text("\(selectedPageIndex + 1)/\(pageCount)")
+                                .font(.loopedSmallTextMedium)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+
+    private func chunked<T>(_ items: [T], size: Int) -> [[T]] {
+        guard size > 0, !items.isEmpty else { return [] }
+        var result: [[T]] = []
+        var index = 0
+        while index < items.count {
+            let end = min(index + size, items.count)
+            result.append(Array(items[index..<end]))
+            index = end
+        }
+        return result
     }
 }
 
 #Preview {
     SearchView()
         .environmentObject(FeedViewModel())
+        .environmentObject(CommentsModalManager())
         .environmentObject(AuthViewModel())
 }
