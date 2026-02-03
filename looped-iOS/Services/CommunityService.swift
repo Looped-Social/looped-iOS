@@ -39,6 +39,22 @@ class CommunityService: CommunityServiceProtocol {
         return CommunityProfileData(details: response)
     }
 
+    func fetchCommunityDetailsDTO(communityId: Int, kind: CommunityKind) async throws -> CommunityDetailsDTO {
+        if kind == .specialization {
+            do {
+                return try await apiClient.get("/v1/specializations/\(communityId)")
+            } catch let specializationError {
+                do {
+                    return try await apiClient.get("/v1/communities/\(communityId)")
+                } catch {
+                    throw specializationError
+                }
+            }
+        }
+
+        return try await apiClient.get("/v1/communities/\(communityId)")
+    }
+
     func fetchCommunityDomains(communityId: Int) async throws -> [String] {
         let response: CommunityDomainsResponseDTO = try await apiClient.get("/v1/communities/\(communityId)/domains")
         return response.items

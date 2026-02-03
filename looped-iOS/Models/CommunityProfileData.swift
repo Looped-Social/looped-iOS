@@ -50,6 +50,35 @@ extension CommunityProfileData {
         self.joinLimit = details.joinLimit.map(SpecializationJoinLimit.init(dto:))
     }
 
+    init(details: CommunityDetailsDTO, fallback: CommunityProfileData) {
+        self.id = details.id
+        self.name = details.name
+        self.shortName = details.shortName ?? fallback.shortName
+
+        let detailsDescription = (details.description ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        self.description = detailsDescription.isEmpty ? fallback.description : detailsDescription
+
+        let parsedKind = CommunityKind.fromApi(details.kind)
+        self.kind = parsedKind == .unknown ? fallback.kind : parsedKind
+
+        let parsedType = CommunitySpecializationType(rawValue: details.specializationType ?? "") ?? .unknown
+        if parsedType == .unknown {
+            let inferred = CommunitySpecializationType(rawValue: details.kind ?? "") ?? .unknown
+            self.specializationType = inferred == .unknown ? fallback.specializationType : inferred
+        } else {
+            self.specializationType = parsedType
+        }
+
+        self.memberCount = details.memberCount ?? fallback.memberCount
+
+        let trimmedImageUrl = (details.imageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        self.imageUrl = trimmedImageUrl.isEmpty ? fallback.imageUrl : trimmedImageUrl
+
+        self.isFollowing = details.isFollowing ?? fallback.isFollowing
+        self.isJoined = details.isJoined ?? fallback.isJoined
+        self.joinLimit = details.joinLimit.map(SpecializationJoinLimit.init(dto:)) ?? fallback.joinLimit
+    }
+
     init(summary: CommunitySummary, description: String = "", imageUrl: String? = nil) {
         self.id = summary.id
         self.name = summary.name

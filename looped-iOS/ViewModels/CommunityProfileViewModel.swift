@@ -187,14 +187,10 @@ final class CommunityProfileViewModel: ObservableObject {
         isLoadingDetails = true
         defer { isLoadingDetails = false }
         do {
-            let details = try await communityService.fetchCommunityDetails(communityId: community.id)
+            let fallback = community
+            let details = try await communityService.fetchCommunityDetailsDTO(communityId: fallback.id, kind: fallback.kind)
             hasLoadedDetails = true
-            var merged = details
-            let trimmed = (merged.imageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                merged.imageUrl = community.imageUrl
-            }
-            community = merged
+            community = CommunityProfileData(details: details, fallback: fallback)
         } catch {
             // Keep placeholders if details fetch fails.
         }
