@@ -54,6 +54,11 @@ final class CommunityVerificationsViewModel: ObservableObject {
 
         do {
             _ = try await service.unverifyCommunity(communityId: communityId)
+            NotificationCenter.default.post(
+                name: .communityStateChanged,
+                object: nil,
+                userInfo: [LoopedNotificationUserInfoKey.communityId: communityId]
+            )
             await load()
             return true
         } catch {

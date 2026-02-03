@@ -27,6 +27,7 @@ class CommentsModalManager: ObservableObject {
     private var nextCursor: String?
     private var currentPostBackendId: Int?
     private let pageSize = 20
+    private var cancellables = Set<AnyCancellable>()
     
     init(
         commentsService: CommentsServiceProtocol = CommentsService(),
@@ -36,6 +37,12 @@ class CommentsModalManager: ObservableObject {
         self.commentsService = commentsService
         self.communityService = communityService
         self.mediaService = mediaService
+        NotificationCenter.default.publisher(for: .communityStateChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.refreshCommunityPermissions() }
+            }
+            .store(in: &cancellables)
     }
     
     func showComments(for post: Post, focusCommentId: Int? = nil, focusParentId: Int? = nil) {

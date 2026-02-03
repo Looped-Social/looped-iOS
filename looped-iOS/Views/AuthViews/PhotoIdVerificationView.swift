@@ -143,6 +143,13 @@ import UIKit
         .task {
             await viewModel.prepareIfNeeded()
             if viewModel.isAlreadyVerifiedOrPending {
+                if let communityId {
+                    NotificationCenter.default.post(
+                        name: .communityStateChanged,
+                        object: nil,
+                        userInfo: [LoopedNotificationUserInfoKey.communityId: communityId]
+                    )
+                }
                 onComplete()
             }
         }
@@ -329,6 +336,13 @@ private extension PhotoIdVerificationView {
         Task {
             let success = await viewModel.submit(selfie: selfieImage, idFront: idFrontImage, idBack: idBackImage)
             if success {
+                if let communityId {
+                    NotificationCenter.default.post(
+                        name: .communityStateChanged,
+                        object: nil,
+                        userInfo: [LoopedNotificationUserInfoKey.communityId: communityId]
+                    )
+                }
                 onComplete()
             }
         }

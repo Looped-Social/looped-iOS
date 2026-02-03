@@ -139,6 +139,11 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
                     email: email
                 )
             )
+            NotificationCenter.default.post(
+                name: .communityStateChanged,
+                object: nil,
+                userInfo: [LoopedNotificationUserInfoKey.communityId: communityId]
+            )
             return true
         } catch {
             errorMessage = mapError(error)

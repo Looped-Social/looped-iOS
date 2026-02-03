@@ -95,6 +95,11 @@ final class CommunityProfileViewModel: ObservableObject {
                     try await communityService.followCommunity(id: community.id)
                 }
             }
+            NotificationCenter.default.post(
+                name: .communityStateChanged,
+                object: nil,
+                userInfo: [LoopedNotificationUserInfoKey.communityId: community.id]
+            )
         } catch {
             updateCommunity { community in
                 community.isFollowing = wasFollowing
@@ -129,6 +134,11 @@ final class CommunityProfileViewModel: ObservableObject {
             }
             await loadCommunityDetails(force: true)
             await loadSpecializationJoinLimit(force: true)
+            NotificationCenter.default.post(
+                name: .communityStateChanged,
+                object: nil,
+                userInfo: [LoopedNotificationUserInfoKey.communityId: community.id]
+            )
         } catch {
             updateCommunity { community in
                 community.isJoined = wasJoined

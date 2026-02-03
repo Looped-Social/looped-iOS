@@ -768,7 +768,7 @@ struct PostCard: View {
 		    }
 
     private var postCardLifecycle: some View {
-        postCardStyled
+        let base = postCardStyled
             .onAppear {
                 syncBookmarkState()
                 syncLikeState()
@@ -777,6 +777,16 @@ struct PostCard: View {
                 syncViewerAnonProfileId()
                 Task { await loadCommunityPermissionsIfNeeded() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .communityStateChanged)) { notification in
+                guard let communityId = post.communityId else { return }
+                if let changed = notification.userInfo?[LoopedNotificationUserInfoKey.communityId] as? Int,
+                   changed != communityId {
+                    return
+                }
+                Task { await refreshCommunityPermissions() }
+            }
+
+        let postChanges = base
             .onChange(of: post.userReaction) { _, _ in
                 syncLikeState()
                 syncActionBarState()
@@ -801,6 +811,8 @@ struct PostCard: View {
             .onChange(of: post.shareCount) { _, _ in
                 syncActionBarState()
             }
+
+        let localChanges = postChanges
             .onChange(of: shareCountOverride) { _, _ in
                 syncActionBarState()
             }
@@ -813,6 +825,8 @@ struct PostCard: View {
             .onChange(of: isBookmarked) { _, _ in
                 syncActionBarState()
             }
+
+        return localChanges
             .onChange(of: isRepostLoading) { _, _ in
                 syncActionBarState()
             }
@@ -825,6 +839,14 @@ struct PostCard: View {
             .onChange(of: isReactionLocked) { _, _ in
                 syncActionBarState()
             }
+    }
+
+    @MainActor
+    private func refreshCommunityPermissions() async {
+        guard let communityId = post.communityId else { return }
+        await CommunityPermissionsCache.shared.invalidate(communityId: communityId)
+        communityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
+        hasRequestedCommunityPermissions = true
     }
 
 	    private var postCardPresentation: some View {

@@ -69,6 +69,12 @@ class FeedViewModel: ObservableObject {
                 Task { await self.refreshPosts() }
             }
             .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .communityStateChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.loadFollowedCommunities(reset: true) }
+            }
+            .store(in: &cancellables)
     }
 
     func loadInitial() async {

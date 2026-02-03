@@ -392,15 +392,24 @@ private extension AuthView {
 	        }
 	    }
 
-	    func joinSelectedSpecializationAfterVerificationIfPossible() {
-	        guard verificationContext?.method == .email else { return }
-	        let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
-	        let specializationId = isStudent ? selectedDegree?.id : selectedDepartment?.id
-	        guard let specializationId else { return }
-	        Task {
-	            try? await communityService.joinSpecialization(id: specializationId)
-	        }
-	    }
+    func joinSelectedSpecializationAfterVerificationIfPossible() {
+        guard verificationContext?.method == .email else { return }
+        let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
+        let specializationId = isStudent ? selectedDegree?.id : selectedDepartment?.id
+        guard let specializationId else { return }
+        Task {
+            do {
+                try await communityService.joinSpecialization(id: specializationId)
+                NotificationCenter.default.post(
+                    name: .communityStateChanged,
+                    object: nil,
+                    userInfo: [LoopedNotificationUserInfoKey.communityId: specializationId]
+                )
+            } catch {
+                // Best-effort: specialization join shouldn't block onboarding completion.
+            }
+        }
+    }
 
 	    // Intentionally no "pick communities" step in onboarding; users only choose their org + field/major.
 	}

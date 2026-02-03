@@ -420,6 +420,9 @@ struct CreatePostView: View {
             updateAnonMembershipStatus()
             Task { await verificationViewModel.load() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .communityStateChanged)) { _ in
+            Task { await verificationViewModel.load() }
+        }
         .onChange(of: feedViewModel.selectedCommunity?.id) { _ in
             syncSelectedCommunity()
             updateAnonMembershipStatus()
