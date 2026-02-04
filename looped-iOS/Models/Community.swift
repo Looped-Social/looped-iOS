@@ -100,6 +100,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
     /// Number of active verified members for this community (backend `member_count`).
     let memberCount: Int
     let imageUrl: String?
+    let icon: CommunityIcon?
     let isFollowing: Bool?
     let isJoined: Bool?
 
@@ -112,6 +113,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
         specializationType: CommunitySpecializationType = .unknown,
         memberCount: Int,
         imageUrl: String? = nil,
+        icon: CommunityIcon? = nil,
         isFollowing: Bool? = nil,
         isJoined: Bool? = nil
     ) {
@@ -123,6 +125,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
         self.specializationType = specializationType
         self.memberCount = memberCount
         self.imageUrl = imageUrl
+        self.icon = icon
         self.isFollowing = isFollowing
         self.isJoined = isJoined
     }
@@ -156,6 +159,22 @@ extension CommunitySummary {
 }
 
 extension CommunitySearchResult {
+    func withIcon(_ icon: CommunityIcon?) -> CommunitySearchResult {
+        CommunitySearchResult(
+            id: id,
+            name: name,
+            shortName: shortName,
+            description: description,
+            kind: kind,
+            specializationType: specializationType,
+            memberCount: memberCount,
+            imageUrl: imageUrl,
+            icon: icon,
+            isFollowing: isFollowing,
+            isJoined: isJoined
+        )
+    }
+
     init(dto: CommunitySearchDTO) {
         id = dto.id
         name = dto.name
@@ -168,6 +187,7 @@ extension CommunitySearchResult {
             : CommunitySpecializationType.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
+        icon = dto.icon?.normalizedOrNil()
         isFollowing = dto.isFollowing
         isJoined = dto.isJoined
     }
@@ -184,6 +204,7 @@ extension CommunitySearchResult {
             : CommunitySpecializationType.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
         imageUrl = dto.imageUrl
+        icon = dto.icon?.normalizedOrNil()
         isFollowing = dto.isFollowing
         isJoined = dto.isJoined
     }

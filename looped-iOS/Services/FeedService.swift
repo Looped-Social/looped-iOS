@@ -23,6 +23,19 @@ class FeedService: FeedServiceProtocol {
         try await fetchPosts(from: "/v1/feed", limit: limit, cursor: cursor, communityId: communityId, mode: mode)
     }
 
+    func fetchCommunityHashtagPosts(communityId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        var endpoint = "/v1/feed/hashtags?communityId=\(communityId)&limit=\(limit > 0 ? limit : defaultLimit)"
+        if let cursor, !cursor.isEmpty {
+            let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encoded)"
+        }
+        let data = try await apiClient.getData(endpoint)
+        let response = try decode(FeedResponseDTO.self, from: data)
+        let posts = response.items.map { Post(dto: $0) }
+        let resolved = await resolveMediaIfNeeded(for: posts)
+        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
+    }
+
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost] {
         let resolvedLimit = limit > 0 ? limit : 3
         var endpoint = "/v1/feed/trending?limit=\(resolvedLimit)"

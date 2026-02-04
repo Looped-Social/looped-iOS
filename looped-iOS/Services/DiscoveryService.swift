@@ -73,6 +73,16 @@ class DiscoveryService: DiscoveryServiceProtocol {
         )
     }
 
+    func fetchMajorsIndex() async throws -> [SpecializationIndexItem] {
+        let response: SpecializationIndexResponseDTO = try await apiClient.get("/v1/majors")
+        return response.items.map(SpecializationIndexItem.init(dto:))
+    }
+
+    func fetchFieldsIndex() async throws -> [SpecializationIndexItem] {
+        let response: SpecializationIndexResponseDTO = try await apiClient.get("/v1/fields")
+        return response.items.map(SpecializationIndexItem.init(dto:))
+    }
+
     private func parseRecommendedSpecializations(_ response: SpecializationsRecommendedResponseDTO) -> RecommendedSpecializations {
         let majors: [CommunitySearchResult]
         let fields: [CommunitySearchResult]

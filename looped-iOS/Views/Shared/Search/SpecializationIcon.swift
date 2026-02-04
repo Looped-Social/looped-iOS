@@ -4,6 +4,7 @@ struct SpecializationIcon: View {
     let name: String
     let memberCount: Int
     let specializationType: CommunitySpecializationType?
+    let icon: CommunityIcon?
 
     var body: some View {
         VStack(spacing: 8) {
@@ -34,10 +35,8 @@ struct SpecializationIcon: View {
 
     private var glyphView: some View {
         Group {
-            if let emoji {
-                Text(emoji)
-                    .font(.loopedCustom(.semibold, size: 26))
-                    .foregroundColor(.loopedTextPrimary)
+            if let resolvedIcon = icon?.normalizedOrNil() {
+                specializationGlyph(for: resolvedIcon)
             } else {
                 Text(initials)
                     .font(.loopedCustom(.semibold, size: 24))
@@ -46,49 +45,49 @@ struct SpecializationIcon: View {
         }
     }
 
-    private var emoji: String? {
-        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            .replacingOccurrences(of: "&", with: " and ")
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-
-        if normalized.contains("computer science")
-            || normalized.contains("cs ")
-            || normalized.hasPrefix("cs") {
-            return "💻"
-        }
-        if normalized.contains("investment")
-            || normalized.contains("banking")
-            || normalized.contains("ib ") {
-            return "📈"
-        }
-        if normalized.contains("finance") {
-            return "💰"
-        }
-        if normalized.contains("engineering") {
-            return "⚙️"
-        }
-        if normalized.contains("design") || normalized.contains("ux") || normalized.contains("ui") {
-            return "🎨"
-        }
-        if normalized.contains("marketing") {
-            return "📣"
-        }
-        if normalized.contains("sales") {
-            return "🤝"
-        }
-        if normalized.contains("product") {
-            return "📦"
-        }
-
-        switch specializationType {
-        case .major:
-            return "🎓"
-        case .field:
-            return "🏷️"
-        default:
-            return nil
+    @ViewBuilder
+    private func specializationGlyph(for icon: CommunityIcon) -> some View {
+        switch icon.kind {
+        case .emoji:
+            Text(icon.value)
+                .font(.loopedCustom(.semibold, size: 26))
+                .foregroundColor(.loopedTextPrimary)
+        case .sfSymbol:
+            Image(systemName: icon.value)
+                .font(.loopedCustom(.semibold, size: 22))
+                .foregroundColor(.loopedTextPrimary)
+        case .imageUrl:
+            if let url = URL(string: icon.value), url.scheme != nil {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        Text(initials)
+                            .font(.loopedCustom(.semibold, size: 24))
+                            .foregroundColor(.loopedPrimary)
+                    case .empty:
+                        ProgressView()
+                            .tint(.loopedTextSecondary)
+                    @unknown default:
+                        Text(initials)
+                            .font(.loopedCustom(.semibold, size: 24))
+                            .foregroundColor(.loopedPrimary)
+                    }
+                }
+                .frame(width: 46, height: 46)
+                .clipShape(Circle())
+            } else {
+                Text(initials)
+                    .font(.loopedCustom(.semibold, size: 24))
+                    .foregroundColor(.loopedPrimary)
+            }
+        case .unknown:
+            Text(initials)
+                .font(.loopedCustom(.semibold, size: 24))
+                .foregroundColor(.loopedPrimary)
         }
     }
 
@@ -103,10 +102,10 @@ struct SpecializationIcon: View {
 
 #Preview {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-        SpecializationIcon(name: "Computer Science", memberCount: 1800, specializationType: .major)
-        SpecializationIcon(name: "Business", memberCount: 2500, specializationType: .major)
-        SpecializationIcon(name: "Marketing", memberCount: 1200, specializationType: .field)
-        SpecializationIcon(name: "Design", memberCount: 760, specializationType: .field)
+        SpecializationIcon(name: "Computer Science", memberCount: 1800, specializationType: .major, icon: CommunityIcon(kind: .emoji, value: "💻"))
+        SpecializationIcon(name: "Business", memberCount: 2500, specializationType: .major, icon: CommunityIcon(kind: .sfSymbol, value: "graduationcap.fill"))
+        SpecializationIcon(name: "Marketing", memberCount: 1200, specializationType: .field, icon: CommunityIcon(kind: .emoji, value: "📣"))
+        SpecializationIcon(name: "Design", memberCount: 760, specializationType: .field, icon: nil)
     }
     .padding()
     .background(Color.loopedBackground)

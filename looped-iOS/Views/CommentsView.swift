@@ -27,6 +27,7 @@ struct CommentsView: View {
     @State private var pendingFocusCommentId: Int?
     @State private var showMediaPicker = false
 	@State private var showCamera = false
+	@State private var showAttachmentOptions = false
 	@State private var keyboardWillShowObserver: NSObjectProtocol?
 	@State private var keyboardWillHideObserver: NSObjectProtocol?
 	@FocusState private var isCommentFieldFocused: Bool
@@ -439,74 +440,67 @@ private extension CommentsView {
                 .padding(.horizontal, 4)
             }
 
-            HStack(alignment: .bottom, spacing: 12) {
+            HStack(alignment: .bottom, spacing: 8) {
                 ProfileAvatarView(
                     imageURL: isAnonymousMode ? nil : authViewModel.currentUser?.profileImageURL,
                     size: 34,
                     variant: isAnonymousMode ? .anonymous : .standard
                 )
 
-                Button(action: { showMediaPicker = true }) {
-                    Image(systemName: "paperclip")
+                Button(action: { showAttachmentOptions.toggle() }) {
+                    Image(systemName: "plus")
                         .font(.loopedCustom(.medium, size: 18))
                         .foregroundColor(.loopedPrimary)
                         .loopedTapTarget()
                 }
-                .disabled(commentsManager.editTarget != nil)
+                .disabled(commentsManager.editTarget != nil || !selectedMedia.isEmpty)
 
-                Button(action: { showCamera = true }) {
-                    Image(systemName: "camera")
-                        .font(.loopedCustom(.medium, size: 18))
-                        .foregroundColor(.loopedPrimary)
-                        .loopedTapTarget()
+                HStack(spacing: 6) {
+                    TextField(inputPlaceholder, text: $commentText, axis: .vertical)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineLimit(1...4)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .focused($isCommentFieldFocused)
+
+                    if shouldShowSendButton {
+                        Button(action: sendComment) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.loopedCustom(size: 24))
+                                .foregroundColor(.loopedPrimary)
+                                .loopedTapTarget()
+                        }
+                        .disabled(isSendDisabled)
+                    }
                 }
-                .disabled(commentsManager.editTarget != nil)
-
-                TextField(inputPlaceholder, text: $commentText, axis: .vertical)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedTextPrimary)
-                    .lineLimit(1...4)
-                    .focused($isCommentFieldFocused)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(Color.loopedMutedBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-
-                Button(action: {
-                    Task {
-                        let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if commentsManager.editTarget != nil {
-                            guard !trimmed.isEmpty else { return }
-                            await commentsManager.editComment(content: trimmed)
-	                        } else {
-	                            guard !trimmed.isEmpty || !selectedMedia.isEmpty else { return }
-	                            await commentsManager.postComment(content: trimmed, media: selectedMedia)
-	                            cleanupSelectedMedia()
-	                            selectedMedia = []
-	                        }
-	                        commentText = ""
-                            dismissKeyboard()
-	                    }
-	                }) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.loopedCustom(.semibold, size: 28))
-                        .foregroundColor(
-                            (commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedMedia.isEmpty)
-                            || commentsManager.isPosting
-                            ? .loopedTextSecondary
-                            : .loopedPrimary
-                        )
-                        .loopedTapTarget()
-                }
-                .disabled(
-                    (commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedMedia.isEmpty)
-                    || commentsManager.isPosting
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color.loopedMessageMutedColor)
+                        .shadow(color: .loopedBlack.opacity(0.10), radius: 1, x: 0, y: 1)
                 )
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, max(12, keyboardHeight > 0 ? 8 : 12))
             .background(Color.loopedBackground)
+        }
+        .actionSheet(isPresented: $showAttachmentOptions) {
+            ActionSheet(
+                title: Text("Add Attachment"),
+                message: Text("Choose an option"),
+                buttons: [
+                    .default(Text("Photo Library")) {
+                        showMediaPicker = true
+                    },
+                    .default(Text("Camera")) {
+                        showCamera = true
+                    },
+                    .cancel()
+                ]
+            )
         }
         .sheet(isPresented: $showMediaPicker) {
             MediaPickerView(
@@ -536,6 +530,35 @@ private extension CommentsView {
 }
 
 private extension CommentsView {
+    var shouldShowSendButton: Bool {
+        let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if commentsManager.editTarget != nil {
+            return !trimmed.isEmpty
+        }
+        return !trimmed.isEmpty || !selectedMedia.isEmpty
+    }
+
+    var isSendDisabled: Bool {
+        commentsManager.isPosting
+    }
+
+    func sendComment() {
+        Task {
+            let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if commentsManager.editTarget != nil {
+                guard !trimmed.isEmpty else { return }
+                await commentsManager.editComment(content: trimmed)
+            } else {
+                guard !trimmed.isEmpty || !selectedMedia.isEmpty else { return }
+                await commentsManager.postComment(content: trimmed, media: selectedMedia)
+                cleanupSelectedMedia()
+                selectedMedia = []
+            }
+            commentText = ""
+            dismissKeyboard()
+        }
+    }
+
     func cleanupSelectedMedia() {
         for item in selectedMedia {
             TemporaryMediaFile.deleteIfOwned(item.videoURL)

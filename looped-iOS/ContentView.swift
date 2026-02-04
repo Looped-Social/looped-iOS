@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 #if canImport(UserNotifications)
 import UserNotifications
 #endif
@@ -166,24 +169,35 @@ struct ContentView: View {
 }
 
 private struct LaunchBootstrapView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var revealProgress: CGFloat = 0
-    @State private var didFinish = false
+	    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+	    @State private var revealProgress: CGFloat = 0
+	    @State private var didFinish = false
+	    private static let baseLogoFrameDimension: CGFloat = 180
+	    private static let launchScreenMatchScale: CGFloat = {
+	        guard let launchLogo = UIImage(named: "LaunchLogo") else { return 1 }
+	        guard let appLogo = UIImage(named: "logo") else { return 1 }
 
-    let isReady: Bool
-    let onFinished: () -> Void
+	        let launchAspect = launchLogo.size.width / max(launchLogo.size.height, 1)
+	        let appAspect = appLogo.size.width / max(appLogo.size.height, 1)
+	        guard launchAspect > 0, appAspect > 0 else { return 1 }
+
+	        return appAspect / launchAspect
+	    }()
+
+	    let isReady: Bool
+	    let onFinished: () -> Void
 
     var body: some View {
         ZStack {
             Color.loopedBackground.ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                animatedLogo
-                    .frame(width: 180, height: 180)
-                    .accessibilityHidden(true)
-            }
-            .padding(.horizontal, 24)
-        }
+	            VStack(spacing: 18) {
+	                animatedLogo
+	                    .frame(width: logoFrameDimension, height: logoFrameDimension)
+	                    .accessibilityHidden(true)
+	            }
+	            .padding(.horizontal, 24)
+	        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading")
         .onAppear {
@@ -227,10 +241,10 @@ private struct LaunchBootstrapView: View {
         }
     }
 
-    private var animatedLogo: some View {
-        ZStack {
-            Image("logo")
-                .renderingMode(.template)
+	    private var animatedLogo: some View {
+	        ZStack {
+	            Image("logo")
+	                .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
                 .foregroundStyle(placeholderLogoColor)
@@ -247,13 +261,17 @@ private struct LaunchBootstrapView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     }
                 )
-        }
-        .compositingGroup()
-    }
+	        }
+	        .compositingGroup()
+	    }
 
-    private var placeholderLogoColor: Color {
-        Color(.sRGB, red: 175.0 / 255.0, green: 162.0 / 255.0, blue: 162.0 / 255.0, opacity: 1)
-    }
+	    private var logoFrameDimension: CGFloat {
+	        Self.baseLogoFrameDimension * Self.launchScreenMatchScale
+	    }
+
+	    private var placeholderLogoColor: Color {
+	        Color(.sRGB, red: 175.0 / 255.0, green: 162.0 / 255.0, blue: 162.0 / 255.0, opacity: 1)
+	    }
 
     private func finishIfNeeded() {
         guard !didFinish else { return }

@@ -194,6 +194,7 @@ struct SearchResultLoop: Identifiable {
     let specializationType: CommunitySpecializationType
     let memberCount: Int
     let imageUrl: String?
+    let icon: CommunityIcon?
 
     init(
         id: UUID = UUID(),
@@ -204,7 +205,8 @@ struct SearchResultLoop: Identifiable {
         kind: CommunityKind = .unknown,
         specializationType: CommunitySpecializationType = .unknown,
         memberCount: Int,
-        imageUrl: String? = nil
+        imageUrl: String? = nil,
+        icon: CommunityIcon? = nil
     ) {
         self.id = id
         self.backendId = backendId
@@ -215,6 +217,7 @@ struct SearchResultLoop: Identifiable {
         self.specializationType = specializationType
         self.memberCount = memberCount
         self.imageUrl = imageUrl
+        self.icon = icon
     }
 
     var specializationLabel: String? {

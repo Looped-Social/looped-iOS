@@ -53,18 +53,28 @@ struct PostSearchResultItem: View {
                 )
 
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        authorAndCommunityLine
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(post.post.resolvedAuthorName)
                             .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedTextPrimary)
                             .lineLimit(1)
                             .truncationMode(.tail)
-                            .layoutPriority(1)
 
-                        Spacer(minLength: 0)
+                        Spacer(minLength: 8)
 
                         Text(timeAgoString(from: post.post.createdAt))
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedTextSecondary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+
+                    if let communityContextText {
+                        Text(communityContextText)
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
 
                     postContentPreview
@@ -87,20 +97,6 @@ struct PostSearchResultItem: View {
             return "Posting in \(kind.rawValue.capitalized)"
         }
         return nil
-    }
-
-    private var authorAndCommunityLine: Text {
-        let author = post.post.resolvedAuthorName
-        if let communityContextText {
-            return Text(author)
-                .foregroundColor(.loopedTextPrimary)
-            + Text(" • ")
-                .foregroundColor(.loopedTextSecondary)
-            + Text(communityContextText)
-                .foregroundColor(.loopedTextSecondary)
-        }
-        return Text(author)
-            .foregroundColor(.loopedTextPrimary)
     }
 
     @ViewBuilder
@@ -245,14 +241,87 @@ struct LoopSearchResultItem: View {
         RoundedRectangle(cornerRadius: 10)
             .fill(Color.loopedBackground)
             .overlay(
-                Image(systemName: "person.3.fill")
-                    .foregroundColor(.loopedTextSecondary)
-                    .font(.loopedCustom(size: 16))
+                Group {
+                    if loop.kind == .specialization {
+                        specializationGlyph
+                    } else {
+                        Image(systemName: "person.3.fill")
+                            .foregroundColor(.loopedTextSecondary)
+                            .font(.loopedCustom(size: 16))
+                    }
+                }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.loopedMutedBackground, lineWidth: 1)
             )
+    }
+
+    @ViewBuilder
+    private var specializationGlyph: some View {
+        if let icon = loop.icon?.normalizedOrNil() {
+            switch icon.kind {
+            case .emoji:
+                Text(icon.value)
+                    .font(.loopedCustom(.semibold, size: 22))
+                    .foregroundColor(.loopedTextPrimary)
+            case .sfSymbol:
+                Image(systemName: icon.value)
+                    .font(.loopedCustom(.semibold, size: 18))
+                    .foregroundColor(.loopedTextPrimary)
+            case .imageUrl:
+                if let url = URL(string: icon.value), url.scheme != nil {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        case .failure:
+                            Text(specializationInitials)
+                                .font(.loopedCustom(.semibold, size: 16))
+                                .foregroundColor(.loopedPrimary)
+                        case .empty:
+                            ProgressView()
+                                .tint(.loopedTextSecondary)
+                        @unknown default:
+                            Text(specializationInitials)
+                                .font(.loopedCustom(.semibold, size: 16))
+                                .foregroundColor(.loopedPrimary)
+                        }
+                    }
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Text(specializationInitials)
+                        .font(.loopedCustom(.semibold, size: 16))
+                        .foregroundColor(.loopedPrimary)
+                }
+            case .unknown:
+                Text(specializationInitials)
+                    .font(.loopedCustom(.semibold, size: 16))
+                    .foregroundColor(.loopedPrimary)
+            }
+        } else {
+            Text(specializationInitials)
+                .font(.loopedCustom(.semibold, size: 16))
+                .foregroundColor(.loopedPrimary)
+        }
+    }
+
+    private var specializationInitials: String {
+        let trimmed = loopLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "?" }
+
+        if trimmed.count <= 3, trimmed.contains(" ") == false {
+            return trimmed.uppercased()
+        }
+
+        let parts = trimmed.split(separator: " ")
+        let first = parts.first?.first.map(String.init) ?? ""
+        let second = parts.dropFirst().first?.first.map(String.init) ?? ""
+        let combined = (first + second).uppercased()
+        return combined.isEmpty ? "?" : combined
     }
 }
 

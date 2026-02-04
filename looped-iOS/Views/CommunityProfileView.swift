@@ -10,6 +10,7 @@ struct CommunityProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel: CommunityProfileViewModel
+    @StateObject private var hashtagPostsViewModel: CommunityHashtagPostsViewModel
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: CommunityProfileTab = .posts
     @State private var verificationTargetCommunity: CommunityProfileData?
@@ -22,6 +23,7 @@ struct CommunityProfileView: View {
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
+        _hashtagPostsViewModel = StateObject(wrappedValue: CommunityHashtagPostsViewModel(communityId: community.id))
     }
 
     var body: some View {
@@ -45,7 +47,11 @@ struct CommunityProfileView: View {
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .loopedPullToRefresh(isAtTop: isAtTop) {
-                await viewModel.refresh()
+                if selectedTab == .hashtags {
+                    await hashtagPostsViewModel.refresh()
+                } else {
+                    await viewModel.refresh()
+                }
             }
             .task { await loadIfNeeded() }
         }
@@ -289,21 +295,27 @@ struct CommunityProfileView: View {
     }
 
     private var tabBar: some View {
-        HStack(spacing: 0) {
-            ForEach(CommunityProfileTab.allCases, id: \.self) { tab in
-                Button(action: { selectedTab = tab }) {
-                    VStack(spacing: 6) {
-                        Text(tab.rawValue)
-                            .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
-                            .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
+        ZStack(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.loopedTextSecondary.opacity(0.12))
+                .frame(height: 1)
 
-                        Rectangle()
-                            .fill(selectedTab == tab ? Color.loopedPrimary : Color.loopedClear)
-                            .frame(height: 2)
+            HStack(spacing: 0) {
+                ForEach(CommunityProfileTab.allCases, id: \.self) { tab in
+                    Button(action: { selectedTab = tab }) {
+                        VStack(spacing: 6) {
+                            Text(tab.rawValue)
+                                .font(selectedTab == tab ? .loopedSubBodyBold : .loopedSubBodyMedium)
+                                .foregroundColor(selectedTab == tab ? .loopedPrimary : .loopedTextSecondary)
+
+                            Rectangle()
+                                .fill(selectedTab == tab ? Color.loopedPrimary : Color.loopedClear)
+                                .frame(height: 2)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
         }
     }
@@ -368,13 +380,63 @@ struct CommunityProfileView: View {
     }
 
     private var hashtagsSection: some View {
-        VStack(spacing: 12) {
-            Text("Hashtags coming soon.")
-                .font(.loopedSubBodyRegular)
-                .foregroundColor(.loopedTextSecondary)
+        LazyVStack(spacing: 0) {
+            if hashtagPostsViewModel.isLoading && hashtagPostsViewModel.posts.isEmpty {
+                ForEach(0..<6, id: \.self) { index in
+                    PostCardSkeleton(showsMedia: index % 3 != 0)
+
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                }
+            } else if hashtagPostsViewModel.posts.isEmpty {
+                VStack(spacing: 12) {
+                    Text("No posts with hashtags yet.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+
+                    Text("Add a #hashtag to get started.")
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary.opacity(0.9))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 40)
+            } else {
+                ForEach(hashtagPostsViewModel.posts) { post in
+                    PostCard(
+                        post: post,
+                        showsCommunityLabel: true,
+                        onUpdate: { updated in
+                            hashtagPostsViewModel.updatePost(updated)
+                        },
+                        onDelete: { deleted in
+                            hashtagPostsViewModel.removePost(backendId: deleted.backendId)
+                        }
+                    )
+                        .onAppear {
+                            Task { await hashtagPostsViewModel.loadMoreIfNeeded(currentPost: post) }
+                        }
+
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                }
+
+                if hashtagPostsViewModel.isLoadingMore {
+                    LoopedInlineLoadingIndicator()
+                }
+            }
+
+            if let errorMessage = hashtagPostsViewModel.errorMessage, hashtagPostsViewModel.posts.isEmpty {
+                Text(errorMessage)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .padding(.top, 16)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 40)
+        .task {
+            await hashtagPostsViewModel.loadIfNeeded()
+        }
     }
 
     private var verificationDisplay: VerificationDisplay {

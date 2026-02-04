@@ -81,6 +81,11 @@ extension Font {
     ) -> Font {
         return Font.custom(loopedFontName(for: weight), size: size, relativeTo: textStyle)
     }
+
+    /// SF Symbols + iconography should use the system font to match native rendering.
+    static func loopedSymbol(_ weight: LoopedFontWeight = .medium, size: CGFloat) -> Font {
+        Font.system(size: size, weight: loopedSystemWeight(for: weight))
+    }
     
     
     /// Body text with Dynamic Type scaling
@@ -105,6 +110,21 @@ extension Font {
             return "Poppins-Bold"
         case .extrabold:
             return "Poppins-ExtraBold"
+        }
+    }
+
+    private static func loopedSystemWeight(for weight: LoopedFontWeight) -> Font.Weight {
+        switch weight {
+        case .regular:
+            return .regular
+        case .medium:
+            return .medium
+        case .semibold:
+            return .semibold
+        case .bold:
+            return .bold
+        case .extrabold:
+            return .heavy
         }
     }
 }

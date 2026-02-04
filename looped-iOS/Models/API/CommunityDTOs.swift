@@ -31,6 +31,7 @@ struct CommunitySearchDTO: Codable {
     let specializationType: String?
     let memberCount: Int?
     let imageUrl: String?
+    let icon: CommunityIcon?
     let isFollowing: Bool?
     let isJoined: Bool?
 }
@@ -51,6 +52,7 @@ struct CommunityRecommendedDTO: Codable {
     let isFollowing: Bool?
     let isJoined: Bool?
     let imageUrl: String?
+    let icon: CommunityIcon?
 }
 
 struct CommunityDetailsDTO: Codable {
@@ -62,6 +64,7 @@ struct CommunityDetailsDTO: Codable {
     let specializationType: String?
     let memberCount: Int?
     let imageUrl: String?
+    let icon: CommunityIcon?
     let isFollowing: Bool?
     let isJoined: Bool?
     let joinLimit: SpecializationJoinLimitDTO?

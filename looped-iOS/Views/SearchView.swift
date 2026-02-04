@@ -132,6 +132,7 @@ struct SearchView: View {
                                                 description: community.description,
                                                 memberCount: community.memberCount,
                                                 imageURL: community.imageUrl,
+                                                icon: community.icon,
                                                 kind: community.kind,
                                                 specializationType: community.specializationType
                                             )
@@ -285,7 +286,7 @@ private struct SpecializationPagerSection: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
     private let pageSize = 8
-    private let pageHeight: CGFloat = 220
+    private let pageHeight: CGFloat = 232
     private let pageIndicatorDots = 5
 
     var body: some View {
@@ -325,13 +326,15 @@ private struct SpecializationPagerSection: View {
                                     SpecializationIcon(
                                         name: specialization.name,
                                         memberCount: specialization.memberCount,
-                                        specializationType: specialization.specializationType
+                                        specializationType: specialization.specializationType,
+                                        icon: specialization.icon
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
                         }
                         .padding(.horizontal, 16)
+                        .padding(.top, 8)
                         .tag(index)
                     }
                 }

@@ -557,14 +557,8 @@ struct UserSettingsView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                LoopedBackButton(action: handleBackAction)
-            }
-        }
         .toast($toastMessage)
         .alert("Save changes?", isPresented: $isShowingUnsavedChangesAlert) {
             Button("Save") {
@@ -577,7 +571,6 @@ struct UserSettingsView: View {
         } message: {
             Text("You have unsaved changes.")
         }
-        .background(NavigationPopGestureDisabler(isEnabled: false))
         .sheet(isPresented: $isShowingImageCropper) {
             if let pendingCropImage {
                 ProfileImageCropperView(

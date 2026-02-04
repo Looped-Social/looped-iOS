@@ -5,15 +5,15 @@ struct LoopedBackButton: View {
     let action: () -> Void
     var usesHaptics: Bool = false
     var foregroundColor: Color = .loopedTextSecondary
-    var iconSize: CGFloat = 24
-    var iconWeight: LoopedFontWeight = .medium
+    var iconSize: CGFloat = 17
+    var iconWeight: LoopedFontWeight = .semibold
     var hitWidth: CGFloat = 44
     var hitHeight: CGFloat = 44
 
     var body: some View {
         Button(action: trigger) {
-            Image(systemName: "chevron.left")
-                .font(.loopedCustom(iconWeight, size: iconSize))
+            Image(systemName: "chevron.backward")
+                .font(.loopedSymbol(iconWeight, size: iconSize))
                 .foregroundColor(foregroundColor)
                 .frame(width: hitWidth, height: hitHeight)
                 .contentShape(Rectangle())

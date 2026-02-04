@@ -6,6 +6,7 @@ struct LoopCard: View {
     let description: String
     let memberCount: Int
     let imageURL: String?
+    let icon: CommunityIcon?
     let kind: CommunityKind?
     let specializationType: CommunitySpecializationType?
 
@@ -45,34 +46,23 @@ struct LoopCard: View {
     private enum PlaceholderGlyph {
         case emoji(String)
         case system(String)
+        case text(String)
     }
 
     private var placeholderGlyph: PlaceholderGlyph {
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedWithoutPunctuation = normalizedTitle
-            .replacingOccurrences(of: "&", with: " and ")
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .joined(separator: " ")
+        if let resolvedIcon = icon?.normalizedOrNil() {
+            switch resolvedIcon.kind {
+            case .emoji:
+                return .emoji(resolvedIcon.value)
+            case .sfSymbol:
+                return .system(resolvedIcon.value)
+            case .imageUrl, .unknown:
+                break
+            }
+        }
 
         if kind == .specialization {
-            if normalizedWithoutPunctuation.contains("computer science")
-                || normalizedWithoutPunctuation.contains(" cs ")
-                || normalizedWithoutPunctuation.hasPrefix("cs ")
-                || normalizedWithoutPunctuation.hasSuffix(" cs") {
-                return .emoji("💻")
-            }
-            if normalizedWithoutPunctuation.contains("investment")
-                || normalizedWithoutPunctuation.contains("banking")
-                || normalizedWithoutPunctuation.contains("ib ") {
-                return .emoji("📈")
-            }
-            if normalizedWithoutPunctuation.contains("finance") {
-                return .emoji("💰")
-            }
-            if specializationType == .field {
-                return .emoji("🏷️")
-            }
-            return .emoji("🎓")
+            return .text(placeholderText(from: title))
         }
 
         switch kind {
@@ -86,8 +76,14 @@ struct LoopCard: View {
     }
 
     private var bannerImage: some View {
-        Group {
-            if let imageURL, let url = URL(string: imageURL), url.scheme != nil {
+        let resolvedImageURL: String? = {
+            if let imageURL, let url = URL(string: imageURL), url.scheme != nil { return imageURL }
+            if let icon, let resolved = icon.normalizedOrNil(), resolved.kind == .imageUrl { return resolved.value }
+            return imageURL
+        }()
+
+        return Group {
+            if let resolvedImageURL, let url = URL(string: resolvedImageURL), url.scheme != nil {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
@@ -127,12 +123,31 @@ struct LoopCard: View {
                     Image(systemName: symbol)
                         .font(.loopedCustom(size: 20))
                         .foregroundColor(.loopedTextSecondary.opacity(0.6))
+                case .text(let text):
+                    Text(text)
+                        .font(.loopedCustom(.semibold, size: 22))
+                        .foregroundColor(.loopedPrimary)
                 }
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.loopedMutedBackground, lineWidth: 1)
             )
+    }
+
+    private func placeholderText(from title: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "?" }
+
+        if trimmed.count <= 3, trimmed.contains(" ") == false {
+            return trimmed.uppercased()
+        }
+
+        let parts = trimmed.split(separator: " ")
+        let first = parts.first?.first.map(String.init) ?? ""
+        let second = parts.dropFirst().first?.first.map(String.init) ?? ""
+        let combined = (first + second).uppercased()
+        return combined.isEmpty ? "?" : combined
     }
 }
 
@@ -143,6 +158,7 @@ struct LoopCard: View {
             description: "Tech discussions and career tips",
             memberCount: 1250,
             imageURL: "trending1",
+            icon: nil,
             kind: .company,
             specializationType: nil
         )
@@ -152,6 +168,7 @@ struct LoopCard: View {
             description: "UX/UI design inspiration",
             memberCount: 890,
             imageURL: "trending2",
+            icon: nil,
             kind: .company,
             specializationType: nil
         )
@@ -161,6 +178,7 @@ struct LoopCard: View {
             description: "Growth and strategy insights",
             memberCount: 640,
             imageURL: "trending3",
+            icon: nil,
             kind: .company,
             specializationType: nil
         )

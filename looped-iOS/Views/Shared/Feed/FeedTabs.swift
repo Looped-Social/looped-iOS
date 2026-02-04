@@ -392,8 +392,7 @@ private struct CommunitySearchResultRow: View {
 
     private var thumbnail: some View {
         Group {
-            if let imageUrl = result.imageUrl,
-               let url = URL(string: imageUrl),
+            if let url = resolvedThumbnailURL,
                url.scheme != nil {
                 AsyncImage(url: url) { phase in
                     switch phase {
@@ -419,14 +418,57 @@ private struct CommunitySearchResultRow: View {
         )
     }
 
+    private var resolvedThumbnailURL: URL? {
+        if let imageUrl = result.imageUrl,
+           let url = URL(string: imageUrl) {
+            return url
+        }
+        if let icon = result.icon?.normalizedOrNil(),
+           icon.kind == .imageUrl,
+           let url = URL(string: icon.value) {
+            return url
+        }
+        return nil
+    }
+
     private var placeholder: some View {
         RoundedRectangle(cornerRadius: 10)
             .fill(Color.loopedMutedBackground)
             .overlay(
+                placeholderGlyph
+            )
+    }
+
+    @ViewBuilder
+    private var placeholderGlyph: some View {
+        if result.kind == .specialization, let icon = result.icon?.normalizedOrNil() {
+            switch icon.kind {
+            case .emoji:
+                Text(icon.value)
+                    .font(.loopedCustom(.semibold, size: 18))
+                    .foregroundColor(.loopedTextPrimary)
+            case .sfSymbol:
+                Image(systemName: icon.value)
+                    .font(.loopedCustom(.semibold, size: 14))
+                    .foregroundColor(.loopedTextPrimary)
+            case .imageUrl:
                 Text(initials)
                     .font(.loopedSmallTextMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            )
+                    .foregroundColor(.loopedPrimary)
+            case .unknown:
+                Text(initials)
+                    .font(.loopedSmallTextMedium)
+                    .foregroundColor(.loopedPrimary)
+            }
+        } else if result.kind == .specialization {
+            Text(initials)
+                .font(.loopedSmallTextMedium)
+                .foregroundColor(.loopedPrimary)
+        } else {
+            Text(initials)
+                .font(.loopedSmallTextMedium)
+                .foregroundColor(.loopedTextSecondary)
+        }
     }
 
     private var initials: String {

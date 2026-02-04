@@ -262,16 +262,10 @@ private struct CommunityRequestStepTwoView: View {
                 VerificationProgressView(currentStep: 2, totalSteps: 2)
                     .padding(.top, 8)
 
-                HStack(spacing: 2) {
-                    Image("logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 68)
-
-                    Text("ooped")
-                        .font(.loopedSuperLargeHeading)
-                        .foregroundColor(.loopedTextPrimary)
-                }
+                Image("logo-banner")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 68)
                 .padding(.top, 12)
                 .padding(.bottom, 24)
 

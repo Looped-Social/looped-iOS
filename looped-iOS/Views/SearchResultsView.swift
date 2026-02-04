@@ -166,6 +166,7 @@ struct SearchResultsView: View {
             SearchResultsSection(
                 results: viewModel.searchResults,
                 onPostTap: { searchPost in
+                    searchFieldFocused = false
                     commentsManager.showComments(for: searchPost.post)
                 },
                 onLoopTap: { loop in

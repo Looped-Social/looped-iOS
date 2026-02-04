@@ -35,6 +35,7 @@ protocol AuthServiceProtocol {
 
 protocol FeedServiceProtocol {
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage
+    func fetchCommunityHashtagPosts(communityId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage
     func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, mediaAssetIds: [Int]?, poll: PollDraft?) async throws -> Post
@@ -295,6 +296,8 @@ protocol DiscoveryServiceProtocol {
     func searchHashtags(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<HashtagDTO>
     func fetchRecommendedSpecializations(limit: Int) async throws -> RecommendedSpecializations
     func browseSpecializations(type: CommunitySpecializationType, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult>
+    func fetchMajorsIndex() async throws -> [SpecializationIndexItem]
+    func fetchFieldsIndex() async throws -> [SpecializationIndexItem]
 }
 
 protocol NotificationServiceProtocol {

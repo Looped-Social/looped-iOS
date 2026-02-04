@@ -101,6 +101,7 @@ class SearchResultsViewModel: ObservableObject {
         errorMessage = nil
         do {
             var results = SearchResults()
+            let isHashtagQuery = trimmedQuery.hasPrefix("#")
             switch filter {
             case .users:
                 let page = try await userService.searchUsers(query: trimmedQuery, limit: 20, cursor: nil)
@@ -141,7 +142,8 @@ class SearchResultsViewModel: ObservableObject {
                         kind: loop.kind,
                         specializationType: loop.specializationType,
                         memberCount: loop.memberCount,
-                        imageUrl: loop.imageUrl
+                        imageUrl: loop.imageUrl,
+                        icon: loop.icon
                     )
                 }
                 searchResults = results
@@ -163,65 +165,104 @@ class SearchResultsViewModel: ObservableObject {
                         kind: loop.kind,
                         specializationType: loop.specializationType,
                         memberCount: loop.memberCount,
-                        imageUrl: loop.imageUrl
+                        imageUrl: loop.imageUrl,
+                        icon: loop.icon
                     )
                 }
                 searchResults = results
                 hashtagSuggestions = []
             case .all, .none:
-                async let peoplePage = userService.searchUsers(query: trimmedQuery, limit: 20, cursor: nil)
-                async let loopsPage = communityService.searchCommunities(
+                let hashtagQuery = isHashtagQuery ? String(trimmedQuery.dropFirst()) : trimmedQuery
+
+                if isHashtagQuery {
+                    let hashtags = try await discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
+                    results.hashtags = hashtags.items.map { tag in
+                        SearchResultHashtag(
+                            name: tag.name.hasPrefix("#") ? tag.name : "#\(tag.name)",
+                            usageCount: tag.usageCount
+                        )
+                    }
+                    hashtagSuggestions = results.hashtags.map { $0.name }
+                    searchResults = results
+                    break
+                }
+
+                async let peopleTask = userService.searchUsers(query: trimmedQuery, limit: 20, cursor: nil)
+                async let loopsTask = communityService.searchCommunities(
                     query: trimmedQuery,
                     limit: 20,
                     cursor: nil,
                     kind: nil
                 )
-                let hashtagQuery = trimmedQuery.hasPrefix("#") ? String(trimmedQuery.dropFirst()) : trimmedQuery
-                async let hashtagPage = discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
-                async let postsPage = feedService.searchPosts(query: trimmedQuery, limit: 10, cursor: nil)
+                async let hashtagTask = discoveryService.searchHashtags(query: hashtagQuery, limit: 5, cursor: nil)
+                async let postsTask = feedService.searchPosts(query: trimmedQuery, limit: 10, cursor: nil)
 
-                let (page, loopResults, hashtags) = try await (peoplePage, loopsPage, hashtagPage)
-                let postPage = try? await postsPage
-                results.people = page.users.map { user in
-                    SearchResultPerson(
-                        id: user.id,
-                        backendId: user.backendId,
-                        name: user.displayName ?? user.handle,
-                        username: user.username ?? user.handle,
-                        title: "Member",
-                        company: user.company,
-                        avatarURL: user.profileImageURL
-                    )
+                var errors: [Error] = []
+
+                do {
+                    let page = try await peopleTask
+                    results.people = page.users.map { user in
+                        SearchResultPerson(
+                            id: user.id,
+                            backendId: user.backendId,
+                            name: user.displayName ?? user.handle,
+                            username: user.username ?? user.handle,
+                            title: "Member",
+                            company: user.company,
+                            avatarURL: user.profileImageURL
+                        )
+                    }
+                } catch {
+                    errors.append(error)
                 }
 
-                results.loops = loopResults.items.map { loop in
-                    SearchResultLoop(
-                        id: UUID.fromBackendId(loop.id),
-                        backendId: loop.id,
-                        name: loop.name,
-                        shortName: loop.shortName,
-                        description: loop.description,
-                        kind: loop.kind,
-                        specializationType: loop.specializationType,
-                        memberCount: loop.memberCount,
-                        imageUrl: loop.imageUrl
-                    )
+                do {
+                    let loopResults = try await loopsTask
+                    results.loops = loopResults.items.map { loop in
+                        SearchResultLoop(
+                            id: UUID.fromBackendId(loop.id),
+                            backendId: loop.id,
+                            name: loop.name,
+                            shortName: loop.shortName,
+                            description: loop.description,
+                            kind: loop.kind,
+                            specializationType: loop.specializationType,
+                            memberCount: loop.memberCount,
+                            imageUrl: loop.imageUrl,
+                            icon: loop.icon
+                        )
+                    }
+                } catch {
+                    errors.append(error)
                 }
 
-                results.hashtags = hashtags.items.map { tag in
-                    SearchResultHashtag(
-                        name: tag.name.hasPrefix("#") ? tag.name : "#\(tag.name)",
-                        usageCount: tag.usageCount
-                    )
+                do {
+                    let hashtags = try await hashtagTask
+                    results.hashtags = hashtags.items.map { tag in
+                        SearchResultHashtag(
+                            name: tag.name.hasPrefix("#") ? tag.name : "#\(tag.name)",
+                            usageCount: tag.usageCount
+                        )
+                    }
+                } catch {
+                    errors.append(error)
                 }
 
-                if let postPage {
+                do {
+                    let postPage = try await postsTask
                     results.posts = postPage.posts.map { post in
                         SearchResultPost(post: post)
                     }
+                } catch {
+                    // Don't block the overall preview on posts failures.
                 }
+
                 hashtagSuggestions = results.hashtags.map { $0.name }
                 searchResults = results
+
+                if results.isEmpty, let firstError = errors.first {
+                    errorMessage = firstError.localizedDescription
+                }
             }
         } catch {
             errorMessage = error.localizedDescription
