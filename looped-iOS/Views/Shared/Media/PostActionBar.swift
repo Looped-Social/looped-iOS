@@ -3,7 +3,6 @@ import SwiftUI
 final class PostActionBarState: ObservableObject {
     @Published var likeCount: Int = 0
     @Published var commentCount: Int = 0
-    @Published var repostCount: Int = 0
     @Published var shareCount: Int = 0
     @Published var isLiked: Bool = false
     @Published var isReposted: Bool = false
@@ -71,11 +70,10 @@ struct PostActionBarCompact: View {
 
             actionButton(
                 icon: Image(systemName: "arrow.2.squarepath"),
-                count: state.repostCount,
+                count: nil,
                 tint: state.isReposted ? .loopedPrimary : .loopedWhite,
                 disabled: state.isRepostLoading,
-                action: onRepost,
-                showsLock: state.isReactionLocked
+                action: onRepost
             )
 
             actionButton(

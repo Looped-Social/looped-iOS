@@ -9,7 +9,6 @@ struct PollCard: View {
     let communityPermissions: CommunityPermissions?
     let onPollUpdate: (Poll) -> Void
     private let pollsService: PollsServiceProtocol
-    private let communityService: CommunityServiceProtocol
 
     @State private var currentPoll: Poll
     @State private var selectedOptionId: Int?
@@ -18,9 +17,6 @@ struct PollCard: View {
     @State private var queuedOptionId: Int?
     @State private var localCommunityPermissions: CommunityPermissions?
     @State private var voteGate: VoteGate?
-    @State private var actionError: PollActionError?
-    @State private var isJoining = false
-    @State private var verificationTargetCommunity: CommunityProfileData?
 
     init(
         poll: Poll,
@@ -30,7 +26,6 @@ struct PollCard: View {
         communityKind: CommunityKind? = nil,
         communityPermissions: CommunityPermissions? = nil,
         pollsService: PollsServiceProtocol = PollsService(),
-        communityService: CommunityServiceProtocol = CommunityService(),
         onPollUpdate: @escaping (Poll) -> Void
     ) {
         self.poll = poll
@@ -40,7 +35,6 @@ struct PollCard: View {
         self.communityKind = communityKind
         self.communityPermissions = communityPermissions
         self.pollsService = pollsService
-        self.communityService = communityService
         self.onPollUpdate = onPollUpdate
         _currentPoll = State(initialValue: poll)
         _selectedOptionId = State(initialValue: poll.viewer?.selectedOptionIds.first)
@@ -52,7 +46,7 @@ struct PollCard: View {
     }
 
     private var shouldShowResults: Bool {
-        (currentPoll.viewer?.hasVoted ?? false) || !currentPoll.isOpen
+        (currentPoll.viewer?.hasVoted ?? false) || !currentPoll.isOpen || activeVoteGate != nil
     }
 
     private let maxSelections = 1
@@ -88,21 +82,40 @@ struct PollCard: View {
                 .font(.loopedBodyStrong)
                 .foregroundColor(.loopedTextPrimary)
 
-            VStack(spacing: 10) {
-                ForEach(currentPoll.options) { option in
+	            VStack(spacing: 10) {
+	                let shouldEmphasizeLeadingResult = shouldShowResults
+	                    && !(currentPoll.viewer?.hasVoted ?? false)
+	                    && currentPoll.totalVotes > 0
+	                let leadingOptionId = shouldEmphasizeLeadingResult
+	                    ? currentPoll.options.max(by: { $0.votePercent < $1.votePercent })?.id
+	                    : nil
+	                ForEach(currentPoll.options) { option in
                     PollOptionRow(
                         option: option,
                         isSelected: selectedOptionId == option.id,
+                        isLeadingResult: option.id == leadingOptionId,
                         showsResults: shouldShowResults,
                         accentColor: .loopedPrimary
                     ) {
                         handleOptionTap(optionId: option.id)
                     }
                     .accessibilityElement(children: .combine)
+                    .disabled(activeVoteGate != nil)
                 }
             }
 
             HStack(spacing: 8) {
+                if currentPoll.isOpen, let gate = activeVoteGate {
+                    Text(voteGateFooterMessage(for: gate))
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("•")
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+
                 Text(votesLabel)
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
@@ -120,18 +133,8 @@ struct PollCard: View {
                         .font(.loopedSmallText)
                         .foregroundColor(.loopedTextSecondary)
                 }
-                if isJoining {
-                    Text("•")
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedTextSecondary)
-                    Text("Joining…")
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedTextSecondary)
-                }
                 Spacer()
             }
-
-            voteGateView
 
             if let errorMessage {
                 Text(errorMessage)
@@ -139,33 +142,11 @@ struct PollCard: View {
                     .foregroundColor(.loopedError)
             }
 
-            if currentPoll.isOpen {
+            if currentPoll.isOpen, activeVoteGate == nil {
                 Text("Pick one")
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
             }
-        }
-        .sheet(item: $verificationTargetCommunity) { community in
-            CommunityVerificationFlowView(community: community) {
-                Task { await handleVerificationComplete(communityId: community.id) }
-            }
-        }
-        .alert(item: $actionError) { error in
-            if let action = error.primaryAction {
-                return Alert(
-                    title: Text(error.title),
-                    message: Text(error.message),
-                    primaryButton: .default(Text(action.buttonTitle)) {
-                        handlePrimaryAction(action)
-                    },
-                    secondaryButton: .cancel()
-                )
-            }
-            return Alert(
-                title: Text(error.title),
-                message: Text(error.message),
-                dismissButton: .default(Text("OK"))
-            )
         }
         .onChange(of: poll.updatedAt) { _, _ in
             syncFromParent()
@@ -193,11 +174,7 @@ struct PollCard: View {
         guard selectedOptionId != optionId else { return }
         errorMessage = nil
 
-        if let gate = activeVoteGate {
-            queuedOptionId = optionId
-            presentGatePrompt(gate)
-            return
-        }
+        guard activeVoteGate == nil else { return }
 
         selectedOptionId = optionId
         Task { await submitVote(optionId: optionId) }
@@ -206,11 +183,6 @@ struct PollCard: View {
     @MainActor
     private func submitVote(optionId: Int) async {
         guard currentPoll.isOpen else { return }
-
-        if isJoining {
-            queuedOptionId = optionId
-            return
-        }
 
         if isSubmitting {
             queuedOptionId = optionId
@@ -236,8 +208,7 @@ struct PollCard: View {
             selectedOptionId = currentPoll.viewer?.selectedOptionIds.first
             if let gate = gate(from: error) {
                 voteGate = gate
-                queuedOptionId = optionId
-                presentGatePrompt(gate)
+                queuedOptionId = nil
             } else {
                 errorMessage = pollErrorMessage(for: error)
             }
@@ -261,146 +232,26 @@ struct PollCard: View {
         voteGate ?? gateFromPermissions
     }
 
-    @ViewBuilder
-    private var voteGateView: some View {
-        if let gate = activeVoteGate {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(gate.inlineMessage)
-                    .font(.loopedSmallText)
-                    .foregroundColor(.loopedTextSecondary)
-
-                if let actionTitle = gate.actionTitle, gate.isActionAvailable(communityId: communityId) {
-                    Button(actionTitle) {
-                        handleGateAction(gate)
-                    }
-                    .buttonStyle(.plain)
-                    .font(.loopedSmallTextMedium)
-                    .foregroundColor(.loopedPrimary)
-                    .disabled(isJoining || isSubmitting)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.loopedMutedBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.loopedTextSecondary.opacity(0.16), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
+    private var voteGateCommunityName: String? {
+        let trimmedShortName = (communityShortName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedShortName.isEmpty { return trimmedShortName }
+        let trimmedName = (communityName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty { return trimmedName }
+        return nil
     }
 
-    private func presentGatePrompt(_ gate: VoteGate) {
-        actionError = PollActionError(
-            title: gate.alertTitle,
-            message: gate.inlineMessage,
-            primaryAction: gate.primaryAction(communityId: communityId)
-        )
-    }
-
-    private func handlePrimaryAction(_ action: PollActionError.PrimaryAction) {
-        switch action {
-        case .joinSpecialization:
-            Task { await joinSpecializationAndRetryIfNeeded() }
-        case .verifyCommunity:
-            handleGateAction(.communityNotVerified)
-        }
-    }
-
-    private func handleGateAction(_ gate: VoteGate) {
+    private func voteGateFooterMessage(for gate: VoteGate) -> String {
+        let name = voteGateCommunityName ?? "this community"
         switch gate {
         case .specializationNotJoined:
-            Task { await joinSpecializationAndRetryIfNeeded() }
+            return "Join \(name) to vote"
         case .communityNotVerified:
-            startVerificationFlow()
+            if communityKind == .company || communityKind == .school {
+                return "Verify in \(name) to vote"
+            }
+            return "Verify to vote"
         case .communityBanned:
-            break
-        }
-    }
-
-    private func startVerificationFlow() {
-        guard let community = verificationCommunity else {
-            actionError = PollActionError(
-                title: "Verification needed",
-                message: "You must be verified in this community to vote.",
-                primaryAction: nil
-            )
-            return
-        }
-        verificationTargetCommunity = community
-    }
-
-    private var verificationCommunity: CommunityProfileData? {
-        guard let communityId, communityId > 0 else { return nil }
-        let trimmedName = (communityName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedName = trimmedName.isEmpty ? "Community" : trimmedName
-        let trimmedShortName = (communityShortName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedShortName = trimmedShortName.isEmpty ? nil : trimmedShortName
-        return CommunityProfileData(
-            id: communityId,
-            name: resolvedName,
-            shortName: resolvedShortName,
-            description: "",
-            kind: communityKind ?? .unknown,
-            specializationType: .unknown,
-            memberCount: 0,
-            imageUrl: nil,
-            isFollowing: false,
-            isJoined: false,
-            joinLimit: nil
-        )
-    }
-
-    @MainActor
-    private func joinSpecializationAndRetryIfNeeded() async {
-        guard let communityId, communityId > 0 else { return }
-        guard !isJoining else { return }
-        isJoining = true
-        errorMessage = nil
-
-        do {
-            try await communityService.joinSpecialization(id: communityId)
-            NotificationCenter.default.post(
-                name: .communityStateChanged,
-                object: nil,
-                userInfo: [LoopedNotificationUserInfoKey.communityId: communityId]
-            )
-            await CommunityPermissionsCache.shared.invalidate(communityId: communityId)
-            localCommunityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
-            voteGate = nil
-            clearVoteGateIfResolved()
-        } catch {
-            isJoining = false
-            actionError = PollActionError(
-                title: "Couldn't join",
-                message: joinErrorMessage(from: error),
-                primaryAction: nil
-            )
-            return
-        }
-
-        isJoining = false
-        if let queuedOptionId {
-            self.queuedOptionId = nil
-            await submitVote(optionId: queuedOptionId)
-        }
-    }
-
-    @MainActor
-    private func handleVerificationComplete(communityId: Int) async {
-        await CommunityPermissionsCache.shared.invalidate(communityId: communityId)
-        localCommunityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
-        NotificationCenter.default.post(
-            name: .communityStateChanged,
-            object: nil,
-            userInfo: [LoopedNotificationUserInfoKey.communityId: communityId]
-        )
-        voteGate = nil
-        clearVoteGateIfResolved()
-
-        if let queuedOptionId {
-            self.queuedOptionId = nil
-            await submitVote(optionId: queuedOptionId)
+            return "Can’t vote (banned)"
         }
     }
 
@@ -441,29 +292,12 @@ struct PollCard: View {
         }
         return error.localizedDescription
     }
-
-    private func joinErrorMessage(from error: Error) -> String {
-        if case let APIError.apiError(_, apiError, message) = error {
-            switch apiError {
-            case "specialization_verification_required":
-                return message ?? "Verification is required to join."
-            case "specialization_join_limit":
-                return message ?? "You’ve reached the join limit."
-            case "specialization_join_cooldown":
-                return message ?? "You can’t change this right now."
-            case "invalid_specialization":
-                return message ?? "That specialization can't be joined."
-            default:
-                return message ?? apiError
-            }
-        }
-        return error.localizedDescription
-    }
 }
 
 private struct PollOptionRow: View {
     let option: PollOption
     let isSelected: Bool
+    let isLeadingResult: Bool
     let showsResults: Bool
     let accentColor: Color
     let onTap: () -> Void
@@ -479,22 +313,22 @@ private struct PollOptionRow: View {
         Button(action: onTap) {
             HStack(spacing: 10) {
                 pill
-                if showsResults {
-                    Text(percentText)
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(isSelected ? accentColor : .loopedTextSecondary)
-                        .frame(minWidth: 54, alignment: .trailing)
-                }
+	                if showsResults {
+	                    Text(percentText)
+	                        .font(.loopedSubBodyMedium)
+	                        .foregroundColor((isSelected || isLeadingResult) ? accentColor : .loopedTextSecondary)
+	                        .frame(minWidth: 54, alignment: .trailing)
+	                }
             }
         }
         .buttonStyle(.plain)
     }
 
-    private var pill: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.loopedTextSecondary.opacity(0.08))
+	    private var pill: some View {
+	        GeometryReader { geo in
+	            ZStack(alignment: .leading) {
+	                RoundedRectangle(cornerRadius: 12)
+	                    .fill(Color.loopedTextSecondary.opacity(0.10))
 
                 if showsResults, option.votePercent > 0 {
                     RoundedRectangle(cornerRadius: 12)
@@ -521,87 +355,30 @@ private struct PollOptionRow: View {
         .frame(minHeight: 44)
     }
 
-    private var barFillColor: Color {
-        if isSelected {
-            return accentColor.opacity(0.22)
-        }
-        return Color.loopedTextSecondary.opacity(0.14)
-    }
-}
+	    private var barFillColor: Color {
+	        if isSelected {
+	            return accentColor.opacity(0.38)
+	        }
+	        if isLeadingResult {
+	            return accentColor.opacity(0.30)
+	        }
+	        return Color.loopedTextSecondary.opacity(0.24)
+	    }
+	}
 
 private enum VoteGate: Equatable {
     case specializationNotJoined
     case communityNotVerified
     case communityBanned
 
-    var alertTitle: String {
+    var restrictionMessage: String {
         switch self {
         case .specializationNotJoined:
-            return "Join required"
+            return "Join this major or field to vote."
         case .communityNotVerified:
-            return "Verification required"
+            return "Verify in this community to vote."
         case .communityBanned:
-            return "Unable to vote"
+            return "You’re banned from this community."
         }
     }
-
-    var inlineMessage: String {
-        switch self {
-        case .specializationNotJoined:
-            return "Join this major or field to vote in this poll."
-        case .communityNotVerified:
-            return "You must be verified in this community to vote in this poll."
-        case .communityBanned:
-            return "You can’t vote because you’re banned from this community."
-        }
-    }
-
-    var actionTitle: String? {
-        switch self {
-        case .specializationNotJoined:
-            return "Join"
-        case .communityNotVerified:
-            return "Verify"
-        case .communityBanned:
-            return nil
-        }
-    }
-
-    func primaryAction(communityId: Int?) -> PollActionError.PrimaryAction? {
-        switch self {
-        case .specializationNotJoined:
-            guard let communityId, communityId > 0 else { return nil }
-            return .joinSpecialization
-        case .communityNotVerified:
-            guard let communityId, communityId > 0 else { return nil }
-            return .verifyCommunity
-        case .communityBanned:
-            return nil
-        }
-    }
-
-    func isActionAvailable(communityId: Int?) -> Bool {
-        primaryAction(communityId: communityId) != nil
-    }
-}
-
-private struct PollActionError: Identifiable {
-    enum PrimaryAction {
-        case joinSpecialization
-        case verifyCommunity
-
-        var buttonTitle: String {
-            switch self {
-            case .joinSpecialization:
-                return "Join"
-            case .verifyCommunity:
-                return "Verify"
-            }
-        }
-    }
-
-    let id = UUID()
-    let title: String
-    let message: String
-    let primaryAction: PrimaryAction?
 }

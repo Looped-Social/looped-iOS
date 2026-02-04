@@ -178,28 +178,10 @@ struct SearchResultPerson: Identifiable {
 }
 
 struct SearchResultPost: Identifiable {
-    let id: UUID
-    let backendId: Int?
-    let content: String
-    let authorName: String
-    let timestamp: Date
-    let reactionCount: Int
+    let post: Post
 
-    init(
-        id: UUID = UUID(),
-        backendId: Int? = nil,
-        content: String,
-        authorName: String,
-        timestamp: Date,
-        reactionCount: Int
-    ) {
-        self.id = id
-        self.backendId = backendId
-        self.content = content
-        self.authorName = authorName
-        self.timestamp = timestamp
-        self.reactionCount = reactionCount
-    }
+    var id: UUID { post.id }
+    var backendId: Int? { post.backendId }
 }
 
 struct SearchResultLoop: Identifiable {

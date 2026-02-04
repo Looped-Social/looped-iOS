@@ -2,20 +2,20 @@ import Foundation
 
 @MainActor
 final class MessagingPermissionsViewModel: ObservableObject {
-    @Published var selectedPermission: MessagePermission = .company
+    @Published var selectedPermission: MessagePermission = .all
     @Published var isSaving = false
     @Published var updatingPermission: MessagePermission?
     @Published var errorMessage: String?
 
     private let userService: UserServiceProtocol
-    private var confirmedPermission: MessagePermission = .company
+    private var confirmedPermission: MessagePermission = .all
 
     init(userService: UserServiceProtocol = UserService()) {
         self.userService = userService
     }
 
     func load(from user: User?) {
-        let permission = user?.messagePermission ?? .company
+        let permission = user?.messagePermission ?? .all
         selectedPermission = permission
         confirmedPermission = permission
         errorMessage = nil

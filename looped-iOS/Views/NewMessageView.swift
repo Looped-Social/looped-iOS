@@ -178,6 +178,7 @@ struct NewMessageView: View {
                     onMembersAdded?()
                     dismiss()
                 } catch {
+                    presentChatActionError(error)
                 }
             }
             return
@@ -205,6 +206,7 @@ struct NewMessageView: View {
                 onChatSelected(nil, channel)
                 dismiss()
             } catch {
+                presentChatActionError(error)
             }
         }
     }
@@ -231,6 +233,11 @@ struct NewMessageView: View {
         } else {
             errorMessage = error.localizedDescription
         }
+        showErrorAlert = true
+    }
+
+    private func presentChatActionError(_ error: Error) {
+        errorMessage = error.localizedDescription
         showErrorAlert = true
     }
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SearchResultsView: View {
     @StateObject private var viewModel = SearchResultsViewModel()
-    @StateObject private var commentsManager = CommentsModalManager()
+    @EnvironmentObject private var commentsManager: CommentsModalManager
     @Environment(\.dismiss) private var dismiss
     @FocusState private var searchFieldFocused: Bool
     @State private var selectedHashtag: String?
@@ -109,6 +109,17 @@ struct SearchResultsView: View {
                 .hidden()
             )
         }
+        .overlay(
+            Group {
+                if commentsManager.isPresented, let post = commentsManager.currentPost {
+                    CommentsNavigationHost(post: post) {
+                        commentsManager.dismissComments()
+                    }
+                    .environmentObject(commentsManager)
+                    .transition(.move(edge: .trailing))
+                }
+            }
+        )
         .onAppear {
             searchFieldFocused = true
         }
@@ -154,8 +165,8 @@ struct SearchResultsView: View {
             // Then profile/other results
             SearchResultsSection(
                 results: viewModel.searchResults,
-                onPostTap: { _ in
-                    // Navigate to post detail
+                onPostTap: { searchPost in
+                    commentsManager.showComments(for: searchPost.post)
                 },
                 onLoopTap: { loop in
                     if let community = CommunityProfileData(loop: loop) {
@@ -247,6 +258,7 @@ struct SearchResultsView: View {
 
 #Preview {
     SearchResultsView()
+        .environmentObject(CommentsModalManager())
         .environmentObject(FeedViewModel())
         .environmentObject(AuthViewModel())
 }

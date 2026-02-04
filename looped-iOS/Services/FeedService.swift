@@ -228,12 +228,11 @@ class FeedService: FeedServiceProtocol {
         } else {
             response = try await apiClient.put(
                 "/v1/posts/\(postId)/repost",
-                body: EmptyBody()
+                expecting: PostRepostResponseDTO.self
             )
         }
         return PostRepostResponse(
             postId: response.postId,
-            repostCount: response.repostCount,
             viewerHasReposted: response.viewerHasReposted
         )
     }
@@ -263,7 +262,6 @@ class FeedService: FeedServiceProtocol {
         }
         return PostRepostResponse(
             postId: response.postId,
-            repostCount: response.repostCount,
             viewerHasReposted: response.viewerHasReposted
         )
     }

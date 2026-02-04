@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import UIKit
+import PhotosUI
 
 struct ChatDetailsView: View {
     let conversation: Conversation?
@@ -11,11 +12,15 @@ struct ChatDetailsView: View {
     @AppStorage("anonymousMode") private var isAnonymousMode = false
 
     @State private var groupName: String
+    @State private var editedGroupName: String
+    @State private var isUpdatingGroupName = false
     @State private var isMuted = false
     @State private var isSyncingMuteState = false
     @State private var isUpdatingMute = false
+    @FocusState private var isGroupNameFocused: Bool
     @State private var showAddMembers = false
     @State private var showLeaveGroupAlert = false
+    @State private var showDeleteGroupAlert = false
     @State private var showBlockUserAlert = false
     @State private var currentMemberIds: [UUID]
     @State private var members: [ChannelMember] = []
@@ -23,13 +28,33 @@ struct ChatDetailsView: View {
     @State private var toastMessage: ToastMessage?
     @State private var memberPendingRemoval: ChannelMember?
     @State private var isLeavingGroup = false
+    @State private var isDeletingGroup = false
     @State private var isBlockingUser = false
+    @State private var selectedGroupPhoto: PhotosPickerItem?
+    @State private var pendingGroupPhotoCropImage: UIImage?
+    @State private var isShowingGroupPhotoCropper = false
+    @State private var isUpdatingGroupPhoto = false
+    @State private var groupPhotoPreview: UIImage?
+    @State private var groupPhotoUrlOverride: String?? = nil
 
     private let messageService: MessageServiceProtocol = MessageService()
     private let blockService: BlockServiceProtocol = BlockService()
+    private let mediaService: MediaServiceProtocol = MediaService()
 
     private var isGroupChat: Bool {
         return channel != nil
+    }
+
+    private var canEditGroupName: Bool {
+        channel?.viewerCanManageMembers ?? false
+    }
+
+    private var canEditGroupPhoto: Bool {
+        canEditGroupName
+    }
+
+    private var effectiveGroupPhotoUrl: String? {
+        groupPhotoUrlOverride ?? channel?.photoUrl
     }
 
     private enum MuteTarget: Equatable {
@@ -69,6 +94,14 @@ struct ChatDetailsView: View {
         return channel?.memberCount ?? currentMemberIds.count
     }
 
+    private var isCurrentUserOwner: Bool {
+        guard let currentUserId = authViewModel.currentUser?.backendId else { return false }
+        if let ownerUserId = channel?.ownerUserId {
+            return ownerUserId == currentUserId
+        }
+        return members.first(where: { $0.isOwner })?.backendUserId == currentUserId
+    }
+
     init(conversation: Conversation?, channel: Channel?, onChatShouldClose: (() -> Void)? = nil) {
         self.conversation = conversation
         self.channel = channel
@@ -81,10 +114,13 @@ struct ChatDetailsView: View {
         // Initialize state with current values
         if let channel = channel {
             _groupName = State(initialValue: channel.name)
+            _editedGroupName = State(initialValue: channel.name)
         } else if let conversation = conversation {
             _groupName = State(initialValue: "")
+            _editedGroupName = State(initialValue: "")
         } else {
             _groupName = State(initialValue: "")
+            _editedGroupName = State(initialValue: "")
         }
 
         _isMuted = State(initialValue: conversation?.isMuted ?? false)
@@ -99,14 +135,17 @@ struct ChatDetailsView: View {
                         // Large profile photo
                         ZStack(alignment: .bottomTrailing) {
                             if isGroupChat {
-                                Circle()
-                                    .fill(Color.loopedSecondary)
-                                    .frame(width: 120, height: 120)
-                                    .overlay(
-                                        Text(groupInitials)
-                                            .font(.loopedCustom(.bold, size: 40))
-                                            .foregroundColor(.loopedWhite)
-                                    )
+                                Group {
+                                    if let groupPhotoPreview {
+                                        Image(uiImage: groupPhotoPreview)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 120, height: 120)
+                                            .clipShape(Circle())
+                                    } else {
+                                        GroupAvatarView(name: groupName, photoUrl: effectiveGroupPhotoUrl, size: 120)
+                                    }
+                                }
                             } else {
                                 ProfileAvatarView(
                                     imageURL: conversation?.userProfileImageUrl,
@@ -115,18 +154,27 @@ struct ChatDetailsView: View {
                                 )
                             }
 
-                            if isGroupChat {
-                                Button(action: {
-                                    toastMessage = ToastMessage(text: "Group photos aren't supported yet.", kind: .info)
-                                }) {
+                            if isGroupChat, canEditGroupPhoto {
+                                PhotosPicker(selection: $selectedGroupPhoto, matching: .images) {
                                     Circle()
                                         .fill(Color.loopedPrimary)
                                         .frame(width: 36, height: 36)
                                         .overlay(
-                                            Image(systemName: "camera.fill")
-                                                .font(.loopedCustom(size: 16))
-                                                .foregroundColor(.loopedWhite)
+                                            Group {
+                                                if isUpdatingGroupPhoto {
+                                                    ProgressView()
+                                                        .tint(.loopedWhite)
+                                                } else {
+                                                    Image(systemName: "camera.fill")
+                                                        .font(.loopedCustom(size: 16))
+                                                        .foregroundColor(.loopedWhite)
+                                                }
+                                            }
                                         )
+                                }
+                                .disabled(isUpdatingGroupPhoto)
+                                .onChange(of: selectedGroupPhoto) { _, newValue in
+                                    Task { await handleGroupPhotoSelection(newValue) }
                                 }
                                 .offset(x: -5, y: -5)
                             }
@@ -134,9 +182,42 @@ struct ChatDetailsView: View {
 
                         // Name section
                         if isGroupChat {
-                            Text(groupName)
-                                .font(.loopedHeadingMedium)
-                                .foregroundColor(.loopedTextPrimary)
+                            if canEditGroupName {
+                                HStack(spacing: 8) {
+                                    TextField("Group name", text: $editedGroupName)
+                                        .font(.loopedHeadingMedium)
+                                        .foregroundColor(.loopedTextPrimary)
+                                        .multilineTextAlignment(.center)
+                                        .textFieldStyle(.plain)
+                                        .focused($isGroupNameFocused)
+                                        .submitLabel(.done)
+                                        .disabled(isUpdatingGroupName)
+                                        .onSubmit {
+                                            Task { await saveGroupNameIfNeeded() }
+                                        }
+                                        .frame(maxWidth: .infinity)
+
+                                    Button(action: { isGroupNameFocused = true }) {
+                                        if isUpdatingGroupName {
+                                            ProgressView()
+                                                .tint(.loopedPrimary)
+                                        } else {
+                                            Image(systemName: "pencil")
+                                                .font(.loopedCustom(size: 18))
+                                                .foregroundColor(.loopedPrimary)
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .loopedTapTarget(minSize: 44)
+                                    .disabled(isUpdatingGroupName)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 24)
+                            } else {
+                                Text(groupName)
+                                    .font(.loopedHeadingMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                            }
 
                             Text("\(memberCount) members")
                                 .font(.loopedBody)
@@ -218,9 +299,13 @@ struct ChatDetailsView: View {
                     // Danger Zone
                     if isGroupChat {
                         Button(action: {
-                            showLeaveGroupAlert = true
+                            if isCurrentUserOwner {
+                                showDeleteGroupAlert = true
+                            } else {
+                                showLeaveGroupAlert = true
+                            }
                         }) {
-                            Text("Leave Group")
+                            Text(isCurrentUserOwner ? "Delete Group" : "Leave Group")
                                 .font(.loopedBodyMedium)
                                 .foregroundColor(.loopedError)
                                 .frame(maxWidth: .infinity)
@@ -230,7 +315,7 @@ struct ChatDetailsView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
-                        .disabled(isLeavingGroup)
+                        .disabled(isLeavingGroup || isDeletingGroup)
                     }
 
                     Spacer(minLength: 40)
@@ -262,6 +347,36 @@ struct ChatDetailsView: View {
                 onChatSelected: { _, _ in },
                 channelToAddMembers: channel
             )
+        }
+        .sheet(isPresented: $isShowingGroupPhotoCropper) {
+            if let pendingGroupPhotoCropImage {
+                ProfileImageCropperView(
+                    image: pendingGroupPhotoCropImage,
+                    onCancel: {
+                        isShowingGroupPhotoCropper = false
+                        self.pendingGroupPhotoCropImage = nil
+                        selectedGroupPhoto = nil
+                    },
+                    onConfirm: { cropped in
+                        let prepared = cropped.normalizedOrientation().resized(maxDimension: 1024)
+                        groupPhotoPreview = prepared
+                        isShowingGroupPhotoCropper = false
+                        self.pendingGroupPhotoCropImage = nil
+                        selectedGroupPhoto = nil
+                        Task { await uploadGroupPhoto(prepared) }
+                    }
+                )
+            } else {
+                EmptyView()
+            }
+        }
+        .alert("Delete Group", isPresented: $showDeleteGroupAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                Task { await deleteGroup() }
+            }
+        } message: {
+            Text("Delete this group for everyone? This can’t be undone.")
         }
         .alert("Leave Group", isPresented: $showLeaveGroupAlert) {
             Button("Cancel", role: .cancel) { }
@@ -337,8 +452,18 @@ struct ChatDetailsView: View {
                 await revertMuteToggle(to: oldValue, message: userFacingMuteError(error))
             }
         case .channel(let id):
-            MutedChatStore.shared.setChannelMuted(newValue, channelId: id)
-            toastMessage = ToastMessage(text: newValue ? "Notifications muted" : "Notifications unmuted", kind: .success)
+            isUpdatingMute = true
+            defer { isUpdatingMute = false }
+            do {
+                let persisted = try await messageService.updateChannelPreferences(channelBackendId: id, muted: newValue)
+                MutedChatStore.shared.setChannelMuted(persisted, channelId: id)
+                toastMessage = ToastMessage(text: persisted ? "Notifications muted" : "Notifications unmuted", kind: .success)
+                if persisted != newValue {
+                    await revertMuteToggle(to: persisted, message: nil)
+                }
+            } catch {
+                await revertMuteToggle(to: oldValue, message: userFacingMuteError(error))
+            }
         }
     }
 
@@ -358,9 +483,9 @@ struct ChatDetailsView: View {
             case "anonymous_not_allowed":
                 return "Mute isn’t available in anonymous mode."
             case "forbidden":
-                return "You can’t mute this conversation."
+                return "You can’t mute this chat."
             case "not_found":
-                return "This conversation no longer exists."
+                return "This chat no longer exists."
             case "user_not_provisioned":
                 return "Messaging isn’t ready yet. Try again."
             default:
@@ -370,19 +495,158 @@ struct ChatDetailsView: View {
         return error.localizedDescription
     }
 
-    private var groupInitials: String {
-        let rawTitle = channel?.name ?? groupName
-        let components = rawTitle.split(separator: " ")
-        let initials = components.compactMap { component -> Character? in
-            component.first { char in
-                char.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) }
+    @MainActor
+    private func saveGroupNameIfNeeded() async {
+        guard canEditGroupName, let channel else { return }
+
+        let trimmed = editedGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            editedGroupName = groupName
+            toastMessage = ToastMessage(text: "Group name can’t be empty.", kind: .info)
+            return
+        }
+        guard trimmed != groupName else { return }
+
+        isUpdatingGroupName = true
+        defer { isUpdatingGroupName = false }
+
+        do {
+            try await messageService.updateChannel(channelBackendId: channel.backendId, name: trimmed)
+            groupName = trimmed
+            editedGroupName = trimmed
+            toastMessage = ToastMessage(text: "Group name updated", kind: .success)
+            NotificationCenter.default.post(
+                name: Foundation.Notification.Name("ChatChannelUpdated"),
+                object: nil,
+                userInfo: [
+                    "channelBackendId": channel.backendId,
+                    "name": trimmed
+                ]
+            )
+        } catch {
+            editedGroupName = groupName
+            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+        }
+    }
+
+    @MainActor
+    private func handleGroupPhotoSelection(_ newValue: PhotosPickerItem?) async {
+        guard canEditGroupPhoto else { return }
+        guard let newValue else { return }
+        do {
+            guard let data = try await newValue.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else {
+                toastMessage = ToastMessage(text: "Couldn't read that photo. Try another one.", kind: .error)
+                return
+            }
+            pendingGroupPhotoCropImage = image.normalizedOrientation().resized(maxDimension: 1024)
+            isShowingGroupPhotoCropper = true
+        } catch {
+            toastMessage = ToastMessage(text: "Couldn't load that photo. Try another one.", kind: .error)
+        }
+    }
+
+    @MainActor
+    private func uploadGroupPhoto(_ image: UIImage) async {
+        guard canEditGroupPhoto, let channel else { return }
+        guard !isUpdatingGroupPhoto else { return }
+
+        guard let payload = makeUploadPayload(from: image) else {
+            groupPhotoPreview = nil
+            toastMessage = ToastMessage(text: "That photo couldn’t be uploaded. Try another one.", kind: .error)
+            return
+        }
+
+        isUpdatingGroupPhoto = true
+        defer { isUpdatingGroupPhoto = false }
+
+        do {
+            let asset = try await mediaService.uploadImage(
+                data: payload.data,
+                mimeType: payload.mimeType,
+                width: payload.width,
+                height: payload.height
+            )
+            let updatedChannel = try await messageService.updateChannelPhoto(
+                channelBackendId: channel.backendId,
+                photoMediaAssetId: asset.id
+            )
+            groupPhotoUrlOverride = .some(updatedChannel.photoUrl)
+            if updatedChannel.photoUrl != nil {
+                groupPhotoPreview = nil
+            }
+            toastMessage = ToastMessage(text: "Group photo updated", kind: .success)
+            NotificationCenter.default.post(
+                name: Foundation.Notification.Name("ChatChannelUpdated"),
+                object: nil,
+                userInfo: [
+                    "channelBackendId": channel.backendId,
+                    "photoUrl": updatedChannel.photoUrl ?? NSNull()
+                ]
+            )
+        } catch {
+            groupPhotoPreview = nil
+            toastMessage = ToastMessage(text: userFacingGroupPhotoError(error), kind: .error)
+        }
+    }
+
+    private struct ImageUploadPayload {
+        let data: Data
+        let mimeType: String
+        let width: Int
+        let height: Int
+    }
+
+    private func makeUploadPayload(from image: UIImage) -> ImageUploadPayload? {
+        let width = Int(image.size.width * image.scale)
+        let height = Int(image.size.height * image.scale)
+
+        if imageHasAlpha(image), let pngData = image.pngData() {
+            return ImageUploadPayload(data: pngData, mimeType: "image/png", width: width, height: height)
+        }
+
+        if let jpegData = image.jpegData(compressionQuality: 0.85) {
+            return ImageUploadPayload(data: jpegData, mimeType: "image/jpeg", width: width, height: height)
+        }
+
+        return nil
+    }
+
+    private func imageHasAlpha(_ image: UIImage) -> Bool {
+        guard let alphaInfo = image.cgImage?.alphaInfo else { return false }
+        switch alphaInfo {
+        case .first, .last, .premultipliedFirst, .premultipliedLast:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func userFacingGroupPhotoError(_ error: Error) -> String {
+        if case let APIError.apiError(_, apiError, message) = error {
+            switch apiError {
+            case "user_not_provisioned":
+                return "Messaging isn’t ready yet. Try again."
+            case "anonymous_not_allowed":
+                return "Group photos aren’t available in anonymous mode."
+            case "forbidden":
+                return "You don’t have permission to edit this group."
+            case "not_found":
+                return "This group could not be found."
+            case "media_asset_not_found":
+                return "That photo couldn't be found. Try uploading again."
+            case "media_asset_forbidden":
+                return "That photo isn't linked to your account. Try uploading again."
+            case "invalid_channel_photo":
+                return "That file isn't a supported image type."
+            default:
+                if let message, !message.isEmpty {
+                    return message
+                }
+                return apiError
             }
         }
-        .prefix(2)
-        .map { String($0).uppercased() }
-        .joined()
-
-        return initials.isEmpty ? "GC" : initials
+        return error.localizedDescription
     }
 
     @ViewBuilder
@@ -461,6 +725,10 @@ struct ChatDetailsView: View {
             toastMessage = ToastMessage(text: "Sign in again to leave this group.", kind: .error)
             return
         }
+        guard !isCurrentUserOwner else {
+            toastMessage = ToastMessage(text: "Owners can’t leave a group. Delete it instead.", kind: .info)
+            return
+        }
 
         isLeavingGroup = true
         defer { isLeavingGroup = false }
@@ -471,8 +739,69 @@ struct ChatDetailsView: View {
             dismiss()
             onChatShouldClose?()
         } catch {
-            toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+            let message: String
+            if case let APIError.apiError(_, apiError, _) = error, apiError == "forbidden" {
+                message = "Owners can’t leave a group. Delete it instead."
+            } else {
+                message = error.localizedDescription
+            }
+            toastMessage = ToastMessage(text: message, kind: .error)
         }
+    }
+
+    private func deleteGroup() async {
+        guard let channel else { return }
+        guard let currentUserId = authViewModel.currentUser?.backendId else {
+            toastMessage = ToastMessage(text: "Sign in again to delete this group.", kind: .error)
+            return
+        }
+        guard isCurrentUserOwner else {
+            toastMessage = ToastMessage(text: "Only the group owner can delete it.", kind: .info)
+            return
+        }
+        guard !isDeletingGroup else { return }
+
+        isDeletingGroup = true
+        defer { isDeletingGroup = false }
+
+        do {
+            try await messageService.deleteChannel(channelBackendId: channel.backendId)
+            toastMessage = ToastMessage(text: "Group deleted", kind: .success)
+            MutedChatStore.shared.setChannelMuted(false, channelId: channel.backendId)
+            NotificationCenter.default.post(
+                name: Foundation.Notification.Name("ChatChannelDeleted"),
+                object: nil,
+                userInfo: [
+                    "channelBackendId": channel.backendId,
+                    "deletedByUserId": currentUserId
+                ]
+            )
+            dismiss()
+            onChatShouldClose?()
+        } catch {
+            toastMessage = ToastMessage(text: userFacingGroupDeleteError(error), kind: .error)
+        }
+    }
+
+    private func userFacingGroupDeleteError(_ error: Error) -> String {
+        if case let APIError.apiError(_, apiError, message) = error {
+            switch apiError {
+            case "user_not_provisioned":
+                return "Messaging isn’t ready yet. Try again."
+            case "anonymous_not_allowed":
+                return "You must use your verified profile to delete this group."
+            case "forbidden":
+                return "You don’t have permission to delete this group."
+            case "not_found":
+                return "This group could not be found."
+            default:
+                if let message, !message.isEmpty {
+                    return message
+                }
+                return apiError
+            }
+        }
+        return error.localizedDescription
     }
 
     private func blockUser() async {

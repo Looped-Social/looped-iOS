@@ -94,8 +94,10 @@ struct AnonymousRecoveryView: View {
                 SecureField("Enter a passphrase", text: $backupPassphrase)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .foregroundColor(.loopedTextPrimary)
+                    .tint(.loopedPrimary)
                     .padding(12)
-                    .background(Color.loopedWhite)
+                    .background(Color.loopedBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
@@ -107,8 +109,10 @@ struct AnonymousRecoveryView: View {
                 SecureField("Re-enter passphrase", text: $backupPassphraseConfirm)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .foregroundColor(.loopedTextPrimary)
+                    .tint(.loopedPrimary)
                     .padding(12)
-                    .background(Color.loopedWhite)
+                    .background(Color.loopedBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
@@ -201,8 +205,10 @@ struct AnonymousRecoveryView: View {
                 TextField("Paste your recovery code", text: $restoreBlobId)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .foregroundColor(.loopedTextPrimary)
+                    .tint(.loopedPrimary)
                     .padding(12)
-                    .background(Color.loopedWhite)
+                    .background(Color.loopedBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
@@ -214,8 +220,10 @@ struct AnonymousRecoveryView: View {
                 SecureField("Enter passphrase", text: $restorePassphrase)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .foregroundColor(.loopedTextPrimary)
+                    .tint(.loopedPrimary)
                     .padding(12)
-                    .background(Color.loopedWhite)
+                    .background(Color.loopedBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 

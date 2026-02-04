@@ -16,6 +16,18 @@ private enum ChatConversationReadUpdate {
     static let conversationBackendIdKey = "conversationBackendId"
 }
 
+private enum ChatChannelUpdate {
+    static let name = Foundation.Notification.Name("ChatChannelUpdated")
+    static let channelBackendIdKey = "channelBackendId"
+    static let nameKey = "name"
+    static let photoUrlKey = "photoUrl"
+}
+
+private enum ChatChannelDelete {
+    static let name = Foundation.Notification.Name("ChatChannelDeleted")
+    static let channelBackendIdKey = "channelBackendId"
+}
+
 @MainActor
 class MessagesViewModel: ObservableObject {
     @Published var channels: [Channel] = []
@@ -72,6 +84,50 @@ class MessagesViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: ChatChannelUpdate.name)
+            .compactMap { notification -> (Int, String?, String??)? in
+                guard let backendId = notification.userInfo?[ChatChannelUpdate.channelBackendIdKey] as? Int else { return nil }
+                let name: String?
+                if let rawName = notification.userInfo?[ChatChannelUpdate.nameKey] as? String {
+                    let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    name = trimmed.isEmpty ? nil : trimmed
+                } else {
+                    name = nil
+                }
+
+                let photoUrlUpdate: String??
+                if let rawPhotoValue = notification.userInfo?[ChatChannelUpdate.photoUrlKey] {
+                    if rawPhotoValue is NSNull {
+                        photoUrlUpdate = .some(nil)
+                    } else if let rawPhotoUrl = rawPhotoValue as? String {
+                        photoUrlUpdate = .some(rawPhotoUrl)
+                    } else {
+                        photoUrlUpdate = nil
+                    }
+                } else {
+                    photoUrlUpdate = nil
+                }
+
+                return (backendId, name, photoUrlUpdate)
+            }
+            .sink { [weak self] backendId, name, photoUrlUpdate in
+                Task { @MainActor in
+                    self?.applyChannelUpdate(channelBackendId: backendId, name: name, photoUrlUpdate: photoUrlUpdate)
+                }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: ChatChannelDelete.name)
+            .compactMap { notification -> Int? in
+                notification.userInfo?[ChatChannelDelete.channelBackendIdKey] as? Int
+            }
+            .sink { [weak self] backendId in
+                Task { @MainActor in
+                    self?.channels.removeAll { $0.backendId == backendId }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func applyConversationPreviewUpdate(conversationBackendId: Int, previewText: String, timestamp: Date) {
@@ -122,6 +178,27 @@ class MessagesViewModel: ObservableObject {
         conversations[existingIndex] = updated
     }
 
+    private func applyChannelUpdate(channelBackendId: Int, name: String?, photoUrlUpdate: String??) {
+        guard let existingIndex = channels.firstIndex(where: { $0.backendId == channelBackendId }) else { return }
+        let existing = channels[existingIndex]
+        let updatedName = name ?? existing.name
+        let updatedPhotoUrl = photoUrlUpdate ?? existing.photoUrl
+
+        let updated = Channel(
+            id: existing.id,
+            backendId: existing.backendId,
+            name: updatedName,
+            photoUrl: updatedPhotoUrl,
+            company: existing.company,
+            memberCount: existing.memberCount,
+            isPublic: existing.isPublic,
+            createdAt: existing.createdAt,
+            ownerUserId: existing.ownerUserId,
+            viewerCanManageMembers: existing.viewerCanManageMembers
+        )
+        channels[existingIndex] = updated
+    }
+
     func loadChannels() async {
         isLoadingChannels = true
         channelErrorMessage = nil
@@ -153,21 +230,39 @@ class MessagesViewModel: ObservableObject {
 
     func loadInbox() async {
         isLoading = true
+        isLoadingChannels = true
         errorMessage = nil
+        channelErrorMessage = nil
+
+        defer {
+            isLoading = false
+            isLoadingChannels = false
+        }
 
         do {
-            async let conversationsPage = messageService.listConversations(cursor: nil)
-            async let requestsPage = messageService.fetchMessageRequests(cursor: nil)
-            let (conversationResult, requestsResult) = try await (conversationsPage, requestsPage)
-            conversations = conversationResult.conversations
+            let page = try await messageService.listConversations(cursor: nil)
+            conversations = page.conversations
             syncMutedConversationStore(with: conversations)
-            messageRequests = requestsResult.requests.filter { $0.status == .pending }
-            await hydrateSenderProfiles(for: messageRequests)
         } catch {
             errorMessage = error.localizedDescription
         }
 
-        isLoading = false
+        do {
+            let page = try await messageService.fetchMessageRequests(cursor: nil)
+            messageRequests = page.requests.filter { $0.status == .pending }
+            await hydrateSenderProfiles(for: messageRequests)
+        } catch {
+            if errorMessage == nil || errorMessage?.isEmpty == true {
+                errorMessage = error.localizedDescription
+            }
+        }
+
+        do {
+            let page = try await messageService.getChannels(cursor: nil)
+            channels = page.channels
+        } catch {
+            channelErrorMessage = error.localizedDescription
+        }
     }
 
     private func syncMutedConversationStore(with conversations: [Conversation]) {
@@ -342,6 +437,7 @@ class ChatViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var toastMessage: ToastMessage?
     @Published var messageRequestState: MessageRequestBlockState?
+    @Published private var channelMembersByUserId: [UUID: ChannelMember] = [:]
     
     private let messageService: MessageServiceProtocol
     private let messageMediaService: MessageMediaServiceProtocol
@@ -352,6 +448,8 @@ class ChatViewModel: ObservableObject {
     private var nextCursor: String?
     private var pollingTask: Task<Void, Never>?
     private let pollingIntervalNanoseconds: UInt64 = 2_500_000_000
+    private var loadedMemberChannelBackendId: Int?
+    private var isLoadingChannelMembers = false
 
     init(
         messageService: MessageServiceProtocol = MessageService(),
@@ -362,6 +460,10 @@ class ChatViewModel: ObservableObject {
         self.messageMediaService = messageMediaService
         self.webSocketService = webSocketService
         setupWebSocketListeners()
+    }
+
+    func senderAvatarURL(for message: Message) -> String? {
+        channelMembersByUserId[message.senderId]?.profileImageUrl
     }
     
     func configure(conversationBackendId: Int? = nil, channelBackendId: Int? = nil) {
@@ -393,8 +495,9 @@ class ChatViewModel: ObservableObject {
 
         do {
             let page = try await messageService.getChannelMessages(channelBackendId: channel.backendId, cursor: nil)
-            messages = page.messages
+            messages = page.messages.map(hydratedMessage)
             nextCursor = page.nextCursor
+            Task { await loadChannelMembers(channelBackendId: channel.backendId) }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -409,8 +512,9 @@ class ChatViewModel: ObservableObject {
 
         do {
             let page = try await messageService.getChannelMessages(channelBackendId: channelBackendId, cursor: nil)
-            messages = page.messages
+            messages = page.messages.map(hydratedMessage)
             nextCursor = page.nextCursor
+            Task { await loadChannelMembers(channelBackendId: channelBackendId) }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -459,7 +563,7 @@ class ChatViewModel: ObservableObject {
                 content: resolvedContent,
                 attachments: attachments.isEmpty ? nil : attachments
             )
-            messages.append(message)
+            messages.append(hydratedMessage(message))
             return true
         } catch {
             let resolved = userFacingErrorMessage(for: error)
@@ -488,7 +592,7 @@ class ChatViewModel: ObservableObject {
                 content: resolvedContent,
                 attachments: attachments.isEmpty ? nil : attachments
             )
-            messages.append(message)
+            messages.append(hydratedMessage(message))
             return true
         } catch {
             let resolved = userFacingErrorMessage(for: error)
@@ -712,8 +816,9 @@ class ChatViewModel: ObservableObject {
             .sink { [weak self] message in
                 guard let self else { return }
                 if self.messages.contains(where: { $0.backendId == message.backendId }) == false {
-                    self.messages.append(message)
-                    self.publishConversationPreviewUpdate(for: message)
+                    let hydrated = self.hydratedMessage(message)
+                    self.messages.append(hydrated)
+                    self.publishConversationPreviewUpdate(for: hydrated)
                 }
             }
             .store(in: &cancellables)
@@ -727,7 +832,7 @@ class ChatViewModel: ObservableObject {
         do {
             if let channelBackendId {
                 let page = try await messageService.getChannelMessages(channelBackendId: channelBackendId, cursor: nextCursor)
-                mergePolledMessages(page.messages)
+                mergePolledMessages(page.messages.map(hydratedMessage))
                 if let cursor = page.nextCursor { nextCursor = cursor }
                 return
             }
@@ -798,6 +903,49 @@ class ChatViewModel: ObservableObject {
             return "Media"
         }
         return "Attachment"
+    }
+
+    private func loadChannelMembers(channelBackendId: Int) async {
+        guard loadedMemberChannelBackendId != channelBackendId || channelMembersByUserId.isEmpty else { return }
+        guard !isLoadingChannelMembers else { return }
+        isLoadingChannelMembers = true
+        defer { isLoadingChannelMembers = false }
+
+        do {
+            let page = try await messageService.getChannelMembers(channelBackendId: channelBackendId, cursor: nil)
+            loadedMemberChannelBackendId = channelBackendId
+            channelMembersByUserId = Dictionary(uniqueKeysWithValues: page.members.map { ($0.id, $0) })
+            hydrateMessagesFromMembers()
+        } catch {
+            // Best-effort only; group chat can still function without member metadata.
+        }
+    }
+
+    private func hydrateMessagesFromMembers() {
+        messages = messages.map(hydratedMessage)
+    }
+
+    private func hydratedMessage(_ message: Message) -> Message {
+        guard message.messageType == .channel else { return message }
+        guard let member = channelMembersByUserId[message.senderId] else { return message }
+        let resolvedName = (member.displayName ?? member.handle).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !resolvedName.isEmpty else { return message }
+        guard message.senderDisplayName != resolvedName else { return message }
+
+        return Message(
+            id: message.id,
+            backendId: message.backendId,
+            content: message.content,
+            senderId: message.senderId,
+            senderDisplayName: resolvedName,
+            receiverId: message.receiverId,
+            conversationBackendId: message.conversationBackendId,
+            channelBackendId: message.channelBackendId,
+            messageType: message.messageType,
+            isRead: message.isRead,
+            attachments: message.attachments,
+            createdAt: message.createdAt
+        )
     }
 }
 

@@ -369,7 +369,7 @@ struct CreatePostView: View {
         .alert("Verification Required", isPresented: $showVerificationInfoAlert) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("You need to be verified in a community to post, comment, like, or repost.")
+            Text("You need to be verified in a community to post, comment, or like.")
         }
         .alert("Save draft?", isPresented: $showDraftPrompt) {
             Button("Save Draft") {
@@ -561,9 +561,9 @@ struct CreatePostView: View {
 
     private var disabledPostMessage: String {
         if isAnonymous, selectedCommunity != nil, (anonMembershipMissing || anonMembershipExpired) {
-            return "Anonymous access expired for this community. Re-enroll to post, comment, like, or repost."
+            return "Anonymous access expired for this community. Re-enroll to post, comment, or like."
         }
-        return "Verification is required to post, comment, like, or repost in a community."
+        return "Verification is required to post, comment, or like in a community."
     }
 
     private func updateAnonMembershipStatus() {

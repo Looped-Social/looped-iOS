@@ -36,6 +36,9 @@ struct CommentsView: View {
 	}
 
     private var canComment: Bool {
+        if isAnonymousMode {
+            return true
+        }
         guard let communityId = post.communityId else {
             return authViewModel.currentUser?.isVerified == true
         }
@@ -143,6 +146,7 @@ struct CommentsView: View {
             }
             .onChange(of: isAnonymousMode) { _, _ in
                 Task { await loadAnonProfileId() }
+                Task { await commentsManager.refreshCommunityPermissions() }
             }
             .onChange(of: commentsManager.editTarget?.backendId) { _, newValue in
                 if let newValue, let target = commentsManager.editTarget, target.backendId == newValue {
@@ -295,7 +299,7 @@ private extension CommentsView {
                         onVideoTap: { selection in
                             let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !trimmed.isEmpty else { return }
-                            let communityLabel = post.communityDisplayName(preferShortNames: true).map { "in \($0)" }
+                            let communityLabel = post.communityDisplayName(preferShortNames: true).map { "Posted in \($0)" }
                             selectedVideo = VideoSelection(
                                 url: trimmed,
                                 thumbnailUrl: selection.thumbnailUrl,
@@ -437,8 +441,9 @@ private extension CommentsView {
 
             HStack(alignment: .bottom, spacing: 12) {
                 ProfileAvatarView(
-                    imageURL: authViewModel.currentUser?.profileImageURL,
-                    size: 34
+                    imageURL: isAnonymousMode ? nil : authViewModel.currentUser?.profileImageURL,
+                    size: 34,
+                    variant: isAnonymousMode ? .anonymous : .standard
                 )
 
                 Button(action: { showMediaPicker = true }) {

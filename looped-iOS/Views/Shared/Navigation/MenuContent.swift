@@ -318,7 +318,7 @@ struct MyRepliesView: View {
     @StateObject private var repliesViewModel = UserRepliesViewModel()
 
     var body: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             UserRepliesList(viewModel: repliesViewModel)
                 .padding(.top, 20)
         }

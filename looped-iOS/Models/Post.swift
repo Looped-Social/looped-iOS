@@ -24,7 +24,6 @@ struct Post: Codable, Identifiable {
     let reactionCount: Int
     let commentsCount: Int
     let shareCount: Int
-    let repostCount: Int
     let viewerHasReposted: Bool
     let repostedByFollowedUsers: [RepostBannerUser]?
     let repostedByFollowedUsersCount: Int?
@@ -62,7 +61,6 @@ struct Post: Codable, Identifiable {
         reactionCount: Int,
         commentsCount: Int = 0,
         shareCount: Int = 0,
-        repostCount: Int = 0,
         viewerHasReposted: Bool = false,
         repostedByFollowedUsers: [RepostBannerUser]? = nil,
         repostedByFollowedUsersCount: Int? = nil,
@@ -99,7 +97,6 @@ struct Post: Codable, Identifiable {
         self.reactionCount = reactionCount
         self.commentsCount = commentsCount
         self.shareCount = shareCount
-        self.repostCount = repostCount
         self.viewerHasReposted = viewerHasReposted
         self.repostedByFollowedUsers = repostedByFollowedUsers
         self.repostedByFollowedUsersCount = repostedByFollowedUsersCount
@@ -190,7 +187,6 @@ extension Post {
             reactionCount: dto.likesCount ?? 0,
             commentsCount: dto.commentsCount ?? 0,
             shareCount: dto.shareCount ?? 0,
-            repostCount: dto.repostCount ?? 0,
             viewerHasReposted: dto.viewerHasReposted ?? false,
             repostedByFollowedUsers: bannerUsers,
             repostedByFollowedUsersCount: bannerCount,
@@ -211,7 +207,6 @@ extension Post {
         reactionCount: Int? = nil,
         commentsCount: Int? = nil,
         shareCount: Int? = nil,
-        repostCount: Int? = nil,
         viewerHasReposted: Bool? = nil,
         repostedByFollowedUsers: [RepostBannerUser]?? = nil,
         repostedByFollowedUsersCount: Int?? = nil,
@@ -234,7 +229,6 @@ extension Post {
         let resolvedReactionCount = reactionCount ?? self.reactionCount
         let resolvedCommentsCount = commentsCount ?? self.commentsCount
         let resolvedShareCount = shareCount ?? self.shareCount
-        let resolvedRepostCount = repostCount ?? self.repostCount
         let resolvedViewerHasReposted = viewerHasReposted ?? self.viewerHasReposted
         let resolvedRepostedByFollowedUsers: [RepostBannerUser]? = repostedByFollowedUsers ?? self.repostedByFollowedUsers
         let resolvedRepostedByFollowedUsersCount: Int? = repostedByFollowedUsersCount ?? self.repostedByFollowedUsersCount
@@ -269,7 +263,6 @@ extension Post {
             reactionCount: resolvedReactionCount,
             commentsCount: resolvedCommentsCount,
             shareCount: resolvedShareCount,
-            repostCount: resolvedRepostCount,
             viewerHasReposted: resolvedViewerHasReposted,
             repostedByFollowedUsers: resolvedRepostedByFollowedUsers,
             repostedByFollowedUsersCount: resolvedRepostedByFollowedUsersCount,

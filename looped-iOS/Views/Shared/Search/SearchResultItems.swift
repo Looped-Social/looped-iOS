@@ -41,44 +41,96 @@ struct PersonSearchResultItem: View {
 struct PostSearchResultItem: View {
     let post: SearchResultPost
     let onTap: () -> Void
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(post.authorName)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    Spacer()
-
-                    Text(timeAgoString(from: post.timestamp))
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                }
-
-                LinkifiedText(
-                    post.content,
-                    font: .loopedBody,
-                    textColor: .loopedTextPrimary,
-                    linkColor: .loopedPrimary
+            HStack(alignment: .top, spacing: 12) {
+                ProfileAvatarView(
+                    imageURL: post.post.isAnonymous ? nil : post.post.authorProfileImageURL,
+                    size: 40,
+                    variant: post.post.isAnonymous ? .anonymous : .standard
                 )
-                .multilineTextAlignment(.leading)
-                .lineLimit(3)
 
-                HStack {
-                    Text("\(post.reactionCount) reactions")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        authorAndCommunityLine
+                            .font(.loopedBodyMedium)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .layoutPriority(1)
 
-                    Spacer()
+                        Spacer(minLength: 0)
+
+                        Text(timeAgoString(from: post.post.createdAt))
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+
+                    postContentPreview
                 }
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+
+    private var communityContextText: String? {
+        if let name = post.post.communityDisplayName(preferShortNames: preferCommunityShortNames) {
+            return "Posting in \(name)"
+        }
+        if let kind = post.post.communityKind, kind != .unknown {
+            return "Posting in \(kind.rawValue.capitalized)"
+        }
+        return nil
+    }
+
+    private var authorAndCommunityLine: Text {
+        let author = post.post.resolvedAuthorName
+        if let communityContextText {
+            return Text(author)
+                .foregroundColor(.loopedTextPrimary)
+            + Text(" • ")
+                .foregroundColor(.loopedTextSecondary)
+            + Text(communityContextText)
+                .foregroundColor(.loopedTextSecondary)
+        }
+        return Text(author)
+            .foregroundColor(.loopedTextPrimary)
+    }
+
+    @ViewBuilder
+    private var postContentPreview: some View {
+        let trimmed = post.post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            Text("View post")
+                .font(.loopedBody)
+                .foregroundColor(.loopedTextSecondary)
+                .lineLimit(2)
+        } else if trimmed.contains("#") {
+            HashtagText(
+                text: trimmed,
+                font: .loopedBody,
+                textColor: .loopedTextPrimary,
+                hashtagColor: .loopedPrimary,
+                onHashtagTap: { _ in }
+            )
+            .multilineTextAlignment(.leading)
+            .lineLimit(3)
+        } else {
+            LinkifiedText(
+                trimmed,
+                font: .loopedBody,
+                textColor: .loopedTextPrimary,
+                linkColor: .loopedPrimary
+            )
+            .multilineTextAlignment(.leading)
+            .lineLimit(3)
+        }
     }
 
     private func timeAgoString(from date: Date) -> String {

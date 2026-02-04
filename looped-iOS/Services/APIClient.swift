@@ -180,6 +180,26 @@ class APIClient {
         return try await performRequest(request)
     }
 
+    func put<T: Decodable>(
+        _ endpoint: String,
+        expecting: T.Type,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> T {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
+
+        return try await performRequest(request)
+    }
+
     func putData<T: Encodable>(
         _ endpoint: String,
         body: T,
@@ -189,6 +209,52 @@ class APIClient {
         let url = makeURL(for: endpoint)
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        return try await performRequestData(request)
+    }
+
+    func patch<T: Encodable, U: Decodable>(
+        _ endpoint: String,
+        body: T,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> U {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        headers.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if requiresAuth {
+            await addAuthHeader(&request)
+        }
+
+        request.httpBody = try JSONEncoder().encode(body)
+
+        return try await performRequest(request)
+    }
+
+    func patchData<T: Encodable>(
+        _ endpoint: String,
+        body: T,
+        requiresAuth: Bool = true,
+        headers: [String: String] = [:]
+    ) async throws -> Data {
+        let url = makeURL(for: endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         headers.forEach { key, value in

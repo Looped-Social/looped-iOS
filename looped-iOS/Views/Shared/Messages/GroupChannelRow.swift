@@ -3,22 +3,9 @@ import SwiftUI
 struct GroupChannelRow: View {
     let channel: Channel
 
-    private var groupInitials: String {
-        let words = channel.name.split(separator: " ")
-        let initials = words.prefix(2).compactMap { $0.first }.map { String($0).uppercased() }.joined()
-        return initials.isEmpty ? "GC" : initials
-    }
-
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(Color.loopedSecondary)
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Text(groupInitials)
-                        .font(.loopedCustom(.semibold, size: 16))
-                        .foregroundColor(.loopedWhite)
-                )
+            GroupAvatarView(name: channel.name, photoUrl: channel.photoUrl, size: 50)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(channel.name)
@@ -44,6 +31,7 @@ struct GroupChannelRow: View {
             id: UUID(),
             backendId: 1,
             name: "Marketing Team",
+            photoUrl: nil,
             company: "",
             memberCount: 8,
             isPublic: false,

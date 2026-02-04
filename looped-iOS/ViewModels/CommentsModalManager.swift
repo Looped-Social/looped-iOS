@@ -192,11 +192,13 @@ class CommentsModalManager: ObservableObject {
 
     func postComment(content: String, media: [LocalMediaItem]) async {
         guard let postId = currentPostBackendId else { return }
-        if let permissions = communityPermissions, !permissions.canPost {
+        if !AnonService.shared.isAnonymousEnabled,
+           let permissions = communityPermissions,
+           !permissions.canPost {
             if permissions.requiresJoin {
-                errorMessage = "Join this major or field to comment, like, or repost."
+                errorMessage = "Join this major or field to comment or like."
             } else if permissions.requiresVerification {
-                errorMessage = "Verification is required to comment, like, or repost in this community."
+                errorMessage = "Verification is required to comment or like in this community."
             } else {
                 errorMessage = "You can’t comment in this community right now."
             }
@@ -443,7 +445,11 @@ class CommentsModalManager: ObservableObject {
     }
 
     private func loadPermissions() async {
-        guard let communityId = currentPost?.communityId else {
+        guard !AnonService.shared.isAnonymousEnabled else {
+            communityPermissions = nil
+            return
+        }
+        guard let communityId = currentPost?.communityId, communityId > 0 else {
             communityPermissions = nil
             return
         }

@@ -1443,7 +1443,10 @@ struct UserRepliesList: View {
                         await viewModel.loadMoreIfNeeded(current: reply)
                     }
 
-                    Divider()
+                    Rectangle()
+                        .fill(Color.loopedTextSecondary.opacity(0.25))
+                        .frame(height: 1)
+                        .frame(maxWidth: .infinity)
                         .padding(.leading, 16)
                 }
 

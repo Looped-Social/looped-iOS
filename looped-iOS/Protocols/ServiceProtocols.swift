@@ -74,7 +74,6 @@ struct PostShareResponse {
 
 struct PostRepostResponse {
     let postId: Int
-    let repostCount: Int
     let viewerHasReposted: Bool
 }
 
@@ -91,11 +90,15 @@ protocol MessageServiceProtocol {
     func listConversations(cursor: String?) async throws -> ConversationPage
     func startConversation(with participantBackendId: Int) async throws -> Conversation
     func updateConversationPreferences(conversationId: Int, muted: Bool) async throws -> Bool
+    func updateChannelPreferences(channelBackendId: Int, muted: Bool) async throws -> Bool
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage
     func sendConversationMessage(conversationId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message
     func searchMessages(query: String, limit: Int, cursor: String?) async throws -> MessageSearchPage
     func getChannels(cursor: String?) async throws -> ChannelPage
     func createChannel(name: String, memberUserIds: [Int]) async throws -> Channel
+    func updateChannel(channelBackendId: Int, name: String) async throws
+    func updateChannelPhoto(channelBackendId: Int, photoMediaAssetId: Int?) async throws -> Channel
+    func deleteChannel(channelBackendId: Int) async throws
     func getChannelMembers(channelBackendId: Int, cursor: String?) async throws -> ChannelMembersPage
     func addChannelMembers(channelBackendId: Int, userIds: [Int]) async throws -> Int
     func removeChannelMember(channelBackendId: Int, userId: Int) async throws

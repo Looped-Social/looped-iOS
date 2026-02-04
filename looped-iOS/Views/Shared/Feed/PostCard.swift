@@ -54,16 +54,18 @@ struct PostCard: View {
     @State private var isBlocking = false
     @State private var isDeleting = false
     @State private var deleteErrorMessage: String?
-	    @State private var showEditSheet = false
-	    @State private var editText = ""
-	    @State private var isEditing = false
-	    @State private var editErrorMessage: String?
-	    @State private var repostErrorMessage: String?
-	    @State private var actionError: PostActionError?
-        @State private var isJoiningSpecialization = false
+		    @State private var showEditSheet = false
+		    @State private var editText = ""
+		    @State private var isEditing = false
+		    @State private var editErrorMessage: String?
+		    @State private var repostErrorMessage: String?
+		    @State private var actionError: PostActionError?
+	        @State private var isJoiningSpecialization = false
+	        @State private var isRefreshingReactionPermissions = false
+	    @State private var showRepostersSheet = false
 
-	    private let moderationService: ModerationServiceProtocol = ModerationService()
-	    private let blockService: BlockServiceProtocol = BlockService()
+		    private let moderationService: ModerationServiceProtocol = ModerationService()
+		    private let blockService: BlockServiceProtocol = BlockService()
 
     init(
         post: Post,
@@ -102,12 +104,14 @@ struct PostCard: View {
             return "\(names[0]) and \(names[1]) reposted this"
         }
         if count > 2, names.count >= 2 {
-            return "\(names[0]), \(names[1]), and more reposted this"
+            let remaining = max(count - 2, 0)
+            return "\(names[0]), \(names[1]), and \(remaining) more reposted this"
         }
         if count > 1, let first = names.first {
-            return "\(first) and others reposted this"
+            let remaining = max(count - 1, 0)
+            return "\(first) and \(remaining) others reposted this"
         }
-        return "Reposted by people you follow"
+        return "Reposted by \(count) people"
     }
 
     private var imageUrls: [String] {
@@ -148,17 +152,6 @@ struct PostCard: View {
         return base
     }
 
-    private var displayedRepostCount: Int {
-        let base = post.repostCount
-        if isReposted, !post.viewerHasReposted {
-            return base + 1
-        }
-        if !isReposted, post.viewerHasReposted {
-            return max(base - 1, 0)
-        }
-        return base
-    }
-
     private var authorDisplayLine: String? {
         post.authorDisplaySpecializationLine(preferShortNames: preferCommunityShortNames)
     }
@@ -166,10 +159,10 @@ struct PostCard: View {
     private var communityContextText: String? {
         guard showsCommunityLabel else { return nil }
         if let name = post.communityDisplayName(preferShortNames: preferCommunityShortNames) {
-            return "in \(name)"
+            return "Posted in \(name)"
         }
         if let kind = post.communityKind, kind != .unknown {
-            return "in \(kind.rawValue.capitalized)"
+            return "Posted in \(kind.rawValue.capitalized)"
         }
         return nil
     }
@@ -250,25 +243,37 @@ struct PostCard: View {
 	        }
 	    }
 
-	    @ViewBuilder
-	    private var repostBanner: some View {
-	        if let repostBannerText {
-	            HStack(spacing: 8) {
-	                Image(systemName: "arrow.2.squarepath")
-	                    .font(.loopedCustom(.medium, size: 14))
-	                    .foregroundColor(.loopedTextSecondary)
+		    @ViewBuilder
+		    private var repostBanner: some View {
+		        if let repostBannerText {
+		            Button(action: { showRepostersSheet = true }) {
+		                HStack(spacing: 8) {
+		                    Image(systemName: "arrow.2.squarepath")
+		                        .font(.loopedCustom(.medium, size: 14))
+		                        .foregroundColor(.loopedTextSecondary)
 
-	                Text(repostBannerText)
-	                    .font(.loopedSmallText)
-	                    .foregroundColor(.loopedTextSecondary)
-	                    .lineLimit(1)
-	                    .truncationMode(.tail)
+		                    Text(repostBannerText)
+		                        .font(.loopedSmallText)
+		                        .foregroundColor(.loopedTextSecondary)
+		                        .lineLimit(1)
+		                        .truncationMode(.tail)
 
-	                Spacer(minLength: 0)
-	            }
-	            .padding(.bottom, 2)
-	        }
-	    }
+		                    Spacer(minLength: 0)
+		                }
+		                .contentShape(Rectangle())
+		            }
+		            .buttonStyle(PlainButtonStyle())
+		            .padding(.bottom, 2)
+		            .sheet(isPresented: $showRepostersSheet) {
+		                NavigationStack {
+		                    RepostersListView(
+		                        users: post.repostedByFollowedUsers ?? [],
+		                        totalCount: post.repostedByFollowedUsersCount ?? post.repostedByFollowedUsers?.count ?? 0
+		                    )
+		                }
+		            }
+		        }
+		    }
 
 	    private var likeButton: some View {
 	        Button(action: { handleLikeToggle() }) {
@@ -318,27 +323,13 @@ struct PostCard: View {
 	    private var repostButton: some View {
 	        Button(action: { toggleRepost() }) {
 	            HStack(spacing: actionLabelSpacing) {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "arrow.2.squarepath")
-                            .resizable()
-                            .renderingMode(.template)
-                            .scaledToFit()
-                            .frame(width: repostIconSize, height: repostIconSize)
-                            .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
-                            .opacity(isRepostLoading ? 0.6 : 1)
-
-                        if isReactionLocked {
-                            Image(systemName: "lock.fill")
-                                .font(.loopedCustom(.bold, size: 10))
-                                .foregroundColor(.loopedTextSecondary)
-                                .padding(3)
-                                .background(Circle().fill(Color.loopedBackground))
-                                .offset(x: 7, y: -7)
-                        }
-                    }
-	                Text("\(displayedRepostCount)")
-	                    .font(.loopedSubheadlineScaled)
-	                    .foregroundColor(.loopedTextSecondary)
+                    Image(systemName: "arrow.2.squarepath")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: repostIconSize, height: repostIconSize)
+                        .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
+                        .opacity(isRepostLoading ? 0.6 : 1)
 	            }
 	        }
 	        .disabled(isRepostLoading || post.backendId == nil)
@@ -784,8 +775,13 @@ struct PostCard: View {
                 syncViewerAnonProfileId()
                 Task { await loadCommunityPermissionsIfNeeded() }
             }
+            .onChange(of: isAnonymousMode) { _, _ in
+                hasRequestedCommunityPermissions = false
+                Task { await loadCommunityPermissionsIfNeeded() }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .communityStateChanged)) { notification in
-                guard let communityId = post.communityId else { return }
+                guard shouldLoadCommunityPermissions else { return }
+                guard let communityId = post.communityId, communityId > 0 else { return }
                 if let changed = notification.userInfo?[LoopedNotificationUserInfoKey.communityId] as? Int,
                    changed != communityId {
                     return
@@ -810,9 +806,6 @@ struct PostCard: View {
                 syncActionBarState()
             }
             .onChange(of: post.commentsCount) { _, _ in
-                syncActionBarState()
-            }
-            .onChange(of: post.repostCount) { _, _ in
                 syncActionBarState()
             }
             .onChange(of: post.shareCount) { _, _ in
@@ -850,7 +843,8 @@ struct PostCard: View {
 
     @MainActor
     private func refreshCommunityPermissions() async {
-        guard let communityId = post.communityId else { return }
+        guard shouldLoadCommunityPermissions else { return }
+        guard let communityId = post.communityId, communityId > 0 else { return }
         await CommunityPermissionsCache.shared.invalidate(communityId: communityId)
         communityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
         hasRequestedCommunityPermissions = true
@@ -1168,11 +1162,7 @@ struct PostCard: View {
 
     private func handleLikeToggle() {
         if isReactionLocked {
-            actionError = PostActionError(
-                title: reactionLockTitle,
-                message: reactionLockMessage(verb: "like"),
-                primaryAction: joinPrimaryAction
-            )
+            refreshPermissionsAndRetryReactionIfNeeded(verb: "like")
             return
         }
         guard let postId = post.backendId, !isLikeLoading else { return }
@@ -1232,6 +1222,40 @@ struct PostCard: View {
         }
     }
 
+    private func refreshPermissionsAndRetryReactionIfNeeded(verb: String) {
+        guard !isRefreshingReactionPermissions else {
+            actionError = PostActionError(
+                title: reactionLockTitle,
+                message: reactionLockMessage(verb: verb),
+                primaryAction: joinPrimaryAction
+            )
+            return
+        }
+        guard shouldLoadCommunityPermissions else {
+            actionError = PostActionError(
+                title: reactionLockTitle,
+                message: reactionLockMessage(verb: verb),
+                primaryAction: joinPrimaryAction
+            )
+            return
+        }
+
+        isRefreshingReactionPermissions = true
+        Task { @MainActor in
+            defer { isRefreshingReactionPermissions = false }
+            await refreshCommunityPermissions()
+            if isReactionLocked {
+                actionError = PostActionError(
+                    title: reactionLockTitle,
+                    message: reactionLockMessage(verb: verb),
+                    primaryAction: joinPrimaryAction
+                )
+                return
+            }
+            handleLikeToggle()
+        }
+    }
+
     private func handleDoubleTapLike() {
         if isLiked {
             triggerHeartBurst()
@@ -1257,7 +1281,6 @@ struct PostCard: View {
     private func syncActionBarState() {
         postActionState.likeCount = displayedReactionCount
         postActionState.commentCount = post.commentsCount
-        postActionState.repostCount = displayedRepostCount
         postActionState.shareCount = currentShareCount
         postActionState.isLiked = isLiked
         postActionState.isReposted = isReposted
@@ -1269,15 +1292,6 @@ struct PostCard: View {
     }
 
     private func toggleRepost() {
-        if isReactionLocked {
-            repostErrorMessage = nil
-            actionError = PostActionError(
-                title: reactionLockTitle,
-                message: reactionLockMessage(verb: "repost"),
-                primaryAction: joinPrimaryAction
-            )
-            return
-        }
         guard let postId = post.backendId, !isRepostLoading else { return }
         let previousValue = isReposted
         isReposted.toggle()
@@ -1294,7 +1308,6 @@ struct PostCard: View {
                 }
 
                 let updated = post.updating(
-                    repostCount: response.repostCount,
                     viewerHasReposted: response.viewerHasReposted,
                     updatedAt: Date()
                 )
@@ -1306,19 +1319,6 @@ struct PostCard: View {
                     handleContentUnavailable()
                     return
                 }
-                if let apiError = error as? APIError,
-                   case .apiError(_, let code, let message) = apiError,
-                   code == "specialization_not_joined",
-                   let communityId = post.communityId,
-                   communityId > 0 {
-                    repostErrorMessage = nil
-                    actionError = PostActionError(
-                        title: "Join required",
-                        message: message ?? "Join this major or field to repost.",
-                        primaryAction: PostActionError.PrimaryAction.joinSpecialization(communityId: communityId)
-                    )
-                    return
-                }
                 repostErrorMessage = repostErrorMessage(for: error)
             }
         }
@@ -1328,11 +1328,14 @@ struct PostCard: View {
 	        if let apiError = error as? APIError {
 	            switch apiError {
 	            case .apiError(_, let error, let message):
-	                if error == "community_not_verified" {
-	                    return "You must be verified in this community to repost. Verify in Settings → Community Verifications."
-	                }
-                    if error == "specialization_not_joined" {
-                        return "Join this major or field to repost."
+                    if error == "community_banned" {
+                        return "You can’t repost in this community."
+                    }
+                    if error == "forbidden" {
+                        return "You can’t repost this post."
+                    }
+                    if error == "user_not_provisioned" {
+                        return "Finish setting up your account to repost."
                     }
 	                if error == "self_repost_not_allowed" {
 	                    return "You cannot repost your own post."
@@ -1422,6 +1425,7 @@ struct PostCard: View {
     }
 
     private var isReactionLocked: Bool {
+        guard !isAnonymousMode else { return false }
         guard shouldLoadCommunityPermissions else { return false }
         guard let communityPermissions else { return false }
         let requiresGate = communityPermissions.requiresVerification || communityPermissions.requiresJoin
@@ -1430,15 +1434,15 @@ struct PostCard: View {
 
     private func loadCommunityPermissionsIfNeeded() async {
         guard !hasRequestedCommunityPermissions else { return }
-        hasRequestedCommunityPermissions = true
         guard shouldLoadCommunityPermissions else { return }
-        guard let communityId = post.communityId else { return }
+        hasRequestedCommunityPermissions = true
+        guard let communityId = post.communityId, communityId > 0 else { return }
         communityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
     }
 
     private var shouldLoadCommunityPermissions: Bool {
-        guard post.communityId != nil else { return false }
-        return true
+        guard let communityId = post.communityId, communityId > 0 else { return false }
+        return !isAnonymousMode
     }
 
     private var reactionLockTitle: String {

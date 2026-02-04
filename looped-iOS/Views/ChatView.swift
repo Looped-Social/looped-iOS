@@ -24,6 +24,8 @@ struct ChatView: View {
     @State private var conversationBackendId: Int?
     @State private var participantHandle: String?
     @State private var participantDisplayName: String?
+    @State private var channelNameOverride: String?
+    @State private var channelPhotoUrlOverride: String?? = nil
 
     init(
         conversation: Conversation?,
@@ -47,7 +49,7 @@ struct ChatView: View {
 
     private var chatTitle: String {
         if let channel = channel {
-            return channel.name
+            return channelNameOverride ?? channel.name
         } else if let conversation = conversation {
             return conversation.userName
         } else if channelId != nil {
@@ -61,21 +63,6 @@ struct ChatView: View {
 
     private var profileImageUrl: String? {
         return conversation?.userProfileImageUrl
-    }
-
-    private var groupInitials: String {
-        let rawTitle = channel?.name ?? conversation?.userName ?? "Group"
-        let components = rawTitle.split(separator: " ")
-        let initials = components.compactMap { component -> Character? in
-            component.first { char in
-                char.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) }
-            }
-        }
-        .prefix(2)
-        .map { String($0).uppercased() }
-        .joined()
-
-        return initials.isEmpty ? "GC" : initials
     }
 
     var body: some View {
@@ -109,7 +96,7 @@ struct ChatView: View {
                                     HStack(alignment: .bottom, spacing: 8) {
                                         if isGroupChat {
                                             if isEndOfGroup {
-                                                ProfileAvatarView(imageURL: nil, size: 32)
+                                                ProfileAvatarView(imageURL: viewModel.senderAvatarURL(for: message), size: 32)
                                             } else {
                                                 Rectangle()
                                                     .fill(Color.loopedClear)
@@ -175,6 +162,28 @@ struct ChatView: View {
                 TemporaryMediaFile.deleteIfOwned(item.videoURL)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: Foundation.Notification.Name("ChatChannelUpdated"))) { notification in
+            let currentChannelId = channel?.backendId ?? channelId
+            guard let updatedChannelId = notification.userInfo?["channelBackendId"] as? Int,
+                  let currentChannelId,
+                  updatedChannelId == currentChannelId
+            else { return }
+
+            if let updatedName = notification.userInfo?["name"] as? String {
+                let trimmed = updatedName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    channelNameOverride = trimmed
+                }
+            }
+
+            if let rawPhotoValue = notification.userInfo?["photoUrl"] {
+                if rawPhotoValue is NSNull {
+                    channelPhotoUrlOverride = .some(nil)
+                } else if let rawPhotoUrl = rawPhotoValue as? String {
+                    channelPhotoUrlOverride = .some(rawPhotoUrl)
+                }
+            }
+        }
         .modifier(ChatPresentationModifier(style: presentationStyle, titleView: chatToolbarTitle, onBackTapped: onBackTapped))
     }
 
@@ -209,14 +218,7 @@ struct ChatView: View {
                     if !isGroupChat {
                         ProfileAvatarView(imageURL: profileImageUrl, size: 32)
                     } else {
-                        Circle()
-                            .fill(Color.loopedSecondary)
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Text(groupInitials)
-                                    .font(.loopedCustom(.medium, size: 12, relativeTo: .caption))
-                                    .foregroundColor(.loopedWhite)
-                            )
+                        GroupAvatarView(name: chatTitle, photoUrl: channelPhotoUrlOverride ?? channel?.photoUrl, size: 32)
                     }
                 }
             }
@@ -251,14 +253,7 @@ struct ChatView: View {
         }) {
             HStack(spacing: 8) {
                 if isGroupChat {
-                    Circle()
-                        .fill(Color.loopedSecondary)
-                        .frame(width: 28, height: 28)
-                        .overlay(
-                            Text(groupInitials)
-                                .font(.loopedCustom(.semibold, size: 11, relativeTo: .caption))
-                                .foregroundColor(.loopedWhite)
-                        )
+                    GroupAvatarView(name: chatTitle, photoUrl: channel?.photoUrl, size: 28)
                 } else {
                     ProfileAvatarView(imageURL: profileImageUrl, size: 28)
                 }

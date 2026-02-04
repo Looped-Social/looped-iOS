@@ -173,6 +173,7 @@ struct SearchView: View {
         }
         .fullScreenCover(isPresented: $showSearchResults) {
             SearchResultsView()
+                .environmentObject(commentsManager)
         }
         .alert(
             "Couldn't open post",

@@ -16,16 +16,7 @@ struct ProfileAvatarView: View {
         size * iconScale
     }
 
-    private var ringInset: CGFloat {
-        max(1, size * 0.07)
-    }
-
     private var resolvedImageURL: String? {
-        if variant == .anonymous {
-            let fallback = defaultProfileImageUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-            return fallback.isEmpty ? nil : fallback
-        }
-
         let trimmed = (imageURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return trimmed }
 
@@ -43,26 +34,16 @@ struct ProfileAvatarView: View {
     }
 
     var body: some View {
-        if variant == .anonymous {
-            ZStack {
-                Circle()
-                    .fill(Color.loopedSecondary)
-
-                avatarContent
-                    .padding(ringInset)
-                    .clipShape(Circle())
-            }
+        avatarContent
             .frame(width: size, height: size)
-        } else {
-            avatarContent
-                .frame(width: size, height: size)
-                .clipShape(Circle())
-        }
+            .clipShape(Circle())
     }
 
     private var avatarContent: some View {
         Group {
-            if isRemoteDefaultAvatar {
+            if variant == .anonymous {
+                defaultAvatar
+            } else if isRemoteDefaultAvatar {
                 defaultAvatar
             } else if let resolvedImageURL, let url = URL(string: resolvedImageURL) {
                 AsyncImage(url: url) { image in
@@ -80,7 +61,11 @@ struct ProfileAvatarView: View {
 
     @ViewBuilder
     private var defaultAvatar: some View {
-        if UIImage(named: "profile-pic") != nil {
+        if variant == .anonymous, UIImage(named: "profile-pic-anon") != nil {
+            Image("profile-pic-anon")
+                .resizable()
+                .scaledToFill()
+        } else if UIImage(named: "profile-pic") != nil {
             Image("profile-pic")
                 .resizable()
                 .scaledToFill()

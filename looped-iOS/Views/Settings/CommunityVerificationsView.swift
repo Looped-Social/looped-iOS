@@ -257,12 +257,12 @@ struct CommunityVerificationsView: View {
         case .rejected:
             return "Rejected. Re-submit to verify again."
         case .expired:
-            return "Re-verify to post, comment, like, and repost in this community."
+            return "Re-verify to post, comment, and like in this community."
         case .active:
             return nil
         case .unknown:
             if verification.isExpired || !verification.active {
-                return "Re-verify to post, comment, like, and repost in this community."
+                return "Re-verify to post, comment, and like in this community."
             }
             return nil
         }

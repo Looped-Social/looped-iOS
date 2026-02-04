@@ -124,7 +124,6 @@ struct PostShareResponseDTO: Codable {
 
 struct PostRepostResponseDTO: Codable {
     let postId: Int
-    let repostCount: Int
     let viewerHasReposted: Bool
 }
 

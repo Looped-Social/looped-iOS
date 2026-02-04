@@ -120,13 +120,7 @@ class SearchResultsViewModel: ObservableObject {
             case .posts:
                 let page = try await feedService.searchPosts(query: trimmedQuery, limit: 20, cursor: nil)
                 results.posts = page.posts.map { post in
-                    SearchResultPost(
-                        backendId: post.backendId,
-                        content: post.content,
-                        authorName: post.resolvedAuthorName,
-                        timestamp: post.createdAt,
-                        reactionCount: post.reactionCount
-                    )
+                    SearchResultPost(post: post)
                 }
                 searchResults = results
                 hashtagSuggestions = []
@@ -223,13 +217,7 @@ class SearchResultsViewModel: ObservableObject {
 
                 if let postPage {
                     results.posts = postPage.posts.map { post in
-                        SearchResultPost(
-                            backendId: post.backendId,
-                            content: post.content,
-                            authorName: post.resolvedAuthorName,
-                            timestamp: post.createdAt,
-                            reactionCount: post.reactionCount
-                        )
+                        SearchResultPost(post: post)
                     }
                 }
                 hashtagSuggestions = results.hashtags.map { $0.name }

@@ -66,6 +66,8 @@ struct ChannelDTO: Codable {
     let createdAt: Date?
     let ownerUserId: Int?
     let viewerCanManageMembers: Bool?
+    let photoUrl: String?
+    let muted: Bool?
 }
 
 struct SendMessageRequestDTO: Codable {
@@ -96,11 +98,6 @@ struct SendMessageAttachmentDTO: Codable {
 struct CreateChannelRequestDTO: Codable {
     let name: String
     let memberUserIds: [Int]?
-
-    enum CodingKeys: String, CodingKey {
-        case name
-        case memberUserIds = "member_user_ids"
-    }
 }
 
 struct ChannelMembersResponseDTO: Codable {
@@ -121,18 +118,10 @@ struct ChannelMemberDTO: Codable {
 
 struct ChannelMembersAddRequestDTO: Codable {
     let userIds: [Int]
-
-    enum CodingKeys: String, CodingKey {
-        case userIds = "user_ids"
-    }
 }
 
 struct ChannelMemberPermissionUpdateDTO: Codable {
     let canManageMembers: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case canManageMembers = "can_manage_members"
-    }
 }
 
 struct ChannelMembersAddResponseDTO: Codable {

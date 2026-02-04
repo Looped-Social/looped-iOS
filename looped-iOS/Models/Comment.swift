@@ -130,7 +130,7 @@ struct Comment: Codable, Identifiable {
     }
 
     init(dto: CommentDTO) {
-        let resolvedIsAnonymous = dto.authorIsAnonymous ?? dto.isAnonymous ?? false
+        let resolvedIsAnonymous = dto.authorIsAnonymous ?? dto.author.isAnonymous ?? dto.isAnonymous ?? false
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,

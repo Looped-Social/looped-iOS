@@ -35,6 +35,7 @@ struct Channel: Codable, Identifiable {
     let id: UUID
     let backendId: Int
     let name: String
+    let photoUrl: String?
     let company: String
     let memberCount: Int
     let isPublic: Bool

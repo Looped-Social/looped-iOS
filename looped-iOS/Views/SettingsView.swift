@@ -38,6 +38,7 @@ struct SettingsView: View {
     @State private var showContentPolicy = false
     @State private var showPrivacyPolicy = false
     @State private var showUserAgreement = false
+    @State private var showAttributions = false
     @State private var pendingDisconnectProvider: LinkedProvider?
     @State private var contentDestination: MenuDestination?
 
@@ -45,6 +46,7 @@ struct SettingsView: View {
     private let contentPolicyUrl = URL(string: "https://www.mylooped.app/community-rules")!
     private let privacyPolicyUrl = URL(string: "https://www.mylooped.app/privacy-policy")!
     private let userAgreementUrl = URL(string: "https://www.mylooped.app/terms")!
+    private let attributionsUrl = URL(string: "https://www.mylooped.app/attributions")!
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -66,6 +68,7 @@ struct SettingsView: View {
         let onOpenContentPolicy = { showContentPolicy = true }
         let onOpenPrivacyPolicy = { showPrivacyPolicy = true }
         let onOpenUserAgreement = { showUserAgreement = true }
+        let onOpenAttributions = { showAttributions = true }
         let onRequestCommunity = { showCommunityRequest = true }
         let onSelectContent: (MenuDestination) -> Void = { destination in contentDestination = destination }
         let onConfirmLogout = {
@@ -99,6 +102,7 @@ struct SettingsView: View {
                 onOpenContentPolicy: onOpenContentPolicy,
                 onOpenPrivacyPolicy: onOpenPrivacyPolicy,
                 onOpenUserAgreement: onOpenUserAgreement,
+                onOpenAttributions: onOpenAttributions,
                 onRequestCommunity: onRequestCommunity,
                 onSelectContent: onSelectContent,
                 onConfirmLogout: onConfirmLogout,
@@ -120,6 +124,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showUserAgreement) {
             SafariView(url: userAgreementUrl)
+        }
+        .sheet(isPresented: $showAttributions) {
+            SafariView(url: attributionsUrl)
         }
         .fullScreenCover(item: $contentDestination) { destination in
             NavigationStack {
@@ -216,6 +223,7 @@ private struct SettingsListContent: View {
     let onOpenContentPolicy: () -> Void
     let onOpenPrivacyPolicy: () -> Void
     let onOpenUserAgreement: () -> Void
+    let onOpenAttributions: () -> Void
     let onRequestCommunity: () -> Void
     let onSelectContent: (MenuDestination) -> Void
     let onConfirmLogout: () -> Void
@@ -314,6 +322,9 @@ private struct SettingsListContent: View {
             }
             Button(action: onOpenUserAgreement) {
                 SettingsRowLabel(icon: .asset("user-agreement-icon"), title: "User Agreement")
+            }
+            Button(action: onOpenAttributions) {
+                SettingsRowLabel(icon: .system("doc.text"), title: "Attributions")
             }
         }
     }

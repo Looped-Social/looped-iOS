@@ -27,9 +27,7 @@ struct MessagesView: View {
         let tabFilteredConversations: [Conversation]
         switch selectedTab {
         case .messages:
-            tabFilteredConversations = viewModel.conversations.filter { !$0.isGroup }  // Messages tab: only individual conversations
-        case .groups:
-            tabFilteredConversations = viewModel.conversations.filter { $0.isGroup }   // Groups tab: only group conversations
+            tabFilteredConversations = viewModel.conversations.filter { !$0.isGroup }
         case .requests:
             tabFilteredConversations = []
         }
@@ -75,9 +73,7 @@ struct MessagesView: View {
     private var filteredSearchResults: [MessageSearchHit] {
         switch selectedTab {
         case .messages:
-            return viewModel.searchResults.filter { $0.type == .conversation }
-        case .groups:
-            return viewModel.searchResults.filter { $0.type == .channel }
+            return viewModel.searchResults
         case .requests:
             return []
         }
@@ -136,7 +132,7 @@ struct MessagesView: View {
                 .accessibilityLabel("View message requests")
             }
 
-            // Content (both Messages and Groups use same list structure)
+            // Content
             ScrollView {
                 LazyVStack(spacing: 0) {
                     if isUsingBackendSearch {
@@ -243,7 +239,7 @@ struct MessagesView: View {
                                             let conversation = await viewModel.approveMessageRequest(request)
                                             await MainActor.run {
                                                 searchText = ""
-                                                selectedTab = request.isGroup ? .groups : .messages
+                                                selectedTab = .messages
                                                 if let conversation {
                                                     onChatSelected(conversation, nil)
                                                 }
@@ -256,102 +252,70 @@ struct MessagesView: View {
                                 .padding(.vertical, 6)
                             }
                         }
-                    } else if selectedTab == .groups {
-                        if viewModel.isLoadingChannels && viewModel.channels.isEmpty {
-                            ProgressView("Loading groups...")
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 24)
-                        } else if let error = viewModel.channelErrorMessage,
-                                  !error.isEmpty,
-                                  viewModel.channels.isEmpty
-                        {
-                            EmptyMessagesView(
-                                title: "Couldn't load groups",
-                                subtitle: error,
-                                buttonTitle: "Retry",
-                                onButtonTap: { Task { await viewModel.loadChannels() } }
-                            )
-                        } else if filteredChannels.isEmpty {
-                            if searchText.isEmpty {
-                                EmptyMessagesView(
-                                    title: "No groups yet",
-                                    subtitle: "Nothing to see here… yet. Start a conversation and it’ll show up.",
-                                    buttonTitle: "Start a new chat",
-                                    onButtonTap: { showNewMessage = true }
-                                )
-                            } else {
-                                EmptyMessagesView(
-                                    title: "No matches",
-                                    subtitle: "We looked everywhere for “\(searchText)”.",
-                                    buttonTitle: "Clear search",
-                                    onButtonTap: { searchText = "" }
-                                )
-                            }
-                        } else {
-                            ForEach(filteredChannels) { channel in
-                                Button(action: {
-                                    onChatSelected(nil, channel)
-                                }) {
-                                    GroupChannelRow(channel: channel)
-                                }
-                                .buttonStyle(PlainButtonStyle())
+                    } else {
+                        let resolvedError = [viewModel.errorMessage, viewModel.channelErrorMessage]
+                            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .first { !$0.isEmpty }
+                        let isMessagingEmpty = filteredConversations.isEmpty && filteredChannels.isEmpty
 
+                        if viewModel.isLoading && viewModel.conversations.isEmpty && viewModel.channels.isEmpty {
+                            ForEach(0..<10, id: \.self) { _ in
+                                ConversationRowSkeleton()
                                 Rectangle()
                                     .frame(height: 1)
                                     .foregroundColor(.loopedTextSecondary.opacity(0.1))
                                     .padding(.leading, 78)
                             }
-                        }
-                    } else if viewModel.isLoading && viewModel.conversations.isEmpty {
-                        ForEach(0..<10, id: \.self) { _ in
-                            ConversationRowSkeleton()
-                            Rectangle()
-                                .frame(height: 1)
-                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                .padding(.leading, 78)
-                        }
-                    } else if let error = viewModel.errorMessage,
-                              !error.isEmpty,
-                              viewModel.conversations.isEmpty
-                    {
-                        EmptyMessagesView(
-                            title: "Couldn't load messages",
-                            subtitle: error,
-                            buttonTitle: "Retry",
-                            onButtonTap: { Task { await viewModel.loadInbox() } }
-                        )
-                    } else if filteredConversations.isEmpty {
-                        if searchText.isEmpty {
+                        } else if let resolvedError,
+                                  !resolvedError.isEmpty,
+                                  viewModel.conversations.isEmpty,
+                                  viewModel.channels.isEmpty
+                        {
                             EmptyMessagesView(
-                                title: selectedTab == .messages ? "No messages yet" : "No groups yet",
-                                subtitle: selectedTab == .messages
-                                    ? "It’s quiet in here. Start a new chat and make it awkward on purpose."
-                                    : "Nothing to see here… yet. Start a conversation and it’ll show up.",
-                                buttonTitle: selectedTab == .messages ? "Start a new message" : "Start a new chat",
+                                title: "Couldn't load messages",
+                                subtitle: resolvedError,
+                                buttonTitle: "Retry",
+                                onButtonTap: { Task { await viewModel.loadInbox() } }
+                            )
+                        } else if isMessagingEmpty {
+                            EmptyMessagesView(
+                                title: "No messages yet",
+                                subtitle: "It’s quiet in here. Start a new chat and make it awkward on purpose.",
+                                buttonTitle: "Start a new chat",
                                 onButtonTap: { showNewMessage = true }
                             )
                         } else {
-                            EmptyMessagesView(
-                                title: "No matches",
-                                subtitle: "We looked everywhere for “\(searchText)”.",
-                                buttonTitle: "Clear search",
-                                onButtonTap: { searchText = "" }
-                            )
-                        }
-                    } else {
-                        ForEach(filteredConversations) { conversation in
-                            Button(action: {
-                                onChatSelected(conversation, nil)
-                            }) {
-                                ConversationRow(conversation: conversation)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            if !filteredChannels.isEmpty {
+                                ForEach(filteredChannels) { channel in
+                                    Button(action: {
+                                        onChatSelected(nil, channel)
+                                    }) {
+                                        GroupChannelRow(channel: channel)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
 
-                            // Divider line
-                            Rectangle()
-                                .frame(height: 1)
-                                .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                .padding(.leading, 78) // Indent to align with text content
+                                    Rectangle()
+                                        .frame(height: 1)
+                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                        .padding(.leading, 78)
+                                }
+                            }
+
+                            if !filteredConversations.isEmpty {
+                                ForEach(filteredConversations) { conversation in
+                                    Button(action: {
+                                        onChatSelected(conversation, nil)
+                                    }) {
+                                        ConversationRow(conversation: conversation)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+
+                                    Rectangle()
+                                        .frame(height: 1)
+                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                        .padding(.leading, 78)
+                                }
+                            }
                         }
                     }
                 }
@@ -367,8 +331,6 @@ struct MessagesView: View {
             .loopedPullToRefresh(isAtTop: isAtTop) {
                 if selectedTab == .requests {
                     await viewModel.loadMessageRequests()
-                } else if selectedTab == .groups {
-                    await viewModel.loadChannels()
                 } else {
                     await viewModel.refreshInbox()
                 }
@@ -391,9 +353,6 @@ struct MessagesView: View {
             if newValue == .requests, viewModel.messageRequests.isEmpty {
                 Task { await viewModel.loadMessageRequests() }
             }
-            if newValue == .groups, viewModel.channels.isEmpty {
-                Task { await viewModel.loadChannels() }
-            }
             if newValue == .requests {
                 viewModel.clearSearch()
             } else if trimmedSearchText.count >= 2 {
@@ -409,7 +368,7 @@ struct MessagesView: View {
                 viewModel: viewModel,
                 onApproved: { conversation in
                     searchText = ""
-                    selectedTab = request.isGroup ? .groups : .messages
+                    selectedTab = .messages
                     if let conversation {
                         onChatSelected(conversation, nil)
                     }

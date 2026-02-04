@@ -171,16 +171,6 @@ private extension NotificationSettingsView {
             }
             .tint(.loopedSecondary)
             .disabled(!isLoaded)
-
-            Toggle(isOn: channelEnabledBinding(.email)) {
-                SettingsRowLabel(
-                    icon: .system("envelope.circle.fill"),
-                    title: "Email Notifications",
-                    subtitle: "Receive updates via email"
-                )
-            }
-            .tint(.loopedSecondary)
-            .disabled(!isLoaded)
         }
     }
 
@@ -225,15 +215,16 @@ private extension NotificationSettingsView {
     }
 
     func typeBinding(type: NotificationPreferenceType) -> Binding<Bool> {
-        Binding(
+        let deliveryChannels: [NotificationPreferenceChannel] = [.inApp, .push]
+        return Binding(
             get: {
                 guard let preferences = viewModel.preferences else { return false }
-                return NotificationPreferenceChannel.allCases.contains { channel in
+                return deliveryChannels.contains { channel in
                     preferences.channels.channel(channel).types.value(for: type)
                 }
             },
             set: { newValue in
-                Task { await viewModel.setTypeEnabled(type: type, isOn: newValue) }
+                Task { await viewModel.setTypeEnabled(type: type, isOn: newValue, channels: deliveryChannels) }
             }
         )
     }

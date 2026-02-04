@@ -81,21 +81,66 @@ class MessageService: MessageServiceProtocol {
 
     func updateConversationPreferences(conversationId: Int, muted: Bool) async throws -> Bool {
         struct RequestDTO: Codable { let muted: Bool }
-        struct ResponseDTO: Codable {
-            let conversationId: Int
-            let muted: Bool
+        struct ResponseDTO: Decodable { let muted: Bool? }
 
-            enum CodingKeys: String, CodingKey {
-                case conversationId = "conversation_id"
-                case muted
-            }
-        }
-
-        let response: ResponseDTO = try await apiClient.put(
+        let data = try await apiClient.putData(
             "/v1/conversations/\(conversationId)/preferences",
             body: RequestDTO(muted: muted)
         )
-        return response.muted
+
+        // Some servers respond 204 No Content for preference updates.
+        guard !data.isEmpty else { return muted }
+
+        do {
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let response = try decoder.decode(ResponseDTO.self, from: data)
+            if let persisted = response.muted { return persisted }
+        } catch {
+            #if DEBUG
+            let body = String(decoding: data, as: UTF8.self)
+            print("Failed decoding conversation preferences response for conversationId=\(conversationId): \(body)")
+            #endif
+            throw APIError.decodingError(error)
+        }
+
+        #if DEBUG
+        let body = String(decoding: data, as: UTF8.self)
+        print("Conversation preferences response missing `muted` for conversationId=\(conversationId): \(body)")
+        #endif
+        return muted
+    }
+
+    func updateChannelPreferences(channelBackendId: Int, muted: Bool) async throws -> Bool {
+        struct RequestDTO: Codable { let muted: Bool }
+        struct ResponseDTO: Decodable { let muted: Bool? }
+
+        let data = try await apiClient.putData(
+            "/v1/channels/\(channelBackendId)/preferences",
+            body: RequestDTO(muted: muted)
+        )
+
+        // Some servers respond 204 No Content for preference updates.
+        guard !data.isEmpty else { return muted }
+
+        do {
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let response = try decoder.decode(ResponseDTO.self, from: data)
+            if let persisted = response.muted { return persisted }
+        } catch {
+            #if DEBUG
+            let body = String(decoding: data, as: UTF8.self)
+            print("Failed decoding channel preferences response for channelBackendId=\(channelBackendId): \(body)")
+            #endif
+            throw APIError.decodingError(error)
+        }
+
+        #if DEBUG
+        let body = String(decoding: data, as: UTF8.self)
+        print("Channel preferences response missing `muted` for channelBackendId=\(channelBackendId): \(body)")
+        #endif
+        return muted
     }
     
     func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage {
@@ -204,6 +249,7 @@ class MessageService: MessageServiceProtocol {
                     id: UUID.fromBackendId(channelId),
                     backendId: channelId,
                     name: name,
+                    photoUrl: nil,
                     company: "",
                     memberCount: 0,
                     isPublic: dto.isPublic ?? true,
@@ -252,11 +298,15 @@ class MessageService: MessageServiceProtocol {
             endpoint += "&cursor=\(encoded)"
         }
         let response: ChannelListResponseDTO = try await apiClient.get(endpoint)
+        for dto in response.items {
+            MutedChatStore.shared.setChannelMuted(dto.muted ?? false, channelId: dto.id)
+        }
         let channels = response.items.map { dto in
             Channel(
                 id: UUID.fromBackendId(dto.id),
                 backendId: dto.id,
                 name: dto.name,
+                photoUrl: dto.photoUrl,
                 company: "",
                 memberCount: dto.memberCount,
                 isPublic: dto.isPublic,
@@ -277,10 +327,12 @@ class MessageService: MessageServiceProtocol {
             memberUserIds: memberUserIds.isEmpty ? nil : memberUserIds
         )
         let dto: ChannelDTO = try await apiClient.post("/v1/channels", body: request)
+        MutedChatStore.shared.setChannelMuted(dto.muted ?? false, channelId: dto.id)
         return Channel(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
             name: dto.name,
+            photoUrl: dto.photoUrl,
             company: "",
             memberCount: dto.memberCount,
             isPublic: dto.isPublic,
@@ -288,6 +340,59 @@ class MessageService: MessageServiceProtocol {
             ownerUserId: dto.ownerUserId,
             viewerCanManageMembers: dto.viewerCanManageMembers ?? false
         )
+    }
+
+    func updateChannel(channelBackendId: Int, name: String) async throws {
+        struct ChannelUpdateRequestDTO: Codable {
+            let name: String?
+            let photoMediaAssetId: Int?
+        }
+
+        _ = try await apiClient.patchData(
+            "/v1/channels/\(channelBackendId)",
+            body: ChannelUpdateRequestDTO(name: name, photoMediaAssetId: nil)
+        )
+    }
+
+    func updateChannelPhoto(channelBackendId: Int, photoMediaAssetId: Int?) async throws -> Channel {
+        struct ChannelPhotoUpdateRequestDTO: Encodable {
+            let photoMediaAssetId: Int?
+
+            enum CodingKeys: String, CodingKey {
+                case photoMediaAssetId
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                if let photoMediaAssetId {
+                    try container.encode(photoMediaAssetId, forKey: .photoMediaAssetId)
+                } else {
+                    try container.encodeNil(forKey: .photoMediaAssetId)
+                }
+            }
+        }
+
+        let dto: ChannelDTO = try await apiClient.patch(
+            "/v1/channels/\(channelBackendId)",
+            body: ChannelPhotoUpdateRequestDTO(photoMediaAssetId: photoMediaAssetId)
+        )
+
+        return Channel(
+            id: UUID.fromBackendId(dto.id),
+            backendId: dto.id,
+            name: dto.name,
+            photoUrl: dto.photoUrl,
+            company: "",
+            memberCount: dto.memberCount,
+            isPublic: dto.isPublic,
+            createdAt: dto.createdAt ?? Date(),
+            ownerUserId: dto.ownerUserId,
+            viewerCanManageMembers: dto.viewerCanManageMembers ?? false
+        )
+    }
+
+    func deleteChannel(channelBackendId: Int) async throws {
+        try await apiClient.delete("/v1/channels/\(channelBackendId)")
     }
 
     func getChannelMembers(channelBackendId: Int, cursor: String?) async throws -> ChannelMembersPage {
