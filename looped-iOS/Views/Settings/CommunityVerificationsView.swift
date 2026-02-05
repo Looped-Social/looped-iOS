@@ -142,7 +142,7 @@ struct CommunityVerificationsView: View {
 
     @ViewBuilder
     private var verifiedEmailsSection: some View {
-        Section("Verified Emails") {
+        Section {
             if viewModel.isLoading && viewModel.items.isEmpty {
                 HStack {
                     Spacer()
@@ -158,6 +158,8 @@ struct CommunityVerificationsView: View {
                     verifiedEmailRow(verification)
                 }
             }
+        } header: {
+            Text("Verified Emails")
         } footer: {
             Text("Only active email verifications appear here.")
                 .font(.loopedSubBodyRegular)

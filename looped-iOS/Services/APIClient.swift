@@ -452,11 +452,9 @@ class APIClient {
     }
 
     private func shouldLogProfileResponse(request: URLRequest) -> Bool {
-#if DEBUG
+        #if DEBUG
         guard ProcessInfo.processInfo.environment["LOOPED_LOG_PROFILE_RESPONSES"] == "1" else { return false }
-#else
-        return false
-#endif
+
         guard request.httpMethod == "GET", let path = request.url?.path else { return false }
         if path.hasPrefix("/v1/users/") || path.hasPrefix("/v1/anon/") { return true }
         // Helps debug profile repost tabs (e.g., 200 with empty items after refresh).
@@ -467,6 +465,9 @@ class APIClient {
         if path.hasPrefix("/v1/message-requests") { return true }
         if path.hasPrefix("/v1/channels") { return true }
         return false
+        #else
+        return false
+        #endif
     }
 
     #if DEBUG

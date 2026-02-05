@@ -36,9 +36,9 @@ final class TwoFactorSettingsViewModel: ObservableObject {
 
 	        let factors = user.multiFactor.enrolledFactors.compactMap { info -> PhoneMFAFactor? in
 	            guard let phone = info as? PhoneMultiFactorInfo else { return nil }
-	            let rawName = phone.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-	            let name = rawName?.isEmpty == false ? (rawName ?? "Phone") : "Phone"
-	            return PhoneMFAFactor(id: phone.uid, displayName: name, phoneNumber: phone.phoneNumber ?? "")
+	            let rawName = phone.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+	            let name = rawName.isEmpty ? "Phone" : rawName
+	            return PhoneMFAFactor(id: phone.uid, displayName: name, phoneNumber: phone.phoneNumber)
 	        }
 		        phoneFactors = factors
 		        #endif
