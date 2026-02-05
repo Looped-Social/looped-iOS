@@ -33,8 +33,6 @@ struct PostCard: View {
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
     @State private var selectedVideo: VideoSelection?
-    @State private var selectedHashtag: String?
-    @State private var showHashtagFeed = false
     @StateObject private var postActionState = PostActionBarState()
     @ScaledMetric private var actionIconSize: CGFloat = 22
     @ScaledMetric private var repostIconSize: CGFloat = 24
@@ -43,6 +41,7 @@ struct PostCard: View {
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject private var feedViewModel: FeedViewModel
+    @Environment(\.loopedOpenHashtag) private var openHashtag
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var showActionMenu = false
@@ -443,16 +442,15 @@ struct PostCard: View {
 		        }()
 
 			        if !trimmedContent.isEmpty, !shouldHideDuplicatePollQuestion {
-			            HashtagText(
-			                text: trimmedContent,
-			                font: .loopedBodyScaled,
-			                textColor: .loopedTextPrimary,
-			                hashtagColor: .loopedPrimary
-			            ) { hashtag in
-			                selectedHashtag = hashtag
-			                showHashtagFeed = true
-			            }
-			            .multilineTextAlignment(.leading)
+				            HashtagText(
+				                text: trimmedContent,
+				                font: .loopedBodyScaled,
+				                textColor: .loopedTextPrimary,
+				                hashtagColor: .loopedPrimary
+				            ) { hashtag in
+				                openHashtag(hashtag)
+				            }
+				            .multilineTextAlignment(.leading)
                         .loopedDoubleTapToLike {
                             handleDoubleTapLike()
                         }
@@ -867,25 +865,17 @@ struct PostCard: View {
             }
     }
 
-    private var postCardNavigation: some View {
-        postCardPresentation
-            .navigationDestination(isPresented: $showHashtagFeed) {
-                HashtagFeedView(hashtag: selectedHashtag ?? "")
-                    .environmentObject(commentsManager)
-            }
-    }
+	    private var blockConfirmDialogMessage: some View {
+	        Text("You won't see posts from \(blockTargetLabel) anymore.")
+	    }
 
-    private var blockConfirmDialogMessage: some View {
-        Text("You won't see posts from \(blockTargetLabel) anymore.")
-    }
-
-    private var postCardDialogs: some View {
-        postCardNavigation
-            .confirmationDialog(
-                "Post options",
-                isPresented: $showActionMenu,
-                titleVisibility: .visible
-            ) {
+	    private var postCardDialogs: some View {
+	        postCardPresentation
+	            .confirmationDialog(
+	                "Post options",
+	                isPresented: $showActionMenu,
+	                titleVisibility: .visible
+	            ) {
                 postOptionsDialogActions
             }
             .confirmationDialog(
@@ -902,11 +892,11 @@ struct PostCard: View {
             }
     }
 
-    private var postCardSheets: some View {
-        postCardDialogs
-            .sheet(item: $activeModerationSheet) { sheet in
-                moderationSheetContent(sheet)
-            }
+	    private var postCardSheets: some View {
+	        postCardDialogs
+	            .sheet(item: $activeModerationSheet) { sheet in
+	                moderationSheetContent(sheet)
+	            }
             .sheet(isPresented: $showEditSheet) {
                 editSheetContent
             }

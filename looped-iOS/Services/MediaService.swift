@@ -70,12 +70,14 @@ class MediaService: MediaServiceProtocol {
                     requiresAuth: false
                 )
             }
+            #if DEBUG
             if shouldLog {
                 let summary = dto.items.map { item in
                     "\(item.id) \(item.mimeType) url=\((item.cdnUrl ?? "").isEmpty ? "nil" : "ok") thumb=\((item.thumbnailUrl ?? "").isEmpty ? "nil" : "ok")"
                 }.joined(separator: ", ")
                 print("Media resolve chunk=\(chunk.count) → items=\(dto.items.count) [\(summary)]")
             }
+            #endif
             resolved.append(contentsOf: dto.items.map(MediaAsset.init(dto:)))
             index = end
         }

@@ -40,7 +40,10 @@ struct CommunityProfileView: View {
                     GeometryReader { geo in
                         Color.loopedClear
                             .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-                                isAtTop = newValue >= -20
+                                let atTop = newValue >= -20
+                                if atTop != isAtTop {
+                                    isAtTop = atTop
+                                }
                             }
                     }
                 )
@@ -113,6 +116,7 @@ struct CommunityProfileView: View {
         } message: {
             Text(viewModel.followErrorMessage ?? "")
         }
+        .loopedHashtagNavigationHost()
     }
 
     private var headerContent: some View {

@@ -232,22 +232,26 @@ struct ProfileView: View {
         } message: {
             Text(anonErrorMessage)
         }
-        .onDisappear {
-            coachMarkPresenter.dismissIfSource(.profile)
-        }
-	    }
+	        .onDisappear {
+	            coachMarkPresenter.dismissIfSource(.profile)
+	        }
+            .loopedHashtagNavigationHost()
+		    }
 
-			private func handleScroll(_ offset: CGFloat) {
-				guard !isShowingDiscoveryOverlay else {
-					if !headerVisible {
-						withAnimation(.easeInOut(duration: 0.25)) {
-						headerVisible = true
+				private func handleScroll(_ offset: CGFloat) {
+					guard !isShowingDiscoveryOverlay else {
+						if !headerVisible {
+							withAnimation(.easeInOut(duration: 0.25)) {
+							headerVisible = true
+						}
 					}
+					lastScrollOffset = offset
+                let atTop = offset >= -50
+                if atTop != isAtTop {
+                    isAtTop = atTop
+                }
+					return
 				}
-				lastScrollOffset = offset
-                isAtTop = offset >= -50
-				return
-			}
 
 		let delta = offset - lastScrollOffset
 
@@ -270,9 +274,12 @@ struct ProfileView: View {
             }
         }
 
-	        isAtTop = offset >= -50
-	        lastScrollOffset = offset
-	    }
+		        let atTop = offset >= -50
+                if atTop != isAtTop {
+                    isAtTop = atTop
+                }
+		        lastScrollOffset = offset
+		    }
 	}
 
 private struct ProfileHeaderHeightKey: PreferenceKey {

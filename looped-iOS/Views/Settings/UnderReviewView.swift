@@ -69,7 +69,10 @@ struct UnderReviewView: View {
                 GeometryReader { geo in
                     Color.loopedClear
                         .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-                            isAtTop = newValue >= -20
+                            let atTop = newValue >= -20
+                            if atTop != isAtTop {
+                                isAtTop = atTop
+                            }
                         }
                 }
             )
@@ -84,6 +87,7 @@ struct UnderReviewView: View {
         .loopedPullToRefresh(isAtTop: isAtTop) {
             await viewModel.refresh()
         }
+        .loopedHashtagNavigationHost()
     }
 }
 

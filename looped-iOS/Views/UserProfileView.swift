@@ -140,6 +140,7 @@ struct UserProfileView: View {
                     Task { await repostsViewModel.loadInitial() }
                 }
             }
+            .loopedHashtagNavigationHost()
     }
 
     private var tabs: [UserProfileTab] {

@@ -75,7 +75,10 @@ struct SearchPostsFeedView: View {
                     GeometryReader { geo in
                         Color.loopedClear
                             .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-                                isAtTop = newValue >= -20
+                                let atTop = newValue >= -20
+                                if atTop != isAtTop {
+                                    isAtTop = atTop
+                                }
                             }
                     }
                 )
@@ -102,6 +105,7 @@ struct SearchPostsFeedView: View {
         .task {
             await viewModel.loadInitial()
         }
+        .loopedHashtagNavigationHost()
     }
 
     private var header: some View {

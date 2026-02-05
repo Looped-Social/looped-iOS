@@ -207,6 +207,7 @@ struct FeedView: View {
             }
             stopPolling()
         }
+        .loopedHashtagNavigationHost()
     }
 
 
@@ -219,6 +220,10 @@ struct FeedView: View {
                 }
             }
             lastScrollOffset = offset
+            let atTop = offset >= -50
+            if atTop != isAtTop {
+                isAtTop = atTop
+            }
             return
         }
 
@@ -246,7 +251,10 @@ struct FeedView: View {
             }
         }
 
-        isAtTop = offset >= -50
+        let atTop = offset >= -50
+        if atTop != isAtTop {
+            isAtTop = atTop
+        }
         lastScrollOffset = offset
     }
 

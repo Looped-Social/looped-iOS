@@ -134,8 +134,10 @@ private struct VideoDebugLogger {
     }
 
     static func log(_ message: String) {
+#if DEBUG
         guard isEnabled else { return }
         print("LOOPED_VIDEO \(message)")
+#endif
     }
 }
 
