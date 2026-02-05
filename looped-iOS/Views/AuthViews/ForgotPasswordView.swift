@@ -46,7 +46,7 @@ struct ForgotPasswordView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     VStack(spacing: 16) {
-                        inputField(title: "Email", placeholder: "you@company.com", text: $email)
+                        inputField(title: "Email", placeholder: "you@example.com", text: $email)
 
                         if let errorMessage {
                             Text(errorMessage)
@@ -64,7 +64,7 @@ struct ForgotPasswordView: View {
                         }
                     }
                     .padding()
-                    .background(Color.loopedWhite)
+                    .background(Color.loopedBackground)
                     .cornerRadius(18)
                     .shadow(color: Color.loopedBlack.opacity(0.05), radius: 12, x: 0, y: 8)
 
@@ -150,7 +150,7 @@ struct ForgotPasswordView: View {
 
 #Preview {
     ForgotPasswordView(
-        initialEmail: "you@company.com",
+        initialEmail: "you@example.com",
         onDismiss: { },
         sendResetLink: { _ in }
     )

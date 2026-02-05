@@ -343,6 +343,10 @@ class AuthViewModel: ObservableObject {
         updateLinkedProviders()
     }
 
+    func refreshLinkedProviders() {
+        updateLinkedProviders()
+    }
+
     #if canImport(FirebaseAuth)
     func sendMfaCode(session: MFAChallengeSession, hintId: String) async throws -> String {
         guard let hint = session.phoneHints.first(where: { $0.uid == hintId }) else {
@@ -371,6 +375,19 @@ class AuthViewModel: ObservableObject {
 
     var isAppleLinked: Bool {
         linkedProviders.contains("apple.com")
+    }
+
+    var isEmailPasswordLinked: Bool {
+        linkedProviders.contains("password")
+    }
+
+    var emailForEmailPasswordLogin: String {
+        guard isEmailPasswordLinked else { return "" }
+        #if canImport(FirebaseAuth)
+        return Auth.auth().currentUser?.email ?? ""
+        #else
+        return ""
+        #endif
     }
 }
 

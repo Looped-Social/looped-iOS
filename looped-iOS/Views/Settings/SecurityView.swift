@@ -1,7 +1,4 @@
 import SwiftUI
-#if canImport(FirebaseAuth)
-import FirebaseAuth
-#endif
 
 struct SecurityView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
@@ -62,11 +59,7 @@ struct SecurityView: View {
 
 private extension SecurityView {
     var currentEmail: String {
-        #if canImport(FirebaseAuth)
-        return Auth.auth().currentUser?.email ?? ""
-        #else
-        return ""
-        #endif
+        authViewModel.emailForEmailPasswordLogin
     }
 }
 

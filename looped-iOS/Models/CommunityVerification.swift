@@ -35,6 +35,7 @@ struct CommunityVerification: Identifiable, Equatable {
     let active: Bool
     let status: CommunityVerificationStatus
     let rejectReason: String?
+    let verifiedEmail: String?
 
     var id: Int { communityId }
 
@@ -80,6 +81,8 @@ extension CommunityVerification {
                 expiresAt: dto.expiresAt
             )
         rejectReason = dto.rejectReason
+        verifiedEmail = (dto.email ?? dto.verifiedEmail)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

@@ -22,13 +22,13 @@ struct SignUpView: View {
                             .foregroundColor(.loopedTextPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Text("Use your work email. You'll finish setting up your profile next.")
+                        Text("Use your personal email. You'll finish setting up your profile next.")
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedTextSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(spacing: 16) {
-                            inputField(title: "Work Email", placeholder: "you@company.com", text: $email, keyboard: .emailAddress)
+                            inputField(title: "Email", placeholder: "you@example.com", text: $email, keyboard: .emailAddress)
                             passwordField(title: "Password", placeholder: "Create a password", text: $password)
                         }
                         .padding()

@@ -21,13 +21,13 @@ struct LoginView: View {
                         .foregroundColor(.loopedTextPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Text("Sign in with your work email or continue with Google/Apple.")
+                    Text("Log in with your personal email or continue with Google/Apple.")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     VStack(spacing: 16) {
-                        inputField(title: "Email", placeholder: "you@company.com", text: $email, isSecure: false, keyboard: .emailAddress)
+                        inputField(title: "Email", placeholder: "you@example.com", text: $email, isSecure: false, keyboard: .emailAddress)
                         passwordField(title: "Password", placeholder: "Enter your password", text: $password)
 
                         HStack {

@@ -58,6 +58,8 @@ struct CommunityVerificationsView: View {
                 }
             }
 
+            verifiedEmailsSection
+
             Section {
                 if viewModel.isLoading && viewModel.items.isEmpty {
                     HStack {
@@ -138,6 +140,83 @@ struct CommunityVerificationsView: View {
         .padding(.top, 40)
     }
 
+    @ViewBuilder
+    private var verifiedEmailsSection: some View {
+        Section("Verified Emails") {
+            if viewModel.isLoading && viewModel.items.isEmpty {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .listRowBackground(Color.loopedBackground)
+            } else if verifiedEmailItems.isEmpty {
+                verifiedEmailsEmptyState
+                    .listRowBackground(Color.loopedBackground)
+            } else {
+                ForEach(verifiedEmailItems) { verification in
+                    verifiedEmailRow(verification)
+                }
+            }
+        } footer: {
+            Text("Only active email verifications appear here.")
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+        }
+    }
+
+    private var verifiedEmailItems: [CommunityVerification] {
+        viewModel.items
+            .filter { $0.isActive }
+            .filter { ($0.verifiedEmail?.isEmpty == false) }
+            .sorted { $0.communityName.localizedCaseInsensitiveCompare($1.communityName) == .orderedAscending }
+    }
+
+    private var verifiedEmailsEmptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "envelope")
+                .font(.loopedCustom(size: 34))
+                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+
+            Text("No verified emails yet")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+
+            Text("Verify a community with your school/work email to see it here.")
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private func verifiedEmailRow(_ verification: CommunityVerification) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verification.verifiedEmail ?? "")
+                    .font(.loopedBodyMedium)
+                    .foregroundColor(.loopedTextPrimary)
+                    .textSelection(.enabled)
+
+                Text(verification.communityName)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+
+            Spacer()
+
+            Text(statusText(for: verification))
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(statusColor(for: verification))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(statusColor(for: verification).opacity(0.12))
+                .clipShape(Capsule())
+        }
+        .padding(.vertical, 4)
+    }
+
     private func verificationRow(_ verification: CommunityVerification) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -165,6 +244,13 @@ struct CommunityVerificationsView: View {
                 Text("Method: \(method.displayName)")
                     .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedTextSecondary)
+            }
+
+            if let verifiedEmail = verification.verifiedEmail, !verifiedEmail.isEmpty {
+                Text("Verified email: \(verifiedEmail)")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .textSelection(.enabled)
             }
 
             if let expiryText = expiryText(for: verification) {

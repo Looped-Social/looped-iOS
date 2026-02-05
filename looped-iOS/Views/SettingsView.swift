@@ -32,6 +32,7 @@ struct SettingsView: View {
     @State private var isLinkingApple = false
     @State private var isUnlinkingGoogle = false
     @State private var isUnlinkingApple = false
+    @State private var showEmailSignInSettings = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
     @State private var showFeedback = false
@@ -90,6 +91,9 @@ struct SettingsView: View {
                 connectApple()
             }
         }
+        let onTapEmail = {
+            showEmailSignInSettings = true
+        }
 
         return AnyView(
             SettingsListContent(
@@ -107,7 +111,8 @@ struct SettingsView: View {
                 onSelectContent: onSelectContent,
                 onConfirmLogout: onConfirmLogout,
                 onTapGoogle: onTapGoogle,
-                onTapApple: onTapApple
+                onTapApple: onTapApple,
+                onTapEmail: onTapEmail
             )
         )
         .fullScreenCover(isPresented: $showCommunityRequest) {
@@ -127,6 +132,11 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showAttributions) {
             SafariView(url: attributionsUrl)
+        }
+        .sheet(isPresented: $showEmailSignInSettings) {
+            NavigationStack {
+                EmailSignInSettingsView()
+            }
         }
         .fullScreenCover(item: $contentDestination) { destination in
             NavigationStack {
@@ -229,6 +239,7 @@ private struct SettingsListContent: View {
     let onConfirmLogout: () -> Void
     let onTapGoogle: () -> Void
     let onTapApple: () -> Void
+    let onTapEmail: () -> Void
 
     var body: some View {
         List {
@@ -341,6 +352,12 @@ private struct SettingsListContent: View {
     @ViewBuilder
     private var connectedAccountsSection: some View {
         Section("Connected Accounts") {
+            EmailSignInRow(
+                email: authViewModel.emailForEmailPasswordLogin,
+                isEnabled: authViewModel.isEmailPasswordLinked,
+                action: onTapEmail
+            )
+
             ConnectedAccountRow(
                 icon: .asset("google-logo"),
                 title: "Google",
@@ -638,6 +655,45 @@ struct ConnectedAccountRow: View {
             return "apple-logo-dark"
         }
         return name
+    }
+}
+
+// MARK: - Email Sign-In Row
+
+struct EmailSignInRow: View {
+    let email: String
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "envelope")
+                .font(.loopedCustom(.medium, size: 16))
+                .foregroundColor(.loopedTextPrimary)
+                .frame(width: 20, height: 20)
+
+            Text("Email")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+
+            Spacer()
+
+            if isEnabled, !email.isEmpty {
+                Text(email)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Button(isEnabled ? "Edit" : "Add") {
+                action()
+            }
+            .font(.loopedSubBodyMedium)
+            .foregroundColor(.loopedSecondary)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 }
 

@@ -15,6 +15,8 @@ struct CommunityVerificationDTO: Decodable {
     let active: Bool?
     let status: String?
     let rejectReason: String?
+    let email: String?
+    let verifiedEmail: String?
 }
 
 struct CommunityVerificationStartRequestDTO: Encodable {
