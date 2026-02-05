@@ -7,6 +7,12 @@ struct OnboardingView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let socialButtonFont = Font.loopedCustom(.semibold, size: 17)
+        let socialButtonTextColor = Color.loopedContrast
+        let socialButtonBorderColor = colorScheme == .dark
+            ? Color.loopedContrast.opacity(0.85)
+            : Color.loopedTextSecondary.opacity(0.3)
+
         GeometryReader { geometry in
             ZStack {
                 VStack {
@@ -30,7 +36,7 @@ struct OnboardingView: View {
                         onNavigate(.signUp)
                     }) {
                         Text("Get Started")
-                            .font(.loopedBodyMedium)
+                            .font(socialButtonFont)
                             .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
@@ -53,15 +59,15 @@ struct OnboardingView: View {
                                 .frame(width: 24, height: 24)
 
                             Text("Continue with Google")
-                                .font(.loopedCustom(.medium, size: 17))
-                                .foregroundColor(.loopedTextPrimary)
+                                .font(socialButtonFont)
+                                .foregroundColor(socialButtonTextColor)
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(Color.loopedBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.loopedTextSecondary.opacity(0.3), lineWidth: 1)
+                                .stroke(socialButtonBorderColor, lineWidth: 1)
                         )
                         .cornerRadius(25)
                     }
@@ -73,13 +79,17 @@ struct OnboardingView: View {
                     } onCompletion: { result in
                         Task { await authViewModel.handleAppleCompletion(result) }
                     }
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .black : .white)
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .whiteOutline : .white)
                     .id(colorScheme)
                     .frame(height: 50)
                     .cornerRadius(25)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 25)
-                            .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                        Group {
+                            if colorScheme != .dark {
+                                RoundedRectangle(cornerRadius: 25)
+                                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
+                            }
+                        }
                     )
                 }
                 .padding(.horizontal, 32)

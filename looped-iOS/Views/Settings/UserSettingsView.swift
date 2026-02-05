@@ -558,16 +558,23 @@ struct UserSettingsView: View {
                 }
                 .padding(.bottom, 100)
             }
-        .background(Color.loopedBackground.ignoresSafeArea())
-        .navigationTitle("Edit Profile")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toast($toastMessage)
-        .alert("Save changes?", isPresented: $isShowingUnsavedChangesAlert) {
-            Button("Save") {
-                saveProfile(dismissOnSuccess: true)
-            }
+	        .background(Color.loopedBackground.ignoresSafeArea())
+	        .background(NavigationPopGestureDisabler(isEnabled: !(hasUnsavedChanges || isSaving)))
+	        .navigationTitle("Edit Profile")
+	        .navigationBarTitleDisplayMode(.inline)
+	        .navigationBarBackButtonHidden(true)
+	        .toolbar(.visible, for: .navigationBar)
+	        .toolbarBackground(.hidden, for: .navigationBar)
+	        .toolbar {
+	            ToolbarItem(placement: .navigationBarLeading) {
+	                LoopedBackButton(action: handleBackAction, usesHaptics: true)
+	            }
+	        }
+	        .toast($toastMessage)
+	        .alert("Save changes?", isPresented: $isShowingUnsavedChangesAlert) {
+	            Button("Save") {
+	                saveProfile(dismissOnSuccess: true)
+	            }
             Button("Discard Changes", role: .destructive) {
                 dismiss()
             }

@@ -41,7 +41,7 @@ struct EmailSignInSettingsView: View {
                     }
                 }
                 .padding(16)
-                .background(Color.loopedWhite)
+                .background(Color.loopedBackground)
                 .cornerRadius(16)
                 .shadow(color: Color.loopedBlack.opacity(0.05), radius: 10, x: 0, y: 8)
 
