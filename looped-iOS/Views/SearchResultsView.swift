@@ -68,7 +68,7 @@ struct SearchResultsView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search Looped"
             )
-            .searchFocused($searchFieldFocused)
+            .searchFocusedIfAvailable($searchFieldFocused)
             .onSubmit(of: .search) {
                 handleSearchSubmit()
             }
@@ -102,7 +102,9 @@ struct SearchResultsView: View {
             }
         )
         .onAppear {
-            searchFieldFocused = true
+            if #available(iOS 18.0, *) {
+                searchFieldFocused = true
+            }
         }
     }
 
@@ -237,6 +239,19 @@ struct SearchResultsView: View {
         }
     }
 }
+
+#if canImport(SwiftUI)
+private extension View {
+    @ViewBuilder
+    func searchFocusedIfAvailable(_ binding: FocusState<Bool>.Binding) -> some View {
+        if #available(iOS 18.0, *) {
+            self.searchFocused(binding)
+        } else {
+            self
+        }
+    }
+}
+#endif
 
 #Preview {
     SearchResultsView()
