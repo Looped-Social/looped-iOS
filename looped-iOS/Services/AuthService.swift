@@ -8,7 +8,6 @@ import FirebaseAuth
 import GoogleSignIn
 #endif
 import AuthenticationServices
-import CryptoKit
 
 class AuthService: AuthServiceProtocol {
     private let tokenStorage: TokenStorage
@@ -179,8 +178,8 @@ class AuthService: AuthServiceProtocol {
 
     // MARK: - Sign in with Apple
     func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws {
-        let nonce = randomNonceString()
-        let hashedNonce = sha256(nonce)
+        let nonce = AppleSignInUtilities.randomNonceString()
+        let hashedNonce = AppleSignInUtilities.sha256(nonce)
 
         let appleIDProvider = ASAuthorizationAppleIDProvider()
         let request = appleIDProvider.createRequest()
@@ -214,8 +213,8 @@ class AuthService: AuthServiceProtocol {
         guard let user = Auth.auth().currentUser else {
             throw AuthError.invalidCredentials
         }
-        let nonce = randomNonceString()
-        let hashedNonce = sha256(nonce)
+        let nonce = AppleSignInUtilities.randomNonceString()
+        let hashedNonce = AppleSignInUtilities.sha256(nonce)
 
         let appleIDProvider = ASAuthorizationAppleIDProvider()
         let request = appleIDProvider.createRequest()
@@ -520,32 +519,7 @@ private extension AuthService {
         }
     }
 
-    func sha256(_ input: String) -> String {
-        let inputData = Data(input.utf8)
-        let hashed = SHA256.hash(data: inputData)
-        return hashed.compactMap { String(format: "%02x", $0) }.joined()
-    }
-
-    func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        var result = ""
-        var remainingLength = length
-
-        while remainingLength > 0 {
-            var random: UInt8 = 0
-            let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
-            if errorCode != errSecSuccess {
-                fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
-            }
-
-            if random < charset.count {
-                result.append(charset[Int(random)])
-                remainingLength -= 1
-            }
-        }
-        return result
-    }
+    // sha256/randomNonceString moved to AppleSignInUtilities
 }
 
 private final class AppleAuthDelegate: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {

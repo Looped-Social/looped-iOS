@@ -44,7 +44,7 @@ struct NewMessageView: View {
                 }
             }
         }
-        .onChange(of: searchText) { newValue in
+        .onChange(of: searchText) { _, newValue in
             Task { await searchViewModel.search(query: newValue) }
         }
         .alert("Unable to Start Chat", isPresented: $showErrorAlert) {
@@ -84,7 +84,7 @@ struct NewMessageView: View {
                         }
                         .padding(.horizontal, 4)
                     }
-                    .onChange(of: selectedRecipients.count) { _ in
+                    .onChange(of: selectedRecipients.count) { _, _ in
                         withAnimation {
                             proxy.scrollTo("searchField", anchor: .trailing)
                         }

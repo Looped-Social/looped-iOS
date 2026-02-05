@@ -2,7 +2,6 @@ import Foundation
 import Combine
 import SwiftUI
 import UIKit
-import AVFoundation
 
 private enum ChatConversationPreviewUpdate {
     static let name = Foundation.Notification.Name("ChatConversationPreviewUpdate")
@@ -718,11 +717,17 @@ class ChatViewModel: ObservableObject {
                     TemporaryMediaFile.deleteIfOwned(mp4Url)
                     TemporaryMediaFile.deleteIfOwned(url)
                 }
-                let metadata = videoUploadMetadata(url: mp4Url)
+                let metadata = await videoUploadMetadata(url: mp4Url)
 
                 var thumbnailKey: String?
-                if let thumbnailImage = item.image ?? makeVideoThumbnail(url: mp4Url) {
-                    let preparedThumbnail = opaqueThumbnailImage(thumbnailImage, background: .white)
+                let resolvedThumbnailImage: UIImage?
+                if let existing = item.image {
+                    resolvedThumbnailImage = existing
+                } else {
+                    resolvedThumbnailImage = await makeVideoThumbnail(url: mp4Url)
+                }
+                if let resolvedThumbnailImage {
+                    let preparedThumbnail = opaqueThumbnailImage(resolvedThumbnailImage, background: .white)
                     if let payload = makeUploadPayload(from: preparedThumbnail) {
                     do {
                         let key = try await messageMediaService.uploadImage(data: payload.data, mimeType: payload.mimeType)
@@ -762,35 +767,12 @@ class ChatViewModel: ObservableObject {
         return attachments
     }
 
-    private func videoUploadMetadata(url: URL) -> (width: Int, height: Int, durationSeconds: Int, sizeBytes: Int64) {
-        let asset = AVAsset(url: url)
-        let duration = Int((asset.duration.seconds.isFinite ? asset.duration.seconds : 0).rounded())
-        var width = 0
-        var height = 0
-        if let track = asset.tracks(withMediaType: .video).first {
-            let transformed = track.naturalSize.applying(track.preferredTransform)
-            width = Int(abs(transformed.width).rounded())
-            height = Int(abs(transformed.height).rounded())
-        }
-        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
-        return (
-            width: max(width, 0),
-            height: max(height, 0),
-            durationSeconds: max(duration, 0),
-            sizeBytes: max(size, 0)
-        )
+    private func videoUploadMetadata(url: URL) async -> (width: Int, height: Int, durationSeconds: Int, sizeBytes: Int64) {
+        await VideoAssetUtilities.metadataWithSize(for: url)
     }
 
-    private func makeVideoThumbnail(url: URL) -> UIImage? {
-        let asset = AVAsset(url: url)
-        let imageGenerator = AVAssetImageGenerator(asset: asset)
-        imageGenerator.appliesPreferredTrackTransform = true
-        do {
-            let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
-            return UIImage(cgImage: cgImage)
-        } catch {
-            return nil
-        }
+    private func makeVideoThumbnail(url: URL) async -> UIImage? {
+        await VideoAssetUtilities.thumbnail(for: url)
     }
 
     private func makeUploadPayload(from image: UIImage) -> ChatImageUploadPayload? {

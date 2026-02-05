@@ -455,8 +455,7 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             object: item,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
-            // Treat as transient; keep playing gate logic running, but this helps debug flakiness.
+            VideoDebugLogger.log("id=\(self?.debugId ?? "unknown") stalled")
         }
     }
 

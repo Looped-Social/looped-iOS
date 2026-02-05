@@ -42,7 +42,7 @@ class TokenStorage {
     }
     
     private func saveToKeychain(key: String, value: String) {
-        let data = value.data(using: .utf8)!
+        let data = Data(value.utf8)
         
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

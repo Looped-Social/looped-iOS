@@ -45,7 +45,7 @@ struct FilterTab: View {
 }
 
 #Preview {
-    @State var selectedFilter: SearchFilterOption = SearchFilterOption(title: "All", apiKey: "all")
+    @Previewable @State var selectedFilter: SearchFilterOption = SearchFilterOption(title: "All", apiKey: "all")
 
     return VStack(spacing: 20) {
         SearchFilterTabs(

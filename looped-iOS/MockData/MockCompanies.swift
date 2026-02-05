@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct MockCompanies {
@@ -39,3 +40,4 @@ struct MockCompanies {
         )
     ]
 }
+#endif

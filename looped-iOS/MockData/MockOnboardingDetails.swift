@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 enum MockOnboardingDetails {
@@ -25,3 +26,4 @@ enum MockOnboardingDetails {
         "Food Science"
     ]
 }
+#endif

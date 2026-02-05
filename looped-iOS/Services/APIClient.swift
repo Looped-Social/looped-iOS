@@ -25,8 +25,7 @@ class APIClient {
         tokenStorage: TokenStorage = TokenStorage(),
         tokenProvider: AuthTokenProvider? = FirebaseAuthTokenProvider()
     ) {
-        let resolvedBaseURL = baseURL ?? Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        self.baseURL = URL(string: resolvedBaseURL ?? "https://api.mylooped.app")!
+        self.baseURL = LoopedEnvironment.apiBaseURL(override: baseURL)
         self.session = session
         self.tokenStorage = tokenStorage
         self.tokenProvider = tokenProvider

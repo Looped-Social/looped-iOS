@@ -133,7 +133,7 @@ private extension TwoFactorChallengeView {
             ForEach(session.phoneHints, id: \.uid) { hint in
                 Button(action: { selectedHintId = hint.uid }) {
                     HStack {
-                        Text(masked(phone: hint.phoneNumber ?? ""))
+                        Text(masked(phone: hint.phoneNumber))
                             .font(.loopedBodyMedium)
                             .foregroundColor(.loopedTextPrimary)
 

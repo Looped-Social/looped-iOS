@@ -1,6 +1,5 @@
 import SwiftUI
 import PhotosUI
-import AVFoundation
 import UniformTypeIdentifiers
 
 struct MediaPickerView: UIViewControllerRepresentable {
@@ -68,9 +67,10 @@ struct MediaPickerView: UIViewControllerRepresentable {
                 // Check if it's a video
                 if result.itemProvider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
                     result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, error in
-                        defer { group.leave() }
-
-                        guard let url = url, error == nil else { return }
+                        guard let url = url, error == nil else {
+                            group.leave()
+                            return
+                        }
 
                         // Copy the file to a temporary location
                         let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension
@@ -80,30 +80,37 @@ struct MediaPickerView: UIViewControllerRepresentable {
                             try? FileManager.default.removeItem(at: url)
                         }
 
-                        // Generate thumbnail
-                        let thumbnail = self.generateVideoThumbnail(url: tempURL)
-                        let duration = self.getVideoDuration(url: tempURL)
-
-                        let mediaItem = LocalMediaItem(
-                            type: .video,
-                            image: thumbnail,
-                            videoURL: tempURL,
-                            duration: duration
-                        )
-                        mediaItems.append(mediaItem)
+                        Task(priority: .utility) {
+                            let thumbnail = await VideoAssetUtilities.thumbnail(for: tempURL)
+                            let duration = await VideoAssetUtilities.duration(for: tempURL)
+                            let mediaItem = LocalMediaItem(
+                                type: .video,
+                                image: thumbnail,
+                                videoURL: tempURL,
+                                duration: duration
+                            )
+                            await MainActor.run {
+                                mediaItems.append(mediaItem)
+                            }
+                            group.leave()
+                        }
                     }
                 } else {
                     // It's an image
                     result.itemProvider.loadObject(ofClass: UIImage.self) { object, error in
-                        defer { group.leave() }
-
-                        guard let image = object as? UIImage, error == nil else { return }
+                        guard let image = object as? UIImage, error == nil else {
+                            group.leave()
+                            return
+                        }
 
                         let mediaItem = LocalMediaItem(
                             type: .image,
                             image: image
                         )
-                        mediaItems.append(mediaItem)
+                        Task { @MainActor in
+                            mediaItems.append(mediaItem)
+                            group.leave()
+                        }
                     }
                 }
             }
@@ -115,24 +122,6 @@ struct MediaPickerView: UIViewControllerRepresentable {
                     self.parent.selectedMedia = mediaItems
                 }
             }
-        }
-
-        private func generateVideoThumbnail(url: URL) -> UIImage? {
-            let asset = AVAsset(url: url)
-            let imageGenerator = AVAssetImageGenerator(asset: asset)
-            imageGenerator.appliesPreferredTrackTransform = true
-
-            do {
-                let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
-                return UIImage(cgImage: cgImage)
-            } catch {
-                return nil
-            }
-        }
-
-        private func getVideoDuration(url: URL) -> TimeInterval {
-            let asset = AVAsset(url: url)
-            return CMTimeGetSeconds(asset.duration)
         }
     }
 }
@@ -242,15 +231,18 @@ struct CameraMediaPickerView: UIViewControllerRepresentable {
                 let tempURL = TemporaryMediaFile.makeURL(extension: ext)
                 try? FileManager.default.copyItem(at: url, to: tempURL)
 
-                let thumbnail = generateVideoThumbnail(url: tempURL)
-                let duration = getVideoDuration(url: tempURL)
-
-                parent.selectedItem = LocalMediaItem(
-                    type: .video,
-                    image: thumbnail,
-                    videoURL: tempURL,
-                    duration: duration
-                )
+                Task(priority: .utility) {
+                    let thumbnail = await VideoAssetUtilities.thumbnail(for: tempURL)
+                    let duration = await VideoAssetUtilities.duration(for: tempURL)
+                    await MainActor.run {
+                        parent.selectedItem = LocalMediaItem(
+                            type: .video,
+                            image: thumbnail,
+                            videoURL: tempURL,
+                            duration: duration
+                        )
+                    }
+                }
                 return
             }
 
@@ -265,22 +257,5 @@ struct CameraMediaPickerView: UIViewControllerRepresentable {
             parent.presentationMode.wrappedValue.dismiss()
         }
 
-        private func generateVideoThumbnail(url: URL) -> UIImage? {
-            let asset = AVAsset(url: url)
-            let imageGenerator = AVAssetImageGenerator(asset: asset)
-            imageGenerator.appliesPreferredTrackTransform = true
-
-            do {
-                let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
-                return UIImage(cgImage: cgImage)
-            } catch {
-                return nil
-            }
-        }
-
-        private func getVideoDuration(url: URL) -> TimeInterval {
-            let asset = AVAsset(url: url)
-            return CMTimeGetSeconds(asset.duration)
-        }
     }
 }

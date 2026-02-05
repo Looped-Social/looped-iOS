@@ -32,9 +32,6 @@ extension URL {
             }
         }
 
-        let baseString = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        let baseURL = URL(string: baseString ?? "https://api.mylooped.app")!
-        return URL(string: trimmed, relativeTo: baseURL)
+        return URL(string: trimmed, relativeTo: LoopedEnvironment.apiBaseURL())
     }
 }
-

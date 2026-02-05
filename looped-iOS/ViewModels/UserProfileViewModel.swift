@@ -30,21 +30,21 @@ final class UserProfileViewModel: ObservableObject {
         currentUserId: Int? = nil,
         initialProfile: UserProfile? = nil,
         userService: UserServiceProtocol = UserService(),
-        anonService: AnonService = .shared,
-        followStateStore: FollowStateStore = .shared
+        anonService: AnonService? = nil,
+        followStateStore: FollowStateStore? = nil
     ) {
         self.source = source
         self.currentUserId = currentUserId
         self.userService = userService
-        self.anonService = anonService
-        self.followStateStore = followStateStore
+        self.anonService = anonService ?? .shared
+        self.followStateStore = followStateStore ?? .shared
         self.profile = initialProfile
 
         switch source {
         case .user(let userId):
-            self.isFollowing = followStateStore.isFollowing(userId: userId)
+            self.isFollowing = self.followStateStore.isFollowing(userId: userId)
         case .anon(let anonProfileId):
-            self.isFollowing = followStateStore.isFollowing(anonProfileId: anonProfileId)
+            self.isFollowing = self.followStateStore.isFollowing(anonProfileId: anonProfileId)
         }
     }
 

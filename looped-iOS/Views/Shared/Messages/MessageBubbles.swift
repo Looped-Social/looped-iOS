@@ -1,4 +1,3 @@
-import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -619,26 +618,9 @@ private actor MessageVideoThumbnailCache {
     }
 
     private static func generateThumbnail(for url: URL) async -> UIImage? {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                let asset = AVURLAsset(url: url)
-                let generator = AVAssetImageGenerator(asset: asset)
-                generator.appliesPreferredTrackTransform = true
-                generator.maximumSize = CGSize(width: 720, height: 720)
-
-                do {
-                    let cgImage = try generator.copyCGImage(at: CMTime(seconds: 0.1, preferredTimescale: 600), actualTime: nil)
-                    continuation.resume(returning: UIImage(cgImage: cgImage))
-                } catch {
-                    do {
-                        let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
-                        continuation.resume(returning: UIImage(cgImage: cgImage))
-                    } catch {
-                        continuation.resume(returning: nil)
-                    }
-                }
-            }
-        }
+        await Task.detached(priority: .utility) {
+            await VideoAssetUtilities.thumbnail(for: url, maximumSize: CGSize(width: 720, height: 720))
+        }.value
     }
 }
 

@@ -422,7 +422,7 @@ private extension CommentsView {
                 .padding(.horizontal, 4)
             }
 
-            if let editTarget = commentsManager.editTarget {
+            if commentsManager.editTarget != nil {
                 HStack {
                     Text("Editing your comment")
                         .font(.loopedSubBodyRegular)
@@ -711,6 +711,7 @@ private extension CommentsView {
     }
 }
 
+#if DEBUG
 #Preview {
     let samplePost = Post(
         id: UUID(),
@@ -728,12 +729,16 @@ private extension CommentsView {
         updatedAt: Date().addingTimeInterval(-86400)
     )
 
-    let manager = CommentsModalManager()
-    manager.currentPost = samplePost
-    manager.currentComments = MockComments.getCommentsForPost(samplePost.id)
+	    let manager: CommentsModalManager = {
+	        let manager = CommentsModalManager()
+	        manager.currentPost = samplePost
+	        manager.currentComments = MockComments.getCommentsForPost(samplePost.id)
+	        return manager
+	    }()
 
-    return CommentsView(post: samplePost) {}
+    CommentsView(post: samplePost) {}
         .environmentObject(manager)
         .environmentObject(FeedViewModel())
         .environmentObject(AuthViewModel())
 }
+#endif

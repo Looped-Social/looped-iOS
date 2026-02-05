@@ -72,42 +72,23 @@ struct SearchResultsView: View {
             .onSubmit(of: .search) {
                 handleSearchSubmit()
             }
-            .background(
-                Group {
-                    NavigationLink(
-                        destination: Group {
-                            if let hashtag = selectedHashtag {
-                                HashtagFeedView(hashtag: hashtag, presentationStyle: .navigation)
-                                    .environmentObject(commentsManager)
-                            }
-                        },
-                        isActive: $showHashtagFeed,
-                        label: { EmptyView() }
-                    )
-
-                    NavigationLink(
-                        destination: Group {
-                            if let query = submittedQuery {
-                                SearchPostsFeedView(query: query, presentationStyle: .navigation)
-                                    .environmentObject(commentsManager)
-                            }
-                        },
-                        isActive: $showPostSearchFeed,
-                        label: { EmptyView() }
-                    )
-
-                    NavigationLink(
-                        destination: Group {
-                            if let community = selectedCommunity {
-                                CommunityProfileView(community: community)
-                            }
-                        },
-                        isActive: $showCommunityProfile,
-                        label: { EmptyView() }
-                    )
+            .navigationDestination(isPresented: $showHashtagFeed) {
+                if let hashtag = selectedHashtag {
+                    HashtagFeedView(hashtag: hashtag, presentationStyle: .navigation)
+                        .environmentObject(commentsManager)
                 }
-                .hidden()
-            )
+            }
+            .navigationDestination(isPresented: $showPostSearchFeed) {
+                if let query = submittedQuery {
+                    SearchPostsFeedView(query: query, presentationStyle: .navigation)
+                        .environmentObject(commentsManager)
+                }
+            }
+            .navigationDestination(isPresented: $showCommunityProfile) {
+                if let community = selectedCommunity {
+                    CommunityProfileView(community: community)
+                }
+            }
         }
         .overlay(
             Group {

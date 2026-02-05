@@ -36,7 +36,7 @@ struct MessagesSearchBar: View {
 }
 
 #Preview {
-    @State var searchText = ""
+    @Previewable @State var searchText = ""
 
     return VStack {
         MessagesSearchBar(searchText: $searchText, placeholder: "Search")

@@ -21,8 +21,6 @@ enum VideoTranscoder {
             return url
         }
 
-        let asset = AVAsset(url: url)
-        let compatiblePresets = Set(AVAssetExportSession.exportPresets(compatibleWith: asset))
         let presetCandidates = [
             AVAssetExportPresetPassthrough,
             AVAssetExportPreset1920x1080,
@@ -30,35 +28,20 @@ enum VideoTranscoder {
             AVAssetExportPreset1280x720,
             AVAssetExportPresetMediumQuality,
         ]
-        let chosenPreset = presetCandidates.first(where: { compatiblePresets.contains($0) })
 
-        guard let chosenPreset,
-              let export = AVAssetExportSession(asset: asset, presetName: chosenPreset),
-              export.supportedFileTypes.contains(.mp4) else {
+        let asset = AVURLAsset(url: url)
+        guard let export = presetCandidates.compactMap({ preset in
+            AVAssetExportSession(asset: asset, presetName: preset)
+        }).first(where: { $0.supportedFileTypes.contains(.mp4) }) else {
             throw VideoTranscoderError.exportUnavailable
         }
 
         let outputUrl = TemporaryMediaFile.makeURL(extension: "mp4")
 
         try? FileManager.default.removeItem(at: outputUrl)
-        export.outputURL = outputUrl
-        export.outputFileType = .mp4
         export.shouldOptimizeForNetworkUse = true
 
-        try await withCheckedThrowingContinuation { continuation in
-            export.exportAsynchronously {
-                switch export.status {
-                case .completed:
-                    continuation.resume(returning: ())
-                case .failed:
-                    continuation.resume(throwing: VideoTranscoderError.exportFailed(export.error?.localizedDescription))
-                case .cancelled:
-                    continuation.resume(throwing: VideoTranscoderError.exportFailed("Video export was cancelled."))
-                default:
-                    continuation.resume(throwing: VideoTranscoderError.exportFailed(export.error?.localizedDescription))
-                }
-            }
-        }
+        try await export.export(to: outputUrl, as: .mp4)
 
         return outputUrl
     }

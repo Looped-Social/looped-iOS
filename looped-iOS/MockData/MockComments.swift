@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct MockComments {
@@ -337,3 +338,4 @@ struct MockComments {
         cachedReplies.removeAll()
     }
 }
+#endif

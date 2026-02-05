@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct MockOrganizations {
@@ -23,3 +24,4 @@ struct MockOrganizations {
         Organization(name: "Appalachian State University", category: "University", logoText: "APP", kind: .school)
     ]
 }
+#endif

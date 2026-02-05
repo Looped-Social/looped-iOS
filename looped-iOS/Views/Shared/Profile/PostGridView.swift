@@ -209,6 +209,7 @@ struct EmptyPostsView: View {
     }
 }
 
+#if DEBUG
 #Preview("Grid with posts") {
     PostGridView(posts: MockPosts.getRecentPosts().prefix(6).map { $0 }) { _ in }
 }
@@ -216,3 +217,4 @@ struct EmptyPostsView: View {
 #Preview("Empty grid") {
     PostGridView(posts: []) { _ in }
 }
+#endif

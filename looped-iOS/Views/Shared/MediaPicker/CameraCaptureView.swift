@@ -431,17 +431,18 @@ private struct CameraPreview: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: PreviewView, context: Context) {
-        guard let connection = uiView.previewLayer.connection else { return }
-        if connection.isVideoMirroringSupported {
-            connection.automaticallyAdjustsVideoMirroring = false
-            connection.isVideoMirrored = position == .front
-        }
-        if connection.isVideoOrientationSupported {
-            connection.videoOrientation = .portrait
-        }
-    }
-}
+	    func updateUIView(_ uiView: PreviewView, context: Context) {
+	        guard let connection = uiView.previewLayer.connection else { return }
+	        if connection.isVideoMirroringSupported {
+	            connection.automaticallyAdjustsVideoMirroring = false
+	            connection.isVideoMirrored = position == .front
+	        }
+            let portraitAngle: CGFloat = 90
+            if connection.isVideoRotationAngleSupported(portraitAngle) {
+                connection.videoRotationAngle = portraitAngle
+            }
+	    }
+	}
 
 #Preview {
     CameraCaptureView(

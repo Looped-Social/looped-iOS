@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct MockUsers {
@@ -125,3 +126,4 @@ struct MockUsers {
         return allUsers.filter { $0.isVerified }
     }
 }
+#endif

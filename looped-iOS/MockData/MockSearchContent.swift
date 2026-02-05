@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct MockSearchContent {
@@ -106,3 +107,4 @@ struct MockSearchContent {
         MockUsers.currentUser.company
     }
 }
+#endif

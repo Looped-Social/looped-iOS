@@ -115,11 +115,11 @@ struct ChatDetailsView: View {
         if let channel = channel {
             _groupName = State(initialValue: channel.name)
             _editedGroupName = State(initialValue: channel.name)
-        } else if let conversation = conversation {
-            _groupName = State(initialValue: "")
-            _editedGroupName = State(initialValue: "")
-        } else {
-            _groupName = State(initialValue: "")
+	        } else if conversation != nil {
+	            _groupName = State(initialValue: "")
+	            _editedGroupName = State(initialValue: "")
+	        } else {
+	            _groupName = State(initialValue: "")
             _editedGroupName = State(initialValue: "")
         }
 
@@ -428,12 +428,12 @@ struct ChatDetailsView: View {
 
     private func handleMuteToggle(from oldValue: Bool, to newValue: Bool) async {
         guard let muteTarget else {
-            await revertMuteToggle(to: false, message: "This chat can’t be muted yet.")
+            revertMuteToggle(to: false, message: "This chat can’t be muted yet.")
             return
         }
 
         if isAnonymousMode && !isGroupChat {
-            await revertMuteToggle(to: oldValue, message: "Mute isn’t available in anonymous mode.")
+            revertMuteToggle(to: oldValue, message: "Mute isn’t available in anonymous mode.")
             return
         }
 
@@ -446,10 +446,10 @@ struct ChatDetailsView: View {
                 MutedChatStore.shared.setConversationMuted(persisted, conversationId: id)
                 toastMessage = ToastMessage(text: persisted ? "Notifications muted" : "Notifications unmuted", kind: .success)
                 if persisted != newValue {
-                    await revertMuteToggle(to: persisted, message: nil)
+                    revertMuteToggle(to: persisted, message: nil)
                 }
             } catch {
-                await revertMuteToggle(to: oldValue, message: userFacingMuteError(error))
+                revertMuteToggle(to: oldValue, message: userFacingMuteError(error))
             }
         case .channel(let id):
             isUpdatingMute = true
@@ -459,10 +459,10 @@ struct ChatDetailsView: View {
                 MutedChatStore.shared.setChannelMuted(persisted, channelId: id)
                 toastMessage = ToastMessage(text: persisted ? "Notifications muted" : "Notifications unmuted", kind: .success)
                 if persisted != newValue {
-                    await revertMuteToggle(to: persisted, message: nil)
+                    revertMuteToggle(to: persisted, message: nil)
                 }
             } catch {
-                await revertMuteToggle(to: oldValue, message: userFacingMuteError(error))
+                revertMuteToggle(to: oldValue, message: userFacingMuteError(error))
             }
         }
     }

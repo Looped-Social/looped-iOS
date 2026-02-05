@@ -67,12 +67,12 @@ struct MessagesTabs: View {
     }
 }
 
-	#Preview {
-	    @State var selectedTab: MessageTab = .messages
+		#Preview {
+		    @Previewable @State var selectedTab: MessageTab = .messages
 
-	    return VStack {
-	        MessagesTabs(selectedTab: $selectedTab, pendingRequestCount: 3)
-	        Spacer()
-	    }
-	    .background(Color.loopedBackground)
-	}
+		    return VStack {
+		        MessagesTabs(selectedTab: $selectedTab, pendingRequestCount: 3)
+		        Spacer()
+		    }
+		    .background(Color.loopedBackground)
+		}

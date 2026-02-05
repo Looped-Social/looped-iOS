@@ -27,23 +27,25 @@ class DiscoveryService: DiscoveryServiceProtocol {
 
         // Some backend deployments only populate one type for `type=all`. If we didn't get both,
         // opportunistically fetch the missing set(s).
-        if fields.isEmpty || majors.isEmpty {
+        let needsMajors = majors.isEmpty
+        let needsFields = fields.isEmpty
+        if needsMajors || needsFields {
             async let majorsResponse: SpecializationsRecommendedResponseDTO? =
-                majors.isEmpty
+                needsMajors
                     ? (try? apiClient.get("/v1/specializations/recommended?type=major&limit=\(resolvedLimit)"))
                     : nil
 
             async let fieldsResponse: SpecializationsRecommendedResponseDTO? =
-                fields.isEmpty
+                needsFields
                     ? (try? apiClient.get("/v1/specializations/recommended?type=field&limit=\(resolvedLimit)"))
                     : nil
 
             let (maybeMajors, maybeFields) = await (majorsResponse, fieldsResponse)
 
-            if let maybeMajors, majors.isEmpty {
+            if let maybeMajors, needsMajors {
                 majors = parseRecommendedSpecializations(maybeMajors).majors
             }
-            if let maybeFields, fields.isEmpty {
+            if let maybeFields, needsFields {
                 fields = parseRecommendedSpecializations(maybeFields).fields
             }
         }

@@ -95,13 +95,13 @@ struct UserProfileView: View {
             .modifier(profileActionsModifier)
             .onPreferenceChange(UserProfileHeaderHeightKey.self, perform: handleHeaderHeightChange)
             .onAppear { syncFloatingActionButtonVisibility() }
-            .onChange(of: viewModel.profile?.backendId) { _ in
+            .onChange(of: viewModel.profile?.backendId) { _, _ in
                 syncFloatingActionButtonVisibility()
             }
-            .onChange(of: viewModel.profile?.isCurrentUser) { _ in
+            .onChange(of: viewModel.profile?.isCurrentUser) { _, _ in
                 syncFloatingActionButtonVisibility()
             }
-            .onChange(of: authViewModel.currentUser?.backendId) { _ in
+            .onChange(of: authViewModel.currentUser?.backendId) { _, _ in
                 syncFloatingActionButtonVisibility()
             }
             .fullScreenCover(isPresented: $showChat) {
@@ -132,7 +132,7 @@ struct UserProfileView: View {
             } message: {
                 Text(viewModel.followErrorMessage ?? "")
             }
-            .onChange(of: selectedTab) { newValue in
+            .onChange(of: selectedTab) { _, newValue in
                 if newValue == .content, contentViewModel.items.isEmpty {
                     Task { await contentViewModel.loadInitial() }
                 }
@@ -709,7 +709,7 @@ private struct UserProfileMembershipLinksRow: View {
             HStack(spacing: 0) {
                 memberLabelView
 
-                if let specializationLabel, (displayCommunityLabel != nil || displayCommunity != nil) {
+                if specializationLabel != nil, (displayCommunityLabel != nil || displayCommunity != nil) {
                     Text(" @ ")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)

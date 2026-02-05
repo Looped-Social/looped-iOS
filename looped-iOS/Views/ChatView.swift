@@ -120,7 +120,7 @@ struct ChatView: View {
                     .padding(.vertical, 10)
                 }
                 .modifier(ChatKeyboardDismissalModifier(onDismiss: dismissKeyboard))
-                .onChange(of: viewModel.messages.count) { _ in
+                .onChange(of: viewModel.messages.count) { _, _ in
                     if let lastMessage = viewModel.messages.last {
                         withAnimation(.easeOut(duration: 0.3)) {
                             proxy.scrollTo(lastMessage.id, anchor: .bottom)

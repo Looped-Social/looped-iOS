@@ -2,7 +2,6 @@ import Foundation
 import Combine
 import UIKit
 import AuthenticationServices
-import CryptoKit
 #if canImport(FirebaseAuth)
 import FirebaseAuth
 #endif
@@ -178,10 +177,10 @@ class AuthViewModel: ObservableObject {
     private var appleRawNonce: String?
 
     func configureAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
-        let rawNonce = randomNonceString()
+        let rawNonce = AppleSignInUtilities.randomNonceString()
         appleRawNonce = rawNonce
         request.requestedScopes = [.fullName, .email]
-        request.nonce = sha256(rawNonce)
+        request.nonce = AppleSignInUtilities.sha256(rawNonce)
     }
 
     func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) async {
@@ -377,33 +376,6 @@ class AuthViewModel: ObservableObject {
 
 // MARK: - Nonce helpers for Apple
 private extension AuthViewModel {
-    func sha256(_ input: String) -> String {
-        let inputData = Data(input.utf8)
-        let hashed = SHA256.hash(data: inputData)
-        return hashed.compactMap { String(format: "%02x", $0) }.joined()
-    }
-
-    func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        var result = ""
-        var remainingLength = length
-
-        while remainingLength > 0 {
-            var random: UInt8 = 0
-            let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
-            if errorCode != errSecSuccess {
-                fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
-            }
-
-            if random < charset.count {
-                result.append(charset[Int(random)])
-                remainingLength -= 1
-            }
-        }
-        return result
-    }
-
     func updateLinkedProviders() {
         #if canImport(FirebaseAuth)
         let providers = Auth.auth().currentUser?.providerData.map { $0.providerID } ?? []

@@ -20,8 +20,7 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
     
     init(tokenStorage: TokenStorage = TokenStorage(), baseURL: String? = nil) {
         self.tokenStorage = tokenStorage
-        let resolvedBaseURL = baseURL ?? Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        self.webSocketURL = WebSocketService.makeWebSocketURL(from: resolvedBaseURL ?? "https://api.mylooped.app")
+        self.webSocketURL = WebSocketService.makeWebSocketURL(from: LoopedEnvironment.apiBaseURL(override: baseURL))
         super.init()
         setupURLSession()
     }
@@ -129,8 +128,8 @@ class WebSocketService: NSObject, WebSocketServiceProtocol {
         webSocketTask?.send(.string(string)) { _ in }
     }
 
-    private static func makeWebSocketURL(from httpBaseURL: String) -> URL {
-        guard var components = URLComponents(string: httpBaseURL) else {
+    private static func makeWebSocketURL(from httpBaseURL: URL) -> URL {
+        guard var components = URLComponents(url: httpBaseURL, resolvingAgainstBaseURL: false) else {
             return URL(string: "wss://api.mylooped.app/ws")!
         }
 

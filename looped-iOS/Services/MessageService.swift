@@ -244,7 +244,6 @@ class MessageService: MessageServiceProtocol {
                       let name = dto.name
                 else { return nil }
                 let lastMessage = dto.lastMessage ?? ""
-                let lastMessageTimestamp = dto.lastMessageTimestamp ?? Date()
                 let channel = Channel(
                     id: UUID.fromBackendId(channelId),
                     backendId: channelId,

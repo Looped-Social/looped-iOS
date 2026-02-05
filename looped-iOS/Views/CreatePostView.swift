@@ -423,11 +423,11 @@ struct CreatePostView: View {
         .onReceive(NotificationCenter.default.publisher(for: .communityStateChanged)) { _ in
             Task { await verificationViewModel.load() }
         }
-        .onChange(of: feedViewModel.selectedCommunity?.id) { _ in
+        .onChange(of: feedViewModel.selectedCommunity?.id) { _, _ in
             syncSelectedCommunity()
             updateAnonMembershipStatus()
         }
-        .onChange(of: feedViewModel.followedCommunities) { _ in
+        .onChange(of: feedViewModel.followedCommunities) { _, _ in
             syncSelectedCommunity()
             updateAnonMembershipStatus()
         }
@@ -452,14 +452,14 @@ struct CreatePostView: View {
                 presentToast(message: "Attach up to 4 photos.", kind: .info)
             }
         }
-        .onChange(of: verificationViewModel.items) { _ in
+        .onChange(of: verificationViewModel.items) { _, _ in
             syncSelectedCommunity()
             updateAnonMembershipStatus()
         }
-        .onChange(of: selectedCommunityId) { _ in
+        .onChange(of: selectedCommunityId) { _, _ in
             updateAnonMembershipStatus()
         }
-        .onChange(of: isAnonymous) { newValue in
+        .onChange(of: isAnonymous) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }
             updateAnonMembershipStatus()
         }

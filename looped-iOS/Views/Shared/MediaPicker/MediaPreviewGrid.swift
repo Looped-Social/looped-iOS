@@ -38,13 +38,13 @@ struct SingleMediaPreview: View {
     let maxHeight: CGFloat
     let onRemove: (LocalMediaItem) -> Void
 
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            if item.type == .video, let videoURL = item.videoURL {
-                // Video thumbnail with play button
-                ZStack {
-                    if let thumbnail = item.image {
-                        Image(uiImage: thumbnail)
+	    var body: some View {
+	        ZStack(alignment: .topTrailing) {
+	            if item.type == .video, item.videoURL != nil {
+	                // Video thumbnail with play button
+	                ZStack {
+	                    if let thumbnail = item.image {
+	                        Image(uiImage: thumbnail)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(maxHeight: maxHeight)

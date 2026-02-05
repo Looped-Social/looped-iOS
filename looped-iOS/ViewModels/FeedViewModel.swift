@@ -1,7 +1,6 @@
 import Foundation
 import Combine
 import UIKit
-import AVFoundation
 
 @MainActor
 class FeedViewModel: ObservableObject {
@@ -492,17 +491,23 @@ class FeedViewModel: ObservableObject {
                     defer {
                         TemporaryMediaFile.deleteIfOwned(mp4Url)
                         TemporaryMediaFile.deleteIfOwned(url)
-                    }
-                    let metadata = videoMetadata(url: mp4Url)
-                    var thumbnailMediaAssetId: Int?
-                    var thumbnailUrl: String?
-                    if let thumbnailImage = video.image ?? makeVideoThumbnail(url: mp4Url),
-                       let payload = FeedViewModel.makeUploadPayload(from: thumbnailImage) {
-                        do {
-                            let thumbnailAsset = try await mediaService.uploadImage(
-                                data: payload.data,
-                                mimeType: payload.mimeType,
-                                width: payload.width,
+	                    }
+	                    let metadata = await videoMetadata(url: mp4Url)
+	                    var thumbnailMediaAssetId: Int?
+	                    var thumbnailUrl: String?
+	                    let resolvedThumbnailImage: UIImage?
+	                    if let existing = video.image {
+	                        resolvedThumbnailImage = existing
+	                    } else {
+	                        resolvedThumbnailImage = await makeVideoThumbnail(url: mp4Url)
+	                    }
+	                    if let resolvedThumbnailImage,
+	                       let payload = FeedViewModel.makeUploadPayload(from: resolvedThumbnailImage) {
+	                        do {
+	                            let thumbnailAsset = try await mediaService.uploadImage(
+	                                data: payload.data,
+	                                mimeType: payload.mimeType,
+	                                width: payload.width,
                                 height: payload.height,
                                 actor: actor
                             )
@@ -807,29 +812,12 @@ private extension FeedViewModel {
         return ImageUploadPayload(data: output.data, mimeType: output.mimeType, width: output.width, height: output.height)
     }
 
-    func videoMetadata(url: URL) -> (width: Int, height: Int, durationSeconds: Int) {
-        let asset = AVAsset(url: url)
-        let duration = Int((asset.duration.seconds.isFinite ? asset.duration.seconds : 0).rounded())
-        guard let track = asset.tracks(withMediaType: .video).first else {
-            return (width: 0, height: 0, durationSeconds: max(duration, 0))
-        }
-        let transformed = track.naturalSize.applying(track.preferredTransform)
-        let width = Int(abs(transformed.width).rounded())
-        let height = Int(abs(transformed.height).rounded())
-        return (width: max(width, 0), height: max(height, 0), durationSeconds: max(duration, 0))
+    func videoMetadata(url: URL) async -> (width: Int, height: Int, durationSeconds: Int) {
+        await VideoAssetUtilities.basicMetadata(for: url)
     }
 
-    func makeVideoThumbnail(url: URL) -> UIImage? {
-        let asset = AVAsset(url: url)
-        let imageGenerator = AVAssetImageGenerator(asset: asset)
-        imageGenerator.appliesPreferredTrackTransform = true
-
-        do {
-            let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
-            return UIImage(cgImage: cgImage)
-        } catch {
-            return nil
-        }
+    func makeVideoThumbnail(url: URL) async -> UIImage? {
+        await VideoAssetUtilities.thumbnail(for: url)
     }
 
 }

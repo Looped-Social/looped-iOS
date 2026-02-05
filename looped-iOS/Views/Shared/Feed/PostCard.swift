@@ -772,7 +772,7 @@ struct PostCard: View {
                 syncLikeState()
                 syncRepostState()
                 syncActionBarState()
-                syncViewerAnonProfileId()
+                Task { await syncViewerAnonProfileId() }
                 Task { await loadCommunityPermissionsIfNeeded() }
             }
             .onChange(of: isAnonymousMode) { _, _ in
@@ -867,19 +867,12 @@ struct PostCard: View {
             }
     }
 
-    private var hashtagNavigationLink: some View {
-        NavigationLink(
-            destination: HashtagFeedView(hashtag: selectedHashtag ?? "")
-                .environmentObject(commentsManager),
-            isActive: $showHashtagFeed,
-            label: { EmptyView() }
-        )
-        .hidden()
-    }
-
     private var postCardNavigation: some View {
         postCardPresentation
-            .background(hashtagNavigationLink)
+            .navigationDestination(isPresented: $showHashtagFeed) {
+                HashtagFeedView(hashtag: selectedHashtag ?? "")
+                    .environmentObject(commentsManager)
+            }
     }
 
     private var blockConfirmDialogMessage: some View {
@@ -1520,8 +1513,8 @@ struct PostCard: View {
         return error.localizedDescription
     }
 
-    private func syncViewerAnonProfileId() {
-        viewerAnonProfileId = AnonService.shared.currentIdentity()?.profileId
+    private func syncViewerAnonProfileId() async {
+        viewerAnonProfileId = await AnonService.shared.currentIdentity()?.profileId
     }
 
     private var isUnderReviewVisibleToViewer: Bool {

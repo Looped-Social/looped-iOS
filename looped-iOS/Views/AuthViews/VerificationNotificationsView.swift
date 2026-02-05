@@ -38,12 +38,3 @@ struct VerificationNotificationsView: View {
         }
     }
 }
-
-#Preview {
-    VerificationNotificationsView(
-        loopName: "Looped",
-        onBack: { },
-        onEnableNotifications: { _ in },
-        onSkip: { }
-    )
-}

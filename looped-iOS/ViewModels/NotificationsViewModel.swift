@@ -24,16 +24,16 @@ class NotificationsViewModel: ObservableObject {
         notificationService: NotificationServiceProtocol = NotificationService(),
         userService: UserServiceProtocol = UserService(),
         cacheStore: NotificationCacheStore = NotificationCacheStore(),
-        followStateStore: FollowStateStore = .shared
+        followStateStore: FollowStateStore? = nil
     ) {
         self.notificationService = notificationService
         self.userService = userService
         self.cacheStore = cacheStore
-        self.followStateStore = followStateStore
+        self.followStateStore = followStateStore ?? .shared
         self.notifications = cacheStore.load()
-        self.followedActorIds = followStateStore.followingUserIds
+        self.followedActorIds = self.followStateStore.followingUserIds
 
-        followStateStore.$followingUserIds
+        self.followStateStore.$followingUserIds
             .receive(on: RunLoop.main)
             .sink { [weak self] ids in
                 self?.followedActorIds = ids

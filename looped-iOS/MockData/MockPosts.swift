@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 struct MockPosts {
@@ -437,3 +438,4 @@ struct MockPosts {
         return max(5, Int(Double(post.reactionCount) * 0.55))
     }
 }
+#endif

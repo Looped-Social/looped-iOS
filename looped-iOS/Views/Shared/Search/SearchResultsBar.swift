@@ -59,8 +59,8 @@ struct SearchResultsBar: View {
 }
 
 #Preview {
-    @State var searchText = "Test"
-    @FocusState var isSearchFieldFocused: Bool
+    @Previewable @State var searchText = "Test"
+    @Previewable @FocusState var isSearchFieldFocused: Bool
 
     return VStack {
         SearchResultsBar(

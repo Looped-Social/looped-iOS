@@ -2,6 +2,7 @@ import SwiftUI
 import PhotosUI
 import UIKit
 
+@MainActor
 struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: ProfileViewModel
@@ -25,6 +26,9 @@ struct EditProfileView: View {
     @State private var toastMessage: ToastMessage?
 
     var body: some View {
+        let profileImageSnapshot = profileImage
+        let currentUserProfileImageUrl = viewModel.user?.profileImageURL
+
         Group {
             if viewModel.user == nil {
                 ProgressView()
@@ -45,19 +49,19 @@ struct EditProfileView: View {
                                 PhotosPicker(selection: $selectedImage, matching: .images) {
                                     ZStack(alignment: .bottomTrailing) {
                                         // Profile Image
-                                        if let profileImage = profileImage {
-                                            profileImage
+                                        if let profileImageSnapshot {
+                                            profileImageSnapshot
                                                 .resizable()
                                                 .aspectRatio(contentMode: .fill)
                                                 .frame(width: 100, height: 100)
                                                 .clipShape(Circle())
                                         } else {
                                             ProfileAvatarView(
-                                                imageURL: viewModel.user?.profileImageURL,
-                                                size: 100,
-                                                iconScale: 0.4
-                                            )
-                                        }
+	                                                imageURL: currentUserProfileImageUrl,
+	                                                size: 100,
+	                                                iconScale: 0.4
+	                                            )
+	                                        }
 
                                         // Edit icon overlay
                                         Circle()

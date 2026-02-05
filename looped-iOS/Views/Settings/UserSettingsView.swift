@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import PhotosUI
 
+@MainActor
 struct UserSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
@@ -61,6 +62,9 @@ struct UserSettingsView: View {
     @State private var isShowingUnsavedChangesAlert = false
 
     var body: some View {
+        let profilePhotoPreviewSnapshot = profilePhotoPreview
+        let currentUserProfileImageUrl = authViewModel.currentUser?.profileImageURL
+
         ScrollView {
             VStack(spacing: 24) {
                     if isAnonymousMode {
@@ -249,19 +253,19 @@ struct UserSettingsView: View {
                             PhotosPicker(selection: $selectedProfilePhoto, matching: .images) {
                                 ZStack(alignment: .bottomTrailing) {
                                     Group {
-                                        if let profilePhotoPreview {
-                                            Image(uiImage: profilePhotoPreview)
+                                        if let profilePhotoPreviewSnapshot {
+                                            Image(uiImage: profilePhotoPreviewSnapshot)
                                                 .resizable()
                                                 .aspectRatio(contentMode: .fill)
                                                 .frame(width: 96, height: 96)
                                                 .clipShape(Circle())
                                         } else {
-                                            ProfileAvatarView(imageURL: authViewModel.currentUser?.profileImageURL, size: 96, iconScale: 0.4)
+                                            ProfileAvatarView(imageURL: currentUserProfileImageUrl, size: 96, iconScale: 0.4)
                                         }
                                     }
 
-                                    Circle()
-                                        .fill(Color.loopedPrimary)
+	                                    Circle()
+	                                        .fill(Color.loopedPrimary)
                                         .frame(width: 32, height: 32)
                                         .overlay(
                                             Image(systemName: "camera.fill")
@@ -600,7 +604,7 @@ struct UserSettingsView: View {
                 Task { await loadAnonDisplayCommunities() }
             }
         }
-        .onChange(of: authViewModel.currentUser?.id) { _ in
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in
             hasLoadedUser = false
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
@@ -793,7 +797,7 @@ private extension UserSettingsView {
 
         do {
             let identity: AnonIdentity
-            if let existing = anonService.currentIdentity() {
+            if let existing = await anonService.currentIdentity() {
                 identity = existing
             } else {
                 let communityId = await AnonCommunityResolver.resolve(

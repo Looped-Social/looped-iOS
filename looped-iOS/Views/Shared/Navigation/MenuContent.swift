@@ -734,7 +734,7 @@ struct PrivacyView: View {
                 hideAnonymousPosts = resolvedValue
                 skipToggleUpdate = false
             }
-            if var user = authViewModel.currentUser {
+            if let user = authViewModel.currentUser {
                 authViewModel.currentUser = user.updating(hideAnonymousPosts: resolvedValue)
             }
         } catch {
@@ -755,7 +755,7 @@ struct PrivacyView: View {
                 hideAnonymousPosts = resolvedValue
                 skipToggleUpdate = false
             }
-            if var user = authViewModel.currentUser {
+            if let user = authViewModel.currentUser {
                 authViewModel.currentUser = user.updating(hideAnonymousPosts: resolvedValue)
             }
             toastMessage = ToastMessage(text: "Updated", kind: .success)
