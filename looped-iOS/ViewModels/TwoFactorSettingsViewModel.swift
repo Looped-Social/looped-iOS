@@ -34,14 +34,15 @@ final class TwoFactorSettingsViewModel: ObservableObject {
         let providers = user.providerData.map { $0.providerID }
         canReauthWithPassword = providers.contains("password")
 
-        let factors = user.multiFactor.enrolledFactors.compactMap { info -> PhoneMFAFactor? in
-            guard let phone = info as? PhoneMultiFactorInfo else { return nil }
-            let name = phone.displayName?.isEmpty == false ? phone.displayName! : "Phone"
-            return PhoneMFAFactor(id: phone.uid, displayName: name, phoneNumber: phone.phoneNumber ?? "")
-        }
-        phoneFactors = factors
-        #endif
-    }
+	        let factors = user.multiFactor.enrolledFactors.compactMap { info -> PhoneMFAFactor? in
+	            guard let phone = info as? PhoneMultiFactorInfo else { return nil }
+	            let rawName = phone.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+	            let name = rawName?.isEmpty == false ? (rawName ?? "Phone") : "Phone"
+	            return PhoneMFAFactor(id: phone.uid, displayName: name, phoneNumber: phone.phoneNumber ?? "")
+	        }
+		        phoneFactors = factors
+		        #endif
+		    }
 
     func requestRemove(_ factor: PhoneMFAFactor) async {
         pendingRemoval = factor
