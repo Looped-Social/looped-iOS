@@ -197,6 +197,7 @@ class AuthViewModel: ObservableObject {
             }
             do {
                 try await authService.signInWithApple(credential: credential, rawNonce: rawNonce)
+                persistAppleNameDraft(from: credential)
                 await loadCurrentUser()
             } catch {
                 #if canImport(FirebaseAuth)
@@ -389,6 +390,16 @@ class AuthViewModel: ObservableObject {
         return ""
         #endif
     }
+
+    var authProviderDisplayName: String? {
+        #if canImport(FirebaseAuth)
+        let trimmed = (Auth.auth().currentUser?.displayName ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+        #else
+        return nil
+        #endif
+    }
 }
 
 // MARK: - Nonce helpers for Apple
@@ -400,6 +411,42 @@ private extension AuthViewModel {
         #else
         linkedProviders = []
         #endif
+    }
+
+    func persistAppleNameDraft(from credential: ASAuthorizationAppleIDCredential) {
+        let givenName = normalizedNonEmpty(credential.fullName?.givenName)
+        let familyName = normalizedNonEmpty(credential.fullName?.familyName)
+        let authProviderName = normalizedNonEmpty(authProviderDisplayName)
+
+        var resolvedGivenName = givenName
+        var resolvedFamilyName = familyName
+        if (resolvedGivenName == nil || resolvedFamilyName == nil), let authProviderName {
+            let parts = authProviderName
+                .split(whereSeparator: { $0.isWhitespace })
+                .map(String.init)
+            if resolvedGivenName == nil {
+                resolvedGivenName = parts.first
+            }
+            if resolvedFamilyName == nil, parts.count > 1 {
+                resolvedFamilyName = parts.dropFirst().joined(separator: " ")
+            }
+        }
+
+        guard resolvedGivenName != nil || resolvedFamilyName != nil else { return }
+
+        let existing = onboardingStore.loadProfileDraft()
+        let draft = OnboardingProfileDraft(
+            username: existing?.username ?? "",
+            firstName: resolvedGivenName ?? existing?.firstName ?? "",
+            lastName: resolvedFamilyName ?? existing?.lastName ?? "",
+            dateOfBirth: existing?.dateOfBirth
+        )
+        onboardingStore.saveProfileDraft(draft)
+    }
+
+    func normalizedNonEmpty(_ value: String?) -> String? {
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     #if canImport(FirebaseAuth)

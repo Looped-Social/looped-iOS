@@ -14,6 +14,7 @@ struct ProfileSetupView: View {
     @State private var submitError: String?
     @State private var usernameCheckTask: Task<Void, Never>?
     @State private var didLoadDraft = false
+    @State private var toastMessage: ToastMessage?
     private let onboardingStore = OnboardingProgressStore()
 
     var body: some View {
@@ -97,6 +98,7 @@ struct ProfileSetupView: View {
         .onAppear {
             loadDraftIfNeeded()
         }
+        .toast($toastMessage)
     }
 
     private var isFormValid: Bool {
@@ -241,7 +243,78 @@ struct ProfileSetupView: View {
         if let dob = authViewModel.currentUser?.dateOfBirth?.yyyyMMddDate() {
             dateOfBirth = dob
         }
+
+        if applyNameAutofillIfNeeded() {
+            toastMessage = ToastMessage(text: "First and last name auto-filled.", kind: .success)
+        }
         handleUsernameChange(username)
+    }
+
+    private func applyNameAutofillIfNeeded() -> Bool {
+        let currentFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard currentFirst.isEmpty || currentLast.isEmpty else { return false }
+
+        var resolvedFirst = normalizedNonEmpty(authViewModel.currentUser?.firstName)
+        var resolvedLast = normalizedNonEmpty(authViewModel.currentUser?.lastName)
+
+        if resolvedFirst == nil || resolvedLast == nil {
+            let fullName = (authViewModel.currentUser?.displayName ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !fullName.isEmpty {
+                let parts = fullName
+                    .split(whereSeparator: { $0.isWhitespace })
+                    .map(String.init)
+                if resolvedFirst == nil {
+                    resolvedFirst = parts.first
+                }
+                if resolvedLast == nil, parts.count > 1 {
+                    resolvedLast = parts.dropFirst().joined(separator: " ")
+                }
+            }
+        }
+
+        if resolvedFirst == nil || resolvedLast == nil {
+            let providerName = (authViewModel.authProviderDisplayName ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !providerName.isEmpty {
+                let parts = providerName
+                    .split(whereSeparator: { $0.isWhitespace })
+                    .map(String.init)
+                if resolvedFirst == nil {
+                    resolvedFirst = parts.first
+                }
+                if resolvedLast == nil, parts.count > 1 {
+                    resolvedLast = parts.dropFirst().joined(separator: " ")
+                }
+            }
+        }
+
+        // Apple sign-in can return name only once; ensure onboarding is never blocked.
+        if authViewModel.isAppleLinked {
+            if resolvedFirst == nil {
+                resolvedFirst = "Apple"
+            }
+            if resolvedLast == nil {
+                resolvedLast = "User"
+            }
+        }
+
+        var didAutofill = false
+        if currentFirst.isEmpty, let resolvedFirst {
+            firstName = resolvedFirst
+            didAutofill = true
+        }
+        if currentLast.isEmpty, let resolvedLast {
+            lastName = resolvedLast
+            didAutofill = true
+        }
+
+        if didAutofill {
+            persistDraft()
+        }
+        return didAutofill
     }
 
     private func persistDraft() {
@@ -311,5 +384,10 @@ private extension ProfileSetupView {
     func isUsernameValid(_ value: String) -> Bool {
         let pattern = "^[a-z0-9_]{3,30}$"
         return value.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    func normalizedNonEmpty(_ value: String?) -> String? {
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
