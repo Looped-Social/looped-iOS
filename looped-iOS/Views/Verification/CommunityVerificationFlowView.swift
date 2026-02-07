@@ -118,7 +118,7 @@ struct CommunityVerificationFlowView: View {
         let emailTitle = community.kind == .school ? "Student Email" : "Company Email"
         return [
             VerificationOption(id: "email", title: emailTitle),
-            VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
+            VerificationOption(id: "photo_id", title: "Work ID / Work Badge")
         ]
     }
 

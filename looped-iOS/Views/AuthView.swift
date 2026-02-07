@@ -184,7 +184,7 @@ private extension AuthView {
 	            WaysToVerifyView(
                 options: [
                     VerificationOption(id: "company_email", title: "Company Email"),
-                    VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
+                    VerificationOption(id: "photo_id", title: "Work ID / Work Badge")
                 ],
                 currentStep: verificationStep(for: .waysToVerifyCompany),
                 totalSteps: verificationTotalSteps,
@@ -212,7 +212,7 @@ private extension AuthView {
 	            WaysToVerifyView(
                 options: [
                     VerificationOption(id: "student_email", title: "Student Email"),
-                    VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
+                    VerificationOption(id: "photo_id", title: "Work ID / Work Badge")
                 ],
                 currentStep: verificationStep(for: .waysToVerifyStudent),
                 totalSteps: verificationTotalSteps,

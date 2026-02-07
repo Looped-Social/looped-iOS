@@ -14,7 +14,7 @@ struct WaysToVerifyView: View {
     init(
         options: [VerificationOption] = [
             VerificationOption(id: "company_email", title: "Company Email"),
-            VerificationOption(id: "photo_id", title: "Photo With Gov. ID")
+            VerificationOption(id: "photo_id", title: "Work ID / Work Badge")
         ],
         currentStep: Int = 2,
         totalSteps: Int = 5,
@@ -154,16 +154,16 @@ private struct VerificationOptionButton: View {
             Text(title)
                 .font(.loopedBody)
                 .foregroundColor(.loopedContrast)
-                .frame(maxWidth: 260)
-                .frame(height: 44)
+                .frame(maxWidth: 300)
+                .frame(height: 52)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 22)
+                    RoundedRectangle(cornerRadius: 26)
                         .stroke(
                             isSelected ? Color.loopedContrast : Color.loopedTextSecondary.opacity(0.3),
                             lineWidth: 1.5
                         )
                 )
-                .contentShape(RoundedRectangle(cornerRadius: 22))
+                .contentShape(RoundedRectangle(cornerRadius: 26))
         }
         .buttonStyle(PlainButtonStyle())
     }
