@@ -54,12 +54,18 @@ struct CreatePostView: View {
         let isTextValid = postText.count <= characterLimit
         return (hasText || hasMedia || hasValidPoll) && isTextValid
     }
-    private var verifiedCommunities: [CommunitySummary] {
-        let followed = feedViewModel.followedCommunities.filter { $0.canPost }
-        let verified = verificationViewModel.items
+    private var postableCommunities: [CommunitySummary] {
+        let followedById = feedViewModel.followedCommunities.reduce(into: [Int: CommunitySummary]()) { partialResult, community in
+            partialResult[community.id] = community
+        }
+
+        let verified: [CommunitySummary] = verificationViewModel.items
             .filter { $0.isActive }
             .map { verification in
-                CommunitySummary(
+                if let followed = followedById[verification.communityId] {
+                    return followed
+                }
+                return CommunitySummary(
                     id: verification.communityId,
                     name: verification.communityName,
                     shortName: nil,
@@ -70,9 +76,26 @@ struct CreatePostView: View {
                     canPost: true
                 )
             }
+
+        let joinedSpecializations: [CommunitySummary] = verificationViewModel.joinedSpecializations.map { specialization in
+            if let followed = followedById[specialization.id] {
+                return followed
+            }
+            return CommunitySummary(
+                id: specialization.id,
+                name: specialization.name,
+                shortName: specialization.shortName,
+                kind: specialization.kind,
+                memberCount: 0,
+                isPinned: false,
+                sortOrder: nil,
+                canPost: true
+            )
+        }
+
         var merged: [CommunitySummary] = []
         var seen = Set<Int>()
-        for community in followed + verified {
+        for community in verified + joinedSpecializations {
             if seen.insert(community.id).inserted {
                 merged.append(community)
             }
@@ -81,7 +104,7 @@ struct CreatePostView: View {
     }
 
     private var selectedCommunity: CommunitySummary? {
-        verifiedCommunities.first { $0.id == selectedCommunityId }
+        postableCommunities.first { $0.id == selectedCommunityId }
     }
 
     private var selectedCommunityName: String {
@@ -116,13 +139,14 @@ struct CreatePostView: View {
 
     private var defaultCommunityId: Int? {
         if let lastId = feedViewModel.lastPostedCommunityId,
-           verifiedCommunities.contains(where: { $0.id == lastId }) {
+           postableCommunities.contains(where: { $0.id == lastId }) {
             return lastId
         }
-        if let selected = feedViewModel.selectedCommunity, selected.canPost {
-            return selected.id
+        if let selectedId = feedViewModel.selectedCommunity?.id,
+           postableCommunities.contains(where: { $0.id == selectedId }) {
+            return selectedId
         }
-        return verifiedCommunities.first?.id
+        return postableCommunities.first?.id
     }
     
 	    var body: some View {
@@ -146,9 +170,22 @@ struct CreatePostView: View {
                             .accessibilityLabel("Why verification is required")
                         }
 
-                        if verifiedCommunities.isEmpty {
+                        if verificationViewModel.isLoading, postableCommunities.isEmpty {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .tint(.loopedSecondary)
+                                Text("Loading communities…")
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedTextSecondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } else if postableCommunities.isEmpty {
                             HStack {
-                                Text("No verified communities yet")
+                                Text("No communities to post in yet")
                                     .font(.loopedBody)
                                     .foregroundColor(.loopedTextSecondary)
                                 Spacer()
@@ -159,7 +196,7 @@ struct CreatePostView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         } else {
                             Menu {
-                                ForEach(verifiedCommunities) { community in
+                                ForEach(postableCommunities) { community in
                                     Button(CommunityLabelText.preferredName(
                                         preferShortNames: preferCommunityShortNames,
                                         name: community.name,
@@ -456,6 +493,10 @@ struct CreatePostView: View {
             syncSelectedCommunity()
             updateAnonMembershipStatus()
         }
+        .onChange(of: verificationViewModel.joinedSpecializations) { _, _ in
+            syncSelectedCommunity()
+            updateAnonMembershipStatus()
+        }
         .onChange(of: selectedCommunityId) { _, _ in
             updateAnonMembershipStatus()
         }
@@ -553,7 +594,7 @@ struct CreatePostView: View {
 
     private func syncSelectedCommunity() {
         if let selectedCommunityId,
-           verifiedCommunities.contains(where: { $0.id == selectedCommunityId }) {
+           postableCommunities.contains(where: { $0.id == selectedCommunityId }) {
             return
         }
         selectedCommunityId = defaultCommunityId

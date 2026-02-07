@@ -7,7 +7,8 @@ struct OnboardingView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let socialButtonFont = Font.loopedCustom(.semibold, size: 17)
+        let primaryButtonFont = Font.loopedCustom(.semibold, size: 17)
+        let socialButtonFont = Font.loopedCustom(.medium, size: 17)
         let socialButtonTextColor = Color.loopedContrast
         let socialButtonBorderColor = colorScheme == .dark
             ? Color.loopedContrast.opacity(0.85)
@@ -36,7 +37,7 @@ struct OnboardingView: View {
                         onNavigate(.signUp)
                     }) {
                         Text("Get Started")
-                            .font(socialButtonFont)
+                            .font(primaryButtonFont)
                             .foregroundColor(.loopedWhite)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
@@ -79,17 +80,14 @@ struct OnboardingView: View {
                     } onCompletion: { result in
                         Task { await authViewModel.handleAppleCompletion(result) }
                     }
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .whiteOutline : .white)
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .black : .white)
                     .id(colorScheme)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 50)
                     .cornerRadius(25)
                     .overlay(
-                        Group {
-                            if colorScheme != .dark {
-                                RoundedRectangle(cornerRadius: 25)
-                                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
-                            }
-                        }
+                        RoundedRectangle(cornerRadius: 25)
+                            .stroke(socialButtonBorderColor, lineWidth: 1)
                     )
                 }
                 .padding(.horizontal, 32)
