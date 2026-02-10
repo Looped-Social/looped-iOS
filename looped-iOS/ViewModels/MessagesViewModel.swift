@@ -300,14 +300,8 @@ class MessagesViewModel: ObservableObject {
                 return nil
             }
 
-            if let senderBackendId = request.senderBackendId {
-                do {
-                    let conversation = try await messageService.startConversation(with: senderBackendId)
-                    upsertConversationToTop(conversation)
-                    return conversation
-                } catch {
-                    errorMessage = error.localizedDescription
-                }
+            if let resolvedConversation = await resolveApprovedConversation(for: request) {
+                return resolvedConversation
             }
 
             await loadConversations()
@@ -386,6 +380,40 @@ class MessagesViewModel: ObservableObject {
     private func upsertConversationToTop(_ conversation: Conversation) {
         conversations.removeAll { $0.backendId == conversation.backendId }
         conversations.insert(conversation, at: 0)
+    }
+
+    private func resolveApprovedConversation(for request: MessageRequest) async -> Conversation? {
+        if let conversationBackendId = request.conversationBackendId {
+            if let existing = conversations.first(where: { $0.backendId == conversationBackendId }) {
+                upsertConversationToTop(existing)
+                return existing
+            }
+
+            do {
+                let page = try await messageService.listConversations(cursor: nil)
+                conversations = page.conversations
+                syncMutedConversationStore(with: conversations)
+                if let resolved = conversations.first(where: { $0.backendId == conversationBackendId }) {
+                    upsertConversationToTop(resolved)
+                    return resolved
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+
+        // Backward compatibility for payloads that omit conversation_id.
+        if let senderBackendId = request.senderBackendId {
+            do {
+                let conversation = try await messageService.startConversation(with: senderBackendId)
+                upsertConversationToTop(conversation)
+                return conversation
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+
+        return nil
     }
 
     private func hydrateSenderProfiles(for requests: [MessageRequest]) async {
@@ -611,15 +639,23 @@ class ChatViewModel: ObservableObject {
         isSending = true
         defer { isSending = false }
 
+        let attachments: [SendMessageAttachmentDTO]
         do {
-            let attachments = try await uploadAttachments(from: media)
-            let resolvedContent = normalizedMessageContent(trimmedContent, attachments: attachments)
-            guard let resolvedContent else {
-                let message = "Type a message or attach media."
-                errorMessage = message
-                toastMessage = ToastMessage(text: message, kind: .error)
-                return false
-            }
+            attachments = try await uploadAttachments(from: media)
+        } catch {
+            handleDirectMessageError(error)
+            toastMessage = ToastMessage(text: errorMessage ?? userFacingErrorMessage(for: error), kind: .error)
+            return false
+        }
+
+        guard let resolvedContent = normalizedMessageContent(trimmedContent, attachments: attachments) else {
+            let message = "Type a message or attach media."
+            errorMessage = message
+            toastMessage = ToastMessage(text: message, kind: .error)
+            return false
+        }
+
+        do {
             let message = try await messageService.sendConversationMessage(
                 conversationId: conversationBackendId,
                 content: resolvedContent,
@@ -629,6 +665,24 @@ class ChatViewModel: ObservableObject {
             publishConversationPreviewUpdate(for: message)
             return true
         } catch {
+            if await shouldRetryAfterRefreshingInboxState(for: error, conversationBackendId: conversationBackendId) {
+                do {
+                    let retried = try await messageService.sendConversationMessage(
+                        conversationId: conversationBackendId,
+                        content: resolvedContent,
+                        attachments: attachments.isEmpty ? nil : attachments
+                    )
+                    messageRequestState = nil
+                    errorMessage = nil
+                    messages.append(retried)
+                    publishConversationPreviewUpdate(for: retried)
+                    return true
+                } catch {
+                    handleDirectMessageError(error)
+                    toastMessage = ToastMessage(text: errorMessage ?? userFacingErrorMessage(for: error), kind: .error)
+                    return false
+                }
+            }
             handleDirectMessageError(error)
             toastMessage = ToastMessage(text: errorMessage ?? userFacingErrorMessage(for: error), kind: .error)
             return false
@@ -826,6 +880,10 @@ class ChatViewModel: ObservableObject {
         } catch {
             // Back off by effectively stopping polling on auth/permission issues.
             if case let APIError.apiError(_, code, _) = error, code == "message_request_pending" || code == "message_request_rejected" {
+                if let conversationBackendId,
+                   await shouldRetryAfterRefreshingInboxState(for: error, conversationBackendId: conversationBackendId) {
+                    return
+                }
                 messageRequestState = code == "message_request_pending" ? .pending : .rejected
                 stopPolling()
                 return
@@ -905,6 +963,27 @@ class ChatViewModel: ObservableObject {
 
     private func hydrateMessagesFromMembers() {
         messages = messages.map(hydratedMessage)
+    }
+
+    private func shouldRetryAfterRefreshingInboxState(for error: Error, conversationBackendId: Int) async -> Bool {
+        guard case let APIError.apiError(_, code, _) = error else { return false }
+        guard code == "message_request_pending" || code == "message_request_rejected" else { return false }
+
+        do {
+            async let conversationsTask = messageService.listConversations(cursor: nil)
+            async let requestsTask = messageService.fetchMessageRequests(cursor: nil)
+            let (conversationsPage, requestsPage) = try await (conversationsTask, requestsTask)
+
+            let conversationStillExists = conversationsPage.conversations.contains { $0.backendId == conversationBackendId }
+            guard conversationStillExists else { return false }
+
+            let hasBlockingRequest = requestsPage.requests.contains { request in
+                request.conversationBackendId == conversationBackendId && request.status == .pending
+            }
+            return !hasBlockingRequest
+        } catch {
+            return false
+        }
     }
 
     private func hydratedMessage(_ message: Message) -> Message {

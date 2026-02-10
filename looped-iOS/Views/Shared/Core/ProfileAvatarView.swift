@@ -46,11 +46,7 @@ struct ProfileAvatarView: View {
             } else if isRemoteDefaultAvatar {
                 defaultAvatar
             } else if let resolvedImageURL, let url = URL(string: resolvedImageURL) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
+                CachedAvatarImageView(url: url) {
                     defaultAvatar
                 }
             } else {
