@@ -68,6 +68,11 @@ class CommunityService: CommunityServiceProtocol {
         return response.items
     }
 
+    func fetchPostableCommunities() async throws -> [CommunitySummary] {
+        let response: CommunityFollowResponseDTO = try await apiClient.get("/v1/me/postable-communities")
+        return response.items.map(CommunitySummary.init(dto:))
+    }
+
     func fetchJoinedSpecializations(type: CommunitySpecializationType?) async throws -> [DisplayCommunity] {
         let filterType = type ?? .unknown
         let typeQuery: String = {

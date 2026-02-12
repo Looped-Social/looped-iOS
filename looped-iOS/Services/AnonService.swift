@@ -52,6 +52,7 @@ enum AnonProfileAction {
 enum AnonServiceError: Error, LocalizedError {
     case missingIdentity
     case missingCommunityContext
+    case specializationNotJoined(message: String?)
 
     var errorDescription: String? {
         switch self {
@@ -59,6 +60,8 @@ enum AnonServiceError: Error, LocalizedError {
             return "No anonymous identity found on this device."
         case .missingCommunityContext:
             return "Select a community (or major/field) before enabling anonymous mode. Some communities require verification first."
+        case .specializationNotJoined(let message):
+            return message ?? "Join this major or field before enabling anonymous mode."
         }
     }
 }
@@ -474,11 +477,20 @@ actor AnonService {
             communityId: communityId,
             blindedMessage: blindResult.blinded.base64EncodedString()
         )
-        let issueResponse: AnonIssueResponseDTO = try await apiClient.post(
-            "/anon/issue",
-            body: issueRequest,
-            headers: anonHeaders
-        )
+        let issueResponse: AnonIssueResponseDTO
+        do {
+            issueResponse = try await apiClient.post(
+                "/anon/issue",
+                body: issueRequest,
+                headers: anonHeaders
+            )
+        } catch let apiError as APIError {
+            if case let .apiError(_, errorCode, message) = apiError,
+               errorCode == "specialization_not_joined" {
+                throw AnonServiceError.specializationNotJoined(message: message)
+            }
+            throw apiError
+        }
         guard let blindedSignature = Data(base64Encoded: issueResponse.blindedSignature) else {
             throw RSAKeyError.invalidDER
         }

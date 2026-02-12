@@ -19,22 +19,27 @@ struct CreatePostView: View {
     @State private var showVerificationInfoAlert = false
     @State private var showDraftPrompt = false
     @State private var activeDraftId: UUID?
-    @StateObject private var verificationViewModel = CommunityVerificationsViewModel()
+    @State private var postableCommunities: [CommunitySummary] = []
+    @State private var isLoadingPostableCommunities = false
+    @State private var postableCommunitiesError: String?
     @State private var toastMessage: ToastMessage?
 
     @ObservedObject var feedViewModel: FeedViewModel
+    private let communityService: CommunityServiceProtocol
     private let draft: PostDraft?
     private let onPostCreated: (() -> Void)?
     private let onPostStatus: ((ToastMessage) -> Void)?
 
     init(
         feedViewModel: FeedViewModel,
+        communityService: CommunityServiceProtocol = CommunityService(),
         draftStore: PostDraftStore = PostDraftStore(),
         draft: PostDraft? = nil,
         onPostCreated: (() -> Void)? = nil,
         onPostStatus: ((ToastMessage) -> Void)? = nil
     ) {
         self.feedViewModel = feedViewModel
+        self.communityService = communityService
         self.draftStore = draftStore
         self.draft = draft
         self.onPostCreated = onPostCreated
@@ -54,55 +59,6 @@ struct CreatePostView: View {
         let isTextValid = postText.count <= characterLimit
         return (hasText || hasMedia || hasValidPoll) && isTextValid
     }
-    private var postableCommunities: [CommunitySummary] {
-        let followedById = feedViewModel.followedCommunities.reduce(into: [Int: CommunitySummary]()) { partialResult, community in
-            partialResult[community.id] = community
-        }
-
-        let verified: [CommunitySummary] = verificationViewModel.items
-            .filter { $0.isActive }
-            .map { verification in
-                if let followed = followedById[verification.communityId] {
-                    return followed
-                }
-                return CommunitySummary(
-                    id: verification.communityId,
-                    name: verification.communityName,
-                    shortName: nil,
-                    kind: verification.communityKind,
-                    memberCount: 0,
-                    isPinned: false,
-                    sortOrder: nil,
-                    canPost: true
-                )
-            }
-
-        let joinedSpecializations: [CommunitySummary] = verificationViewModel.joinedSpecializations.map { specialization in
-            if let followed = followedById[specialization.id] {
-                return followed
-            }
-            return CommunitySummary(
-                id: specialization.id,
-                name: specialization.name,
-                shortName: specialization.shortName,
-                kind: specialization.kind,
-                memberCount: 0,
-                isPinned: false,
-                sortOrder: nil,
-                canPost: true
-            )
-        }
-
-        var merged: [CommunitySummary] = []
-        var seen = Set<Int>()
-        for community in verified + joinedSpecializations {
-            if seen.insert(community.id).inserted {
-                merged.append(community)
-            }
-        }
-        return merged
-    }
-
     private var selectedCommunity: CommunitySummary? {
         postableCommunities.first { $0.id == selectedCommunityId }
     }
@@ -117,7 +73,7 @@ struct CreatePostView: View {
     }
 
     private var canPost: Bool {
-        selectedCommunity != nil && (!isAnonymous || !(anonMembershipMissing || anonMembershipExpired))
+        (selectedCommunity?.canPost ?? false) && (!isAnonymous || !(anonMembershipMissing || anonMembershipExpired))
     }
 
 	    private var mediaPickerAllowsVideo: Bool {
@@ -170,13 +126,24 @@ struct CreatePostView: View {
                             .accessibilityLabel("Why verification is required")
                         }
 
-                        if verificationViewModel.isLoading, postableCommunities.isEmpty {
+                        if isLoadingPostableCommunities, postableCommunities.isEmpty {
                             HStack(spacing: 8) {
                                 ProgressView()
                                     .tint(.loopedSecondary)
                                 Text("Loading communities…")
                                     .font(.loopedBody)
                                     .foregroundColor(.loopedTextSecondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } else if let postableCommunitiesError, !postableCommunitiesError.isEmpty, postableCommunities.isEmpty {
+                            HStack {
+                                Text(postableCommunitiesError)
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedError)
                                 Spacer()
                             }
                             .padding(.horizontal, 16)
@@ -455,10 +422,10 @@ struct CreatePostView: View {
         .onAppear {
             syncSelectedCommunity()
             updateAnonMembershipStatus()
-            Task { await verificationViewModel.load() }
+            Task { await loadPostableCommunities() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .communityStateChanged)) { _ in
-            Task { await verificationViewModel.load() }
+            Task { await loadPostableCommunities() }
         }
         .onChange(of: feedViewModel.selectedCommunity?.id) { _, _ in
             syncSelectedCommunity()
@@ -488,14 +455,6 @@ struct CreatePostView: View {
                 selectedMedia = Array(images.prefix(4))
                 presentToast(message: "Attach up to 4 photos.", kind: .info)
             }
-        }
-        .onChange(of: verificationViewModel.items) { _, _ in
-            syncSelectedCommunity()
-            updateAnonMembershipStatus()
-        }
-        .onChange(of: verificationViewModel.joinedSpecializations) { _, _ in
-            syncSelectedCommunity()
-            updateAnonMembershipStatus()
         }
         .onChange(of: selectedCommunityId) { _, _ in
             updateAnonMembershipStatus()
@@ -600,11 +559,35 @@ struct CreatePostView: View {
         selectedCommunityId = defaultCommunityId
     }
 
+    @MainActor
+    private func loadPostableCommunities() async {
+        if isLoadingPostableCommunities { return }
+        isLoadingPostableCommunities = true
+        defer { isLoadingPostableCommunities = false }
+
+        do {
+            postableCommunities = try await communityService.fetchPostableCommunities()
+            postableCommunitiesError = nil
+        } catch {
+            postableCommunitiesError = error.localizedDescription
+        }
+        syncSelectedCommunity()
+        updateAnonMembershipStatus()
+    }
+
     private var disabledPostMessage: String {
         if isAnonymous, selectedCommunity != nil, (anonMembershipMissing || anonMembershipExpired) {
             return "Anonymous access expired for this community. Re-enroll to post, comment, or like."
         }
-        return "Verification is required to post, comment, or like in a community."
+        if let selectedCommunity {
+            let displayName = CommunityLabelText.preferredName(
+                preferShortNames: preferCommunityShortNames,
+                name: selectedCommunity.name,
+                shortName: selectedCommunity.shortName
+            ) ?? selectedCommunity.name
+            return "You aren’t verified in \(displayName). Verify to post, comment, or like."
+        }
+        return "Verification is required to post, comment, or like in this community."
     }
 
     private func updateAnonMembershipStatus() {

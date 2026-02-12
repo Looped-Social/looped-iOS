@@ -40,6 +40,9 @@ struct CommentsView: View {
         if isAnonymousMode {
             return true
         }
+        if let capabilities = post.viewerCapabilities {
+            return capabilities.canInteract && capabilities.canComment
+        }
         guard let communityId = post.communityId else {
             return authViewModel.currentUser?.isVerified == true
         }
@@ -55,7 +58,30 @@ struct CommentsView: View {
         return true
     }
 
+    private var canReply: Bool {
+        if isAnonymousMode {
+            return true
+        }
+        if let capabilities = post.viewerCapabilities {
+            return capabilities.canInteract && capabilities.canReply
+        }
+        return canComment
+    }
+
+    private var canLikeComments: Bool {
+        if isAnonymousMode {
+            return true
+        }
+        if let capabilities = post.viewerCapabilities {
+            return capabilities.canInteract && capabilities.canLike
+        }
+        return canComment
+    }
+
     private var joinIsRequired: Bool {
+        if post.viewerCapabilities?.lockReason == .specializationNotJoined {
+            return true
+        }
         guard let permissions = commentsManager.communityPermissions else { return false }
         return permissions.requiresJoin && !permissions.canPost
     }
@@ -127,7 +153,7 @@ struct CommentsView: View {
                 commentsScrollView
                 if canComment {
                     commentInput
-                } else {
+                } else if !canReply && !canLikeComments {
                     restrictedInteractionNotice
                 }
             }
@@ -359,14 +385,14 @@ private extension CommentsView {
                             isLoadingReplies: thread.isLoading,
                             isLoadingMoreReplies: thread.isLoadingMore,
                             hasMoreReplies: thread.nextCursor != nil,
-                            onReply: canComment ? { commentsManager.setReplyTarget($0) } : nil,
+                            onReply: canReply ? { commentsManager.setReplyTarget($0) } : nil,
                             onToggleReplies: { tapped in
                                 Task { await commentsManager.toggleReplies(for: tapped) }
                             },
                             onLoadMoreReplies: { tapped in
                                 Task { await commentsManager.loadMoreRepliesIfNeeded(for: tapped) }
                             },
-                            onLike: canComment ? { tappedComment in
+                            onLike: canLikeComments ? { tappedComment in
                                 Task { await commentsManager.toggleLike(for: tappedComment) }
                             } : nil,
                             canManage: { canManage(comment: $0) },
@@ -667,6 +693,12 @@ private extension CommentsView {
     }
 
     var restrictedInteractionMessage: String {
+        if let capabilities = post.viewerCapabilities {
+            if capabilities.lockReason == .specializationNotJoined {
+                return "Join this major or field to comment or interact."
+            }
+            return capabilities.lockMessage(for: "comment or interact with comments")
+        }
         if commentsManager.isLoadingPermissions {
             return "Checking permissions..."
         }

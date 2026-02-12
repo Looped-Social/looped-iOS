@@ -7,6 +7,7 @@ struct PollCard: View {
     let communityShortName: String?
     let communityKind: CommunityKind?
     let communityPermissions: CommunityPermissions?
+    let viewerCapabilities: PostViewerCapabilities?
     let onPollUpdate: (Poll) -> Void
     private let pollsService: PollsServiceProtocol
 
@@ -25,6 +26,7 @@ struct PollCard: View {
         communityShortName: String? = nil,
         communityKind: CommunityKind? = nil,
         communityPermissions: CommunityPermissions? = nil,
+        viewerCapabilities: PostViewerCapabilities? = nil,
         pollsService: PollsServiceProtocol = PollsService(),
         onPollUpdate: @escaping (Poll) -> Void
     ) {
@@ -34,6 +36,7 @@ struct PollCard: View {
         self.communityShortName = communityShortName
         self.communityKind = communityKind
         self.communityPermissions = communityPermissions
+        self.viewerCapabilities = viewerCapabilities
         self.pollsService = pollsService
         self.onPollUpdate = onPollUpdate
         _currentPoll = State(initialValue: poll)
@@ -228,8 +231,25 @@ struct PollCard: View {
         return nil
     }
 
+    private var gateFromViewerCapabilities: VoteGate? {
+        guard let viewerCapabilities else { return nil }
+        guard !(viewerCapabilities.canInteract && viewerCapabilities.canVote) else { return nil }
+        switch viewerCapabilities.lockReason {
+        case .specializationNotJoined:
+            return .specializationNotJoined
+        case .communityNotVerified:
+            return .communityNotVerified
+        case .verificationExpired:
+            return .verificationExpired
+        case .communityBanned:
+            return .communityBanned
+        case .unknownRestriction, .none:
+            return .unknownRestriction
+        }
+    }
+
     private var activeVoteGate: VoteGate? {
-        voteGate ?? gateFromPermissions
+        voteGate ?? gateFromViewerCapabilities ?? gateFromPermissions
     }
 
     private var voteGateCommunityName: String? {
@@ -250,12 +270,17 @@ struct PollCard: View {
                 return "Verify in \(name) to vote"
             }
             return "Verify to vote"
+        case .verificationExpired:
+            return "Verification expired"
         case .communityBanned:
             return "Can’t vote (banned)"
+        case .unknownRestriction:
+            return "Can’t vote right now"
         }
     }
 
     private func clearVoteGateIfResolved() {
+        guard viewerCapabilities == nil else { return }
         guard let voteGate else { return }
         guard voteGate != .communityBanned else { return }
         guard localCommunityPermissions != nil else { return }
@@ -272,6 +297,8 @@ struct PollCard: View {
             return .specializationNotJoined
         case "community_not_verified":
             return .communityNotVerified
+        case "verification_expired":
+            return .verificationExpired
         case "community_banned":
             return .communityBanned
         default:
@@ -369,7 +396,9 @@ private struct PollOptionRow: View {
 private enum VoteGate: Equatable {
     case specializationNotJoined
     case communityNotVerified
+    case verificationExpired
     case communityBanned
+    case unknownRestriction
 
     var restrictionMessage: String {
         switch self {
@@ -377,8 +406,12 @@ private enum VoteGate: Equatable {
             return "Join this major or field to vote."
         case .communityNotVerified:
             return "Verify in this community to vote."
+        case .verificationExpired:
+            return "Your verification expired. Verify again to vote."
         case .communityBanned:
             return "You’re banned from this community."
+        case .unknownRestriction:
+            return "You can’t vote right now."
         }
     }
 }

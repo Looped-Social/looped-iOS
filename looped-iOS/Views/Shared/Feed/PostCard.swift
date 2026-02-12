@@ -151,6 +151,11 @@ struct PostCard: View {
         return base
     }
 
+    private var viewerCapabilities: PostViewerCapabilities? {
+        guard !isAnonymousMode else { return nil }
+        return post.viewerCapabilities
+    }
+
     private var authorDisplayLine: String? {
         post.authorDisplaySpecializationLine(preferShortNames: preferCommunityShortNames)
     }
@@ -208,7 +213,7 @@ struct PostCard: View {
     private var avatarContent: some View {
         ProfileAvatarView(
             imageURL: post.authorProfileImageURL,
-            size: 40,
+            size: 46,
             variant: post.isAnonymous ? .anonymous : .standard
         )
     }
@@ -319,8 +324,8 @@ struct PostCard: View {
                 .opacity(isPreparingShareSheet ? 0.6 : 1)
 		    }
 
-	    private var repostButton: some View {
-	        Button(action: { toggleRepost() }) {
+    private var repostButton: some View {
+        Button(action: { toggleRepost() }) {
 	            HStack(spacing: actionLabelSpacing) {
                     Image(systemName: "arrow.2.squarepath")
                         .resizable()
@@ -330,9 +335,9 @@ struct PostCard: View {
                         .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
                         .opacity(isRepostLoading ? 0.6 : 1)
 	            }
-	        }
-	        .disabled(isRepostLoading || post.backendId == nil)
-	    }
+        }
+        .disabled(isRepostLoading || post.backendId == nil || isRepostLocked)
+    }
 
 	    private var commentButton: some View {
 	        Button(action: { commentsManager.showComments(for: post) }) {
@@ -350,8 +355,8 @@ struct PostCard: View {
 	        }
 	    }
 
-	    private var bookmarkButton: some View {
-	        Button(action: { toggleBookmark() }) {
+    private var bookmarkButton: some View {
+        Button(action: { toggleBookmark() }) {
 	            Image(isBookmarked ? "saved-icon" : "save-icon")
 	                .resizable()
 	                .renderingMode(.template)
@@ -359,9 +364,9 @@ struct PostCard: View {
 	                .frame(width: actionIconSize, height: actionIconSize)
 	                .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
 	                .opacity(isBookmarkLoading ? 0.6 : 1)
-	        }
-	        .disabled(isBookmarkLoading || post.backendId == nil)
-	    }
+        }
+        .disabled(isBookmarkLoading || post.backendId == nil || isSaveLocked)
+    }
 
 		    private var engagementBar: some View {
 		        HStack(spacing: engagementBarSpacing) {
@@ -404,7 +409,7 @@ struct PostCard: View {
 		                    }
 		                }
 
-			                if let communityContextText {
+		                if let communityContextText {
 			                    if let communityProfileData {
 			                        NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
 			                            HStack(spacing: 0) {
@@ -413,21 +418,21 @@ struct PostCard: View {
 			                                    .truncationMode(.tail)
 			                                Spacer(minLength: 0)
 				                            }
-				                            .font(.loopedSubheadlineScaled)
+				                            .font(.loopedSubBodyRegular)
 				                            .foregroundColor(.loopedTextSecondary)
-				                            .padding(.bottom, 6)
+				                            .padding(.top, -2)
 				                            .contentShape(Rectangle())
 				                        }
 				                        .buttonStyle(PlainButtonStyle())
 				                    } else {
 				                        Text(communityContextText)
-				                            .font(.loopedSubheadlineScaled)
+				                            .font(.loopedSubBodyRegular)
 				                            .foregroundColor(.loopedTextSecondary)
-				                            .padding(.bottom, 6)
+				                            .padding(.top, -2)
 				                            .lineLimit(1)
 				                            .truncationMode(.tail)
 				                    }
-				                }
+			                }
 			            }
 			        }
 			    }
@@ -460,16 +465,17 @@ struct PostCard: View {
 		    @ViewBuilder
 			    private var pollSection: some View {
 			        if let poll = post.poll {
-			            PollCard(
+                    PollCard(
                             poll: poll,
                             communityId: post.communityId,
                             communityName: post.communityName,
                             communityShortName: post.communityShortName,
                             communityKind: post.communityKind,
-                            communityPermissions: communityPermissions
+                            communityPermissions: communityPermissions,
+                            viewerCapabilities: viewerCapabilities
                         ) { updatedPoll in
-			                onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
-			            }
+                            onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
+                    }
 			            .padding(.top, 4)
 			        }
 			    }
@@ -998,10 +1004,18 @@ struct PostCard: View {
 	        }
 	    }
 
-	    private func toggleBookmark() {
-	        guard let postId = post.backendId, !isBookmarkLoading else { return }
-	        isBookmarkLoading = true
-	        Task {
+    private func toggleBookmark() {
+        guard let postId = post.backendId, !isBookmarkLoading else { return }
+        if isSaveLocked {
+            actionError = PostActionError(
+                title: reactionLockTitle,
+                message: reactionLockMessage(verb: "save posts"),
+                primaryAction: joinPrimaryAction
+            )
+            return
+        }
+        isBookmarkLoading = true
+        Task {
 	            defer { isBookmarkLoading = false }
 	            do {
                 if isBookmarked {
@@ -1206,6 +1220,14 @@ struct PostCard: View {
     }
 
     private func refreshPermissionsAndRetryReactionIfNeeded(verb: String) {
+        if viewerCapabilities != nil {
+            actionError = PostActionError(
+                title: reactionLockTitle,
+                message: reactionLockMessage(verb: verb),
+                primaryAction: joinPrimaryAction
+            )
+            return
+        }
         guard !isRefreshingReactionPermissions else {
             actionError = PostActionError(
                 title: reactionLockTitle,
@@ -1276,6 +1298,14 @@ struct PostCard: View {
 
     private func toggleRepost() {
         guard let postId = post.backendId, !isRepostLoading else { return }
+        if isRepostLocked {
+            actionError = PostActionError(
+                title: reactionLockTitle,
+                message: reactionLockMessage(verb: "repost"),
+                primaryAction: joinPrimaryAction
+            )
+            return
+        }
         let previousValue = isReposted
         isReposted.toggle()
         isRepostLoading = true
@@ -1409,10 +1439,29 @@ struct PostCard: View {
 
     private var isReactionLocked: Bool {
         guard !isAnonymousMode else { return false }
+        if let viewerCapabilities {
+            return !viewerCapabilities.canInteract || !viewerCapabilities.canLike
+        }
         guard shouldLoadCommunityPermissions else { return false }
         guard let communityPermissions else { return false }
         let requiresGate = communityPermissions.requiresVerification || communityPermissions.requiresJoin
         return requiresGate && !communityPermissions.canPost
+    }
+
+    private var isRepostLocked: Bool {
+        guard !isAnonymousMode else { return false }
+        if let viewerCapabilities {
+            return !viewerCapabilities.canInteract || !viewerCapabilities.canRepost
+        }
+        return isReactionLocked
+    }
+
+    private var isSaveLocked: Bool {
+        guard !isAnonymousMode else { return false }
+        if let viewerCapabilities {
+            return !viewerCapabilities.canSave
+        }
+        return false
     }
 
     private func loadCommunityPermissionsIfNeeded() async {
@@ -1425,10 +1474,14 @@ struct PostCard: View {
 
     private var shouldLoadCommunityPermissions: Bool {
         guard let communityId = post.communityId, communityId > 0 else { return false }
-        return !isAnonymousMode
+        guard !isAnonymousMode else { return false }
+        return viewerCapabilities == nil
     }
 
     private var reactionLockTitle: String {
+        if let viewerCapabilities {
+            return viewerCapabilities.lockTitle(for: "interact")
+        }
         guard let communityPermissions else { return "Action unavailable" }
         if communityPermissions.requiresJoin && !communityPermissions.canPost {
             return "Join required"
@@ -1440,6 +1493,9 @@ struct PostCard: View {
     }
 
     private func reactionLockMessage(verb: String) -> String {
+        if let viewerCapabilities {
+            return viewerCapabilities.lockMessage(for: verb)
+        }
         guard let communityPermissions else { return "You can’t \(verb) right now." }
         if communityPermissions.requiresJoin && !communityPermissions.canPost {
             return "Join this major or field to \(verb)."
@@ -1451,6 +1507,11 @@ struct PostCard: View {
     }
 
     private var joinPrimaryAction: PostActionError.PrimaryAction? {
+        if viewerCapabilities?.lockReason == .specializationNotJoined,
+           let communityId = post.communityId,
+           communityId > 0 {
+            return .joinSpecialization(communityId: communityId)
+        }
         guard let communityPermissions else { return nil }
         guard communityPermissions.requiresJoin && !communityPermissions.canPost else { return nil }
         guard let communityId = post.communityId, communityId > 0 else { return nil }

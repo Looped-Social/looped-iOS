@@ -33,11 +33,7 @@ struct GroupAvatarView: View {
 
     var body: some View {
         if let resolvedPhotoUrl {
-            AsyncImage(url: resolvedPhotoUrl) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
+            CachedAvatarImageView(url: resolvedPhotoUrl) {
                 placeholder
             }
             .frame(width: size, height: size)

@@ -191,17 +191,29 @@ class CommentsModalManager: ObservableObject {
 
     func postComment(content: String, media: [LocalMediaItem]) async {
         guard let postId = currentPostBackendId else { return }
-        if !AnonService.shared.isAnonymousEnabled,
-           let permissions = communityPermissions,
-           !permissions.canPost {
-            if permissions.requiresJoin {
-                errorMessage = "Join this major or field to comment or like."
-            } else if permissions.requiresVerification {
-                errorMessage = "Verification is required to comment or like in this community."
-            } else {
-                errorMessage = "You can’t comment in this community right now."
+        if !AnonService.shared.isAnonymousEnabled {
+            if let capabilities = currentPost?.viewerCapabilities {
+                if replyTarget != nil {
+                    guard capabilities.canInteract && capabilities.canReply else {
+                        errorMessage = lockMessage(from: capabilities, verb: "reply")
+                        return
+                    }
+                } else {
+                    guard capabilities.canInteract && capabilities.canComment else {
+                        errorMessage = lockMessage(from: capabilities, verb: "comment")
+                        return
+                    }
+                }
+            } else if let permissions = communityPermissions, !permissions.canPost {
+                if permissions.requiresJoin {
+                    errorMessage = "Join this major or field to comment or like."
+                } else if permissions.requiresVerification {
+                    errorMessage = "Verification is required to comment or like in this community."
+                } else {
+                    errorMessage = "You can’t comment in this community right now."
+                }
+                return
             }
-            return
         }
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedContent.isEmpty || !media.isEmpty else { return }
@@ -348,6 +360,12 @@ class CommentsModalManager: ObservableObject {
 
     func toggleLike(for comment: Comment) async {
         guard let backendId = comment.backendId else { return }
+        if !AnonService.shared.isAnonymousEnabled,
+           let capabilities = currentPost?.viewerCapabilities,
+           (!capabilities.canInteract || !capabilities.canLike) {
+            errorMessage = lockMessage(from: capabilities, verb: "like comments")
+            return
+        }
         do {
             let response: CommentLikeResponse
             if comment.userLiked {
@@ -448,6 +466,10 @@ class CommentsModalManager: ObservableObject {
             communityPermissions = nil
             return
         }
+        guard currentPost?.viewerCapabilities == nil else {
+            communityPermissions = nil
+            return
+        }
         guard let communityId = currentPost?.communityId, communityId > 0 else {
             communityPermissions = nil
             return
@@ -485,6 +507,13 @@ class CommentsModalManager: ObservableObject {
             return code == 403 && apiError == "content_under_review"
         }
         return false
+    }
+
+    private func lockMessage(from capabilities: PostViewerCapabilities, verb: String) -> String {
+        if capabilities.lockReason == .specializationNotJoined {
+            return "Join this major or field to \(verb)."
+        }
+        return capabilities.lockMessage(for: verb)
     }
 }
 

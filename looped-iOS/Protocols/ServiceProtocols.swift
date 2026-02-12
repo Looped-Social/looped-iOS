@@ -257,6 +257,7 @@ protocol CommunityServiceProtocol {
     func fetchCommunityDetails(communityId: Int) async throws -> CommunityProfileData
     func fetchCommunityDetailsDTO(communityId: Int, kind: CommunityKind) async throws -> CommunityDetailsDTO
     func fetchCommunityDomains(communityId: Int) async throws -> [String]
+    func fetchPostableCommunities() async throws -> [CommunitySummary]
     func fetchJoinedSpecializations(type: CommunitySpecializationType?) async throws -> [DisplayCommunity]
     func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit]
     func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult>

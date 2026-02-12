@@ -32,6 +32,7 @@ struct Post: Codable, Identifiable {
     let mediaAssetIds: [Int]?
     let attachments: [MediaAttachment]?
     let isSaved: Bool
+    let viewerCapabilities: PostViewerCapabilities?
     let authorDisplayCommunity: DisplayCommunity?
     let authorDisplaySpecialization: DisplayCommunity?
     let createdAt: Date
@@ -69,6 +70,7 @@ struct Post: Codable, Identifiable {
         mediaAssetIds: [Int]? = nil,
         attachments: [MediaAttachment]? = nil,
         isSaved: Bool = false,
+        viewerCapabilities: PostViewerCapabilities? = nil,
         authorDisplayCommunity: DisplayCommunity? = nil,
         authorDisplaySpecialization: DisplayCommunity? = nil,
         createdAt: Date,
@@ -105,6 +107,7 @@ struct Post: Codable, Identifiable {
         self.mediaAssetIds = mediaAssetIds
         self.attachments = attachments
         self.isSaved = isSaved
+        self.viewerCapabilities = viewerCapabilities
         self.authorDisplayCommunity = authorDisplayCommunity
         self.authorDisplaySpecialization = authorDisplaySpecialization
         self.createdAt = createdAt
@@ -163,6 +166,7 @@ extension Post {
         let resolvedAuthorDisplayCommunity = dto.authorDisplayCommunity.map(DisplayCommunity.init(dto:))
         let resolvedAuthorDisplaySpecialization = dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:))
         let resolvedIsUnderReview = dto.isUnderReview ?? false
+        let resolvedViewerCapabilities = dto.viewerCapabilities.map(PostViewerCapabilities.init(dto:))
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
@@ -195,6 +199,7 @@ extension Post {
             mediaAssetIds: resolvedMediaAssetIds,
             attachments: resolvedAttachments,
             isSaved: dto.isSaved ?? false,
+            viewerCapabilities: resolvedViewerCapabilities,
             authorDisplayCommunity: resolvedAuthorDisplayCommunity,
             authorDisplaySpecialization: resolvedAuthorDisplaySpecialization,
             createdAt: dto.createdAt,
@@ -235,6 +240,7 @@ extension Post {
         let resolvedUserReaction: ReactionType? = userReaction ?? self.userReaction
         let resolvedAttachments: [MediaAttachment]? = attachments ?? self.attachments
         let resolvedIsSaved = isSaved ?? self.isSaved
+        let resolvedViewerCapabilities = self.viewerCapabilities
         let resolvedAuthorDisplayCommunity = authorDisplayCommunity ?? self.authorDisplayCommunity
         let resolvedAuthorDisplaySpecialization = authorDisplaySpecialization ?? self.authorDisplaySpecialization
         let resolvedUpdatedAt = updatedAt ?? self.updatedAt
@@ -271,6 +277,7 @@ extension Post {
             mediaAssetIds: mediaAssetIds,
             attachments: resolvedAttachments,
             isSaved: resolvedIsSaved,
+            viewerCapabilities: resolvedViewerCapabilities,
             authorDisplayCommunity: resolvedAuthorDisplayCommunity,
             authorDisplaySpecialization: resolvedAuthorDisplaySpecialization,
             createdAt: createdAt,

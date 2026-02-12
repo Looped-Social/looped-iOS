@@ -154,6 +154,7 @@ struct MenuItemButton: View {
 
                 Spacer()
             }
+            .padding(.leading, 10)
             .padding(.vertical, 14)
         }
         .buttonStyle(PlainButtonStyle())

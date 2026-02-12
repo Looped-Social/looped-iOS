@@ -72,6 +72,21 @@ struct PostDTO: Codable {
     let authorDisplaySpecialization: DisplayCommunityDTO?
     let poll: PollDTO?
     let isUnderReview: Bool?
+    let viewerCapabilities: PostViewerCapabilitiesDTO?
+}
+
+struct PostViewerCapabilitiesDTO: Codable {
+    let canInteract: Bool?
+    let canPost: Bool?
+    let canComment: Bool?
+    let canReply: Bool?
+    let canLike: Bool?
+    let canVote: Bool?
+    let canRepost: Bool?
+    let canSave: Bool?
+    let lockReason: String?
+    let requiresVerification: Bool?
+    let requiresJoin: Bool?
 }
 
 struct RepostedByUserDTO: Codable {
