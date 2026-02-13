@@ -3,6 +3,8 @@ import Foundation
 enum CommunityRequestKind: String {
     case company
     case school
+    case field
+    case major
     case unknown
 }
 

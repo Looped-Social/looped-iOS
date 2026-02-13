@@ -279,12 +279,14 @@ class UserService: UserServiceProtocol {
         return User(dto: dto, profile: dto.profile)
     }
     
-    func deleteAccount(mode: DeleteAccountMode = .hard) async throws {
+    func deleteAccount(mode: DeleteAccountMode = .hard) async throws -> DeleteAccountResult {
         switch mode {
         case .soft:
             let _: EmptyResponse = try await apiClient.post("/v1/users/me/deactivate", body: EmptyBody())
+            return DeleteAccountResult(deletePending: false)
         case .hard:
-            let _: DeleteAccountResponse = try await apiClient.post("/v1/users/me/delete", body: EmptyBody())
+            let response: DeleteAccountResponse = try await apiClient.post("/v1/users/me/delete", body: EmptyBody())
+            return DeleteAccountResult(deletePending: response.deletePending ?? false)
         }
     }
 
@@ -414,7 +416,8 @@ private struct DisplaySpecializationUpdateRequest: Codable {
 private struct EmptyBody: Codable {}
 
 private struct DeleteAccountResponse: Codable {
-    let status: String
+    let status: String?
     let firebaseStatus: String?
     let firebaseDeleted: Bool?
+    let deletePending: Bool?
 }

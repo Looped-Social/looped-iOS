@@ -193,16 +193,28 @@ class NotificationsViewModel: ObservableObject {
     // MARK: - Mark All As Read
     func markAllAsRead() async {
         let unreadNotifications = notifications.filter { !$0.isRead && $0.id.backendInt != nil }
+        guard !unreadNotifications.isEmpty else { return }
         notifications = notifications.map { $0.markingRead() }
         cacheStore.save(notifications)
 
-        do {
-            for notification in unreadNotifications {
-                guard let backendId = notification.id.backendInt else { continue }
+        var failedCount = 0
+        for notification in unreadNotifications {
+            guard let backendId = notification.id.backendInt else { continue }
+            do {
                 try await notificationService.markRead(notificationId: backendId)
+            } catch {
+                failedCount += 1
             }
+        }
+
+        if failedCount == 0 {
             toastMessage = ToastMessage(text: "Marked all as read", kind: .success)
-        } catch {
+        } else if failedCount < unreadNotifications.count {
+            toastMessage = ToastMessage(
+                text: "Marked most as read. Some notifications couldn't be updated.",
+                kind: .info
+            )
+        } else {
             toastMessage = ToastMessage(text: "Couldn't mark all as read", kind: .error)
         }
     }

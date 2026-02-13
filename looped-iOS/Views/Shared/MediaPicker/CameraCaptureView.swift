@@ -9,6 +9,7 @@ struct CameraCaptureView: View {
     let onCancel: () -> Void
     let onConfirm: (UIImage) -> Void
 
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var controller = CameraCaptureController()
     @State private var bottomControlsHeight: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
@@ -56,6 +57,8 @@ struct CameraCaptureView: View {
                         .scaledToFill()
                         .ignoresSafeArea()
                 }
+            } else if controller.authorizationStatus == .denied || controller.authorizationStatus == .restricted {
+                permissionDeniedState
             } else {
                 Color.loopedBlack.ignoresSafeArea()
             }
@@ -90,9 +93,14 @@ struct CameraCaptureView: View {
             controller.configure(position: position)
             controller.start()
         }
+        .onChange(of: scenePhase) { _, newValue in
+            guard !isRunningInPreviews, isCameraAvailable, newValue == .active else { return }
+            controller.configure(position: position)
+            controller.start()
+        }
         .onChange(of: controller.authorizationStatus) { _, newValue in
-            if newValue == .denied || newValue == .restricted {
-                handleCancel()
+            if newValue == .authorized {
+                controller.start()
             }
         }
         .onDisappear {
@@ -134,6 +142,58 @@ private extension CameraCaptureView {
         .frame(maxWidth: .infinity)
         .padding(.top, 12)
         .padding(.bottom, 8)
+    }
+
+    var permissionDeniedState: some View {
+        VStack(spacing: 0) {
+            Color.loopedBlack.ignoresSafeArea()
+        }
+        .overlay {
+            VStack(spacing: 16) {
+                Image(systemName: "camera.fill")
+                    .font(.loopedSymbol(.medium, size: 42))
+                    .foregroundColor(.loopedWhite)
+                    .accessibilityHidden(true)
+
+                Text(permissionTitle)
+                    .font(.loopedHeadingMedium)
+                    .foregroundColor(.loopedWhite)
+                    .multilineTextAlignment(.center)
+
+                Text(permissionMessage)
+                    .font(.loopedBody)
+                    .foregroundColor(.loopedWhite.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 30)
+
+                VStack(spacing: 10) {
+                    if controller.authorizationStatus == .denied {
+                        Button(action: openAppSettings) {
+                            Text("Open iOS Settings")
+                                .font(.loopedBodyMedium)
+                                .foregroundColor(.loopedBlack)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(Color.loopedWhite)
+                                .clipShape(Capsule())
+                        }
+                    }
+
+                    Button(action: handleCancel) {
+                        Text("Close")
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedWhite)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color.loopedBlack.opacity(0.45))
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(.top, 8)
+                .padding(.horizontal, 24)
+            }
+            .padding(.horizontal, 16)
+        }
     }
 
     var header: some View {
@@ -223,6 +283,23 @@ private extension CameraCaptureView {
         guard let image = controller.capturedImage else { return }
         onConfirm(image)
     }
+
+    var permissionTitle: String {
+        controller.authorizationStatus == .restricted
+            ? "Camera Access Restricted"
+            : "Camera Access Needed"
+    }
+
+    var permissionMessage: String {
+        controller.authorizationStatus == .restricted
+            ? "Camera access is currently restricted on this device. Update your device restrictions to continue."
+            : "To verify with a Photo ID, allow camera access in iOS Settings for Looped."
+    }
+
+    func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
 }
 
 private extension View {
@@ -290,6 +367,7 @@ final class CameraCaptureController: NSObject, ObservableObject, AVCapturePhotoC
             }
         default:
             isAuthorized = false
+            stop()
         }
     }
 

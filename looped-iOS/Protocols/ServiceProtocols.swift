@@ -164,7 +164,7 @@ protocol UserServiceProtocol {
     func updateDisplayCommunity(communityId: Int?) async throws -> User
     func updateDisplaySpecialization(specializationId: Int?) async throws -> User
     func verifyEmployment(verification: EmploymentVerification) async throws
-    func deleteAccount(mode: DeleteAccountMode) async throws
+    func deleteAccount(mode: DeleteAccountMode) async throws -> DeleteAccountResult
     func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage
     func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage
@@ -233,6 +233,10 @@ struct PrincipalBlockActionResult {
 enum DeleteAccountMode: String {
     case hard
     case soft
+}
+
+struct DeleteAccountResult {
+    let deletePending: Bool
 }
 
 protocol CommentsServiceProtocol {

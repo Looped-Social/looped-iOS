@@ -608,7 +608,7 @@ struct ProfileHeaderView: View {
                 }
                 .frame(width: 64, height: 64)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(displayName)
                         .font(.loopedHeaderProfile)
                         .foregroundColor(isAnonymous ? .loopedSecondary : .loopedTextPrimary)
@@ -616,6 +616,7 @@ struct ProfileHeaderView: View {
                     Text(handle)
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextSecondary)
+                        .padding(.top, -2)
                 }
 
                 Spacer()
@@ -715,18 +716,18 @@ struct ProfileStatsView: View {
                 if let followingCount = followingCount, let followersCount = followersCount {
                     HStack(spacing: 16) {
                         if let subject = followListSubject {
-                            NavigationLink(destination: UserFollowListView(subject: subject, kind: .following)) {
-                                statLabel(count: followingCount, title: "Following")
-                            }
-                            .buttonStyle(PlainButtonStyle())
-
                             NavigationLink(destination: UserFollowListView(subject: subject, kind: .followers)) {
                                 statLabel(count: followersCount, title: "Followers")
                             }
                             .buttonStyle(PlainButtonStyle())
+
+                            NavigationLink(destination: UserFollowListView(subject: subject, kind: .following)) {
+                                statLabel(count: followingCount, title: "Following")
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         } else {
-                            statLabel(count: followingCount, title: "Following")
                             statLabel(count: followersCount, title: "Followers")
+                            statLabel(count: followingCount, title: "Following")
                         }
 
                         Spacer()

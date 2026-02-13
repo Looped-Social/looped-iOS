@@ -160,20 +160,7 @@ class AuthService: AuthServiceProtocol {
     }
 
     func unlinkGoogle() async throws {
-        #if canImport(FirebaseAuth)
-        guard let user = Auth.auth().currentUser else {
-            throw AuthError.invalidCredentials
-        }
-        try validateCanUnlink(providerId: "google.com", for: user)
-        _ = try await user.unlink(fromProvider: "google.com")
-        try await reload(user: user)
-        try validateProviderUnlinked(providerId: "google.com", for: user)
-        if let token = try await currentIDToken(forcingRefresh: true) {
-            tokenStorage.token = token
-        }
-        #else
-        throw AuthError.networkError
-        #endif
+        try await unlinkProviderViaBackend(provider: "google")
     }
 
     // MARK: - Sign in with Apple
@@ -238,20 +225,7 @@ class AuthService: AuthServiceProtocol {
     }
 
     func unlinkApple() async throws {
-        #if canImport(FirebaseAuth)
-        guard let user = Auth.auth().currentUser else {
-            throw AuthError.invalidCredentials
-        }
-        try validateCanUnlink(providerId: "apple.com", for: user)
-        _ = try await user.unlink(fromProvider: "apple.com")
-        try await reload(user: user)
-        try validateProviderUnlinked(providerId: "apple.com", for: user)
-        if let token = try await currentIDToken(forcingRefresh: true) {
-            tokenStorage.token = token
-        }
-        #else
-        throw AuthError.networkError
-        #endif
+        try await unlinkProviderViaBackend(provider: "apple")
     }
 
     func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {
@@ -327,6 +301,74 @@ class AuthService: AuthServiceProtocol {
 }
 
 private extension AuthService {
+    struct ProviderUnlinkErrorPayload: Decodable {
+        let error: String
+        let message: String?
+        let reason: String?
+        let code: String?
+    }
+
+    func unlinkProviderViaBackend(provider: String) async throws {
+        #if canImport(FirebaseAuth)
+        guard Auth.auth().currentUser != nil else {
+            throw AuthError.invalidCredentials
+        }
+        guard let idToken = try await currentIDToken(forcingRefresh: true) else {
+            throw AuthError.invalidCredentials
+        }
+
+        let url = LoopedEnvironment
+            .apiBaseURL()
+            .appendingPathComponent("v1")
+            .appendingPathComponent("me")
+            .appendingPathComponent("providers")
+            .appendingPathComponent(provider)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AuthError.networkError
+        }
+
+        if 200...299 ~= httpResponse.statusCode {
+            if let user = Auth.auth().currentUser {
+                try await reload(user: user)
+            }
+            if let refreshed = try await currentIDToken(forcingRefresh: true) {
+                tokenStorage.token = refreshed
+            }
+            return
+        }
+
+        let payload = try? JSONDecoder().decode(ProviderUnlinkErrorPayload.self, from: data)
+        switch httpResponse.statusCode {
+        case 403 where payload?.error == "account_disabled":
+            throw AuthError.accountDisabled
+        case 409 where payload?.error == "account_not_actionable":
+            throw AuthError.accountNotActionable(reason: payload?.reason)
+        case 502 where payload?.error == "firebase_admin_error":
+            throw AuthError.firebaseAdminError(code: payload?.code)
+        case 503 where payload?.error == "firebase_admin_not_configured":
+            throw AuthError.firebaseAdminNotConfigured
+        case 401:
+            throw AuthError.invalidCredentials
+        default:
+            if let message = payload?.message, !message.isEmpty {
+                throw AuthError.providerUnlinkFailed(message: message)
+            }
+            if let error = payload?.error, !error.isEmpty {
+                throw AuthError.providerUnlinkFailed(message: error)
+            }
+            throw AuthError.providerUnlinkFailed(message: "Unable to update connected account. Please try again.")
+        }
+        #else
+        throw AuthError.networkError
+        #endif
+    }
+
     #if canImport(FirebaseAuth)
     func currentIDToken(forcingRefresh: Bool = false) async throws -> String? {
         guard let user = Auth.auth().currentUser else { return nil }
@@ -386,24 +428,6 @@ private extension AuthService {
         return nsError.userInfo[AuthErrorUserInfoMultiFactorResolverKey] as? MultiFactorResolver
     }
 
-    func validateCanUnlink(providerId: String, for user: FirebaseAuth.User) throws {
-        let providers = user.providerData.map(\.providerID)
-        let isLinked = providers.contains(providerId)
-        if !isLinked {
-            throw AuthProviderLinkError.notLinked(providerId)
-        }
-
-        if providers.count <= 1 {
-            throw AuthProviderLinkError.cannotUnlinkOnlyProvider(providerId)
-        }
-    }
-
-    func validateProviderUnlinked(providerId: String, for user: FirebaseAuth.User) throws {
-        let providers = user.providerData.map(\.providerID)
-        if providers.contains(providerId) {
-            throw AuthProviderLinkError.stillLinked(providerId)
-        }
-    }
     #endif
 }
 
@@ -412,41 +436,6 @@ struct MFARequiredError: Error {
     let resolver: MultiFactorResolver
 }
 #endif
-
-private enum AuthProviderLinkError: LocalizedError {
-    case notLinked(String)
-    case cannotUnlinkOnlyProvider(String)
-    case stillLinked(String)
-
-    private var providerName: String {
-        switch self.providerId {
-        case "apple.com":
-            return "Apple"
-        case "google.com":
-            return "Google"
-        default:
-            return providerId
-        }
-    }
-
-    private var providerId: String {
-        switch self {
-        case .notLinked(let providerId), .cannotUnlinkOnlyProvider(let providerId), .stillLinked(let providerId):
-            return providerId
-        }
-    }
-
-    var errorDescription: String? {
-        switch self {
-        case .notLinked:
-            return "This account isn’t connected to \(providerName)."
-        case .cannotUnlinkOnlyProvider:
-            return "Link another sign-in method first, then disconnect \(providerName)."
-        case .stillLinked:
-            return "Disconnect didn’t complete for \(providerName). Please try again."
-        }
-    }
-}
 
 enum AuthError: Error, LocalizedError {
     case noRefreshToken
@@ -458,6 +447,11 @@ enum AuthError: Error, LocalizedError {
     case wrongPassword
     case userDisabled
     case networkError
+    case accountNotActionable(reason: String?)
+    case accountDisabled
+    case firebaseAdminError(code: String?)
+    case firebaseAdminNotConfigured
+    case providerUnlinkFailed(message: String)
     
     var errorDescription: String? {
         switch self {
@@ -479,6 +473,28 @@ enum AuthError: Error, LocalizedError {
             return "This account has been disabled."
         case .networkError:
             return "Network error occurred"
+        case .accountNotActionable(let reason):
+            switch reason {
+            case "backend_user_missing":
+                return "This account can't be updated right now. Please sign out and sign back in."
+            case "account_deleted":
+                return "This account has been deleted. Please sign in with another account."
+            case "firebase_user_not_found":
+                return "Sign-in state is out of sync. Please sign out and sign back in."
+            default:
+                return "This account can't be updated right now."
+            }
+        case .accountDisabled:
+            return "This account is disabled."
+        case .firebaseAdminError(let code):
+            if let code, !code.isEmpty {
+                return "Unable to update connected account (\(code)). Please try again."
+            }
+            return "Unable to update connected account. Please try again."
+        case .firebaseAdminNotConfigured:
+            return "Connected account updates are temporarily unavailable."
+        case .providerUnlinkFailed(let message):
+            return message
         }
     }
 }

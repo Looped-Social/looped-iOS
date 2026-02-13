@@ -47,6 +47,7 @@ struct ContentView: View {
     @State private var keepBootstrapVisible = false
     @State private var showNotificationPermissionPrompt = false
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
+    @AppStorage("showAccountDeletionPendingAlert") private var showAccountDeletionPendingAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
@@ -91,6 +92,13 @@ struct ContentView: View {
             }
         } message: {
             Text("Your account and anonymous profile have been deleted.")
+        }
+        .alert("Account Deletion In Progress", isPresented: $showAccountDeletionPendingAlert) {
+            Button("OK", role: .cancel) {
+                showAccountDeletionPendingAlert = false
+            }
+        } message: {
+            Text("Your account deletion is in progress. You have been signed out.")
         }
         .alert("Account Deactivated", isPresented: $showAccountDeactivatedAlert) {
             Button("OK", role: .cancel) {

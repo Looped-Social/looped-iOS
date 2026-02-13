@@ -4,6 +4,7 @@ struct AccountActionConfirmView: View {
     let action: AccountActionKind
     @EnvironmentObject private var authViewModel: AuthViewModel
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
+    @AppStorage("showAccountDeletionPendingAlert") private var showAccountDeletionPendingAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
 
     private let userService: UserServiceProtocol = UserService()
@@ -99,10 +100,14 @@ struct AccountActionConfirmView: View {
                 if action == .delete {
                     try await anonService.revokeIfPresent()
                 }
-                try await userService.deleteAccount(mode: deleteMode)
+                let result = try await userService.deleteAccount(mode: deleteMode)
                 switch action {
                 case .delete:
-                    showAccountDeletedAlert = true
+                    if result.deletePending {
+                        showAccountDeletionPendingAlert = true
+                    } else {
+                        showAccountDeletedAlert = true
+                    }
                 case .deactivate:
                     showAccountDeactivatedAlert = true
                 }
