@@ -30,7 +30,12 @@ struct CommentsView: View {
 	@State private var showAttachmentOptions = false
 	@State private var keyboardWillShowObserver: NSObjectProtocol?
 	@State private var keyboardWillHideObserver: NSObjectProtocol?
+    @State private var activeModerationSheet: ModerationSheet?
+    @State private var selectedCommentForModeration: Comment?
+    @State private var moderationAlertMessage: String?
 	@FocusState private var isCommentFieldFocused: Bool
+
+    private let moderationService: ModerationServiceProtocol = ModerationService()
 
 	private var comments: [Comment] {
 		commentsManager.currentComments
@@ -88,6 +93,13 @@ struct CommentsView: View {
 
     private var postAuthorName: String {
         post.resolvedAuthorName
+    }
+
+    private var postAuthorProfileId: Int? {
+        if post.isAnonymous {
+            return post.anonProfileId
+        }
+        return post.authorBackendId ?? post.authorId.backendInt
     }
 
     private var imageUrls: [String] {
@@ -216,6 +228,16 @@ struct CommentsView: View {
                     )
                 )
             }
+            .sheet(item: $activeModerationSheet, onDismiss: {
+                selectedCommentForModeration = nil
+            }) { sheet in
+                moderationSheetContent(sheet)
+            }
+            .alert("Report Submitted", isPresented: moderationAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(moderationAlertMessage ?? "")
+            }
         }
     }
 }
@@ -276,11 +298,7 @@ private extension CommentsView {
 
     var threadHeader: some View {
         HStack(alignment: .top, spacing: 12) {
-            ProfileAvatarView(
-                imageURL: post.authorProfileImageURL,
-                size: 40,
-                variant: post.isAnonymous ? .anonymous : .standard
-            )
+            threadAuthorAvatar
 
             VStack(alignment: .leading, spacing: 8) {
                 let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -302,9 +320,7 @@ private extension CommentsView {
                     }
                 }
 
-                Text(postAuthorName)
-                    .font(.loopedSubBodyRegular)
-                    .foregroundColor(.loopedTextSecondary)
+                threadAuthorName
 
                 Text(formattedTimestamp(for: post.createdAt))
                     .font(.loopedSmallText)
@@ -341,6 +357,51 @@ private extension CommentsView {
                     )
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var threadAuthorAvatar: some View {
+        if let postAuthorProfileId {
+            NavigationLink(destination: postAuthorProfileDestination(profileId: postAuthorProfileId)) {
+                ProfileAvatarView(
+                    imageURL: post.authorProfileImageURL,
+                    size: 40,
+                    variant: post.isAnonymous ? .anonymous : .standard
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            ProfileAvatarView(
+                imageURL: post.authorProfileImageURL,
+                size: 40,
+                variant: post.isAnonymous ? .anonymous : .standard
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var threadAuthorName: some View {
+        if let postAuthorProfileId {
+            NavigationLink(destination: postAuthorProfileDestination(profileId: postAuthorProfileId)) {
+                Text(postAuthorName)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            Text(postAuthorName)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private func postAuthorProfileDestination(profileId: Int) -> some View {
+        if post.isAnonymous {
+            UserProfileView(anonProfileId: profileId)
+        } else {
+            UserProfileView(userId: profileId)
         }
     }
 
@@ -401,6 +462,11 @@ private extension CommentsView {
                             },
                             onDelete: { target in
                                 Task { await commentsManager.deleteComment(target) }
+                            },
+                            canReport: { canReport(comment: $0) },
+                            onReport: { target in
+                                selectedCommentForModeration = target
+                                activeModerationSheet = .reportComment
                             },
                             onHashtagTap: handleHashtagTap
                         )
@@ -688,6 +754,43 @@ private extension CommentsView {
         return comment.authorBackendId == currentUserId
     }
 
+    func canReport(comment: Comment) -> Bool {
+        guard !comment.isDeleted else { return false }
+        guard comment.backendId != nil else { return false }
+        if canManage(comment: comment) {
+            return false
+        }
+        return true
+    }
+
+    @ViewBuilder
+    func moderationSheetContent(_ sheet: ModerationSheet) -> some View {
+        switch sheet {
+        case .reportComment:
+            ReportReasonSheet(
+                title: "Report Comment",
+                onSubmit: { reason in
+                    guard let backendId = selectedCommentForModeration?.backendId else {
+                        throw ModerationError.missingTarget
+                    }
+                    _ = try await moderationService.createReport(
+                        targetType: "comment",
+                        targetId: backendId,
+                        reason: reason
+                    )
+                },
+                onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
+            )
+        }
+    }
+
+    var moderationAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { moderationAlertMessage != nil },
+            set: { if !$0 { moderationAlertMessage = nil } }
+        )
+    }
+
     var inputPlaceholder: String {
         commentsManager.editTarget == nil ? "Add a comment..." : "Edit comment..."
     }
@@ -705,7 +808,7 @@ private extension CommentsView {
         if joinIsRequired {
             return "Join this major or field to comment or interact."
         }
-        return "You can’t comment or interact with comments because you aren’t verified."
+        return "You must be verified in this community to comment or interact. Go to that community and tap Verify."
     }
 
 	var restrictedInteractionNotice: some View {
@@ -740,6 +843,22 @@ private extension CommentsView {
         guard !cleanHashtag.isEmpty else { return }
         selectedHashtag = cleanHashtag
         showHashtagFeed = true
+    }
+}
+
+private extension CommentsView {
+    enum ModerationSheet: String, Identifiable {
+        case reportComment
+
+        var id: String { rawValue }
+    }
+
+    enum ModerationError: LocalizedError {
+        case missingTarget
+
+        var errorDescription: String? {
+            "This action isn't available right now."
+        }
     }
 }
 

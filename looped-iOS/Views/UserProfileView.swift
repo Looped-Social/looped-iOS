@@ -552,7 +552,10 @@ struct UserProfileInfoSection: View {
         let rawBio = userProfile.bio ?? ""
         let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            return ("No bio yet", true)
+            if userProfile.isCurrentUser {
+                return ("No bio yet", true)
+            }
+            return ("", false)
         }
         return (trimmed, false)
     }

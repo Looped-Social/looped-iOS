@@ -285,7 +285,8 @@ struct SinglePostedMedia: View {
             .task {
                 await stopShimmerAfterDelay()
             }
-            .loopedScrollSafeTap {
+            .contentShape(Rectangle())
+            .onTapGesture {
                 onImageTap(attachment.url)
             }
         }
@@ -350,7 +351,8 @@ struct PostedMediaThumbnail: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .loopedScrollSafeTap {
+        .contentShape(Rectangle())
+        .onTapGesture {
             if attachment.type == .video {
                 onVideoTap(
                     VideoSelection(

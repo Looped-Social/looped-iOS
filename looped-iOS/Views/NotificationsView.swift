@@ -3,6 +3,7 @@ import SwiftUI
 struct NotificationsView: View {
     @ObservedObject var viewModel: NotificationsViewModel
     @State private var selectedProfileDestination: ProfileDestination?
+    @State private var selectedDetailDestination: NotificationDetailDestination?
     @State private var isAtTop = true
 
     init(viewModel: NotificationsViewModel) {
@@ -87,6 +88,11 @@ struct NotificationsView: View {
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
+                                if notification.type == .announcement || notification.type == .system {
+                                    selectedDetailDestination = NotificationDetailDestination(notification: notification)
+                                    viewModel.markNotificationAsRead(notification)
+                                    return
+                                }
                                 viewModel.handleNotificationTap(notification)
                             }
                             .onAppear {
@@ -154,6 +160,9 @@ struct NotificationsView: View {
                 UserProfileView(anonProfileId: id)
             }
         }
+        .navigationDestination(item: $selectedDetailDestination) { destination in
+            NotificationDetailView(destination: destination)
+        }
         .task {
             if viewModel.notifications.isEmpty {
                 await viewModel.loadNotifications()
@@ -189,6 +198,84 @@ private enum ProfileDestination: Hashable, Identifiable {
             return
         }
         return nil
+    }
+}
+
+private struct NotificationDetailDestination: Hashable, Identifiable {
+    let id: UUID
+    let kindRawValue: String
+    let actorName: String
+    let title: String?
+    let body: String?
+    let createdAt: Date
+
+    init(notification: Notification) {
+        id = notification.id
+        kindRawValue = notification.type.rawValue
+        actorName = notification.actorName
+        title = notification.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        body = notification.body?.trimmingCharacters(in: .whitespacesAndNewlines)
+        createdAt = notification.createdAt
+    }
+
+    var navigationTitle: String {
+        kindRawValue == NotificationType.announcement.rawValue ? "Announcement" : "Notification"
+    }
+
+    var headerTitle: String {
+        if let title, !title.isEmpty { return title }
+        return kindRawValue == NotificationType.announcement.rawValue ? "Announcement" : "Notification"
+    }
+}
+
+private struct NotificationDetailView: View {
+    let destination: NotificationDetailDestination
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(destination.headerTitle)
+                    .font(.loopedHeadingMedium)
+                    .foregroundColor(.loopedTextPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 6) {
+                    Text(destination.actorName)
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                    Text("•")
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary)
+                    Text(destination.createdAt, style: .date)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary)
+                    Text(destination.createdAt, style: .time)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+
+                Divider()
+                    .overlay(Color.loopedTextSecondary.opacity(0.15))
+
+                if let body = destination.body, !body.isEmpty {
+                    Text(body)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedTextPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text("No additional details available.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .textSelection(.enabled)
+        }
+        .background(Color.loopedBackground.ignoresSafeArea())
+        .navigationTitle(destination.navigationTitle)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

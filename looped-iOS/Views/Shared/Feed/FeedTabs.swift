@@ -208,10 +208,18 @@ private extension FeedTabs {
                         .tint(.loopedPrimary)
                         .padding(.vertical, 16)
                 } else if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("Start typing to search.")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                        .padding(.vertical, 16)
+                    VStack(spacing: 4) {
+                        Text("Start typing to search.")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        Text("Selecting a community filters your feed to posts from that community.")
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.9))
+                    }
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 16)
                 } else if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 {
                     Text("Type at least 2 characters.")
                         .font(.loopedSubBodyRegular)

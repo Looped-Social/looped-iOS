@@ -204,9 +204,17 @@ struct PostCard: View {
             NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
                 avatarContent
             }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    debugLog(action: "author_avatar_tap")
+                }
+            )
             .buttonStyle(PlainButtonStyle())
         } else {
-            avatarContent
+            Button(action: presentMissingAuthorProfileError) {
+                avatarContent
+            }
+            .buttonStyle(PlainButtonStyle())
         }
     }
 
@@ -228,13 +236,21 @@ struct PostCard: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    debugLog(action: "author_name_tap")
+                }
+            )
             .buttonStyle(PlainButtonStyle())
         } else {
-            Text(post.resolvedAuthorName)
-                .font(.loopedHeadlineScaled)
-                .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            Button(action: presentMissingAuthorProfileError) {
+                Text(post.resolvedAuthorName)
+                    .font(.loopedHeadlineScaled)
+                    .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .buttonStyle(PlainButtonStyle())
         }
     }
 
@@ -279,9 +295,9 @@ struct PostCard: View {
 		        }
 		    }
 
-	    private var likeButton: some View {
-	        Button(action: { handleLikeToggle() }) {
-	            HStack(spacing: actionLabelSpacing) {
+    private var likeButton: some View {
+        Button(action: { handleLikeToggle() }) {
+            HStack(spacing: actionLabelSpacing) {
                     ZStack(alignment: .topTrailing) {
                         Image(systemName: isLiked ? "heart.fill" : "heart")
                             .resizable()
@@ -300,15 +316,17 @@ struct PostCard: View {
                         }
                     }
 	                Text("\(displayedReactionCount)")
-	                    .font(.loopedSubheadlineScaled)
-	                    .foregroundColor(.loopedTextSecondary)
-	            }
-	        }
-	    }
+                    .font(.loopedSubheadlineScaled)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
+    }
 
-		    private var shareButton: some View {
-		        Button(action: { prepareShareSheet() }) {
-		            HStack(spacing: actionLabelSpacing) {
+    private var shareButton: some View {
+        Button(action: { prepareShareSheet() }) {
+            HStack(spacing: actionLabelSpacing) {
 		                Image("send-icon-fab")
 		                    .resizable()
 		                    .renderingMode(.template)
@@ -318,11 +336,13 @@ struct PostCard: View {
 	                Text("\(currentShareCount)")
 	                    .font(.loopedSubheadlineScaled)
 		                    .foregroundColor(.loopedTextSecondary)
-		            }
-		        }
-                .disabled(isPreparingShareSheet)
-                .opacity(isPreparingShareSheet ? 0.6 : 1)
-		    }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
+        .disabled(isPreparingShareSheet)
+        .opacity(isPreparingShareSheet ? 0.6 : 1)
+    }
 
     private var repostButton: some View {
         Button(action: { toggleRepost() }) {
@@ -336,11 +356,13 @@ struct PostCard: View {
                         .opacity(isRepostLoading ? 0.6 : 1)
 	            }
         }
-        .disabled(isRepostLoading || post.backendId == nil || isRepostLocked)
+        .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
+        .disabled(isRepostLoading)
     }
 
 	    private var commentButton: some View {
-	        Button(action: { commentsManager.showComments(for: post) }) {
+	        Button(action: openCommentsIfPossible) {
 	            HStack(spacing: actionLabelSpacing) {
 	                Image("comment-icon")
 	                    .resizable()
@@ -353,6 +375,8 @@ struct PostCard: View {
 	                    .foregroundColor(.loopedTextSecondary)
 	            }
 	        }
+        .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
 	    }
 
     private var bookmarkButton: some View {
@@ -365,7 +389,9 @@ struct PostCard: View {
 	                .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
 	                .opacity(isBookmarkLoading ? 0.6 : 1)
         }
-        .disabled(isBookmarkLoading || post.backendId == nil || isSaveLocked)
+        .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
+        .disabled(isBookmarkLoading)
     }
 
 		    private var engagementBar: some View {
@@ -377,14 +403,21 @@ struct PostCard: View {
 		            Spacer()
 		            bookmarkButton
 		        }
+                .contentShape(Rectangle())
+                .zIndex(10)
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        debugLog(action: "engagement_bar_tap")
+                    }
+                )
 		    }
 
-		    @ViewBuilder
-		    private var headerSection: some View {
-		        HStack(alignment: .top, spacing: 12) {
+			    @ViewBuilder
+			    private var headerSection: some View {
+			        HStack(alignment: .top, spacing: 12) {
 		            if !post.isAnonymous {
 		                authorAvatar
-		            }
+				    }
 
 		            VStack(alignment: .leading, spacing: 0) {
 		                HStack(spacing: 6) {
@@ -435,6 +468,12 @@ struct PostCard: View {
 			                }
 			            }
 			        }
+                    .zIndex(10)
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            debugLog(action: "header_section_tap")
+                        }
+                    )
 			    }
 
 		    @ViewBuilder
@@ -459,6 +498,11 @@ struct PostCard: View {
                         .loopedDoubleTapToLike {
                             handleDoubleTapLike()
                         }
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                debugLog(action: "text_section_tap")
+                            }
+                        )
 			        }
 			    }
 
@@ -481,9 +525,9 @@ struct PostCard: View {
 			    }
 
 			    @ViewBuilder
-			    private var attachmentsSection: some View {
-			        if let attachments = post.attachments, !attachments.isEmpty {
-			            VStack(spacing: 0) {
+				    private var attachmentsSection: some View {
+				        if let attachments = post.attachments, !attachments.isEmpty {
+				            VStack(spacing: 0) {
 			                Spacer()
 			                    .frame(height: 12)
 
@@ -491,11 +535,17 @@ struct PostCard: View {
 			                    attachments: attachments,
 			                    maxHeight: 350,
 			                    onImageTap: handlePostedImageTap,
-			                    onVideoTap: handlePostedVideoTap
-			                )
-			            }
-			        }
-			    }
+				                    onVideoTap: handlePostedVideoTap
+				                )
+				            }
+                            .clipped()
+                            .simultaneousGesture(
+                                TapGesture().onEnded {
+                                    debugLog(action: "attachments_section_tap")
+                                }
+                            )
+				        }
+				    }
 
 			    private func handlePostedImageTap(_ url: String) {
 			        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -767,6 +817,7 @@ struct PostCard: View {
 		            .padding(16)
 		            .background(Color.loopedBackground)
 		            .cornerRadius(0)
+                    .clipped()
 		    }
 
     private var postCardLifecycle: some View {
@@ -1005,7 +1056,12 @@ struct PostCard: View {
 	    }
 
     private func toggleBookmark() {
-        guard let postId = post.backendId, !isBookmarkLoading else { return }
+        debugLog(action: "bookmark_tap")
+        guard !isBookmarkLoading else { return }
+        guard let postId = post.backendId else {
+            presentMissingPostIdError(action: "save this post")
+            return
+        }
         if isSaveLocked {
             actionError = PostActionError(
                 title: reactionLockTitle,
@@ -1056,7 +1112,11 @@ struct PostCard: View {
 	    }
 
     private func deletePost() async {
-        guard let postId = post.backendId, !isDeleting else { return }
+        guard !isDeleting else { return }
+        guard let postId = post.backendId else {
+            presentMissingPostIdError(action: "delete this post")
+            return
+        }
         isDeleting = true
         defer { isDeleting = false }
         do {
@@ -1076,7 +1136,11 @@ struct PostCard: View {
     }
 
     private func updatePost() async {
-        guard let postId = post.backendId, !isEditing else { return }
+        guard !isEditing else { return }
+        guard let postId = post.backendId else {
+            presentMissingPostIdError(action: "edit this post")
+            return
+        }
         let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         isEditing = true
@@ -1158,11 +1222,16 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle() {
+        debugLog(action: "like_tap")
         if isReactionLocked {
             refreshPermissionsAndRetryReactionIfNeeded(verb: "like")
             return
         }
-        guard let postId = post.backendId, !isLikeLoading else { return }
+        guard !isLikeLoading else { return }
+        guard let postId = post.backendId else {
+            presentMissingPostIdError(action: "like this post")
+            return
+        }
         if isLiked {
             isLiked = false
             isLikeLoading = true
@@ -1297,7 +1366,12 @@ struct PostCard: View {
     }
 
     private func toggleRepost() {
-        guard let postId = post.backendId, !isRepostLoading else { return }
+        debugLog(action: "repost_tap")
+        guard !isRepostLoading else { return }
+        guard let postId = post.backendId else {
+            presentMissingPostIdError(action: "repost")
+            return
+        }
         if isRepostLocked {
             actionError = PostActionError(
                 title: reactionLockTitle,
@@ -1369,8 +1443,8 @@ struct PostCard: View {
 	            case .unauthorized:
 	                return "Please sign in again and try to \(verb)."
 	            case .apiError(_, let error, let message):
-	                if error == "community_not_verified" {
-	                    return "You must be verified in this community to \(verb). Verify in Settings → Community Verifications."
+                    if error == "community_not_verified" {
+                        return "You must be verified in this community to \(verb). Go to that community and tap Verify."
 	                }
                     if error == "specialization_not_joined" {
                         return "Join this major or field to \(verb)."
@@ -1501,7 +1575,7 @@ struct PostCard: View {
             return "Join this major or field to \(verb)."
         }
         if communityPermissions.requiresVerification && !communityPermissions.canPost {
-            return "You must be verified in this community to \(verb). Verify in Settings → Community Verifications."
+            return "You must be verified in this community to \(verb). Go to that community and tap Verify."
         }
         return "You can’t \(verb) right now."
     }
@@ -1523,6 +1597,38 @@ struct PostCard: View {
         case .joinSpecialization(let communityId):
             joinSpecialization(communityId: communityId)
         }
+    }
+
+    private func openCommentsIfPossible() {
+        debugLog(action: "comment_tap")
+        guard post.backendId != nil else {
+            presentMissingPostIdError(action: "open comments")
+            return
+        }
+        commentsManager.showComments(for: post)
+    }
+
+    private func presentMissingPostIdError(action: String) {
+        debugLog(action: "missing_post_id_\(action)")
+        actionError = PostActionError(
+            title: "Post unavailable",
+            message: "This post is missing required data, so we can't \(action) right now. Pull to refresh and try again."
+        )
+    }
+
+    private func presentMissingAuthorProfileError() {
+        debugLog(action: "missing_author_profile")
+        actionError = PostActionError(
+            title: "Profile unavailable",
+            message: "This post is missing author profile data. Pull to refresh and try again."
+        )
+    }
+
+    private func debugLog(action: String) {
+        #if DEBUG
+        let postId = post.backendId.map(String.init) ?? "nil"
+        print("PostCard action=\(action) postId=\(postId)")
+        #endif
     }
 
     private func joinSpecialization(communityId: Int) {

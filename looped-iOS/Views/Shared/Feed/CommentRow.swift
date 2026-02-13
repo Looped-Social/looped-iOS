@@ -16,11 +16,14 @@ struct CommentRow: View {
     let canManage: ((Comment) -> Bool)?
     let onEdit: ((Comment) -> Void)?
     let onDelete: ((Comment) -> Void)?
+    let canReport: ((Comment) -> Bool)?
+    let onReport: ((Comment) -> Void)?
     let onHashtagTap: ((String) -> Void)?
 
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
     @State private var selectedVideo: VideoSelection?
+    @State private var showActionMenu = false
 
     init(
         comment: Comment,
@@ -37,6 +40,8 @@ struct CommentRow: View {
         canManage: ((Comment) -> Bool)? = nil,
         onEdit: ((Comment) -> Void)? = nil,
         onDelete: ((Comment) -> Void)? = nil,
+        canReport: ((Comment) -> Bool)? = nil,
+        onReport: ((Comment) -> Void)? = nil,
         onHashtagTap: ((String) -> Void)? = nil
     ) {
         self.comment = comment
@@ -53,6 +58,8 @@ struct CommentRow: View {
         self.canManage = canManage
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.canReport = canReport
+        self.onReport = onReport
         self.onHashtagTap = onHashtagTap
     }
     
@@ -106,6 +113,47 @@ struct CommentRow: View {
         )
     }
 
+    private var authorProfileId: Int? {
+        comment.authorBackendId ?? comment.authorId.backendInt
+    }
+
+    @ViewBuilder
+    private var authorAvatar: some View {
+        if let authorProfileId {
+            NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
+                avatarView
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            avatarView
+        }
+    }
+
+    @ViewBuilder
+    private var authorName: some View {
+        if let authorProfileId {
+            NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
+                Text(displayName)
+                    .font(authorFont)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            Text(displayName)
+                .font(authorFont)
+                .foregroundColor(.loopedTextSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private func authorProfileDestination(profileId: Int) -> some View {
+        if comment.isAnonymous {
+            UserProfileView(anonProfileId: profileId)
+        } else {
+            UserProfileView(userId: profileId)
+        }
+    }
+
     private var collapsedRepliesLabel: String? {
         guard comment.replyCount > 0 else { return nil }
         if comment.replyCount == 1 {
@@ -136,10 +184,26 @@ struct CommentRow: View {
         onLike(comment)
     }
 
+    private var canShowManageActions: Bool {
+        guard !comment.isDeleted else { return false }
+        guard let canManage, canManage(comment) else { return false }
+        return onEdit != nil || onDelete != nil
+    }
+
+    private var canShowReportAction: Bool {
+        guard !comment.isDeleted else { return false }
+        guard let canReport, canReport(comment) else { return false }
+        return onReport != nil
+    }
+
+    private var canShowActionButton: Bool {
+        canShowManageActions || canShowReportAction
+    }
+
 	    var body: some View {
 	        VStack(alignment: .leading, spacing: 0) {
 	            HStack(alignment: .top, spacing: 12) {
-	                avatarView
+	                authorAvatar
 	
 	                VStack(alignment: .leading, spacing: 8) {
 	                    if comment.isDeleted {
@@ -191,9 +255,16 @@ struct CommentRow: View {
 		                        )
 		                    }
 
-                    Text(displayName)
-                        .font(authorFont)
-                        .foregroundColor(.loopedTextSecondary)
+                    HStack(spacing: 8) {
+                        authorName
+                        Spacer()
+                        if canShowActionButton {
+                            Button(action: { showActionMenu = true }) {
+                                Image(systemName: "ellipsis")
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                        }
+                    }
 
                     if comment.isDeleted {
                         Text(formattedTimestamp)
@@ -327,6 +398,8 @@ struct CommentRow: View {
 	                                canManage: canManage,
 	                                onEdit: onEdit,
 	                                onDelete: onDelete,
+                                    canReport: canReport,
+                                    onReport: onReport,
 	                                onHashtagTap: onHashtagTap
 	                            )
 	                            .id(reply.backendId ?? reply.id.hashValue)
@@ -372,19 +445,23 @@ struct CommentRow: View {
                 )
             )
         }
-        .contextMenu {
-            if let canManage, canManage(comment), !comment.isDeleted {
+        .confirmationDialog(
+            "Comment options",
+            isPresented: $showActionMenu,
+            titleVisibility: .visible
+        ) {
+            if canShowManageActions {
                 if let onEdit {
-                    Button("Edit") { onEdit(comment) }
+                    Button("Edit Comment") { onEdit(comment) }
                 }
                 if let onDelete {
-                    Button(role: .destructive) {
-                        onDelete(comment)
-                    } label: {
-                        Text("Delete")
-                    }
+                    Button("Delete Comment", role: .destructive) { onDelete(comment) }
                 }
             }
+            if canShowReportAction, let onReport {
+                Button("Report Comment", role: .destructive) { onReport(comment) }
+            }
+            Button("Cancel", role: .cancel) { }
         }
     }
 }

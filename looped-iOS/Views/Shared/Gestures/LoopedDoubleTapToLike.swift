@@ -5,11 +5,7 @@ private struct LoopedDoubleTapToLikeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                TapGesture(count: 2).onEnded(action),
-                including: .gesture
-            )
+            .simultaneousGesture(TapGesture(count: 2).onEnded(action))
     }
 }
 

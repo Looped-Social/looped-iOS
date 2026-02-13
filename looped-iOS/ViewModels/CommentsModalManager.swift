@@ -275,7 +275,7 @@ class CommentsModalManager: ObservableObject {
             if case let APIError.apiError(_, apiError, message) = error {
                 switch apiError {
                 case "community_not_verified":
-                    errorMessage = message ?? "You must be verified in this community to comment. Verify in Settings → Community Verifications."
+                    errorMessage = message ?? "You must be verified in this community to comment. Go to a community and tap Verify."
                 case "specialization_not_joined":
                     errorMessage = message ?? "Join this major or field to comment."
                 default:
@@ -405,7 +405,7 @@ class CommentsModalManager: ObservableObject {
             if case let APIError.apiError(_, apiError, message) = error {
                 switch apiError {
                 case "community_not_verified":
-                    errorMessage = message ?? "You must be verified in this community to like comments. Verify in Settings → Community Verifications."
+                    errorMessage = message ?? "You must be verified in this community to like comments. Go to a community and tap Verify."
                 case "specialization_not_joined":
                     errorMessage = message ?? "Join this major or field to like comments."
                 default:

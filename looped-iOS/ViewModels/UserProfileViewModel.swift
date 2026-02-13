@@ -19,6 +19,7 @@ final class UserProfileViewModel: ObservableObject {
     private let userService: UserServiceProtocol
     private let anonService: AnonService
     private let followStateStore: FollowStateStore
+    private var resolvedCurrentUserBackendId: Int?
 
     var isAnonymousProfile: Bool {
         if case .anon = source { return true }
@@ -38,6 +39,7 @@ final class UserProfileViewModel: ObservableObject {
         self.userService = userService
         self.anonService = anonService ?? .shared
         self.followStateStore = followStateStore ?? .shared
+        self.resolvedCurrentUserBackendId = currentUserId
         self.profile = initialProfile
 
         switch source {
@@ -59,12 +61,14 @@ final class UserProfileViewModel: ObservableObject {
                 let user = try await userService.getUser(by: userId)
                 profile = UserProfile.from(user: user, isCurrentUser: user.backendId == currentUserId)
                 isFollowing = followStateStore.isFollowing(userId: userId)
+                await syncFollowStateFromBackend(for: .user(id: userId))
             case .anon(let anonProfileId):
                 let anonProfile = try await anonService.fetchProfile(id: anonProfileId)
                 let currentIdentity = await anonService.currentIdentity()
                 let isCurrentUser = currentIdentity?.profileId == anonProfileId
                 profile = anonProfile.asUserProfile(companyName: nil, isCurrentUser: isCurrentUser)
                 isFollowing = followStateStore.isFollowing(anonProfileId: anonProfileId)
+                await syncFollowStateFromBackend(for: .anon(id: anonProfileId))
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -137,6 +141,96 @@ final class UserProfileViewModel: ObservableObject {
         }
 
         isFollowActionInFlight = false
+    }
+
+    private func syncFollowStateFromBackend(for source: UserProfileSource) async {
+        do {
+            let viewerUserId = try await resolveCurrentUserBackendId()
+
+            switch source {
+            case .user(let targetUserId):
+                if targetUserId == viewerUserId {
+                    if followStateStore.isFollowing(userId: targetUserId) {
+                        followStateStore.setFollowing(false, userId: targetUserId)
+                    }
+                    isFollowing = false
+                    return
+                }
+
+                let following = try await lookupFollowingState(
+                    viewerUserId: viewerUserId,
+                    target: .user(id: targetUserId)
+                )
+                if followStateStore.isFollowing(userId: targetUserId) != following {
+                    followStateStore.setFollowing(following, userId: targetUserId)
+                }
+                isFollowing = following
+
+            case .anon(let targetAnonProfileId):
+                let following = try await lookupFollowingState(
+                    viewerUserId: viewerUserId,
+                    target: .anon(id: targetAnonProfileId)
+                )
+                if followStateStore.isFollowing(anonProfileId: targetAnonProfileId) != following {
+                    followStateStore.setFollowing(following, anonProfileId: targetAnonProfileId)
+                }
+                isFollowing = following
+            }
+        } catch {
+            // Keep cached follow state when backend lookup fails.
+        }
+    }
+
+    private func resolveCurrentUserBackendId() async throws -> Int {
+        if let currentUserId {
+            return currentUserId
+        }
+        if let resolvedCurrentUserBackendId {
+            return resolvedCurrentUserBackendId
+        }
+        let currentUser = try await userService.getCurrentUser()
+        resolvedCurrentUserBackendId = currentUser.backendId
+        return currentUser.backendId
+    }
+
+    private enum FollowLookupTarget {
+        case user(id: Int)
+        case anon(id: Int)
+    }
+
+    private func lookupFollowingState(viewerUserId: Int, target: FollowLookupTarget) async throws -> Bool {
+        var cursor: String?
+        var visitedCursors: Set<String> = []
+
+        while true {
+            let page = try await userService.fetchUserFollowing(
+                userId: viewerUserId,
+                limit: 100,
+                cursor: cursor,
+                query: nil
+            )
+
+            let found = page.items.contains { item in
+                switch target {
+                case .user(let id):
+                    return item.kind == .user && item.entityId == id
+                case .anon(let id):
+                    return item.kind == .anon && item.entityId == id
+                }
+            }
+            if found {
+                return true
+            }
+
+            guard let nextCursor = page.nextCursor, !nextCursor.isEmpty else {
+                return false
+            }
+            guard visitedCursors.contains(nextCursor) == false else {
+                return false
+            }
+            visitedCursors.insert(nextCursor)
+            cursor = nextCursor
+        }
     }
 
     private func followErrorMessage(from error: Error, wasFollowing: Bool) -> String {

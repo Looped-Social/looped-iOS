@@ -10,12 +10,14 @@ struct FeedView: View {
     @State private var lastScrollOffset: CGFloat = 0
     @State private var isAtTop = true
     @State private var pollingTask: Task<Void, Never>?
+    @State private var measuredHeaderHeight: CGFloat = 140
 
-    private var headerHeight: CGFloat { viewModel.isCommunitySearchActive ? 380 : 140 }
+    private var headerHeight: CGFloat { max(0, measuredHeaderHeight) }
     private let pollInterval: TimeInterval = 90
     private let toastCooldown: TimeInterval = 7 * 60
     private let minNewPostsCount = 7
     private let topAnchorId = "feedTop"
+    private let scrollCoordinateSpace = "feedScrollCoordinateSpace"
 
     init(
         isTabBarVisible: Binding<Bool> = .constant(true),
@@ -56,7 +58,7 @@ struct FeedView: View {
                         } else if viewModel.posts.isEmpty {
                             EmptyFeedView()
                         } else {
-                            ForEach(viewModel.posts) { post in
+                            ForEach(Array(viewModel.posts.enumerated()), id: \.offset) { index, post in
                                 PostCard(
                                     post: post,
                                     showsCommunityLabel: true,
@@ -74,6 +76,9 @@ struct FeedView: View {
                                         viewModel.removePosts(authorPrincipalId: principalId)
                                     }
                                 )
+                                    .feedDebugTapProbe(
+                                        "Feed row tapped index=\(index) backendId=\(post.backendId.map(String.init) ?? "nil")"
+                                    )
                                     .onAppear {
                                         Task {
                                             await viewModel.loadMoreIfNeeded(currentPost: post)
@@ -93,17 +98,21 @@ struct FeedView: View {
                     .background(
                         GeometryReader { geo in
                             Color.loopedClear
-                                .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
+                                    guard abs(newValue - oldValue) > 0.5 else { return }
                                     handleScroll(newValue)
                                 }
                         }
                     )
                 }
+                .coordinateSpace(name: scrollCoordinateSpace)
                 .onChange(of: scrollToTopSignal) { _, _ in
                     scrollToTop(proxy: proxy)
                 }
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    Color.loopedClear.frame(height: headerHeight)
+                    Color.loopedClear
+                        .frame(height: headerHeight)
+                        .allowsHitTesting(false)
                 }
                 .loopedPullToRefresh(
                     isEnabled: !viewModel.isCommunitySearchActive,
@@ -179,7 +188,12 @@ struct FeedView: View {
                     }
                 )
             }
-            .frame(height: headerHeight)
+            .background(
+                GeometryReader { proxy in
+                    Color.loopedClear
+                        .preference(key: FeedHeaderHeightPreferenceKey.self, value: proxy.size.height)
+                }
+            )
             .background(
                 Color.loopedBackground
                     .ignoresSafeArea(.all, edges: .top)
@@ -187,10 +201,17 @@ struct FeedView: View {
             )
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
+            .allowsHitTesting(headerVisible)
             .animation(.easeInOut(duration: 0.25), value: headerVisible)
         }
         .background(Color.loopedBackground)
         .navigationBarHidden(true)
+        .onPreferenceChange(FeedHeaderHeightPreferenceKey.self) { newValue in
+            guard newValue > 0 else { return }
+            if abs(newValue - measuredHeaderHeight) > 0.5 {
+                measuredHeaderHeight = newValue
+            }
+        }
         .task {
             await viewModel.loadInitial()
         }
@@ -302,6 +323,32 @@ struct FeedView: View {
             withAnimation(.easeInOut(duration: 0.35)) {
                 proxy.scrollTo(topAnchorId, anchor: .top)
             }
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func feedDebugTapProbe(_ message: @autoclosure @escaping () -> String) -> some View {
+        #if DEBUG
+        simultaneousGesture(
+            TapGesture().onEnded {
+                print(message())
+            }
+        )
+        #else
+        self
+        #endif
+    }
+}
+
+private struct FeedHeaderHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 140
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        let next = nextValue()
+        if next > 0 {
+            value = next
         }
     }
 }

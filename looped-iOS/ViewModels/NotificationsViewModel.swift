@@ -17,6 +17,7 @@ class NotificationsViewModel: ObservableObject {
     private let cacheStore: NotificationCacheStore
     private let followStateStore: FollowStateStore
     private var nextCursor: String?
+    private var currentUserBackendId: Int?
     private var actorCache: [Int: ActorProfile] = [:]
     private var cancellables: Set<AnyCancellable> = []
 
@@ -64,6 +65,7 @@ class NotificationsViewModel: ObservableObject {
             errorMessage = nil
             cacheStore.save(notifications)
             await hydrateActorProfiles(for: notifications)
+            await syncFollowActionStates(for: notifications)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -88,6 +90,7 @@ class NotificationsViewModel: ObservableObject {
             notifications = mergeCachedAndFetched(cached: notifications, fetched: page.notifications)
             cacheStore.save(notifications)
             await hydrateActorProfiles(for: notifications)
+            await syncFollowActionStates(for: notifications)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -175,6 +178,10 @@ class NotificationsViewModel: ObservableObject {
         default:
             return true
         }
+    }
+
+    func markNotificationAsRead(_ notification: Notification) {
+        markAsRead(notification)
     }
 
     // MARK: - Mark As Read
@@ -333,6 +340,73 @@ class NotificationsViewModel: ObservableObject {
             else { return notification }
             return notification.updatingActor(name: profile.name, profileImageUrl: profile.profileImageUrl)
         }
+    }
+
+    private func syncFollowActionStates(for notifications: [Notification]) async {
+        let followActorIds = Set<Int>(
+            notifications.compactMap { notification -> Int? in
+                guard notification.type == .follow else { return nil }
+                guard notification.actorIsAnonymous == false else { return nil }
+                guard let actorId = notification.actorId?.backendInt else { return nil }
+                return actorId
+            }
+        )
+        guard !followActorIds.isEmpty else { return }
+
+        do {
+            let currentUserId = try await resolveCurrentUserBackendId()
+            var unresolvedActorIds = followActorIds
+            var followedActorIds: Set<Int> = []
+            var cursor: String?
+            var visitedCursors: Set<String> = []
+
+            while true {
+                let page = try await userService.fetchUserFollowing(
+                    userId: currentUserId,
+                    limit: 100,
+                    cursor: cursor,
+                    query: nil
+                )
+
+                for item in page.items where item.kind == .user {
+                    if unresolvedActorIds.contains(item.entityId) {
+                        followedActorIds.insert(item.entityId)
+                        unresolvedActorIds.remove(item.entityId)
+                    }
+                }
+
+                if unresolvedActorIds.isEmpty {
+                    break
+                }
+
+                guard let nextCursor = page.nextCursor, !nextCursor.isEmpty else {
+                    break
+                }
+                guard visitedCursors.contains(nextCursor) == false else {
+                    break
+                }
+                visitedCursors.insert(nextCursor)
+                cursor = nextCursor
+            }
+
+            for actorId in followActorIds {
+                let shouldBeFollowing = followedActorIds.contains(actorId)
+                if followStateStore.isFollowing(userId: actorId) != shouldBeFollowing {
+                    followStateStore.setFollowing(shouldBeFollowing, userId: actorId)
+                }
+            }
+        } catch {
+            // Keep cached follow state if backend reconciliation fails.
+        }
+    }
+
+    private func resolveCurrentUserBackendId() async throws -> Int {
+        if let currentUserBackendId {
+            return currentUserBackendId
+        }
+        let currentUser = try await userService.getCurrentUser()
+        currentUserBackendId = currentUser.backendId
+        return currentUser.backendId
     }
 
     private func mergeCachedAndFetched(cached: [Notification], fetched: [Notification]) -> [Notification] {

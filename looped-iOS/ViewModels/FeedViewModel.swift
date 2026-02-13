@@ -290,9 +290,9 @@ class FeedViewModel: ObservableObject {
             guard activeFeedRequestId == contextId else { return }
             guard requestedMode == feedMode, requestedCommunityId == selectedCommunity?.id else { return }
             if reset {
-                posts = page.posts
+                posts = deduplicatedPosts(page.posts)
             } else {
-                posts.append(contentsOf: page.posts)
+                posts = deduplicatedPosts(posts + page.posts)
             }
             nextCursor = page.nextCursor
         } catch {
@@ -585,6 +585,7 @@ class FeedViewModel: ObservableObject {
             }
 
             posts.insert(resolvedPost, at: 0)
+            posts = deduplicatedPosts(posts)
             lastPostedCommunityId = communityId
             UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
             return resolvedPost.isUnderReview ? .createdUnderReview : .created
@@ -598,9 +599,11 @@ class FeedViewModel: ObservableObject {
             if case let APIError.apiError(code, apiError, message) = error, code == 403 {
                 switch apiError {
                 case "community_not_verified":
-                    errorMessage = "You must be verified in this community to post. Verify in Settings → Community Verifications."
+                    errorMessage = "You must be verified in this community to post. Go to that community and tap Verify."
                 case "specialization_not_joined":
                     errorMessage = "Join this major or field to post."
+                case "community_banned":
+                    errorMessage = message ?? "Posting is disabled in this community right now."
                 case "user_not_verified":
                     errorMessage = "You must be verified before posting."
                 case "verification_expired":
@@ -612,8 +615,28 @@ class FeedViewModel: ObservableObject {
                 }
                 return .failed
             }
+            if case let APIError.apiError(code, apiError, message) = error, code == 404 {
+                switch apiError {
+                case "community_not_found":
+                    errorMessage = "That community couldn't be found. Select another community and try again."
+                default:
+                    errorMessage = message ?? apiError
+                }
+                return .failed
+            }
+            if case let APIError.apiError(code, apiError, message) = error, code == 400 {
+                switch apiError {
+                case "idempotency_required":
+                    errorMessage = "We couldn't post that right now. Please try again."
+                default:
+                    errorMessage = message ?? apiError
+                }
+                return .failed
+            }
             if case let APIError.apiError(code, apiError, message) = error, code == 422 {
                 switch apiError {
+                case "community_required":
+                    errorMessage = "Pick a community before posting."
                 case "media_not_found":
                     errorMessage = "Couldn't find your uploaded media yet. Try again."
                 case "media_invalid":
@@ -752,6 +775,33 @@ private extension FeedViewModel {
             communitySearchResults = []
             communitySearchError = error.localizedDescription
         }
+    }
+
+    func deduplicatedPosts(_ input: [Post]) -> [Post] {
+        var seen = Set<String>()
+        var output: [Post] = []
+        output.reserveCapacity(input.count)
+
+        for post in input {
+            let key: String
+            if let backendId = post.backendId {
+                key = "b:\(backendId)"
+            } else {
+                key = "u:\(post.id.uuidString)"
+            }
+            if seen.insert(key).inserted {
+                output.append(post)
+            }
+        }
+
+        #if DEBUG
+        let dropped = input.count - output.count
+        if dropped > 0 {
+            print("FeedViewModel deduplicated \(dropped) posts (kept \(output.count) of \(input.count)).")
+        }
+        #endif
+
+        return output
     }
 
     func restoreFeedFilterState() {

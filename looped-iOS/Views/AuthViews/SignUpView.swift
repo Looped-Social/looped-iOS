@@ -77,6 +77,7 @@ struct SignUpView: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 8)
                         }
+
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 32)

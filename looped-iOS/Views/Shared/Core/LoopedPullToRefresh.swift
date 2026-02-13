@@ -2,6 +2,7 @@ import SwiftUI
 
 private enum LoopedPullToRefreshConstants {
     static let threshold: CGFloat = 90
+    static let activationDistance: CGFloat = 10
     static let completionFadeDelayNanoseconds: UInt64 = 220_000_000
 }
 
@@ -20,14 +21,20 @@ struct LoopedPullToRefreshModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
+                DragGesture(minimumDistance: LoopedPullToRefreshConstants.activationDistance)
                     .updating($pullTranslation) { value, state, _ in
                         guard shouldTrackPull else { return }
+                        let vertical = value.translation.height
+                        let horizontal = abs(value.translation.width)
+                        guard vertical > 0, abs(vertical) > horizontal else { return }
                         state = max(0, value.translation.height)
                     }
                     .onEnded { value in
                         guard shouldTrackPull else { return }
                         guard phase == nil else { return }
+                        let vertical = value.translation.height
+                        let horizontal = abs(value.translation.width)
+                        guard vertical > 0, abs(vertical) > horizontal else { return }
                         if value.translation.height >= LoopedPullToRefreshConstants.threshold {
                             startRefresh()
                         }

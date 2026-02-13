@@ -16,6 +16,7 @@ struct CommunityProfileView: View {
     @State private var verificationTargetCommunity: CommunityProfileData?
     @State private var verificationUnavailableMessage: String?
     @State private var showSpecializationJoinInfo = false
+    @State private var showSpecializationJoinConfirmation = false
     @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
     @State private var canPop: Bool?
@@ -211,35 +212,38 @@ struct CommunityProfileView: View {
                 }
 
                 Spacer()
+
+                if viewModel.isLoadingVerification {
+                    ProgressView()
+                        .tint(.loopedSecondary)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.loopedSymbol(.semibold, size: 13))
+                        .foregroundColor(.loopedTextSecondary)
+                }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 10))
+            .background(Color.loopedMutedBackground.opacity(0.7))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.loopedTextSecondary.opacity(0.18), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(PlainButtonStyle())
+        .disabled(viewModel.isLoadingVerification)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity((viewModel.isFollowActionInFlight || viewModel.isJoinActionInFlight || viewModel.isLoadingVerification) ? 0.7 : 1)
     }
 
     private var specializationJoinPill: some View {
         HStack(spacing: 10) {
-            Button(action: {
-                if viewModel.community.isJoined {
-                    showSpecializationLeaveConfirmation = true
-                } else {
-                    let joinLimit = viewModel.community.joinLimit
-                    if joinLimit?.requiresVerificationForJoin == true {
-                        let required = joinLimit?.requiredVerificationKind?.displayName ?? "Company/School"
-                        let label = viewModel.community.specializationLabel ?? "Specialization"
-                        verificationUnavailableMessage = "You must be verified in at least 1 \(required.lowercased()) to join a \(label.lowercased())."
-                        return
-                    }
-                    guard joinLimit?.canJoin != false else {
-                        showSpecializationJoinInfo = true
-                        return
-                    }
-                    Task { await viewModel.toggleJoin() }
-                }
-            }) {
+            Button(action: handleSpecializationJoinTap) {
                 HStack(spacing: 8) {
                     Image(systemName: specializationJoinDisplay.icon)
                         .foregroundColor(specializationJoinDisplay.color)
@@ -257,7 +261,26 @@ struct CommunityProfileView: View {
                     }
 
                     Spacer()
+
+                    if viewModel.isJoinActionInFlight {
+                        ProgressView()
+                            .tint(.loopedSecondary)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.loopedSymbol(.semibold, size: 13))
+                            .foregroundColor(.loopedTextSecondary)
+                    }
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.loopedMutedBackground.opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.loopedTextSecondary.opacity(0.18), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(PlainButtonStyle())
             .disabled(isSpecializationJoinActionDisabled)
@@ -287,6 +310,36 @@ struct CommunityProfileView: View {
         } message: {
             Text(specializationLeaveConfirmationText())
         }
+        .alert("Join \(specializationJoinDisplay.label)?", isPresented: $showSpecializationJoinConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Join") {
+                Task { await viewModel.toggleJoin() }
+            }
+        } message: {
+            Text(specializationJoinConfirmationText())
+        }
+    }
+
+    private func handleSpecializationJoinTap() {
+        if viewModel.community.isJoined {
+            showSpecializationLeaveConfirmation = true
+            return
+        }
+
+        let joinLimit = viewModel.community.joinLimit
+        if joinLimit?.requiresVerificationForJoin == true {
+            let required = joinLimit?.requiredVerificationKind?.displayName ?? "Company/School"
+            let label = viewModel.community.specializationLabel ?? "Specialization"
+            verificationUnavailableMessage = "You must be verified in at least 1 \(required.lowercased()) to join a \(label.lowercased())."
+            return
+        }
+
+        guard joinLimit?.canJoin != false else {
+            showSpecializationJoinInfo = true
+            return
+        }
+
+        showSpecializationJoinConfirmation = true
     }
 
     private var isSpecializationJoinActionDisabled: Bool {
@@ -677,6 +730,32 @@ struct CommunityProfileView: View {
             parts.append("(\(label))")
         }
 
+        return parts.joined(separator: " ")
+    }
+
+    private func specializationJoinConfirmationText() -> String {
+        let label = specializationJoinDisplay.label.lowercased()
+        guard let joinLimit = viewModel.community.joinLimit else {
+            return "Joining this \(label) counts toward your limited join changes. Are you sure you want to continue?"
+        }
+
+        let remaining = max(0, joinLimit.remaining)
+        let joinedAfterConfirm = joinLimit.joinedCount + 1
+        var parts: [String] = []
+        if remaining <= 1 {
+            parts.append("This is your last available join right now.")
+        } else {
+            parts.append("You have \(remaining)/\(joinLimit.limit) joins left.")
+        }
+        parts.append("If you join now, you’ll be at \(joinedAfterConfirm)/\(joinLimit.limit).")
+
+        if let cooldownEndsAt = joinLimit.cooldownEndsAt {
+            parts.append("Changes reset on \(Self.expiryFormatter.string(from: cooldownEndsAt)).")
+        } else if joinLimit.cooldownMonths > 0 {
+            parts.append("Changes reset every \(joinLimit.cooldownMonths) months.")
+        }
+
+        parts.append("Join this \(label)?")
         return parts.joined(separator: " ")
     }
 

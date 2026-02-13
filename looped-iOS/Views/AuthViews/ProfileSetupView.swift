@@ -16,6 +16,8 @@ struct ProfileSetupView: View {
     @State private var didLoadDraft = false
     @State private var toastMessage: ToastMessage?
     private let onboardingStore = OnboardingProgressStore()
+    private let privacyPolicyURL = URL(string: "https://www.mylooped.app/privacy-policy")!
+    private let userAgreementURL = URL(string: "https://www.mylooped.app/terms")!
 
     var body: some View {
         ZStack {
@@ -87,6 +89,26 @@ struct ProfileSetupView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
                     }
+
+                    VStack(spacing: 4) {
+                        Text("By signing up, you agree to our")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        HStack(spacing: 4) {
+                            Link("Privacy Policy", destination: privacyPolicyURL)
+                                .font(.loopedSubBodyRegular)
+                            Text("and")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                            Link("User Agreement", destination: userAgreementURL)
+                                .font(.loopedSubBodyRegular)
+                        }
+                        .tint(.loopedSecondary)
+                    }
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 6)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 32)
