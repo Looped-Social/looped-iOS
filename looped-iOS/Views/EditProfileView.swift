@@ -47,31 +47,37 @@ struct EditProfileView: View {
                             // Profile Image Section
                             VStack(spacing: 12) {
                                 PhotosPicker(selection: $selectedImage, matching: .images) {
-                                    ZStack(alignment: .bottomTrailing) {
-                                        // Profile Image
-                                        if let profileImageSnapshot {
-                                            profileImageSnapshot
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                                .frame(width: 100, height: 100)
-                                                .clipShape(Circle())
-                                        } else {
-                                            ProfileAvatarView(
-	                                                imageURL: currentUserProfileImageUrl,
-	                                                size: 100,
-	                                                iconScale: 0.4
-	                                            )
-	                                        }
+                                    VStack(spacing: 12) {
+                                        ZStack(alignment: .bottomTrailing) {
+                                            // Profile Image
+                                            if let profileImageSnapshot {
+                                                profileImageSnapshot
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: 100, height: 100)
+                                                    .clipShape(Circle())
+                                            } else {
+                                                ProfileAvatarView(
+	                                                    imageURL: currentUserProfileImageUrl,
+	                                                    size: 100,
+	                                                    iconScale: 0.4
+	                                                )
+	                                            }
 
-                                        // Edit icon overlay
-                                        Circle()
-                                            .fill(Color.loopedPrimary)
-                                            .frame(width: 32, height: 32)
-                                            .overlay(
-                                                Image(systemName: "camera.fill")
-                                                    .font(.loopedCustom(size: 14))
-                                                    .foregroundColor(.loopedWhite)
-                                            )
+                                            // Edit icon overlay
+                                            Circle()
+                                                .fill(Color.loopedPrimary)
+                                                .frame(width: 32, height: 32)
+                                                .overlay(
+                                                    Image(systemName: "camera.fill")
+                                                        .font(.loopedCustom(size: 14))
+                                                        .foregroundColor(.loopedWhite)
+                                                )
+                                        }
+
+                                        Text("Tap to change profile photo")
+                                            .font(.loopedSubBodyMedium)
+                                            .foregroundColor(.loopedTextSecondary)
                                     }
                                 }
                                 .onChange(of: selectedImage) { _, newValue in
@@ -87,10 +93,6 @@ struct EditProfileView: View {
                                         }
                                     }
                                 }
-
-                                Text("Tap to change profile photo")
-                                    .font(.loopedSubBodyMedium)
-                                    .foregroundColor(.loopedTextSecondary)
                             }
                             .padding(.top, 24)
 

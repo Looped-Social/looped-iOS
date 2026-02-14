@@ -26,7 +26,7 @@ struct UserProfile: Codable, Identifiable {
 
     var formattedHandle: String {
         let trimmed = handle.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return "@looped" }
+        if trimmed.isEmpty { return isAnonymous ? "@anonymous" : "@looped" }
         return "@\(trimmed)"
     }
 

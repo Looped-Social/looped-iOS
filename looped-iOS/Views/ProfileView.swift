@@ -967,7 +967,17 @@ private struct CompanyIconView: View {
     }
 
     private var isCurrentUser: Bool {
-        if userProfile?.isCurrentUser == true { return true }
+        if let userProfile {
+            // Anonymous profile IDs are a separate namespace from user IDs.
+            // Trust the backend-derived ownership flag to avoid false "self" matches.
+            if userProfile.isAnonymous {
+                return userProfile.isCurrentUser
+            }
+            if userProfile.isCurrentUser {
+                return true
+            }
+        }
+
         guard let profileId = userProfile?.backendId else { return true }
         if let currentUserId = authViewModel.currentUser?.backendId {
             return profileId == currentUserId

@@ -150,6 +150,10 @@ protocol UserServiceProtocol {
     func unfollowUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult
     func followAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult
     func unfollowAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult
+    func fetchMyShareLink() async throws -> UserShareLink
+    func checkSlugAvailability(_ slug: String) async throws -> UserSlugAvailability
+    func resolveUserId(fromSlug slug: String) async throws -> Int
+    func updateMyShareLink(customSlug: String?) async throws -> UserShareLink
     func fetchUserFollowers(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage
     func fetchUserFollowing(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage
     func updateProfile(
@@ -183,7 +187,32 @@ struct AnonProfileFollowActionResult {
     let following: Bool
 }
 
+struct UserShareLink {
+    let usernameSlug: String
+    let customSlug: String?
+    let activeSlug: String
+    let canonicalUrl: String
+}
+
+struct UserSlugAvailability {
+    let slug: String
+    let available: Bool
+    let ownedByMe: Bool
+    let reserved: Bool
+}
+
 extension UserServiceProtocol {
+    func resolveUserId(fromSlug slug: String) async throws -> Int {
+        let page = try await searchUsers(query: slug, limit: 25, cursor: nil)
+        let normalized = slug.lowercased()
+        if let match = page.users.first(where: { user in
+            user.username?.lowercased() == normalized || user.handle.lowercased() == normalized
+        }) {
+            return match.backendId
+        }
+        throw UserServiceError.userSlugNotFound(slug)
+    }
+
     func updateProfile(
         displayName: String?,
         bio: String?,

@@ -66,6 +66,14 @@ class AuthViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        NotificationCenter.default.publisher(for: .authGatingRequired)
+            .compactMap { $0.object as? AuthGatingContext }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] context in
+                self?.handleAuthGating(context)
+            }
+            .store(in: &cancellables)
+
         updateLinkedProviders()
     }
     
@@ -237,9 +245,9 @@ class AuthViewModel: ObservableObject {
     func loadCurrentUser() async {
         do {
             let identity = try await userService.getIdentity()
-            isProvisioned = identity.provisioned
-            onboardingComplete = identity.onboardingComplete ?? false
-            onboardingStep = identity.onboardingStep
+            onboardingComplete = identity.onboardingComplete ?? (identity.provisioned && identity.user != nil)
+            isProvisioned = identity.provisioned || onboardingComplete
+            onboardingStep = onboardingComplete ? nil : (identity.onboardingStep ?? .profileSetup)
             shouldEnterOnboardingFlow = !onboardingComplete
 
             if let userDTO = identity.user {
@@ -259,6 +267,9 @@ class AuthViewModel: ObservableObject {
             onboardingStep = .profileSetup
             isProvisioned = false
             currentUser = nil
+            errorMessage = nil
+        } catch let apiError as APIError where apiError.isAuthGatingError {
+            // Centralized gating handling is applied via NotificationCenter.
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -313,6 +324,8 @@ class AuthViewModel: ObservableObject {
             }
         } catch let APIError.apiError(_, apiError, _) where apiError == "user_not_provisioned" {
             // Ignore: user hasn't completed initial /v1/users/onboard yet.
+        } catch let apiError as APIError where apiError.isAuthGatingError {
+            // Ignore: centralized gating handler updates auth routing.
         } catch {
             // Ignore: onboarding step reporting shouldn't block the UI.
         }
@@ -404,6 +417,32 @@ class AuthViewModel: ObservableObject {
 
 // MARK: - Nonce helpers for Apple
 private extension AuthViewModel {
+    func handleAuthGating(_ context: AuthGatingContext) {
+        guard isAuthenticated else { return }
+
+        switch context.code {
+        case .userNotProvisioned:
+            onboardingComplete = false
+            shouldEnterOnboardingFlow = true
+            onboardingStep = .profileSetup
+            isProvisioned = false
+            currentUser = nil
+            selectedOrganization = nil
+            errorMessage = nil
+            onboardingStore.clearProgress()
+        case .onboardingIncomplete:
+            onboardingComplete = false
+            shouldEnterOnboardingFlow = true
+            onboardingStep = context.onboardingStep ?? onboardingStep ?? .profileSetup
+            isProvisioned = true
+            errorMessage = nil
+        case .accountDeleted:
+            UserDefaults.standard.set(true, forKey: "showAccountDeletedAlert")
+            errorMessage = nil
+            signOut()
+        }
+    }
+
     func updateLinkedProviders() {
         #if canImport(FirebaseAuth)
         let providers = Auth.auth().currentUser?.providerData.map { $0.providerID } ?? []

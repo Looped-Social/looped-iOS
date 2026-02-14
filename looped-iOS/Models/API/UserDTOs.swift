@@ -75,3 +75,21 @@ struct UserFollowActionResponseDTO: Decodable {
     let userId: Int
     let following: Bool
 }
+
+struct UserShareLinkDTO: Decodable {
+    let usernameSlug: String
+    let customSlug: String?
+    let activeSlug: String
+    let canonicalUrl: String
+}
+
+struct UserSlugAvailabilityDTO: Decodable {
+    let slug: String
+    let available: Bool
+    let ownedByMe: Bool?
+    let reserved: Bool?
+}
+
+struct UpdateShareLinkRequestDTO: Encodable {
+    let customSlug: String?
+}

@@ -28,6 +28,13 @@ struct UserSettingsView: View {
     @State private var usernameState: UsernameAvailabilityState = .idle
     @State private var isCheckingUsername = false
     @State private var usernameCheckTask: Task<Void, Never>?
+    @State private var userShareLink: UserShareLink?
+    @State private var shareSlugInput: String = ""
+    @State private var shareSlugState: ShareSlugAvailabilityState = .idle
+    @State private var shareLinkInlineMessage: String?
+    @State private var isLoadingShareLink = false
+    @State private var shareSlugCheckTask: Task<Void, Never>?
+    @State private var hasLoadedShareLink = false
     @State private var verifiedCommunities: [CommunityVerification] = []
     @State private var displayCommunityId: Int?
     @State private var initialDisplayCommunityId: Int?
@@ -251,36 +258,38 @@ struct UserSettingsView: View {
                     } else {
                         VStack(spacing: 12) {
                             PhotosPicker(selection: $selectedProfilePhoto, matching: .images) {
-                                ZStack(alignment: .bottomTrailing) {
-                                    Group {
-                                        if let profilePhotoPreviewSnapshot {
-                                            Image(uiImage: profilePhotoPreviewSnapshot)
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                                .frame(width: 96, height: 96)
-                                                .clipShape(Circle())
-                                        } else {
-                                            ProfileAvatarView(imageURL: currentUserProfileImageUrl, size: 96, iconScale: 0.4)
+                                VStack(spacing: 12) {
+                                    ZStack(alignment: .bottomTrailing) {
+                                        Group {
+                                            if let profilePhotoPreviewSnapshot {
+                                                Image(uiImage: profilePhotoPreviewSnapshot)
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: 96, height: 96)
+                                                    .clipShape(Circle())
+                                            } else {
+                                                ProfileAvatarView(imageURL: currentUserProfileImageUrl, size: 96, iconScale: 0.4)
+                                            }
                                         }
+
+                                        Circle()
+                                            .fill(Color.loopedPrimary)
+                                            .frame(width: 32, height: 32)
+                                            .overlay(
+                                                Image(systemName: "camera.fill")
+                                                    .font(.loopedCustom(size: 14))
+                                                    .foregroundColor(.loopedWhite)
+                                            )
                                     }
 
-	                                    Circle()
-	                                        .fill(Color.loopedPrimary)
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            Image(systemName: "camera.fill")
-                                                .font(.loopedCustom(size: 14))
-                                                .foregroundColor(.loopedWhite)
-                                        )
+                                    Text("Tap to change profile photo")
+                                        .font(.loopedBodyMedium)
+                                        .foregroundColor(.loopedSecondary)
                                 }
                             }
                             .onChange(of: selectedProfilePhoto) { _, newValue in
                                 Task { await handleProfilePhotoSelection(newValue) }
                             }
-
-                            Text("Tap to change profile photo")
-                                .font(.loopedBodyMedium)
-                                .foregroundColor(.loopedSecondary)
                         }
                         .padding(.top, 20)
 
@@ -305,6 +314,66 @@ struct UserSettingsView: View {
                                 Text(statusText)
                                     .font(.loopedSmallText)
                                     .foregroundColor(usernameStatusColor)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Profile Link")
+                                .font(.loopedBodyStrong)
+                                .foregroundColor(.loopedTextPrimary)
+
+                            HStack(spacing: 0) {
+                                Text("mylooped.app/u/")
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .padding(.leading, 12)
+
+                                TextField("username", text: $shareSlugInput)
+                                    .font(.loopedBody)
+                                    .foregroundColor(.loopedTextPrimary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 12)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .disabled(isLoadingShareLink || isSaving)
+                                    .onChange(of: shareSlugInput) { _, newValue in
+                                        handleShareSlugInputChange(newValue)
+                                    }
+                            }
+                            .background(Color.loopedTextSecondary.opacity(0.1))
+                            .cornerRadius(8)
+
+                            HStack(spacing: 8) {
+                                Button(action: copyShareLinkToClipboard) {
+                                    Text("Copy Link")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedPrimary)
+                                        .padding(.vertical, 10)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.loopedPrimary.opacity(0.1))
+                                        .cornerRadius(8)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(userShareLink == nil)
+
+                                Button(action: useUsernameShareSlug) {
+                                    Text("Use Username")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedWhite)
+                                        .padding(.vertical, 10)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.plain)
+                                .background(Color.loopedTextSecondary)
+                                .cornerRadius(8)
+                                .disabled(userShareLink == nil || isLoadingShareLink || isSaving)
+                            }
+
+                            if let shareLinkStatusText {
+                                Text(shareLinkStatusText)
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(shareLinkStatusColor)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -609,15 +678,25 @@ struct UserSettingsView: View {
             Task { await loadJoinedSpecializations() }
             if isAnonymousMode {
                 Task { await loadAnonDisplayCommunities() }
+            } else {
+                Task { await loadShareLinkIfNeeded() }
             }
         }
         .onChange(of: authViewModel.currentUser?.id) { _, _ in
             hasLoadedUser = false
+            hasLoadedShareLink = false
+            userShareLink = nil
+            shareSlugInput = ""
+            shareSlugState = .idle
+            shareLinkInlineMessage = nil
+            shareSlugCheckTask?.cancel()
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
             Task { await loadJoinedSpecializations() }
             if isAnonymousMode {
                 Task { await loadAnonDisplayCommunities() }
+            } else {
+                Task { await loadShareLinkIfNeeded(force: true) }
             }
         }
         .onChange(of: displaySpecialization?.id) { _, _ in
@@ -631,6 +710,9 @@ struct UserSettingsView: View {
                 profilePhotoPayload = nil
                 selectedProfilePhoto = nil
                 profilePhotoPreview = nil
+                shareSlugCheckTask?.cancel()
+                shareSlugState = .idle
+                shareLinkInlineMessage = nil
                 Task { await loadAnonDisplayCommunities() }
             } else {
                 anonDisplayCommunityId = nil
@@ -641,7 +723,12 @@ struct UserSettingsView: View {
                 anonDisplaySpecialization = nil
                 initialAnonDisplaySpecializationId = nil
                 anonDisplaySpecializationError = nil
+                Task { await loadShareLinkIfNeeded(force: true) }
             }
+        }
+        .onDisappear {
+            usernameCheckTask?.cancel()
+            shareSlugCheckTask?.cancel()
         }
     }
 }
@@ -681,6 +768,17 @@ private extension UserSettingsView {
             return false
         }
 	    }
+
+    enum ShareSlugAvailabilityState: Equatable {
+        case idle
+        case checking
+        case available(String)
+        case ownedByMe(String)
+        case unavailable
+        case reserved
+        case invalid
+        case error
+    }
 
 	    var currentUser: User? { authViewModel.currentUser }
 
@@ -744,11 +842,242 @@ private extension UserSettingsView {
             || normalized(bio) != initialBio
             || displayCommunityId != initialDisplayCommunityId
             || displaySpecialization?.id != initialDisplaySpecializationId
+            || hasPendingShareLinkChanges
             || profilePhotoPayload != nil
     }
 
     func normalized(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var normalizedShareSlugInput: String {
+        normalizeShareSlug(shareSlugInput)
+    }
+
+    var effectiveUsernameSlug: String {
+        let raw = userShareLink?.usernameSlug ?? currentUser?.username ?? currentUser?.handle ?? ""
+        return normalizeShareSlug(raw)
+    }
+
+    var currentShareCustomSlugNormalized: String? {
+        let normalized = normalizeShareSlug(userShareLink?.customSlug ?? "")
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    var pendingShareCustomSlugForSave: String? {
+        guard userShareLink != nil else { return nil }
+        let slug = normalizedShareSlugInput
+        if slug.isEmpty || slug == effectiveUsernameSlug {
+            return nil
+        }
+        return slug
+    }
+
+    var hasPendingShareLinkChanges: Bool {
+        guard userShareLink != nil else { return false }
+        return pendingShareCustomSlugForSave != currentShareCustomSlugNormalized
+    }
+
+    var shareLinkStatusText: String? {
+        if let shareLinkInlineMessage {
+            return shareLinkInlineMessage
+        }
+        if isLoadingShareLink {
+            return "Loading profile link..."
+        }
+
+        let slug = normalizedShareSlugInput
+        if slug.isEmpty || slug == effectiveUsernameSlug {
+            return nil
+        }
+
+        switch shareSlugState {
+        case .idle:
+            return nil
+        case .checking:
+            return "Checking availability..."
+        case .available(let resolved):
+            return "Available: mylooped.app/u/\(resolved)"
+        case .ownedByMe(let resolved):
+            return "Already yours: mylooped.app/u/\(resolved)"
+        case .unavailable:
+            return "That link is taken."
+        case .reserved:
+            return "That link is reserved."
+        case .invalid:
+            return "Use 3-30 lowercase letters, numbers, or underscores."
+        case .error:
+            return "Couldn't check link availability right now."
+        }
+    }
+
+    var shareLinkStatusColor: Color {
+        if shareLinkInlineMessage != nil {
+            return .loopedError
+        }
+        if isLoadingShareLink {
+            return .loopedTextSecondary
+        }
+
+        let slug = normalizedShareSlugInput
+        if slug.isEmpty || slug == effectiveUsernameSlug {
+            return .loopedTextSecondary
+        }
+
+        switch shareSlugState {
+        case .available, .ownedByMe:
+            return .loopedSuccess
+        case .checking:
+            return .loopedTextSecondary
+        default:
+            return .loopedError
+        }
+    }
+
+    func normalizeShareSlug(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if trimmed.hasPrefix("@") {
+            return String(trimmed.dropFirst())
+        }
+        return trimmed
+    }
+
+    func isShareSlugValid(_ value: String) -> Bool {
+        let pattern = "^[a-z0-9_]{3,30}$"
+        return value.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    func applyShareLink(_ link: UserShareLink) {
+        userShareLink = link
+        shareSlugCheckTask?.cancel()
+        shareSlugInput = link.activeSlug
+        shareSlugState = .idle
+        shareLinkInlineMessage = nil
+    }
+
+    func loadShareLinkIfNeeded(force: Bool = false) async {
+        guard !isAnonymousMode else { return }
+        guard force || !hasLoadedShareLink else { return }
+        guard !isLoadingShareLink else { return }
+
+        isLoadingShareLink = true
+        shareLinkInlineMessage = nil
+        defer { isLoadingShareLink = false }
+
+        do {
+            let link = try await userService.fetchMyShareLink()
+            applyShareLink(link)
+            hasLoadedShareLink = true
+        } catch {
+            hasLoadedShareLink = false
+            let message = mapShareLinkError(error)
+            shareLinkInlineMessage = message
+            presentToast(message: message, kind: .error)
+        }
+    }
+
+    func handleShareSlugInputChange(_ value: String) {
+        let normalized = normalizeShareSlug(value)
+        if value != normalized {
+            shareSlugInput = normalized
+            return
+        }
+
+        shareSlugCheckTask?.cancel()
+        shareLinkInlineMessage = nil
+
+        guard userShareLink != nil else {
+            shareSlugState = .idle
+            return
+        }
+        guard !normalized.isEmpty else {
+            shareSlugState = .idle
+            return
+        }
+        if normalized == effectiveUsernameSlug || normalized == userShareLink?.activeSlug {
+            shareSlugState = .idle
+            return
+        }
+        guard isShareSlugValid(normalized) else {
+            shareSlugState = .invalid
+            return
+        }
+
+        shareSlugState = .checking
+        shareSlugCheckTask = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            await checkShareSlugAvailability(for: normalized)
+        }
+    }
+
+    func checkShareSlugAvailability(for value: String) async {
+        guard value == normalizedShareSlugInput else { return }
+        do {
+            let availability = try await userService.checkSlugAvailability(value)
+            guard value == normalizedShareSlugInput else { return }
+
+            if availability.reserved {
+                shareSlugState = .reserved
+            } else if availability.ownedByMe {
+                shareSlugState = .ownedByMe(availability.slug)
+            } else if availability.available {
+                shareSlugState = .available(availability.slug)
+            } else {
+                shareSlugState = .unavailable
+            }
+        } catch {
+            guard value == normalizedShareSlugInput else { return }
+            if case let APIError.apiError(_, apiError, _) = error, apiError == "slug_invalid" {
+                shareSlugState = .invalid
+            } else {
+                shareSlugState = .error
+            }
+        }
+    }
+
+    func useUsernameShareSlug() {
+        guard let usernameSlug = userShareLink?.usernameSlug else { return }
+        shareSlugInput = usernameSlug
+        shareSlugState = .idle
+        shareLinkInlineMessage = nil
+        shareSlugCheckTask?.cancel()
+    }
+
+    func copyShareLinkToClipboard() {
+        guard let canonical = userShareLink?.canonicalUrl, !canonical.isEmpty else {
+            let message = "Couldn't copy profile link right now."
+            shareLinkInlineMessage = message
+            presentToast(message: message, kind: .error)
+            return
+        }
+        UIPasteboard.general.string = canonical
+        presentToast(message: "Profile link copied", kind: .success)
+    }
+
+    func mapShareLinkError(_ error: Error) -> String {
+        if case let APIError.apiError(_, apiError, message) = error {
+            switch apiError {
+            case "slug_invalid":
+                return "Use 3-30 lowercase letters, numbers, or underscores."
+            case "slug_reserved":
+                return "That profile link is reserved."
+            case "slug_taken":
+                return "That profile link is already taken."
+            case "slug_not_actionable":
+                return "Choose a different profile link."
+            case "user_not_provisioned":
+                return "Finish setting up your account to manage your profile link."
+            default:
+                if let message, !message.isEmpty {
+                    return message
+                }
+                return apiError
+            }
+        }
+        if case APIError.unauthorized = error {
+            return "Please sign in to manage your profile link."
+        }
+        return error.localizedDescription
     }
 
     func handleBackAction() {
@@ -861,6 +1190,17 @@ private extension UserSettingsView {
             return
         }
         guard isFormValid else { return }
+        if let pendingShareCustomSlugForSave,
+           !isShareSlugValid(pendingShareCustomSlugForSave) {
+            shareSlugState = .invalid
+            let message = "Use 3-30 lowercase letters, numbers, or underscores."
+            shareLinkInlineMessage = message
+            presentToast(message: message, kind: .error)
+            return
+        }
+        let shouldUpdateShareLink = hasPendingShareLinkChanges
+        let desiredShareCustomSlug = pendingShareCustomSlugForSave
+
         let impact = UIImpactFeedbackGenerator(style: .light)
         impact.impactOccurred()
         saveError = nil
@@ -915,7 +1255,12 @@ private extension UserSettingsView {
                         throw error
                     }
                 }
+                if shouldUpdateShareLink {
+                    let updatedShareLink = try await userService.updateMyShareLink(customSlug: desiredShareCustomSlug)
+                    applyShareLink(updatedShareLink)
+                }
                 await authViewModel.loadCurrentUser()
+                await loadShareLinkIfNeeded(force: true)
                 profilePhotoPayload = nil
                 selectedProfilePhoto = nil
                 profilePhotoPreview = nil
@@ -929,8 +1274,12 @@ private extension UserSettingsView {
                     dismiss()
                 }
             } catch {
-                saveError = mapSaveError(error)
-                presentToast(message: "Changes not saved", kind: .error)
+                let message = mapSaveError(error)
+                if isShareLinkSaveError(error) {
+                    shareLinkInlineMessage = message
+                }
+                saveError = message
+                presentToast(message: message, kind: .error)
             }
         }
     }
@@ -1084,6 +1433,14 @@ private extension UserSettingsView {
             switch apiError {
             case "user_not_provisioned":
                 return "Your account isn't fully onboarded yet."
+            case "slug_invalid":
+                return "Use 3-30 lowercase letters, numbers, or underscores."
+            case "slug_reserved":
+                return "That profile link is reserved."
+            case "slug_taken":
+                return "That profile link is already taken."
+            case "slug_not_actionable":
+                return "Choose a different profile link."
             case "media_asset_not_found":
                 return "That photo couldn't be found. Try uploading again."
             case "media_asset_forbidden":
@@ -1120,6 +1477,16 @@ private extension UserSettingsView {
             }
         }
         return error.localizedDescription
+    }
+
+    func isShareLinkSaveError(_ error: Error) -> Bool {
+        guard case let APIError.apiError(_, apiError, _) = error else { return false }
+        switch apiError {
+        case "slug_invalid", "slug_reserved", "slug_taken", "slug_not_actionable":
+            return true
+        default:
+            return false
+        }
     }
 
     func presentToast(message: String, kind: ToastKind = .info) {

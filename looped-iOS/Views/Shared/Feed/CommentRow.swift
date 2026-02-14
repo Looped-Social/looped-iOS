@@ -9,6 +9,7 @@ struct CommentRow: View {
     let isLoadingReplies: Bool
     let isLoadingMoreReplies: Bool
     let hasMoreReplies: Bool
+    let isLikeLocked: Bool
     let onReply: ((Comment) -> Void)?
     let onToggleReplies: ((Comment) -> Void)?
     let onLoadMoreReplies: ((Comment) -> Void)?
@@ -33,6 +34,7 @@ struct CommentRow: View {
         isLoadingReplies: Bool = false,
         isLoadingMoreReplies: Bool = false,
         hasMoreReplies: Bool = false,
+        isLikeLocked: Bool = false,
         onReply: ((Comment) -> Void)? = nil,
         onToggleReplies: ((Comment) -> Void)? = nil,
         onLoadMoreReplies: ((Comment) -> Void)? = nil,
@@ -51,6 +53,7 @@ struct CommentRow: View {
         self.isLoadingReplies = isLoadingReplies
         self.isLoadingMoreReplies = isLoadingMoreReplies
         self.hasMoreReplies = hasMoreReplies
+        self.isLikeLocked = isLikeLocked
         self.onReply = onReply
         self.onToggleReplies = onToggleReplies
         self.onLoadMoreReplies = onLoadMoreReplies
@@ -179,9 +182,31 @@ struct CommentRow: View {
 
     private func handleDoubleTapLike() {
         guard !comment.isDeleted else { return }
+        guard !isLikeLocked else { return }
         guard let onLike else { return }
         guard !comment.userLiked else { return }
         onLike(comment)
+    }
+
+    private var canTapLike: Bool {
+        onLike != nil && !isLikeLocked
+    }
+
+    private var likeIcon: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: comment.userLiked ? "heart.fill" : "heart")
+                .font(.loopedCustom(size: 12))
+                .foregroundColor(comment.userLiked ? .loopedError : .loopedTextSecondary)
+
+            if isLikeLocked {
+                Image(systemName: "lock.fill")
+                    .font(.loopedCustom(.bold, size: 8))
+                    .foregroundColor(.loopedTextSecondary)
+                    .padding(2)
+                    .background(Circle().fill(Color.loopedBackground))
+                    .offset(x: 5, y: -5)
+            }
+        }
     }
 
     private var canShowManageActions: Bool {
@@ -205,7 +230,7 @@ struct CommentRow: View {
 	            HStack(alignment: .top, spacing: 12) {
 	                authorAvatar
 	
-	                VStack(alignment: .leading, spacing: 8) {
+	                VStack(alignment: .leading, spacing: 6) {
 	                    if comment.isDeleted {
 	                        Text("Comment deleted")
 	                            .font(contentFont)
@@ -255,7 +280,7 @@ struct CommentRow: View {
 		                        )
 		                    }
 
-                    HStack(spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
                         authorName
                         Spacer()
                         if canShowActionButton {
@@ -263,6 +288,8 @@ struct CommentRow: View {
                                 Image(systemName: "ellipsis")
                                     .foregroundColor(.loopedTextSecondary)
                             }
+                            .frame(width: 20, height: 16, alignment: .topTrailing)
+                            .padding(.top, 1)
                         }
                     }
 
@@ -271,7 +298,7 @@ struct CommentRow: View {
                             .font(metadataFont)
                             .foregroundColor(.loopedTextSecondary)
                     } else {
-                        HStack(spacing: 14) {
+                        HStack(alignment: .bottom, spacing: 12) {
                             Text(formattedTimestamp)
                                 .font(metadataFont)
                                 .foregroundColor(.loopedTextSecondary)
@@ -292,12 +319,10 @@ struct CommentRow: View {
 
                             Spacer()
 
-                            if let onLike {
+                            if canTapLike, let onLike {
                                 Button(action: { onLike(comment) }) {
                                     HStack(spacing: 4) {
-                                        Image(systemName: comment.userLiked ? "heart.fill" : "heart")
-                                            .font(.loopedCustom(size: 12))
-                                            .foregroundColor(comment.userLiked ? .loopedError : .loopedTextSecondary)
+                                        likeIcon
 
                                         if comment.likeCount > 0 {
                                             Text("\(comment.likeCount)")
@@ -306,11 +331,10 @@ struct CommentRow: View {
                                         }
                                     }
                                 }
+                                .padding(.bottom, 1)
                             } else {
                                 HStack(spacing: 4) {
-                                    Image(systemName: comment.userLiked ? "heart.fill" : "heart")
-                                        .font(.loopedCustom(size: 12))
-                                        .foregroundColor(comment.userLiked ? .loopedError : .loopedTextSecondary)
+                                    likeIcon
 
                                     if comment.likeCount > 0 {
                                         Text("\(comment.likeCount)")
@@ -318,6 +342,7 @@ struct CommentRow: View {
                                             .foregroundColor(.loopedTextSecondary)
                                     }
                                 }
+                                .padding(.bottom, 1)
                             }
                         }
                     }
@@ -374,26 +399,27 @@ struct CommentRow: View {
 	                handleDoubleTapLike()
 	            }
 	            .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
-	            .padding(.vertical, 6)
+	            .padding(.vertical, 4)
 	
 		            if isExpanded {
 		                HStack(alignment: .top, spacing: 12) {
 		                    Color.loopedClear
 		                        .frame(width: profileSize)
 	
-	                    VStack(alignment: .leading, spacing: 16) {
+	                    VStack(alignment: .leading, spacing: 12) {
 	                        ForEach(replies) { reply in
 	                            CommentRow(
 	                                comment: reply,
 	                                nestingLevel: nestingLevel + 1,
 	                                replies: [],
-	                                isExpanded: false,
-	                                isLoadingReplies: false,
-	                                isLoadingMoreReplies: false,
-	                                hasMoreReplies: false,
-	                                onReply: onReply,
-	                                onToggleReplies: nil,
-	                                onLoadMoreReplies: nil,
+                                isExpanded: false,
+                                isLoadingReplies: false,
+                                isLoadingMoreReplies: false,
+                                hasMoreReplies: false,
+                                isLikeLocked: isLikeLocked,
+                                onReply: onReply,
+                                onToggleReplies: nil,
+                                onLoadMoreReplies: nil,
 	                                onLike: onLike,
 	                                canManage: canManage,
 	                                onEdit: onEdit,
@@ -421,10 +447,10 @@ struct CommentRow: View {
 	                            }
 	                        }
 	                    }
-	                    .padding(.top, 8)
+	                    .padding(.top, 6)
 	                }
 	                .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
-	                .padding(.bottom, 6)
+	                .padding(.bottom, 4)
 	            }
 	        }
 	        .fullScreenCover(isPresented: $showImageViewer) {

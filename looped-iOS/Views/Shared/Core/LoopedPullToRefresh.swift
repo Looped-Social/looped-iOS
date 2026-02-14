@@ -19,6 +19,14 @@ struct LoopedPullToRefreshModifier: ViewModifier {
     @State private var phase: LoopedPullToRefreshIndicator.Phase?
 
     func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            modernBody(content: content)
+        } else {
+            legacyBody(content: content)
+        }
+    }
+
+    private func modernBody(content: Content) -> some View {
         content
             .simultaneousGesture(
                 DragGesture(minimumDistance: LoopedPullToRefreshConstants.activationDistance)
@@ -52,6 +60,9 @@ struct LoopedPullToRefreshModifier: ViewModifier {
             .onChange(of: isAtTop) { _, _ in
                 publishIndicatorState()
             }
+            .onChange(of: isEnabled) { _, _ in
+                publishIndicatorState()
+            }
             .overlay(alignment: .top) {
                 Group {
                     if showsIndicatorOverlay, let indicatorPhase = indicatorPhase {
@@ -65,6 +76,29 @@ struct LoopedPullToRefreshModifier: ViewModifier {
                     }
                 }
             }
+    }
+
+    @ViewBuilder
+    private func legacyBody(content: Content) -> some View {
+        if isEnabled {
+            content
+                .refreshable {
+                    await onRefresh()
+                }
+                .onAppear {
+                    resetIndicatorState()
+                }
+                .onChange(of: isEnabled) { _, isEnabled in
+                    if !isEnabled {
+                        resetIndicatorState()
+                    }
+                }
+        } else {
+            content
+                .onAppear {
+                    resetIndicatorState()
+                }
+        }
     }
 
     private var shouldTrackPull: Bool {
@@ -135,6 +169,13 @@ struct LoopedPullToRefreshModifier: ViewModifier {
         )
         if indicatorState.wrappedValue != next {
             indicatorState.wrappedValue = next
+        }
+    }
+
+    private func resetIndicatorState() {
+        phase = nil
+        if let indicatorState, indicatorState.wrappedValue != nil {
+            indicatorState.wrappedValue = nil
         }
     }
 }

@@ -1,0 +1,364 @@
+import Foundation
+import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
+
+enum DeepLinkFailureReason: String {
+    case parseError = "parse_error"
+    case unauthorized
+    case notFound = "not_found"
+    case unavailable
+    case networkError = "network_error"
+}
+
+enum DeepLinkPathType: String {
+    case post
+    case profile
+    case comment
+    case user
+    case announcement
+    case conversation
+    case channel
+    case unsupported
+}
+
+enum DeepLinkDestination: Equatable {
+    case post(Int)
+    case profileSlug(String)
+    case comment(Int, postId: Int?)
+    case user(Int, isAnonymous: Bool)
+    case announcement
+    case conversation(Int)
+    case channel(Int)
+    case home
+
+    var routedName: String {
+        switch self {
+        case .post:
+            return "post"
+        case .profileSlug:
+            return "profile_slug"
+        case .comment:
+            return "comment"
+        case .user:
+            return "user"
+        case .announcement:
+            return "announcement"
+        case .conversation:
+            return "conversation"
+        case .channel:
+            return "channel"
+        case .home:
+            return "home"
+        }
+    }
+
+    var requiresAuthentication: Bool {
+        switch self {
+        case .home:
+            return false
+        default:
+            return true
+        }
+    }
+}
+
+struct DeepLinkNavigationRequest: Identifiable, Equatable {
+    let id = UUID()
+    let destination: DeepLinkDestination
+    let originalURL: URL
+    let pathType: DeepLinkPathType
+    let resumedAfterLogin: Bool
+}
+
+@MainActor
+final class DeepLinkRouter: ObservableObject {
+    static let shared = DeepLinkRouter()
+
+    @Published private(set) var pendingNavigation: DeepLinkNavigationRequest?
+
+    private var queuedDeepLink: QueuedDeepLink?
+    private var isAuthenticated = false
+    private var didBecomeActive = false
+    private var lastFingerprint = ""
+    private var lastHandledAt = Date.distantPast
+
+    private let allowedUniversalHost = "mylooped.app"
+    private let duplicateWindow: TimeInterval = 1.2
+
+    private init() {}
+
+    func markDidBecomeActive() {
+        didBecomeActive = true
+    }
+
+    func setAuthenticationState(_ authenticated: Bool) {
+        let changed = isAuthenticated != authenticated
+        isAuthenticated = authenticated
+
+        guard changed, authenticated, let queuedDeepLink else { return }
+        self.queuedDeepLink = nil
+        route(
+            destination: queuedDeepLink.destination,
+            url: queuedDeepLink.url,
+            pathType: queuedDeepLink.pathType,
+            resumedAfterLogin: true
+        )
+    }
+
+    @discardableResult
+    func handleUserActivity(_ userActivity: NSUserActivity) -> Bool {
+        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+              let url = userActivity.webpageURL else {
+            return false
+        }
+        return handleIncomingURL(url)
+    }
+
+    @discardableResult
+    func handleIncomingURL(_ url: URL) -> Bool {
+        guard let parsed = parse(url) else { return false }
+
+        emit(
+            "deeplink_received",
+            [
+                "url": url.absoluteString,
+                "path_type": parsed.pathType.rawValue,
+                "app_state": currentAppState().rawValue
+            ]
+        )
+
+        if isDuplicate(url) {
+            return true
+        }
+
+        if let failureReason = parsed.failureReason {
+            emit(
+                "deeplink_failed",
+                [
+                    "url": url.absoluteString,
+                    "path_type": parsed.pathType.rawValue,
+                    "reason": failureReason.rawValue
+                ]
+            )
+        }
+
+        if parsed.destination.requiresAuthentication, !isAuthenticated {
+            queuedDeepLink = QueuedDeepLink(url: url, destination: parsed.destination, pathType: parsed.pathType)
+            emit(
+                "deeplink_failed",
+                [
+                    "url": url.absoluteString,
+                    "path_type": parsed.pathType.rawValue,
+                    "reason": DeepLinkFailureReason.unauthorized.rawValue
+                ]
+            )
+            return true
+        }
+
+        route(destination: parsed.destination, url: url, pathType: parsed.pathType, resumedAfterLogin: false)
+        return true
+    }
+
+    func consumeNavigation(_ request: DeepLinkNavigationRequest) {
+        guard pendingNavigation?.id == request.id else { return }
+        pendingNavigation = nil
+    }
+
+    func reportNavigationFailure(for request: DeepLinkNavigationRequest, reason: DeepLinkFailureReason) {
+        emit(
+            "deeplink_failed",
+            [
+                "url": request.originalURL.absoluteString,
+                "path_type": request.pathType.rawValue,
+                "reason": reason.rawValue
+            ]
+        )
+    }
+
+    private func route(destination: DeepLinkDestination, url: URL, pathType: DeepLinkPathType, resumedAfterLogin: Bool) {
+        let request = DeepLinkNavigationRequest(
+            destination: destination,
+            originalURL: url,
+            pathType: pathType,
+            resumedAfterLogin: resumedAfterLogin
+        )
+        pendingNavigation = request
+
+        emit(
+            "deeplink_routed",
+            [
+                "url": url.absoluteString,
+                "path_type": pathType.rawValue,
+                "destination": destination.routedName
+            ]
+        )
+
+        emit(
+            "deeplink_resumed_after_login",
+            [
+                "url": url.absoluteString,
+                "resumed": resumedAfterLogin ? "true" : "false"
+            ]
+        )
+    }
+
+    private func parse(_ url: URL) -> ParsedDeepLink? {
+        let scheme = (url.scheme ?? "").lowercased()
+
+        if scheme == "https" {
+            let host = (url.host ?? "").lowercased()
+            guard host == allowedUniversalHost else { return nil }
+            return parseUniversal(url)
+        }
+
+        if scheme == "looped" {
+            return parseLegacy(url)
+        }
+
+        return nil
+    }
+
+    private func parseUniversal(_ url: URL) -> ParsedDeepLink {
+        let encodedPath = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath ?? url.path
+        let encodedSegments = encodedPath
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+
+        guard let first = encodedSegments.first?.lowercased() else {
+            return ParsedDeepLink(destination: .home, pathType: .unsupported)
+        }
+
+        switch first {
+        case "p":
+            guard encodedSegments.count > 1 else {
+                return ParsedDeepLink(destination: .home, pathType: .post, failureReason: .parseError)
+            }
+            guard let postId = Int(encodedSegments[1]), postId > 0 else {
+                return ParsedDeepLink(destination: .home, pathType: .post, failureReason: .parseError)
+            }
+            return ParsedDeepLink(destination: .post(postId), pathType: .post)
+
+        case "u":
+            guard encodedSegments.count > 1 else {
+                return ParsedDeepLink(destination: .home, pathType: .profile, failureReason: .parseError)
+            }
+            let rawSlug = encodedSegments[1]
+            let slug = rawSlug.removingPercentEncoding ?? rawSlug
+            guard !slug.isEmpty else {
+                return ParsedDeepLink(destination: .home, pathType: .profile, failureReason: .parseError)
+            }
+            return ParsedDeepLink(destination: .profileSlug(slug), pathType: .profile)
+
+        default:
+            return ParsedDeepLink(destination: .home, pathType: .unsupported)
+        }
+    }
+
+    private func parseLegacy(_ url: URL) -> ParsedDeepLink {
+        let host = (url.host ?? "").lowercased()
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        let idValue = pathComponents.first.flatMap(Int.init)
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let postId = components?.queryItems?.first(where: { $0.name == "post_id" })?.value.flatMap(Int.init)
+        let isAnonymous = components?.queryItems?.first(where: { $0.name == "anon" })?.value == "true"
+
+        switch host {
+        case "post":
+            if let idValue {
+                return ParsedDeepLink(destination: .post(idValue), pathType: .post)
+            }
+            return ParsedDeepLink(destination: .home, pathType: .post, failureReason: .parseError)
+        case "comment":
+            if let idValue {
+                return ParsedDeepLink(destination: .comment(idValue, postId: postId), pathType: .comment)
+            }
+            return ParsedDeepLink(destination: .home, pathType: .comment, failureReason: .parseError)
+        case "user":
+            if let idValue {
+                return ParsedDeepLink(destination: .user(idValue, isAnonymous: isAnonymous), pathType: .user)
+            }
+            return ParsedDeepLink(destination: .home, pathType: .user, failureReason: .parseError)
+        case "announcement":
+            if idValue != nil {
+                return ParsedDeepLink(destination: .announcement, pathType: .announcement)
+            }
+            return ParsedDeepLink(destination: .home, pathType: .announcement, failureReason: .parseError)
+        case "conversations":
+            if let idValue {
+                return ParsedDeepLink(destination: .conversation(idValue), pathType: .conversation)
+            }
+            return ParsedDeepLink(destination: .home, pathType: .conversation, failureReason: .parseError)
+        case "channels":
+            if let idValue {
+                return ParsedDeepLink(destination: .channel(idValue), pathType: .channel)
+            }
+            return ParsedDeepLink(destination: .home, pathType: .channel, failureReason: .parseError)
+        default:
+            return ParsedDeepLink(destination: .home, pathType: .unsupported)
+        }
+    }
+
+    private func currentAppState() -> DeepLinkAppState {
+        if !didBecomeActive {
+            return .cold
+        }
+
+        #if canImport(UIKit)
+        switch UIApplication.shared.applicationState {
+        case .active:
+            return .foreground
+        case .inactive, .background:
+            return .warm
+        @unknown default:
+            return .warm
+        }
+        #else
+        return .foreground
+        #endif
+    }
+
+    private func isDuplicate(_ url: URL) -> Bool {
+        let now = Date()
+        let fingerprint = url.absoluteString
+        defer {
+            lastFingerprint = fingerprint
+            lastHandledAt = now
+        }
+        guard lastFingerprint == fingerprint else { return false }
+        return now.timeIntervalSince(lastHandledAt) <= duplicateWindow
+    }
+
+    private func emit(_ event: String, _ fields: [String: String]) {
+        let body = fields
+            .map { key, value in "\(key)=\(value.replacingOccurrences(of: " ", with: "_"))" }
+            .sorted()
+            .joined(separator: " ")
+        print("LOOPED_DEEPLINK \(event) \(body)")
+    }
+}
+
+private struct ParsedDeepLink {
+    let destination: DeepLinkDestination
+    let pathType: DeepLinkPathType
+    let failureReason: DeepLinkFailureReason?
+
+    init(destination: DeepLinkDestination, pathType: DeepLinkPathType, failureReason: DeepLinkFailureReason? = nil) {
+        self.destination = destination
+        self.pathType = pathType
+        self.failureReason = failureReason
+    }
+}
+
+private struct QueuedDeepLink {
+    let url: URL
+    let destination: DeepLinkDestination
+    let pathType: DeepLinkPathType
+}
+
+private enum DeepLinkAppState: String {
+    case cold
+    case warm
+    case foreground
+}

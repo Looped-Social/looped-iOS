@@ -27,7 +27,8 @@ struct AnonRegisterResponseDTO: Decodable {
 
 struct AnonProfileDTO: Decodable {
     let id: Int
-    let handle: String
+    let handle: String?
+    let username: String?
     let companyId: Int?
     let createdAt: Date?
     let updatedAt: Date?

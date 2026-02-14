@@ -21,8 +21,9 @@ struct AnonProfile: Codable, Identifiable {
 
 extension AnonProfile {
     init(dto: AnonProfileDTO) {
+        let resolvedHandle = Self.preferredHandle(handle: dto.handle, username: dto.username)
         id = dto.id
-        handle = dto.handle
+        handle = resolvedHandle
         companyId = dto.companyId
         followerCount = dto.stats?.followerCount
         followingCount = dto.stats?.followingCount
@@ -39,13 +40,14 @@ extension AnonProfile {
         let createdAt = createdAt ?? now
         let calendar = Calendar.current
         let yearsInLoop = max(0, calendar.component(.year, from: now) - calendar.component(.year, from: createdAt))
+        let resolvedHandle = Self.preferredHandle(handle: handle, username: nil)
 
         return UserProfile(
             id: UUID.fromBackendId(id),
             backendId: id,
-            username: handle,
-            displayName: "Anonymous",
-            handle: handle,
+            username: resolvedHandle,
+            displayName: resolvedHandle,
+            handle: resolvedHandle,
             company: companyName ?? "Looped",
             jobTitle: "Team Member",
             bio: nil,
@@ -64,5 +66,17 @@ extension AnonProfile {
             createdAt: createdAt,
             updatedAt: updatedAt ?? now
         )
+    }
+
+    private static func preferredHandle(handle: String?, username: String?) -> String {
+        let trimmedHandle = (handle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedHandle.isEmpty {
+            return trimmedHandle
+        }
+        let trimmedUsername = (username ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedUsername.isEmpty {
+            return trimmedUsername
+        }
+        return "anonymous"
     }
 }

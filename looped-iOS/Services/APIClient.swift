@@ -370,6 +370,7 @@ class APIClient {
                 }
                 // Try to parse structured error
                 if let errorPayload = try? await decodeOnBackground(ServerError.self, from: data, configure: { _ in }) {
+                    publishAuthGatingIfNeeded(statusCode: httpResponse.statusCode, payload: errorPayload)
                     throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
                 }
                 throw APIError.serverError(httpResponse.statusCode)
@@ -438,6 +439,7 @@ class APIClient {
                     throw APIError.unauthorized
                 }
                 if let errorPayload = try? await decodeOnBackground(ServerError.self, from: data, configure: { _ in }) {
+                    publishAuthGatingIfNeeded(statusCode: httpResponse.statusCode, payload: errorPayload)
                     throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
                 }
                 throw APIError.serverError(httpResponse.statusCode)
@@ -499,6 +501,10 @@ class APIClient {
     }
     #endif
 
+    private func publishAuthGatingIfNeeded(statusCode: Int, payload: ServerError) {
+        guard let context = AuthGatingContext(statusCode: statusCode, payload: payload) else { return }
+        NotificationCenter.default.post(name: .authGatingRequired, object: context)
+    }
 }
 
 extension APIClient {
@@ -523,9 +529,36 @@ extension APIClient {
 
 struct EmptyResponse: Codable {}
 
-private struct ServerError: Codable {
+fileprivate struct ServerError: Codable {
     let error: String
     let message: String?
+    let onboardingStep: RemoteOnboardingStep?
+
+    enum CodingKeys: String, CodingKey {
+        case error
+        case message
+        case onboardingStep = "onboarding_step"
+    }
+}
+
+enum AuthGatingErrorCode: String, Codable {
+    case userNotProvisioned = "user_not_provisioned"
+    case onboardingIncomplete = "onboarding_incomplete"
+    case accountDeleted = "account_deleted"
+}
+
+struct AuthGatingContext: Equatable {
+    let code: AuthGatingErrorCode
+    let onboardingStep: RemoteOnboardingStep?
+    let message: String?
+
+    fileprivate init?(statusCode: Int, payload: ServerError) {
+        guard statusCode == 409 else { return nil }
+        guard let code = AuthGatingErrorCode(rawValue: payload.error) else { return nil }
+        self.code = code
+        self.onboardingStep = payload.onboardingStep
+        self.message = payload.message
+    }
 }
 
 enum APIError: Error, LocalizedError {
@@ -551,5 +584,21 @@ enum APIError: Error, LocalizedError {
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         }
+    }
+}
+
+extension APIError {
+    var authGatingContext: AuthGatingContext? {
+        switch self {
+        case .apiError(let code, let error, let message):
+            let payload = ServerError(error: error, message: message, onboardingStep: nil)
+            return AuthGatingContext(statusCode: code, payload: payload)
+        default:
+            return nil
+        }
+    }
+
+    var isAuthGatingError: Bool {
+        authGatingContext != nil
     }
 }

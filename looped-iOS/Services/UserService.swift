@@ -154,6 +154,53 @@ class UserService: UserServiceProtocol {
         return AnonProfileFollowActionResult(anonProfileId: response.anonProfileId, following: response.following)
     }
 
+    func fetchMyShareLink() async throws -> UserShareLink {
+        let response: UserShareLinkDTO = try await apiClient.get("/v1/users/me/share-link")
+        return UserShareLink(dto: response)
+    }
+
+    func checkSlugAvailability(_ slug: String) async throws -> UserSlugAvailability {
+        let encodedSlug = URLQueryEncoding.encode(slug)
+        let response: UserSlugAvailabilityDTO = try await apiClient.get("/v1/users/slug/availability?slug=\(encodedSlug)")
+        return UserSlugAvailability(dto: response)
+    }
+
+    func resolveUserId(fromSlug slug: String) async throws -> Int {
+        let encodedSlug = slug.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? slug
+        let endpoints = [
+            "/v1/users/slug/\(encodedSlug)",
+            "/v1/users/by-slug/\(encodedSlug)",
+            "/v1/users/share-link/\(encodedSlug)"
+        ]
+
+        for endpoint in endpoints {
+            do {
+                let data = try await apiClient.getData(endpoint)
+                if let userId = Self.userIdFromSlugResponse(data) {
+                    return userId
+                }
+            } catch {
+                guard isNotFound(error) else { throw error }
+            }
+        }
+
+        let page = try await searchUsers(query: slug, limit: 25, cursor: nil)
+        let normalizedSlug = slug.lowercased()
+        if let match = page.users.first(where: { user in
+            user.username?.lowercased() == normalizedSlug || user.handle.lowercased() == normalizedSlug
+        }) {
+            return match.backendId
+        }
+
+        throw UserServiceError.userSlugNotFound(slug)
+    }
+
+    func updateMyShareLink(customSlug: String?) async throws -> UserShareLink {
+        let request = UpdateShareLinkRequestDTO(customSlug: customSlug)
+        let response: UserShareLinkDTO = try await apiClient.put("/v1/users/me/share-link", body: request)
+        return UserShareLink(dto: response)
+    }
+
     func fetchUserFollowers(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage {
         let resolvedLimit = limit > 0 ? limit : 20
         var endpoint = "/v1/users/\(userId)/followers?limit=\(resolvedLimit)"
@@ -383,15 +430,89 @@ class UserService: UserServiceProtocol {
         let comments = response.items.map(Comment.init(dto:))
         return UserRepliesPage(comments: comments, nextCursor: response.nextCursor)
     }
+
+    private func isNotFound(_ error: Error) -> Bool {
+        switch error {
+        case APIError.serverError(let code):
+            return code == 404
+        case APIError.apiError(let code, _, _):
+            return code == 404
+        default:
+            return false
+        }
+    }
+
+    private static func userIdFromSlugResponse(_ data: Data) -> Int? {
+        if let dto = try? JSONDecoder().decode(UserDTO.self, from: data) {
+            return dto.id
+        }
+
+        guard let object = try? JSONSerialization.jsonObject(with: data) else {
+            return nil
+        }
+        return userId(from: object)
+    }
+
+    private static func userId(from object: Any) -> Int? {
+        if let number = object as? NSNumber {
+            return number.intValue
+        }
+
+        if let dictionary = object as? [String: Any] {
+            if let nestedUser = dictionary["user"], let id = userId(from: nestedUser) {
+                return id
+            }
+            if let nestedData = dictionary["data"], let id = userId(from: nestedData) {
+                return id
+            }
+            if let nestedResult = dictionary["result"], let id = userId(from: nestedResult) {
+                return id
+            }
+            if let nestedProfile = dictionary["profile"], let id = userId(from: nestedProfile) {
+                return id
+            }
+
+            if let value = dictionary["userId"] as? NSNumber {
+                return value.intValue
+            }
+            if let value = dictionary["user_id"] as? NSNumber {
+                return value.intValue
+            }
+
+            if let idValue = dictionary["id"] as? NSNumber {
+                let hasUserShape = dictionary["handle"] != nil
+                    || dictionary["username"] != nil
+                    || dictionary["displayName"] != nil
+                    || dictionary["display_name"] != nil
+                if hasUserShape {
+                    return idValue.intValue
+                }
+            }
+
+        }
+
+        if let array = object as? [Any] {
+            for value in array {
+                if let id = userId(from: value) {
+                    return id
+                }
+            }
+        }
+
+        return nil
+    }
 }
 
 enum UserServiceError: Error, LocalizedError {
     case userNotProvisioned
+    case userSlugNotFound(String)
     
     var errorDescription: String? {
         switch self {
         case .userNotProvisioned:
             return "Your account isn't fully onboarded yet."
+        case .userSlugNotFound(let slug):
+            return "Could not find a profile for slug '\(slug)'."
         }
     }
 }
@@ -420,4 +541,22 @@ private struct DeleteAccountResponse: Codable {
     let firebaseStatus: String?
     let firebaseDeleted: Bool?
     let deletePending: Bool?
+}
+
+private extension UserShareLink {
+    init(dto: UserShareLinkDTO) {
+        usernameSlug = dto.usernameSlug
+        customSlug = dto.customSlug
+        activeSlug = dto.activeSlug
+        canonicalUrl = dto.canonicalUrl
+    }
+}
+
+private extension UserSlugAvailability {
+    init(dto: UserSlugAvailabilityDTO) {
+        slug = dto.slug
+        available = dto.available
+        ownedByMe = dto.ownedByMe ?? false
+        reserved = dto.reserved ?? false
+    }
 }

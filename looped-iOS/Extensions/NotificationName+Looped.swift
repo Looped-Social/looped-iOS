@@ -4,6 +4,7 @@ extension NSNotification.Name {
     static let contentPreferencesChanged = NSNotification.Name("contentPreferencesChanged")
     static let communityStateChanged = NSNotification.Name("communityStateChanged")
     static let notificationMarkedRead = NSNotification.Name("notificationMarkedRead")
+    static let authGatingRequired = NSNotification.Name("authGatingRequired")
 }
 
 enum LoopedNotificationUserInfoKey {

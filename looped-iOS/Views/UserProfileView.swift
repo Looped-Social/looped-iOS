@@ -81,7 +81,7 @@ struct UserProfileView: View {
                 collection: .anonReposts(profileId: anonProfileId)
             )
         )
-        _selectedTab = State(initialValue: .content)
+        _selectedTab = State(initialValue: .posts)
     }
 
     var body: some View {
@@ -136,15 +136,24 @@ struct UserProfileView: View {
                 if newValue == .content, contentViewModel.items.isEmpty {
                     Task { await contentViewModel.loadInitial() }
                 }
+                if newValue == .posts, postsViewModel.posts.isEmpty {
+                    Task { await postsViewModel.loadInitial() }
+                }
                 if newValue == .reposts, repostsViewModel.posts.isEmpty {
                     Task { await repostsViewModel.loadInitial() }
+                }
+                if newValue == .replies, commentsViewModel.comments.isEmpty {
+                    Task { await loadCommentsIfNeeded() }
                 }
             }
             .loopedHashtagNavigationHost()
     }
 
     private var tabs: [UserProfileTab] {
-        [.content, .reposts]
+        if viewModel.isAnonymousProfile {
+            return [.posts, .reposts]
+        }
+        return [.content, .reposts]
     }
 
     private func syncFloatingActionButtonVisibility() {
@@ -406,7 +415,14 @@ struct UserProfileView: View {
                 contentViewModel.setUser(id: backendId)
             }
         }
-        await contentViewModel.loadInitial()
+        if selectedTab == .posts {
+            await postsViewModel.loadInitial()
+        } else {
+            await contentViewModel.loadInitial()
+        }
+        if selectedTab == .replies {
+            await loadCommentsIfNeeded()
+        }
         if selectedTab == .reposts {
             await repostsViewModel.loadInitial()
         }
@@ -546,9 +562,6 @@ struct UserProfileInfoSection: View {
     }
 
     private var bioDisplay: (text: String, isPlaceholder: Bool) {
-        if userProfile.isAnonymous {
-            return ("", false)
-        }
         let rawBio = userProfile.bio ?? ""
         let trimmed = rawBio.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
@@ -558,6 +571,17 @@ struct UserProfileInfoSection: View {
             return ("", false)
         }
         return (trimmed, false)
+    }
+
+    private var identityTitle: String {
+        if userProfile.isAnonymous {
+            let trimmedUsername = userProfile.username.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedUsername.isEmpty {
+                return trimmedUsername
+            }
+            return "Anonymous"
+        }
+        return userProfile.resolvedDisplayName
     }
 
     private var headerSection: some View {
@@ -586,7 +610,7 @@ struct UserProfileInfoSection: View {
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(userProfile.resolvedDisplayName)
+                    Text(identityTitle)
                         .font(.loopedHeaderProfile)
                         .foregroundColor(userProfile.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
 
@@ -615,18 +639,16 @@ struct UserProfileInfoSection: View {
     private var statsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                if !userProfile.isAnonymous {
-                    HStack(spacing: 8) {
-                        Image(systemName: "calendar")
-                            .foregroundColor(.loopedTextSecondary)
-                            .font(.loopedCustom(size: 16))
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(.loopedTextSecondary)
+                        .font(.loopedCustom(size: 16))
 
-                        Text(userProfile.formattedYearsInLoop)
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
+                    Text(userProfile.formattedYearsInLoop)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
 
-                        Spacer()
-                    }
+                    Spacer()
                 }
 
                 if userProfile.displaySpecializationLine != nil {

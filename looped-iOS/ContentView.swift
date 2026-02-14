@@ -6,14 +6,12 @@
 //
 
 import SwiftUI
+import Combine
 #if canImport(UIKit)
 import UIKit
 #endif
 #if canImport(UserNotifications)
 import UserNotifications
-#endif
-#if canImport(FirebaseAuth)
-import FirebaseAuth
 #endif
 
 
@@ -42,6 +40,7 @@ enum MenuDestination: Identifiable {
 }
 
 struct ContentView: View {
+    @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var feedViewModel = FeedViewModel()
     @State private var keepBootstrapVisible = false
@@ -111,6 +110,12 @@ struct ContentView: View {
         .environmentObject(feedViewModel)
         .environment(\.preferCommunityShortNames, preferCommunityShortNames)
         .preferredColorScheme(preferredColorScheme)
+        .onAppear {
+            deepLinkRouter.setAuthenticationState(authViewModel.isAuthenticated)
+        }
+        .onChange(of: authViewModel.isAuthenticated) { _, newValue in
+            deepLinkRouter.setAuthenticationState(newValue)
+        }
         .onChange(of: preferCommunityShortNames) { _, _ in
             Task { await feedViewModel.loadFollowedCommunities(reset: true) }
         }
@@ -289,6 +294,7 @@ private struct LaunchBootstrapView: View {
 }
 
 struct MainTabView: View {
+    @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @State private var selectedTab: TabItem = .home
@@ -309,6 +315,8 @@ struct MainTabView: View {
 	    @State private var tabBarHeight: CGFloat = 0
 	    @State private var showFAQSheet = false
 	    @State private var deepLinkProfile: DeepLinkProfile?
+    @State private var deepLinkUnavailable: DeepLinkUnavailableState?
+    @State private var isDeepLinkLoading = false
     @StateObject private var commentsManager = CommentsModalManager()
     @StateObject private var fabState = FloatingActionButtonState()
     @StateObject private var coachMarkPresenter = CoachMarkPresenter()
@@ -328,6 +336,7 @@ struct MainTabView: View {
     @State private var toastMessage: ToastMessage?
     private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
     private let deepLinkFeedService: FeedServiceProtocol = FeedService()
+    private let deepLinkUserService: UserServiceProtocol = UserService()
     
     var body: some View {
         GeometryReader { geometry in
@@ -494,13 +503,22 @@ struct MainTabView: View {
             .environment(\.floatingActionButtonState, fabState)
             .preferredColorScheme(preferredColorScheme)
         }
-        .onOpenURL { url in
-            #if canImport(FirebaseAuth)
-            if Auth.auth().canHandle(url) {
-                return
+        .fullScreenCover(item: $deepLinkUnavailable) { unavailable in
+            DeepLinkUnavailableView(unavailable: unavailable) {
+                deepLinkUnavailable = nil
+            } onOpenHome: {
+                selectedTab = .home
+                deepLinkUnavailable = nil
             }
-            #endif
-            handleDeepLink(url)
+            .preferredColorScheme(preferredColorScheme)
+        }
+        .onReceive(deepLinkRouter.$pendingNavigation.compactMap { $0 }) { request in
+            handleDeepLinkRequest(request)
+        }
+        .overlay {
+            if isDeepLinkLoading {
+                DeepLinkLoadingOverlay()
+            }
         }
     }
 
@@ -894,14 +912,23 @@ struct MainTabView: View {
         feedViewModel.followedCommunities.contains(where: { $0.canPost })
     }
 
-    private func handleDeepLink(_ url: URL) {
-        guard let destination = parseDeepLink(url) else { return }
-        switch destination {
+    private func handleDeepLinkRequest(_ request: DeepLinkNavigationRequest) {
+        defer { deepLinkRouter.consumeNavigation(request) }
+
+        switch request.destination {
         case .post(let postId):
-            Task { await openPost(postId: postId, focusCommentId: nil) }
+            Task {
+                await openPost(postId: postId, focusCommentId: nil, request: request)
+            }
+        case .profileSlug(let slug):
+            Task {
+                await openProfile(slug: slug, request: request)
+            }
         case .comment(let commentId, let postId):
             if let postId {
-                Task { await openPost(postId: postId, focusCommentId: commentId) }
+                Task {
+                    await openPost(postId: postId, focusCommentId: commentId, request: request)
+                }
             } else {
                 selectedTab = .notifications
             }
@@ -913,6 +940,11 @@ struct MainTabView: View {
             openChat(conversationId: conversationId, channelId: nil)
         case .channel(let channelId):
             openChat(conversationId: nil, channelId: channelId)
+        case .home:
+            selectedTab = .home
+            if request.pathType != .unsupported {
+                toastMessage = ToastMessage(text: "That link isn't available.", kind: .warning)
+            }
         }
     }
 
@@ -927,7 +959,16 @@ struct MainTabView: View {
         }
     }
 
-    private func openPost(postId: Int, focusCommentId: Int?) async {
+    private func openPost(postId: Int, focusCommentId: Int?, request: DeepLinkNavigationRequest) async {
+        await MainActor.run {
+            isDeepLinkLoading = true
+        }
+        defer {
+            Task { @MainActor in
+                isDeepLinkLoading = false
+            }
+        }
+
         do {
             let post = try await deepLinkFeedService.fetchPost(postId: postId)
             await MainActor.run {
@@ -935,38 +976,77 @@ struct MainTabView: View {
                 commentsManager.showComments(for: post, focusCommentId: focusCommentId)
             }
         } catch {
+            let reason = deepLinkFailureReason(from: error)
             await MainActor.run {
-                toastMessage = ToastMessage(text: "Post unavailable", kind: .error)
+                deepLinkRouter.reportNavigationFailure(for: request, reason: reason)
+                deepLinkUnavailable = DeepLinkUnavailableState(
+                    title: "Post unavailable",
+                    message: "This post may have been removed or is no longer available."
+                )
             }
         }
     }
 
-    private func parseDeepLink(_ url: URL) -> DeepLinkDestination? {
-        guard url.scheme == "looped" else { return nil }
-        let host = (url.host ?? "").lowercased()
-        let pathComponents = url.pathComponents.filter { $0 != "/" }
-        let idValue = pathComponents.first.flatMap { Int($0) }
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        let postId = components?.queryItems?.first(where: { $0.name == "post_id" })?.value.flatMap(Int.init)
-        let isAnonymous = components?.queryItems?.first(where: { $0.name == "anon" })?.value == "true"
-
-        switch host {
-        case "post":
-            if let idValue { return .post(idValue) }
-        case "comment":
-            if let idValue { return .comment(idValue, postId: postId) }
-        case "user":
-            if let idValue { return .user(idValue, isAnonymous: isAnonymous) }
-        case "announcement":
-            if idValue != nil { return .announcement }
-        case "conversations":
-            if let idValue { return .conversation(idValue) }
-        case "channels":
-            if let idValue { return .channel(idValue) }
-        default:
-            break
+    private func openProfile(slug: String, request: DeepLinkNavigationRequest) async {
+        await MainActor.run {
+            isDeepLinkLoading = true
         }
-        return nil
+        defer {
+            Task { @MainActor in
+                isDeepLinkLoading = false
+            }
+        }
+
+        do {
+            let userId = try await deepLinkUserService.resolveUserId(fromSlug: slug)
+            await MainActor.run {
+                deepLinkProfile = DeepLinkProfile(profileId: userId, isAnonymous: false)
+            }
+        } catch {
+            let reason = deepLinkFailureReason(from: error)
+            await MainActor.run {
+                deepLinkRouter.reportNavigationFailure(for: request, reason: reason)
+                deepLinkUnavailable = DeepLinkUnavailableState(
+                    title: "Profile unavailable",
+                    message: "This profile may have been removed or is no longer available."
+                )
+            }
+        }
+    }
+
+    private func deepLinkFailureReason(from error: Error) -> DeepLinkFailureReason {
+        if error is URLError {
+            return .networkError
+        }
+
+        guard let apiError = error as? APIError else {
+            return .unavailable
+        }
+
+        switch apiError {
+        case .unauthorized:
+            return .unauthorized
+        case .networkError:
+            return .networkError
+        case .apiError(let code, let apiCode, _):
+            if code == 401 || code == 403 || apiCode == "unauthorized" || apiCode == "forbidden" {
+                return .unauthorized
+            }
+            if code == 404 || apiCode == "not_found" || apiCode.hasSuffix("_not_found") {
+                return .notFound
+            }
+            if code == 410 || apiCode.contains("unavailable") || apiCode.contains("removed") {
+                return .unavailable
+            }
+            if code >= 500 {
+                return .networkError
+            }
+            return .unavailable
+        case .serverError(let code):
+            return code >= 500 ? .networkError : .unavailable
+        case .invalidResponse, .decodingError:
+            return .unavailable
+        }
     }
 
     private struct DeepLinkProfile: Identifiable {
@@ -978,13 +1058,95 @@ struct MainTabView: View {
         }
     }
 
-    private enum DeepLinkDestination {
-        case post(Int)
-        case comment(Int, postId: Int?)
-        case user(Int, isAnonymous: Bool)
-        case announcement
-        case conversation(Int)
-        case channel(Int)
+    private struct DeepLinkUnavailableState: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+    }
+
+    private struct DeepLinkLoadingOverlay: View {
+        var body: some View {
+            ZStack {
+                Color.loopedBlack.opacity(0.22)
+                    .ignoresSafeArea()
+
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                    Text("Opening link...")
+                        .font(.loopedSubBodyMedium)
+                        .foregroundStyle(Color.loopedTextStrong)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.loopedBackground)
+                )
+            }
+            .allowsHitTesting(true)
+        }
+    }
+
+    private struct DeepLinkUnavailableView: View {
+        let unavailable: DeepLinkUnavailableState
+        let onDismiss: () -> Void
+        let onOpenHome: () -> Void
+
+        var body: some View {
+            NavigationStack {
+                VStack(spacing: 16) {
+                    Spacer()
+
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.loopedSymbol(.regular, size: 44))
+                        .foregroundStyle(Color.loopedSecondary)
+
+                    Text(unavailable.title)
+                        .font(.loopedBodyMedium)
+                        .foregroundStyle(Color.loopedTextStrong)
+
+                    Text(unavailable.message)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundStyle(Color.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+
+                    Spacer()
+
+                    VStack(spacing: 10) {
+                        Button(action: onOpenHome) {
+                            Text("Home")
+                                .font(.loopedSubBodyBold)
+                                .foregroundStyle(Color.loopedBackground)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color.loopedPrimary)
+                                )
+                        }
+
+                        Button(action: onDismiss) {
+                            Text("Back")
+                                .font(.loopedSubBodyMedium)
+                                .foregroundStyle(Color.loopedTextStrong)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .stroke(Color.loopedTextSecondary.opacity(0.25), lineWidth: 1)
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.loopedBackground.ignoresSafeArea())
+                .navigationBarBackButtonHidden(true)
+            }
+        }
     }
 
     private enum FeedDiscoveryStep: Int, CaseIterable {

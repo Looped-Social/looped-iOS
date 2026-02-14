@@ -8,6 +8,7 @@ struct CommentsNavigationHost: View {
 
     enum Route: Hashable {
         case comments
+        case hashtag(String)
     }
 
     var body: some View {
@@ -17,7 +18,16 @@ struct CommentsNavigationHost: View {
                 .navigationDestination(for: Route.self) { route in
                     switch route {
                     case .comments:
-                        CommentsView(post: post, presentationStyle: .navigation, onDismiss: onDismiss)
+                        CommentsView(
+                            post: post,
+                            presentationStyle: .navigation,
+                            onOpenHashtag: { hashtag in
+                                path.append(.hashtag(hashtag))
+                            },
+                            onDismiss: onDismiss
+                        )
+                    case .hashtag(let hashtag):
+                        HashtagFeedView(hashtag: hashtag, presentationStyle: .navigation)
                     }
                 }
         }
@@ -28,4 +38,3 @@ struct CommentsNavigationHost: View {
         }
     }
 }
-

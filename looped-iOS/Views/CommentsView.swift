@@ -11,15 +11,15 @@ struct CommentsView: View {
     let post: Post
     let onDismiss: () -> Void
     let presentationStyle: PresentationStyle
+    let onOpenHashtag: ((String) -> Void)?
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @Environment(\.loopedOpenHashtag) private var openHashtag
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var commentText: String = ""
     @State private var selectedMedia: [LocalMediaItem] = []
     @State private var keyboardHeight: CGFloat = 0
-    @State private var selectedHashtag: String?
-    @State private var showHashtagFeed = false
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
     @State private var selectedVideo: VideoSelection?
@@ -148,10 +148,12 @@ struct CommentsView: View {
     init(
         post: Post,
         presentationStyle: PresentationStyle = .overlay,
+        onOpenHashtag: ((String) -> Void)? = nil,
         onDismiss: @escaping () -> Void
     ) {
         self.post = post
         self.presentationStyle = presentationStyle
+        self.onOpenHashtag = onOpenHashtag
         self.onDismiss = onDismiss
     }
 
@@ -203,14 +205,6 @@ struct CommentsView: View {
             }
             .onReceive(commentsManager.$replyThreads) { _ in
                 attemptFocusScroll(proxy)
-            }
-            .fullScreenCover(isPresented: $showHashtagFeed, onDismiss: {
-                selectedHashtag = nil
-            }) {
-                if let hashtag = selectedHashtag {
-                    HashtagFeedView(hashtag: hashtag, presentationStyle: .overlay)
-                        .environmentObject(commentsManager)
-                }
             }
             .fullScreenCover(isPresented: $showImageViewer) {
                 FullScreenImageViewer(
@@ -269,11 +263,20 @@ private struct CommentsKeyboardDismissalModifier: ViewModifier {
         if #available(iOS 16.0, *) {
             content
                 .scrollDismissesKeyboard(.interactively)
-                .simultaneousGesture(TapGesture().onEnded { onDismiss() })
+                .simultaneousGesture(
+                    TapGesture().onEnded { onDismiss() },
+                    including: .gesture
+                )
         } else {
             content
-                .simultaneousGesture(DragGesture().onChanged { _ in onDismiss() })
-                .simultaneousGesture(TapGesture().onEnded { onDismiss() })
+                .simultaneousGesture(
+                    DragGesture().onChanged { _ in onDismiss() },
+                    including: .gesture
+                )
+                .simultaneousGesture(
+                    TapGesture().onEnded { onDismiss() },
+                    including: .gesture
+                )
         }
     }
 }
@@ -446,6 +449,7 @@ private extension CommentsView {
                             isLoadingReplies: thread.isLoading,
                             isLoadingMoreReplies: thread.isLoadingMore,
                             hasMoreReplies: thread.nextCursor != nil,
+                            isLikeLocked: !canLikeComments,
                             onReply: canReply ? { commentsManager.setReplyTarget($0) } : nil,
                             onToggleReplies: { tapped in
                                 Task { await commentsManager.toggleReplies(for: tapped) }
@@ -841,8 +845,11 @@ private extension CommentsView {
         let trimmed = hashtag.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanHashtag = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
         guard !cleanHashtag.isEmpty else { return }
-        selectedHashtag = cleanHashtag
-        showHashtagFeed = true
+        if let onOpenHashtag {
+            onOpenHashtag(cleanHashtag)
+            return
+        }
+        openHashtag(cleanHashtag)
     }
 }
 

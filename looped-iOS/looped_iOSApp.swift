@@ -33,6 +33,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
   }
 
   func applicationDidBecomeActive(_ application: UIApplication) {
+      DeepLinkRouter.shared.markDidBecomeActive()
       DispatchQueue.global(qos: .utility).async {
           CacheHousekeeper.runIfNeeded()
       }
@@ -88,7 +89,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
       }
       #endif
 
-      return false
+      return DeepLinkRouter.shared.handleIncomingURL(url)
+  }
+
+  func application(
+      _ application: UIApplication,
+      continue userActivity: NSUserActivity,
+      restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+  ) -> Bool {
+      DeepLinkRouter.shared.handleUserActivity(userActivity)
   }
 
   func application(
@@ -127,7 +136,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
       guard let deeplink = userInfo["deeplink"] as? String,
             let url = URL(string: deeplink) else { return }
       DispatchQueue.main.async {
-          UIApplication.shared.open(url)
+          if !DeepLinkRouter.shared.handleIncomingURL(url) {
+              UIApplication.shared.open(url)
+          }
       }
   }
 
@@ -193,11 +204,24 @@ struct looped_iOSApp: App {
         }
     }
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var deepLinkRouter = DeepLinkRouter.shared
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(deepLinkRouter)
                 .preferredColorScheme(AppearanceMode.from(rawValue: appearanceMode).colorScheme)
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
+                    _ = deepLinkRouter.handleUserActivity(userActivity)
+                }
+                .onOpenURL { url in
+                    #if canImport(FirebaseAuth)
+                    if Auth.auth().canHandle(url) {
+                        return
+                    }
+                    #endif
+                    _ = deepLinkRouter.handleIncomingURL(url)
+                }
         }
     }
 }
