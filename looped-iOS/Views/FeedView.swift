@@ -58,7 +58,7 @@ struct FeedView: View {
                         } else if viewModel.posts.isEmpty {
                             EmptyFeedView()
                         } else {
-                            ForEach(Array(viewModel.posts.enumerated()), id: \.offset) { index, post in
+                            ForEach(viewModel.posts) { post in
                                 PostCard(
                                     post: post,
                                     showsCommunityLabel: true,
@@ -76,9 +76,6 @@ struct FeedView: View {
                                         viewModel.removePosts(authorPrincipalId: principalId)
                                     }
                                 )
-                                    .feedDebugTapProbe(
-                                        "Feed row tapped index=\(index) backendId=\(post.backendId.map(String.init) ?? "nil")"
-                                    )
                                     .onAppear {
                                         Task {
                                             await viewModel.loadMoreIfNeeded(currentPost: post)
@@ -324,21 +321,6 @@ struct FeedView: View {
                 proxy.scrollTo(topAnchorId, anchor: .top)
             }
         }
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func feedDebugTapProbe(_ message: @autoclosure @escaping () -> String) -> some View {
-        #if DEBUG
-        simultaneousGesture(
-            TapGesture().onEnded {
-                print(message())
-            }
-        )
-        #else
-        self
-        #endif
     }
 }
 

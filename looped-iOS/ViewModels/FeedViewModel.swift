@@ -794,13 +794,6 @@ private extension FeedViewModel {
             }
         }
 
-        #if DEBUG
-        let dropped = input.count - output.count
-        if dropped > 0 {
-            print("FeedViewModel deduplicated \(dropped) posts (kept \(output.count) of \(input.count)).")
-        }
-        #endif
-
         return output
     }
 

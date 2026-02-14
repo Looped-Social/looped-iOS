@@ -204,11 +204,6 @@ struct PostCard: View {
             NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
                 avatarContent
             }
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    debugLog(action: "author_avatar_tap")
-                }
-            )
             .buttonStyle(PlainButtonStyle())
         } else {
             Button(action: presentMissingAuthorProfileError) {
@@ -236,11 +231,6 @@ struct PostCard: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    debugLog(action: "author_name_tap")
-                }
-            )
             .buttonStyle(PlainButtonStyle())
         } else {
             Button(action: presentMissingAuthorProfileError) {
@@ -405,11 +395,6 @@ struct PostCard: View {
 		        }
                 .contentShape(Rectangle())
                 .zIndex(10)
-                .simultaneousGesture(
-                    TapGesture().onEnded {
-                        debugLog(action: "engagement_bar_tap")
-                    }
-                )
 		    }
 
 			    @ViewBuilder
@@ -469,11 +454,6 @@ struct PostCard: View {
 			            }
 			        }
                     .zIndex(10)
-                    .simultaneousGesture(
-                        TapGesture().onEnded {
-                            debugLog(action: "header_section_tap")
-                        }
-                    )
 			    }
 
 		    @ViewBuilder
@@ -498,11 +478,6 @@ struct PostCard: View {
                         .loopedDoubleTapToLike {
                             handleDoubleTapLike()
                         }
-                        .simultaneousGesture(
-                            TapGesture().onEnded {
-                                debugLog(action: "text_section_tap")
-                            }
-                        )
 			        }
 			    }
 
@@ -539,11 +514,6 @@ struct PostCard: View {
 				                )
 				            }
                             .clipped()
-                            .simultaneousGesture(
-                                TapGesture().onEnded {
-                                    debugLog(action: "attachments_section_tap")
-                                }
-                            )
 				        }
 				    }
 
@@ -1056,7 +1026,6 @@ struct PostCard: View {
 	    }
 
     private func toggleBookmark() {
-        debugLog(action: "bookmark_tap")
         guard !isBookmarkLoading else { return }
         guard let postId = post.backendId else {
             presentMissingPostIdError(action: "save this post")
@@ -1222,7 +1191,6 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle() {
-        debugLog(action: "like_tap")
         if isReactionLocked {
             refreshPermissionsAndRetryReactionIfNeeded(verb: "like")
             return
@@ -1366,7 +1334,6 @@ struct PostCard: View {
     }
 
     private func toggleRepost() {
-        debugLog(action: "repost_tap")
         guard !isRepostLoading else { return }
         guard let postId = post.backendId else {
             presentMissingPostIdError(action: "repost")
@@ -1600,7 +1567,6 @@ struct PostCard: View {
     }
 
     private func openCommentsIfPossible() {
-        debugLog(action: "comment_tap")
         guard post.backendId != nil else {
             presentMissingPostIdError(action: "open comments")
             return
@@ -1609,7 +1575,6 @@ struct PostCard: View {
     }
 
     private func presentMissingPostIdError(action: String) {
-        debugLog(action: "missing_post_id_\(action)")
         actionError = PostActionError(
             title: "Post unavailable",
             message: "This post is missing required data, so we can't \(action) right now. Pull to refresh and try again."
@@ -1617,18 +1582,10 @@ struct PostCard: View {
     }
 
     private func presentMissingAuthorProfileError() {
-        debugLog(action: "missing_author_profile")
         actionError = PostActionError(
             title: "Profile unavailable",
             message: "This post is missing author profile data. Pull to refresh and try again."
         )
-    }
-
-    private func debugLog(action: String) {
-        #if DEBUG
-        let postId = post.backendId.map(String.init) ?? "nil"
-        print("PostCard action=\(action) postId=\(postId)")
-        #endif
     }
 
     private func joinSpecialization(communityId: Int) {
