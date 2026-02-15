@@ -23,9 +23,14 @@ struct CreatePostView: View {
     @State private var isLoadingPostableCommunities = false
     @State private var postableCommunitiesError: String?
     @State private var toastMessage: ToastMessage?
+    @State private var mentionSuggestions: [User] = []
+    @State private var isLoadingMentionSuggestions = false
+    @State private var mentionQuery: String?
+    @State private var mentionSearchTask: Task<Void, Never>?
 
     @ObservedObject var feedViewModel: FeedViewModel
     private let communityService: CommunityServiceProtocol
+    private let userService: UserServiceProtocol
     private let draft: PostDraft?
     private let onPostCreated: (() -> Void)?
     private let onPostStatus: ((ToastMessage) -> Void)?
@@ -33,6 +38,7 @@ struct CreatePostView: View {
     init(
         feedViewModel: FeedViewModel,
         communityService: CommunityServiceProtocol = CommunityService(),
+        userService: UserServiceProtocol = UserService(),
         draftStore: PostDraftStore = PostDraftStore(),
         draft: PostDraft? = nil,
         onPostCreated: (() -> Void)? = nil,
@@ -40,6 +46,7 @@ struct CreatePostView: View {
     ) {
         self.feedViewModel = feedViewModel
         self.communityService = communityService
+        self.userService = userService
         self.draftStore = draftStore
         self.draft = draft
         self.onPostCreated = onPostCreated
@@ -103,6 +110,10 @@ struct CreatePostView: View {
             return selectedId
         }
         return postableCommunities.first?.id
+    }
+
+    private var shouldShowMentionSuggestions: Bool {
+        isPostTextFocused && (isLoadingMentionSuggestions || !mentionSuggestions.isEmpty)
     }
     
 	    var body: some View {
@@ -221,6 +232,10 @@ struct CreatePostView: View {
                             .padding(.vertical, 12)
                             .background(Color.loopedMutedBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                        if shouldShowMentionSuggestions {
+                            mentionSuggestionsSection
+                        }
                     }
 
                     // Media attachment buttons
@@ -463,6 +478,71 @@ struct CreatePostView: View {
             Task { await handleAnonToggle(isOn: newValue) }
             updateAnonMembershipStatus()
         }
+        .onChange(of: postText) { _, _ in
+            queueMentionLookup()
+        }
+        .onChange(of: isPostTextFocused) { _, focused in
+            if focused {
+                queueMentionLookup()
+            } else {
+                clearMentionSuggestions()
+            }
+        }
+        .onDisappear {
+            mentionSearchTask?.cancel()
+        }
+    }
+
+    private var mentionSuggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if isLoadingMentionSuggestions {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .tint(.loopedSecondary)
+                    Text("Finding people…")
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            } else {
+                ForEach(mentionSuggestions.prefix(6)) { user in
+                    Button(action: { applyMentionSuggestion(user) }) {
+                        HStack(spacing: 10) {
+                            ProfileAvatarView(
+                                imageURL: user.profileImageURL,
+                                size: 30,
+                                variant: .standard
+                            )
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(resolvedMentionDisplayName(for: user))
+                                    .font(.loopedSubBodyMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                                    .lineLimit(1)
+
+                                Text("@\(user.handle)")
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.loopedBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.loopedTextSecondary.opacity(0.15), lineWidth: 1)
+        )
     }
     
     @MainActor
@@ -697,6 +777,143 @@ struct CreatePostView: View {
             get: { pollDraft ?? PollDraft() },
             set: { pollDraft = $0 }
         )
+    }
+
+    private func queueMentionLookup() {
+        mentionSearchTask?.cancel()
+        guard isPostTextFocused else {
+            clearMentionSuggestions()
+            return
+        }
+
+        guard let trigger = currentMentionTrigger(in: postText), !trigger.query.isEmpty else {
+            clearMentionSuggestions()
+            return
+        }
+
+        mentionQuery = trigger.query
+        isLoadingMentionSuggestions = true
+
+        mentionSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+
+            do {
+                let page = try await userService.searchUsers(query: trigger.query, limit: 20, cursor: nil)
+                guard !Task.isCancelled else { return }
+
+                let matches = rankedMentionMatches(users: page.users, query: trigger.query)
+                await MainActor.run {
+                    guard mentionQuery == trigger.query else { return }
+                    mentionSuggestions = matches
+                    isLoadingMentionSuggestions = false
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard mentionQuery == trigger.query else { return }
+                    mentionSuggestions = []
+                    isLoadingMentionSuggestions = false
+                }
+            }
+        }
+    }
+
+    private func clearMentionSuggestions() {
+        mentionSearchTask?.cancel()
+        mentionSearchTask = nil
+        mentionQuery = nil
+        mentionSuggestions = []
+        isLoadingMentionSuggestions = false
+    }
+
+    private func resolvedMentionDisplayName(for user: User) -> String {
+        let trimmed = (user.displayName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? user.handle : trimmed
+    }
+
+    private func applyMentionSuggestion(_ user: User) {
+        guard let trigger = currentMentionTrigger(in: postText) else { return }
+        let cleanHandle = normalizedMentionValue(user.handle)
+        guard !cleanHandle.isEmpty else { return }
+        postText.replaceSubrange(trigger.range, with: "@\(cleanHandle) ")
+        isPostTextFocused = true
+        clearMentionSuggestions()
+    }
+
+    private func rankedMentionMatches(users: [User], query: String) -> [User] {
+        let normalizedQuery = normalizedMentionValue(query)
+
+        let uniqueUsers = Dictionary(grouping: users, by: { $0.backendId })
+            .compactMap { $0.value.first }
+
+        return uniqueUsers
+            .map { user -> (user: User, score: Int, handle: String) in
+                let handle = normalizedMentionValue(user.handle)
+                let username = normalizedMentionValue(user.username ?? "")
+                let score: Int
+                if handle == normalizedQuery || username == normalizedQuery {
+                    score = 0
+                } else if handle.hasPrefix(normalizedQuery) || username.hasPrefix(normalizedQuery) {
+                    score = 1
+                } else if handle.contains(normalizedQuery) || username.contains(normalizedQuery) {
+                    score = 2
+                } else {
+                    score = 3
+                }
+                return (user: user, score: score, handle: handle)
+            }
+            .filter { $0.score < 3 }
+            .sorted {
+                if $0.score != $1.score { return $0.score < $1.score }
+                return $0.handle < $1.handle
+            }
+            .map { $0.user }
+    }
+
+    private func currentMentionTrigger(in text: String) -> MentionTrigger? {
+        guard !text.isEmpty else { return nil }
+
+        let endIndex = text.endIndex
+        guard let atIndex = text.lastIndex(of: "@") else { return nil }
+
+        // Only trigger when mention token is at the end of the current text.
+        let mentionRange = atIndex..<endIndex
+        let mentionToken = String(text[mentionRange])
+        guard !mentionToken.contains(where: { $0.isWhitespace }) else { return nil }
+
+        // Require token boundary before '@' to avoid emails (foo@bar.com).
+        if atIndex > text.startIndex {
+            let previous = text[text.index(before: atIndex)]
+            if previous.isLetter || previous.isNumber || previous == "_" {
+                return nil
+            }
+        }
+
+        let rawQuery = String(mentionToken.dropFirst())
+        guard !rawQuery.isEmpty else { return nil }
+        guard rawQuery.unicodeScalars.allSatisfy({ mentionAllowedCharacters.contains($0) }) else { return nil }
+
+        let normalized = normalizedMentionValue(rawQuery)
+        guard !normalized.isEmpty else { return nil }
+
+        return MentionTrigger(query: normalized, range: mentionRange)
+    }
+
+    private func normalizedMentionValue(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
+    private var mentionAllowedCharacters: CharacterSet {
+        CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
+    }
+}
+
+private extension CreatePostView {
+    struct MentionTrigger {
+        let query: String
+        let range: Range<String.Index>
     }
 }
 
