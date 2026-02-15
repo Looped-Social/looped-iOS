@@ -6,6 +6,8 @@ struct Post: Codable, Identifiable {
     let authorBackendId: Int?
     let authorPrincipalId: Int?
     let anonProfileId: Int?
+    let fypRank: Int?
+    let fypSourcePool: String?
     let content: String
     let poll: Poll?
     let authorId: UUID
@@ -44,6 +46,8 @@ struct Post: Codable, Identifiable {
         authorBackendId: Int? = nil,
         authorPrincipalId: Int? = nil,
         anonProfileId: Int? = nil,
+        fypRank: Int? = nil,
+        fypSourcePool: String? = nil,
         content: String,
         poll: Poll? = nil,
         authorId: UUID,
@@ -81,6 +85,8 @@ struct Post: Codable, Identifiable {
         self.authorBackendId = authorBackendId
         self.authorPrincipalId = authorPrincipalId
         self.anonProfileId = anonProfileId
+        self.fypRank = fypRank
+        self.fypSourcePool = fypSourcePool
         self.content = content
         self.poll = poll
         self.authorId = authorId
@@ -127,6 +133,7 @@ enum ReactionType: String, Codable, CaseIterable {
 extension Post {
     init(dto: PostDTO, isAnonymousOverride: Bool? = nil) {
         let resolvedIsAnonymous = isAnonymousOverride ?? dto.authorIsAnonymous ?? dto.isAnonymous ?? false
+        let resolvedFypSourcePool = dto.fypSourcePool?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedHandle = dto.authorHandle?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedFirstName = dto.authorFirstName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedLastName = dto.authorLastName?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -173,6 +180,8 @@ extension Post {
             authorBackendId: dto.authorId,
             authorPrincipalId: dto.authorPrincipalId,
             anonProfileId: dto.anonProfileId,
+            fypRank: dto.fypRank,
+            fypSourcePool: resolvedFypSourcePool?.isEmpty == false ? resolvedFypSourcePool : nil,
             content: dto.content,
             poll: resolvedPoll,
             authorId: resolvedAuthorId,
@@ -251,6 +260,8 @@ extension Post {
             authorBackendId: authorBackendId,
             authorPrincipalId: authorPrincipalId,
             anonProfileId: anonProfileId,
+            fypRank: fypRank,
+            fypSourcePool: fypSourcePool,
             content: content,
             poll: resolvedPoll,
             authorId: authorId,

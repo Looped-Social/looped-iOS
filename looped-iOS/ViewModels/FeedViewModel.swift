@@ -244,7 +244,6 @@ class FeedViewModel: ObservableObject {
     
     func loadPosts(reset: Bool = true, clearExistingPosts: Bool = false, force: Bool = false) async {
         let requestId = UUID()
-        let telemetryRequestId = UUID()
         let contextId: UUID
         if reset {
             activeFeedRequestId = requestId
@@ -293,7 +292,7 @@ class FeedViewModel: ObservableObject {
             guard requestedMode == feedMode, requestedCommunityId == selectedCommunity?.id else { return }
             updateTelemetryRequestIds(
                 for: page.posts,
-                requestId: telemetryRequestId,
+                requestId: page.feedRequestId,
                 reset: reset
             )
             if reset {
@@ -447,11 +446,12 @@ class FeedViewModel: ObservableObject {
     }
 
     func feedTelemetryContext(for post: Post, position: Int?) -> TelemetryFeedContext {
+        let resolvedPosition = post.fypRank ?? position
         return TelemetryFeedContext(
             mode: feedMode.rawValue,
             communityId: selectedCommunity.map { Int64($0.id) },
             requestId: telemetryRequestId(for: post),
-            position: position
+            position: resolvedPosition
         )
     }
     
@@ -974,12 +974,13 @@ private extension FeedViewModel {
 
     func updateTelemetryRequestIds(
         for posts: [Post],
-        requestId: UUID,
+        requestId: UUID?,
         reset: Bool
     ) {
         if reset {
             telemetryRequestIdByPostKey.removeAll(keepingCapacity: true)
         }
+        guard let requestId else { return }
         for post in posts {
             let key = telemetryKey(for: post)
             if telemetryRequestIdByPostKey[key] == nil || reset {

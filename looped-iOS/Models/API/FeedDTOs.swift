@@ -1,6 +1,7 @@
 import Foundation
 
 struct FeedResponseDTO: Codable {
+    let feedRequestId: String?
     let items: [PostDTO]
     let nextCursor: String?
 }
@@ -43,6 +44,8 @@ struct TrendingPostDTO: Codable {
 
 struct PostDTO: Codable {
     let id: Int
+    let fypRank: Int?
+    let fypSourcePool: String?
     let authorId: Int?
     let authorHandle: String?
     let authorDisplayName: String?

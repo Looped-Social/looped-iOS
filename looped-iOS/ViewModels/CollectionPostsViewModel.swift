@@ -118,7 +118,7 @@ final class CollectionPostsViewModel: ObservableObject {
         case .anon(let profileId):
             return try await feedService.fetchAnonPosts(anonProfileId: profileId, limit: pageSize, cursor: cursor)
         case .empty:
-            return FeedPage(posts: [], nextCursor: nil)
+            return FeedPage(posts: [], nextCursor: nil, feedRequestId: nil)
         }
     }
     

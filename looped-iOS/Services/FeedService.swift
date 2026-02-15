@@ -33,7 +33,11 @@ class FeedService: FeedServiceProtocol {
         let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
         let resolved = await resolveMediaIfNeeded(for: posts)
-        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
+        return FeedPage(
+            posts: resolved,
+            nextCursor: response.nextCursor,
+            feedRequestId: response.feedRequestId.flatMap(UUID.init(uuidString:))
+        )
     }
 
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost] {
@@ -61,7 +65,11 @@ class FeedService: FeedServiceProtocol {
         let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
         let resolved = await resolveMediaIfNeeded(for: posts)
-        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
+        return FeedPage(
+            posts: resolved,
+            nextCursor: response.nextCursor,
+            feedRequestId: response.feedRequestId.flatMap(UUID.init(uuidString:))
+        )
     }
     
     func createPost(
@@ -523,7 +531,11 @@ class FeedService: FeedServiceProtocol {
         let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
         let resolved = await resolveMediaIfNeeded(for: posts)
-        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
+        return FeedPage(
+            posts: resolved,
+            nextCursor: response.nextCursor,
+            feedRequestId: response.feedRequestId.flatMap(UUID.init(uuidString:))
+        )
     }
 
     private func fetchAnonCollection(
@@ -557,7 +569,11 @@ class FeedService: FeedServiceProtocol {
         let response = try decode(FeedResponseDTO.self, from: data)
         let posts = response.items.map { Post(dto: $0) }
         let resolved = await resolveMediaIfNeeded(for: posts)
-        return FeedPage(posts: resolved, nextCursor: response.nextCursor)
+        return FeedPage(
+            posts: resolved,
+            nextCursor: response.nextCursor,
+            feedRequestId: response.feedRequestId.flatMap(UUID.init(uuidString:))
+        )
     }
 
     private func appendAnonQuery(to endpoint: String, context: AnonActionContext) -> String {

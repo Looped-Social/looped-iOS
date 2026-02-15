@@ -3,6 +3,7 @@ import Foundation
 struct FeedPage {
     let posts: [Post]
     let nextCursor: String?
+    let feedRequestId: UUID?
 }
 
 enum FeedMode: String {
