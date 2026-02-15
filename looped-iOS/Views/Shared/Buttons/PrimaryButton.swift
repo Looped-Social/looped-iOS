@@ -36,13 +36,13 @@ struct PrimaryButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isStyledAsEnabled ? Color.loopedPrimary : Color.loopedGray.opacity(0.3))
-            )
-        }
-        .disabled(!isEnabled || isLoading)
-    }
+	            .background(
+	                RoundedRectangle(cornerRadius: 12)
+	                    .fill(isStyledAsEnabled ? Color.loopedPrimary : Color.loopedMutedBackground)
+	            )
+	        }
+	        .disabled(!isEnabled || isLoading)
+	    }
 }
 
 #Preview {

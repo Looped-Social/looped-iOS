@@ -86,6 +86,9 @@ extension Font {
     static func loopedSymbol(_ weight: LoopedFontWeight = .medium, size: CGFloat) -> Font {
         Font.system(size: size, weight: loopedSystemWeight(for: weight))
     }
+
+    /// Monospaced code strings (e.g., verification codes).
+    static let loopedMonospaceCode = Font.system(.headline, design: .monospaced)
     
     
     /// Body text with Dynamic Type scaling

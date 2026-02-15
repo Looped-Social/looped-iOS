@@ -38,7 +38,7 @@ struct MessagesView: View {
         } else {
             return tabFilteredConversations.filter { conversation in
                 conversation.userName.localizedCaseInsensitiveContains(searchText) ||
-                conversation.lastMessage.localizedCaseInsensitiveContains(searchText)
+                conversation.lastMessagePreview.localizedCaseInsensitiveContains(searchText)
             }
         }
     }

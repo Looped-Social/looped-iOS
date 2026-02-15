@@ -39,7 +39,7 @@ struct ConversationRow: View {
                             .foregroundColor(.loopedPrimary)
                     }
 
-                    Text(conversation.lastMessage)
+                    Text(conversation.lastMessagePreview)
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextSecondary)
                         .lineLimit(1)

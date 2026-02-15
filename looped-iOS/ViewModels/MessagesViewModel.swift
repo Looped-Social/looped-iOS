@@ -940,7 +940,9 @@ class ChatViewModel: ObservableObject {
             return videosCount == 1 ? "Video" : "\(videosCount) Videos"
         }
         if imagesCount > 0 && videosCount > 0 {
-            return "Media"
+            let imageLabel = imagesCount == 1 ? "1 Photo" : "\(imagesCount) Photos"
+            let videoLabel = videosCount == 1 ? "1 Video" : "\(videosCount) Videos"
+            return "\(imageLabel) • \(videoLabel)"
         }
         return "Attachment"
     }

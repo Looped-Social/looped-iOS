@@ -73,4 +73,14 @@ extension Conversation {
     var hasUnreadMessages: Bool {
         return unreadCount > 0
     }
+
+    var lastMessagePreview: String {
+        let placeholder = "\u{200B}"
+        let normalized = lastMessage
+            .replacingOccurrences(of: placeholder, with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !normalized.isEmpty { return normalized }
+        if lastMessage.contains(placeholder) { return "Attachment" }
+        return ""
+    }
 }

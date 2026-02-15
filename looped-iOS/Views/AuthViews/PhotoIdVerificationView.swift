@@ -15,10 +15,11 @@ import UIKit
     @State private var idFrontImage: UIImage?
     @State private var idBackImage: UIImage?
 	    @State private var showSelfieCamera = false
-	    @State private var showIdFrontCamera = false
-	    @State private var showIdBackCamera = false
-	    @StateObject private var viewModel: PhotoIdVerificationViewModel
-	    @State private var containerWidth: CGFloat = 0
+	@State private var showIdFrontCamera = false
+	@State private var showIdBackCamera = false
+	@StateObject private var viewModel: PhotoIdVerificationViewModel
+	@State private var containerWidth: CGFloat = 0
+	@State private var bottomInsetHeight: CGFloat = 0
 
     init(
         communityId: Int? = nil,
@@ -43,8 +44,8 @@ import UIKit
         )
     }
 
-	    var body: some View {
-	        ZStack {
+		    var body: some View {
+		        ZStack {
 	            VStack(spacing: 0) {
 	                if showsHeader {
 	                    header
@@ -63,15 +64,15 @@ import UIKit
 	                        case .workId:
 	                            workIdStage
 	                        }
-	                    }
-	                    .frame(maxWidth: 520)
-	                    .frame(maxWidth: .infinity, alignment: .center)
-	                    .padding(.horizontal, 24)
-	                    .padding(.bottom, 24)
-	                }
-	            }
-	            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-	            .background(Color.loopedBackground.ignoresSafeArea())
+		                    }
+		                    .frame(maxWidth: 520)
+		                    .frame(maxWidth: .infinity, alignment: .center)
+		                    .padding(.horizontal, 24)
+		                    .padding(.bottom, bottomInsetHeight + 24)
+		                }
+		            }
+		            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+		            .background(Color.loopedBackground.ignoresSafeArea())
 
 	            if viewModel.isPreparing || viewModel.isSubmitting {
 	                ZStack {
@@ -88,22 +89,27 @@ import UIKit
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
-	        }
-	        .readWidth { containerWidth = $0 }
-	        .safeAreaInset(edge: .bottom, spacing: 0) {
-	            let fallbackWidth = UIScreen.main.bounds.width
-	            let availableWidth = max(0, (containerWidth > 0 ? containerWidth : fallbackWidth) - 48)
-	            let actionWidth = min(520, availableWidth)
-	            HStack {
-	                Spacer(minLength: 0)
-	                bottomAction
-	                    .frame(width: actionWidth)
-	                Spacer(minLength: 0)
-	            }
-	            .frame(maxWidth: .infinity)
-	            .padding(.horizontal, 24)
-	            .padding(.bottom, 12)
-	        }
+		        }
+		        .readWidth { containerWidth = $0 }
+		        .safeAreaInset(edge: .bottom, spacing: 0) {
+		            let fallbackWidth = UIScreen.main.bounds.width
+		            let availableWidth = max(0, (containerWidth > 0 ? containerWidth : fallbackWidth) - 48)
+		            let actionWidth = min(520, availableWidth)
+		            VStack(spacing: 10) {
+		                bottomAction
+		                    .frame(width: actionWidth)
+
+		                Text(verificationPrivacyNote)
+		                    .font(.loopedSmallText)
+		                    .foregroundColor(.loopedTextSecondary)
+		                    .multilineTextAlignment(.center)
+		                    .frame(width: actionWidth)
+		            }
+		            .frame(maxWidth: .infinity)
+		            .padding(.horizontal, 24)
+		            .padding(.bottom, 12)
+		            .readHeight { bottomInsetHeight = $0 }
+		        }
 	        .fullScreenCover(isPresented: $showSelfieCamera) {
 	            CameraCaptureView(
 	                position: .front,
@@ -240,13 +246,7 @@ private extension PhotoIdVerificationView {
 	            .disabled(!viewModel.isReadyToCapture)
 	            .opacity(viewModel.isReadyToCapture ? 1 : 0.65)
 
-	            VStack(spacing: 10) {
-	                nonceCard
-	                Text(instructionWithNonce("Position your face clearly in the frame"))
-	                    .font(.loopedSubBodyMedium)
-	                    .foregroundColor(.loopedTextPrimary)
-	                    .multilineTextAlignment(.center)
-	            }
+		            nonceCard
 
 	            Button(action: { showSelfieCamera = true }) {
 	                Text(selfieImage == nil ? "Take Selfie" : "Retake Selfie")
@@ -277,31 +277,7 @@ private extension PhotoIdVerificationView {
 	            }
 	            .frame(maxWidth: .infinity)
 
-	            VStack(spacing: 10) {
-	                nonceCard
-	                Text(instructionWithNonce("Position your ID within\nframe"))
-	                    .font(.loopedSubBodyMedium)
-	                    .foregroundColor(.loopedTextPrimary)
-	                    .multilineTextAlignment(.center)
-	            }
-
-            HStack(spacing: 18) {
-                Button(action: { showIdFrontCamera = true }) {
-                    Text(idFrontImage == nil ? "Take ID Front" : "Retake ID Front")
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedSecondary)
-                }
-                .disabled(!viewModel.isReadyToCapture)
-                .opacity(viewModel.isReadyToCapture ? 1 : 0.65)
-
-                Button(action: { showIdBackCamera = true }) {
-                    Text(idBackImage == nil ? "Take ID Back" : "Retake ID Back")
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedSecondary)
-                }
-                .disabled(!viewModel.isReadyToCapture)
-                .opacity(viewModel.isReadyToCapture ? 0.85 : 0.55)
-            }
+	            nonceCard
 
 	        }
 	    }
@@ -347,27 +323,31 @@ private extension PhotoIdVerificationView {
             }
         }
     }
-}
+	}
 
-private enum PhotoIdStage {
+	private enum PhotoIdStage {
     case selfie
     case workId
-}
+	}
 
-private extension PhotoIdVerificationView {
-    @ViewBuilder
-    var nonceCard: some View {
+	private var verificationPrivacyNote: String {
+	    "Photos are deleted after review.\nVerification is shared, profiles stay separate."
+	}
+
+	private extension PhotoIdVerificationView {
+	    @ViewBuilder
+	    var nonceCard: some View {
         if let nonce = viewModel.visualNonce, !nonce.isEmpty {
             VStack(spacing: 10) {
                 Text("Write this code on paper and keep it visible in each photo:")
-                    .font(.loopedSmallText)
-                    .foregroundColor(.loopedTextSecondary)
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedContrast)
                     .multilineTextAlignment(.center)
 
                 Button(action: { UIPasteboard.general.string = nonce }) {
                     HStack(spacing: 10) {
                         Text(nonce)
-                            .font(.system(.headline, design: .monospaced))
+                            .font(.loopedMonospaceCode)
                             .foregroundColor(.loopedTextPrimary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
@@ -415,7 +395,7 @@ private extension PhotoIdVerificationView {
 	            .overlay(
 	                HStack(spacing: 16) {
 	                    VStack(alignment: .leading, spacing: 8) {
-	                        Text("Looped")
+	                        Text("Tap to take photo")
 	                            .font(.loopedBodyMedium)
 	                            .foregroundColor(.loopedTextPrimary)
 	                        Text(title)
@@ -448,7 +428,14 @@ private extension PhotoIdVerificationView {
 	    }
 	}
 
-private extension PhotoIdVerificationView {
+fileprivate extension PhotoIdVerificationView {
+    struct HeightPreferenceKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
+        }
+    }
+
     struct WidthPreferenceKey: PreferenceKey {
         static var defaultValue: CGFloat = 0
         static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -458,6 +445,17 @@ private extension PhotoIdVerificationView {
 }
 
 private extension View {
+    func readHeight(_ onChange: @escaping (CGFloat) -> Void) -> some View {
+        background(
+            GeometryReader { geometry in
+                Color.clear.preference(key: PhotoIdVerificationView.HeightPreferenceKey.self, value: geometry.size.height)
+            }
+        )
+        .onPreferenceChange(PhotoIdVerificationView.HeightPreferenceKey.self) { newValue in
+            onChange(newValue)
+        }
+    }
+
     func readWidth(_ onChange: @escaping (CGFloat) -> Void) -> some View {
         background(
             GeometryReader { geometry in

@@ -474,8 +474,10 @@ final class CameraCaptureController: NSObject, ObservableObject, AVCapturePhotoC
             return
         }
 
+        let finalImage = currentPosition == .front ? image.loopedHorizontallyMirrored() : image
+
         DispatchQueue.main.async {
-            self.capturedImage = image
+            self.capturedImage = finalImage
         }
         stop()
     }
@@ -495,6 +497,21 @@ private final class PreviewView: UIView {
 
     var previewLayer: AVCaptureVideoPreviewLayer {
         layer as! AVCaptureVideoPreviewLayer
+    }
+}
+
+private extension UIImage {
+    func loopedHorizontallyMirrored() -> UIImage {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = scale
+        format.opaque = false
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { context in
+            let cgContext = context.cgContext
+            cgContext.translateBy(x: size.width, y: 0)
+            cgContext.scaleBy(x: -1, y: 1)
+            draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 }
 
