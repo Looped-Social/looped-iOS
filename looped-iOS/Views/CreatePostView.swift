@@ -585,6 +585,7 @@ struct CreatePostView: View {
             await MainActor.run {
                 isSubmitting = false
                 if result == .created || result == .createdUnderReview || result == .queuedForReview {
+                    NotificationCenter.default.post(name: .profileRefreshRequested, object: nil)
                     if let activeDraftIdToCleanup {
                         draftStore.delete(id: activeDraftIdToCleanup)
                     }

@@ -5,6 +5,7 @@ extension NSNotification.Name {
     static let communityStateChanged = NSNotification.Name("communityStateChanged")
     static let notificationMarkedRead = NSNotification.Name("notificationMarkedRead")
     static let authGatingRequired = NSNotification.Name("authGatingRequired")
+    static let profileRefreshRequested = NSNotification.Name("profileRefreshRequested")
 }
 
 enum LoopedNotificationUserInfoKey {

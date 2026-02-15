@@ -1331,6 +1331,7 @@ private extension UserSettingsView {
                 initialLastName = trimmedLastName
                 initialDateOfBirth = dateOfBirth
                 initialBio = normalized(bio)
+                NotificationCenter.default.post(name: .profileRefreshRequested, object: nil)
                 presentToast(message: "Changes saved", kind: .success)
                 if dismissOnSuccess {
                     dismiss()
@@ -1374,6 +1375,7 @@ private extension UserSettingsView {
                         throw error
                     }
                 }
+                NotificationCenter.default.post(name: .profileRefreshRequested, object: nil)
                 presentToast(message: "Changes saved", kind: .success)
                 if dismissOnSuccess {
                     dismiss()

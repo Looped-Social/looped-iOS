@@ -28,6 +28,7 @@ struct ProfileView: View {
     @EnvironmentObject private var commentsManager: CommentsModalManager
     @Environment(\.loopedPresentMainOverlay) private var presentMainOverlay
     @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
+    @State private var profileRefreshTask: Task<Void, Never>?
 
 		@State private var headerHeight: CGFloat = 300
 		@State private var hasActiveVerifications: Bool?
@@ -223,6 +224,9 @@ struct ProfileView: View {
         .onChange(of: anonymousDiscoveryStep) { _, _ in
             syncCoachMarkOverlay()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .profileRefreshRequested)) { _ in
+            requestProfileRefresh()
+        }
         .onPreferenceChange(ProfileHeaderHeightKey.self) { newValue in
             if newValue > 0, abs(newValue - headerHeight) > 1 {
                 headerHeight = newValue
@@ -234,6 +238,7 @@ struct ProfileView: View {
             Text(anonErrorMessage)
         }
 	        .onDisappear {
+            profileRefreshTask?.cancel()
 	            coachMarkPresenter.dismissIfSource(.profile)
 	        }
             .loopedHashtagNavigationHost()
@@ -332,6 +337,13 @@ private extension ProfileView {
             contentViewModel.setAnonProfile(id: identity?.profileId)
         } else {
             contentViewModel.setCurrentUser(userId: viewModel.user?.backendId)
+        }
+    }
+
+    func requestProfileRefresh() {
+        profileRefreshTask?.cancel()
+        profileRefreshTask = Task {
+            await refreshAll()
         }
     }
 
