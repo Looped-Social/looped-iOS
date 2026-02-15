@@ -21,7 +21,6 @@ struct UserProfileView: View {
     @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
     @State private var headerHeight: CGFloat = 0
     @State private var headerVisible = true
-    @State private var lastScrollOffset: CGFloat = 0
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
     @State private var canPop: Bool?
@@ -33,6 +32,7 @@ struct UserProfileView: View {
     @State private var isStartingConversation = false
 	    @State private var startedConversation: Conversation?
 	    @State private var messageErrorMessage: String?
+    private let scrollCoordinateSpace = "userProfileScrollCoordinateSpace"
 
 	    private let blockService: BlockServiceProtocol = BlockService()
 	    private let messageService: MessageServiceProtocol = MessageService()
@@ -247,23 +247,24 @@ struct UserProfileView: View {
     }
 
 	    private var profileLayout: some View {
-	        ZStack(alignment: .top) {
-	            ScrollView {
-	                LazyVStack(spacing: 0) {
-	                    scrollContent
-	                    Color.loopedClear.frame(height: 80)
-	                }
-		                .background(
-		                    GeometryReader { geo in
-		                        Color.loopedClear
-		                            .onChange(of: geo.frame(in: .global).minY) { oldValue, newValue in
-		                                guard abs(newValue - oldValue) > 0.5 else { return }
-		                                handleScroll(newValue)
-		                            }
-		                    }
-		                )
-	            }
-	            .background(Color.loopedBackground.ignoresSafeArea())
+		        ZStack(alignment: .top) {
+		            ScrollView {
+		                LazyVStack(spacing: 0) {
+		                    scrollContent
+		                    Color.loopedClear.frame(height: 80)
+		                }
+			                .background(
+			                    GeometryReader { geo in
+			                        Color.loopedClear
+			                            .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
+			                                guard abs(newValue - oldValue) > 0.5 else { return }
+			                                handleScroll(oldOffset: oldValue, newOffset: newValue)
+			                            }
+			                    }
+			                )
+		            }
+                    .coordinateSpace(name: scrollCoordinateSpace)
+		            .background(Color.loopedBackground.ignoresSafeArea())
 	            .task { await loadIfNeeded() }
 	            .loopedPullToRefresh(
 	                isAtTop: isAtTop,
@@ -379,11 +380,11 @@ struct UserProfileView: View {
 	        headerHeight = newValue
 	    }
 
-	        private func handleScroll(_ offset: CGFloat) {
-	            let delta = offset - lastScrollOffset
+	        private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
+	            let delta = newOffset - oldOffset
 
             // At/near top: always show header
-            if offset >= -20 {
+            if newOffset >= -20 {
                 if !headerVisible {
                     withAnimation(.easeInOut(duration: 0.22)) {
                         headerVisible = true
@@ -401,11 +402,10 @@ struct UserProfileView: View {
                 }
             }
 
-	            let atTop = offset >= -20
+	            let atTop = newOffset >= -20
 	            if atTop != isAtTop {
 	                isAtTop = atTop
 	            }
-	            lastScrollOffset = offset
 	        }
 
     private func reload() async {

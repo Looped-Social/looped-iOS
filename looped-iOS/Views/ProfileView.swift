@@ -14,7 +14,6 @@ struct ProfileView: View {
     @StateObject private var savedViewModel = CollectionPostsViewModel(collection: .saved)
     @StateObject private var repostsViewModel = CollectionPostsViewModel(collection: .myReposts)
     @State private var headerVisible = true
-    @State private var lastScrollOffset: CGFloat = 0
     @State private var isAtTop = true
     @AppStorage("anonymousMode") private var isAnonymous = false
     @State private var showAnonError = false
@@ -34,15 +33,16 @@ struct ProfileView: View {
 		@State private var hasActiveVerifications: Bool?
 	private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
     private let anonService: AnonService = .shared
+    private let scrollCoordinateSpace = "profileScrollCoordinateSpace"
 
 	private var isShowingDiscoveryOverlay: Bool {
 		profileDiscoveryStep != nil || anonymousDiscoveryStep != nil
 	}
 
-	var body: some View {
-		ZStack(alignment: .top) {
+		var body: some View {
+			ZStack(alignment: .top) {
             // ScrollView with content (bottom layer)
-		            ScrollView {
+			            ScrollView {
 			                LazyVStack(spacing: 0) {
 			                    // Content based on selected tab
 			                    switch selectedTab {
@@ -71,19 +71,20 @@ struct ProfileView: View {
 	                    // Bottom spacer
 	                    Color.loopedClear.frame(height: 100)
                 }
-                .background(
-                    GeometryReader { geo in
-                        Color.loopedClear
-                            .onChange(of: geo.frame(in: .global).minY) { oldValue, newValue in
-                                guard abs(newValue - oldValue) > 0.5 else { return }
-                                handleScroll(newValue)
-                            }
-                    }
-                )
-            }
-		            .loopedPullToRefresh(
-		                isAtTop: isAtTop,
-		                indicatorTopPadding: headerVisible ? headerHeight + 14 : 16,
+	                .background(
+	                    GeometryReader { geo in
+	                        Color.loopedClear
+	                            .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
+	                                guard abs(newValue - oldValue) > 0.5 else { return }
+	                                handleScroll(oldOffset: oldValue, newOffset: newValue)
+	                            }
+	                    }
+	                )
+	            }
+                    .coordinateSpace(name: scrollCoordinateSpace)
+			            .loopedPullToRefresh(
+			                isAtTop: isAtTop,
+			                indicatorTopPadding: headerVisible ? headerHeight + 14 : 16,
 		                showsIndicatorOverlay: false,
 		                indicatorState: $refreshIndicatorState
 		            ) {
@@ -171,7 +172,6 @@ struct ProfileView: View {
 	        .onAppear {
                 fabState.isHidden = false
 	            headerVisible = true
-	            lastScrollOffset = 0
 	            startProfileDiscoveryIfNeeded()
             if isAnonymous {
                 queueAnonymousDiscoveryIfNeeded()
@@ -239,25 +239,24 @@ struct ProfileView: View {
             .loopedHashtagNavigationHost()
 		    }
 
-				private func handleScroll(_ offset: CGFloat) {
+				private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
 					guard !isShowingDiscoveryOverlay else {
 						if !headerVisible {
 							withAnimation(.easeInOut(duration: 0.25)) {
 								headerVisible = true
 							}
 						}
-						lastScrollOffset = offset
-                        let atTop = offset >= -50
+                        let atTop = newOffset >= -50
                         if atTop != isAtTop {
                             isAtTop = atTop
                         }
 						return
 					}
 
-                    let delta = offset - lastScrollOffset
+                    let delta = newOffset - oldOffset
                     var nextHeaderVisible: Bool?
 
-                    if offset >= -50 {
+                    if newOffset >= -50 {
                         nextHeaderVisible = true
                     } else if delta < -2 {
                         nextHeaderVisible = false
@@ -271,11 +270,10 @@ struct ProfileView: View {
                         }
                     }
 
-                    let atTop = offset >= -50
+                    let atTop = newOffset >= -50
                     if atTop != isAtTop {
                         isAtTop = atTop
                     }
-                    lastScrollOffset = offset
                 }
 		}
 
