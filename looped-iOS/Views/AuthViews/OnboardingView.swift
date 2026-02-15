@@ -34,6 +34,7 @@ struct OnboardingView: View {
                 VStack(spacing: 12) {
                     // Get Started button
                     Button(action: {
+                        authViewModel.errorMessage = nil
                         onNavigate(.signUp)
                     }) {
                         Text("Get Started")
@@ -52,7 +53,9 @@ struct OnboardingView: View {
                         .padding(.vertical, 8)
 
                     // Continue with Google button (custom styling)
-                    Button(action: { Task { await authViewModel.signInWithGoogle() } }) {
+                    Button(action: {
+                        Task { await authViewModel.signInWithGoogle() }
+                    }) {
                         HStack(spacing: 12) {
                             Image("google-logo")
                                 .resizable()
@@ -96,20 +99,13 @@ struct OnboardingView: View {
 
                 // Already have account link
                 VStack(spacing: 8) {
-                    if let error = authViewModel.errorMessage {
-                        Text(error)
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedError)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
-                    }
-
                     HStack {
                         Text("Already have an Account?")
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedTextSecondary)
 
                         Button("Log in") {
+                            authViewModel.errorMessage = nil
                             onNavigate(.login)
                         }
                         .font(.loopedSubBodyMedium)

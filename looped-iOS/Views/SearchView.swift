@@ -37,11 +37,12 @@ struct SearchView: View {
                         .padding(.horizontal, 16)
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .coachMarkTarget(.searchPageSearchBar)
                     .padding(.top, 12)
 
                     VStack(alignment: .leading, spacing: 24) {
                         // Trending Post Section
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Text("Trending Posts")
                                     .font(.loopedSubheadMedium)
@@ -56,14 +57,18 @@ struct SearchView: View {
                                     .foregroundColor(.loopedTextSecondary)
                                     .padding(.horizontal, 16)
                             } else {
-                                VStack(spacing: 12) {
+                                VStack(spacing: 6) {
                                     // Snap-to-center trending posts with TabView
                                     TabView(selection: $viewModel.selectedTrendingIndex) {
                                         ForEach(Array(viewModel.trendingPosts.enumerated()), id: \.element.id) { index, post in
                                             TrendingPostCard(
                                                 imageName: post.imageURL ?? "",
                                                 title: post.title,
-                                                subtitle: post.subtitleText(preferShortNames: preferCommunityShortNames)
+                                                contentPreview: trendingPreviewText(for: post),
+                                                authorName: trendingAuthorName(for: post),
+                                                authorImageURL: post.authorProfileImageURL,
+                                                isAnonymousAuthor: post.isAnonymous,
+                                                postedInText: trendingCommunityText(for: post)
                                             )
                                             .overlay {
                                                 if openingTrendingPostId == post.id {
@@ -83,7 +88,7 @@ struct SearchView: View {
                                         }
                                     }
                                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                                    .frame(height: 200)
+                                    .frame(height: 290)
 
                                     if viewModel.trendingPosts.count > 1 {
                                         // Custom page indicator dots positioned lower
@@ -230,6 +235,32 @@ struct SearchView: View {
             isLoadingMore: viewModel.isLoadingMoreFields,
             onReachedEnd: { Task { await viewModel.loadMoreFields() } }
         )
+    }
+
+    private func trendingAuthorName(for post: TrendingPost) -> String {
+        let trimmed = post.authorDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty { return trimmed }
+        return post.isAnonymous ? "Anonymous" : "Looped User"
+    }
+
+    private func trendingCommunityText(for post: TrendingPost) -> String {
+        if let label = CommunityLabelText.preferredName(
+            preferShortNames: preferCommunityShortNames,
+            name: post.communityName,
+            shortName: post.communityShortName
+        ) {
+            return "Posted in \(label)"
+        }
+        if let kind = post.communityKind?.trimmingCharacters(in: .whitespacesAndNewlines), !kind.isEmpty {
+            return "Posted in \(kind.capitalized)"
+        }
+        return "Posted on Looped"
+    }
+
+    private func trendingPreviewText(for post: TrendingPost) -> String {
+        let preview = post.contentPreview?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !preview.isEmpty { return preview }
+        return post.title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func openTrendingPost(postId: Int) {

@@ -817,7 +817,7 @@ struct ProfileStatsView: View {
     private func statLabel(count: Int, title: String) -> some View {
         HStack(spacing: 4) {
             Text("\(count)")
-                .font(.loopedSubBodyRegular)
+                .font(.loopedSubBodyMedium)
                 .foregroundColor(.loopedContrast)
             Text(title)
                 .font(.loopedSubBodyRegular)

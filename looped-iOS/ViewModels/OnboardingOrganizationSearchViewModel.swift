@@ -55,7 +55,7 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
 
         do {
             if trimmed.isEmpty {
-                let suggested = try await loadSuggestedOrganizations()
+                let suggested = try await loadSuggestedOrganizations(fallbackQuery: querySnapshot)
                 guard !Task.isCancelled else { return }
                 guard querySnapshot == self.query.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
                 organizations = suggested
@@ -73,19 +73,31 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
         }
     }
 
-    private func loadSuggestedOrganizations() async throws -> [Organization] {
-        switch scope {
-        case .companiesOnly:
-            let items = try await communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
-            return normalize(items)
-        case .schoolsOnly:
-            let items = try await communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
-            return normalize(items)
-        case .companiesAndSchools:
-            async let companies = communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
-            async let schools = communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
-            let (companyItems, schoolItems) = try await (companies, schools)
-            return normalize(companyItems + schoolItems)
+    private func loadSuggestedOrganizations(fallbackQuery: String) async throws -> [Organization] {
+        do {
+            switch scope {
+            case .companiesOnly:
+                let items = try await communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
+                return normalize(items)
+            case .schoolsOnly:
+                let items = try await communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
+                return normalize(items)
+            case .companiesAndSchools:
+                async let companies = communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
+                async let schools = communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
+                let (companyItems, schoolItems) = try await (companies, schools)
+                return normalize(companyItems + schoolItems)
+            }
+        } catch {
+            let normalizedFallbackQuery = fallbackQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !normalizedFallbackQuery.isEmpty else {
+                throw error
+            }
+            let fallback = try? await searchOrganizations(query: normalizedFallbackQuery)
+            if let fallback {
+                return fallback
+            }
+            throw error
         }
     }
 

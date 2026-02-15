@@ -529,34 +529,106 @@ extension APIClient {
 
 struct EmptyResponse: Codable {}
 
-fileprivate struct ServerError: Codable {
+fileprivate struct ServerError: Decodable {
     let error: String
     let message: String?
     let onboardingStep: RemoteOnboardingStep?
+    let currentStep: RemoteOnboardingStep?
+    let allowedNextSteps: [RemoteOnboardingStep]?
 
     enum CodingKeys: String, CodingKey {
         case error
         case message
         case onboardingStep = "onboarding_step"
+        case onboardingStepCamel = "onboardingStep"
+        case currentStep = "current_step"
+        case currentStepCamel = "currentStep"
+        case allowedNextSteps = "allowed_next_steps"
+        case allowedNextStepsCamel = "allowedNextSteps"
+    }
+
+    init(
+        error: String,
+        message: String?,
+        onboardingStep: RemoteOnboardingStep?,
+        currentStep: RemoteOnboardingStep? = nil,
+        allowedNextSteps: [RemoteOnboardingStep]? = nil
+    ) {
+        self.error = error
+        self.message = message
+        self.onboardingStep = onboardingStep
+        self.currentStep = currentStep
+        self.allowedNextSteps = allowedNextSteps
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        error = try container.decode(String.self, forKey: .error)
+        message = try container.decodeIfPresent(String.self, forKey: .message)
+        onboardingStep = try ServerError.decodeStep(from: container, snakeKey: .onboardingStep, camelKey: .onboardingStepCamel)
+        currentStep = try ServerError.decodeStep(from: container, snakeKey: .currentStep, camelKey: .currentStepCamel)
+        allowedNextSteps = try ServerError.decodeSteps(
+            from: container,
+            snakeKey: .allowedNextSteps,
+            camelKey: .allowedNextStepsCamel
+        )
+    }
+
+    private static func decodeStep(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        snakeKey: CodingKeys,
+        camelKey: CodingKeys
+    ) throws -> RemoteOnboardingStep? {
+        if let snakeValue = try container.decodeIfPresent(String.self, forKey: snakeKey) {
+            return RemoteOnboardingStep(rawValue: snakeValue)
+        }
+        if let camelValue = try container.decodeIfPresent(String.self, forKey: camelKey) {
+            return RemoteOnboardingStep(rawValue: camelValue)
+        }
+        return nil
+    }
+
+    private static func decodeSteps(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        snakeKey: CodingKeys,
+        camelKey: CodingKeys
+    ) throws -> [RemoteOnboardingStep]? {
+        if let snakeValues = try container.decodeIfPresent([String].self, forKey: snakeKey) {
+            return snakeValues.compactMap(RemoteOnboardingStep.init(rawValue:))
+        }
+        if let camelValues = try container.decodeIfPresent([String].self, forKey: camelKey) {
+            return camelValues.compactMap(RemoteOnboardingStep.init(rawValue:))
+        }
+        return nil
     }
 }
 
 enum AuthGatingErrorCode: String, Codable {
     case userNotProvisioned = "user_not_provisioned"
     case onboardingIncomplete = "onboarding_incomplete"
+    case invalidOnboardingStep = "invalid_onboarding_step"
     case accountDeleted = "account_deleted"
 }
 
 struct AuthGatingContext: Equatable {
     let code: AuthGatingErrorCode
     let onboardingStep: RemoteOnboardingStep?
+    let currentStep: RemoteOnboardingStep?
+    let allowedNextSteps: [RemoteOnboardingStep]?
     let message: String?
 
     fileprivate init?(statusCode: Int, payload: ServerError) {
-        guard statusCode == 409 else { return nil }
         guard let code = AuthGatingErrorCode(rawValue: payload.error) else { return nil }
+        switch code {
+        case .userNotProvisioned, .onboardingIncomplete, .accountDeleted:
+            guard statusCode == 409 else { return nil }
+        case .invalidOnboardingStep:
+            guard statusCode == 422 else { return nil }
+        }
         self.code = code
         self.onboardingStep = payload.onboardingStep
+        self.currentStep = payload.currentStep
+        self.allowedNextSteps = payload.allowedNextSteps
         self.message = payload.message
     }
 }

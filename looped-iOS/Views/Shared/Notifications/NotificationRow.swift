@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct NotificationRow: View {
     let notification: Notification
@@ -26,12 +29,7 @@ struct NotificationRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Profile Picture
-            ProfileAvatarView(
-                imageURL: notification.actorProfileImageUrl,
-                size: 40,
-                variant: notification.actorIsAnonymous && notification.type != .announcement && notification.type != .system ? .anonymous : .standard
-            )
+            leadingAvatar
             .onTapGesture {
                 guard canTapActor else { return }
                 onActorTapped?()
@@ -105,6 +103,27 @@ struct NotificationRow: View {
     }
 
     // MARK: - Helper Properties
+    @ViewBuilder
+    private var leadingAvatar: some View {
+        if usesLoopedSystemAvatar {
+            Circle()
+                .fill(Color.loopedMutedBackground)
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Image(loopedLogoAssetName)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(8)
+                )
+        } else {
+            ProfileAvatarView(
+                imageURL: notification.actorProfileImageUrl,
+                size: 40,
+                variant: notification.actorIsAnonymous ? .anonymous : .standard
+            )
+        }
+    }
+
     private var notificationTextView: some View {
         ZStack(alignment: .topLeading) {
             notificationText
@@ -154,9 +173,26 @@ struct NotificationRow: View {
 
     private var canTapActor: Bool {
         guard onActorTapped != nil else { return false }
+        guard usesLoopedSystemAvatar == false else { return false }
         guard notification.actorIsAnonymous == false else { return false }
         guard notification.actorId?.backendInt != nil else { return false }
         return true
+    }
+
+    private var usesLoopedSystemAvatar: Bool {
+        notification.type == .announcement || notification.type == .system
+    }
+
+    private var loopedLogoAssetName: String {
+        #if canImport(UIKit)
+        if UIImage(named: "logo") != nil {
+            return "logo"
+        }
+        if UIImage(named: "AppIconImage") != nil {
+            return "AppIconImage"
+        }
+        #endif
+        return "logo"
     }
 
     @ViewBuilder

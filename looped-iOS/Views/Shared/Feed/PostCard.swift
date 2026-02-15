@@ -554,16 +554,15 @@ struct PostCard: View {
 		        }
 		    }
 
-			    private var shareSheetContent: some View {
-			        ShareSheet(
-                        items: shareItems.isEmpty ? [shareText] : shareItems,
-                        excludedActivityTypes: [.copyToPasteboard]
-                    ) { completed in
-			            if completed {
-			                trackShare()
-			            }
-			        }
-			    }
+				    private var shareSheetContent: some View {
+				        ShareSheet(
+	                        items: shareItems.isEmpty ? defaultShareItems : shareItems
+	                    ) { completed, activityType in
+				            if shouldTrackShare(completed: completed, activityType: activityType) {
+				                trackShare()
+				            }
+				        }
+				    }
 
     @ViewBuilder
     private var imageViewerContent: some View {
@@ -980,9 +979,17 @@ struct PostCard: View {
 	            }
 	    }
 
-	    private var shareText: String {
-	        "\(post.resolvedAuthorName) posted on Looped:\n\n\(post.content)"
-	    }
+    private var canonicalPostURL: URL? {
+        guard let postId = post.backendId else { return nil }
+        return URL(string: "https://mylooped.app/p/\(postId)")
+    }
+
+    private var defaultShareItems: [Any] {
+        if let canonicalPostURL {
+            return [canonicalPostURL]
+        }
+        return ["Check this out on Looped"]
+    }
 
         private func prepareShareSheet() {
             guard !isPreparingShareSheet else { return }
@@ -990,19 +997,19 @@ struct PostCard: View {
 
             Task { @MainActor in
                 defer { isPreparingShareSheet = false }
-
-                var items: [Any] = []
-                if let shareImage = ShareImageRenderer.render(
-                    PostShareCard(post: post),
-                    size: CGSize(width: 360, height: 360)
-                ) {
-                    items.append(shareImage)
-                }
-                items.append(shareText)
-                shareItems = items
+                shareItems = defaultShareItems
                 showShareSheet = true
             }
         }
+
+    private func shouldTrackShare(completed: Bool, activityType: UIActivity.ActivityType?) -> Bool {
+        guard completed else { return false }
+        if activityType == .copyToPasteboard {
+            // Keep copy available in the sheet, but don't count it as a successful share.
+            return false
+        }
+        return post.backendId != nil
+    }
 
 		    private func trackShare() {
 		        guard let postId = post.backendId, !isShareTracking else { return }
@@ -1826,13 +1833,13 @@ struct EditPostSheet: View {
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     var excludedActivityTypes: [UIActivity.ActivityType] = []
-    var onComplete: ((Bool) -> Void)? = nil
+    var onComplete: ((Bool, UIActivity.ActivityType?) -> Void)? = nil
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
         controller.excludedActivityTypes = excludedActivityTypes
-        controller.completionWithItemsHandler = { _, completed, _, _ in
-            onComplete?(completed)
+        controller.completionWithItemsHandler = { activityType, completed, _, _ in
+            onComplete?(completed, activityType)
         }
         return controller
     }

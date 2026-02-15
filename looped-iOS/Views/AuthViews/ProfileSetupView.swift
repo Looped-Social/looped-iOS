@@ -115,6 +115,7 @@ struct ProfileSetupView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
@@ -140,7 +141,7 @@ struct ProfileSetupView: View {
         Task {
             defer { isSubmitting = false }
             do {
-                if authViewModel.currentUser != nil {
+                if authViewModel.currentUser != nil || authViewModel.isProvisioned {
                     try await authViewModel.updateIdentity(
                         username: trimmedUsername,
                         firstName: trimmedFirstName,
@@ -148,13 +149,25 @@ struct ProfileSetupView: View {
                         dateOfBirth: dateOfBirth
                     )
                 } else {
-                    try await authViewModel.onboardUser(
-                        username: trimmedUsername,
-                        firstName: trimmedFirstName,
-                        lastName: trimmedLastName,
-                        dateOfBirth: dateOfBirth
-                    )
+                    do {
+                        try await authViewModel.onboardUser(
+                            username: trimmedUsername,
+                            firstName: trimmedFirstName,
+                            lastName: trimmedLastName,
+                            dateOfBirth: dateOfBirth
+                        )
+                    } catch {
+                        guard isAlreadyOnboardedError(error) else { throw error }
+                        // Account is provisioned server-side; continue with identity update path.
+                        try await authViewModel.updateIdentity(
+                            username: trimmedUsername,
+                            firstName: trimmedFirstName,
+                            lastName: trimmedLastName,
+                            dateOfBirth: dateOfBirth
+                        )
+                    }
                 }
+                await authViewModel.loadCurrentUser()
                 onContinue()
             } catch {
                 submitError = error.localizedDescription
@@ -196,7 +209,8 @@ struct ProfileSetupView: View {
         do {
             let availability = try await authViewModel.checkUsernameAvailability(value)
             guard value == normalizedUsername else { return }
-            usernameState = availability.available ? .available(availability.username) : .unavailable
+            let isAvailable = availability.available || (availability.ownedByMe ?? false)
+            usernameState = isAvailable ? .available(availability.username) : .unavailable
         } catch {
             guard value == normalizedUsername else { return }
             usernameState = .error
@@ -411,5 +425,13 @@ private extension ProfileSetupView {
     func normalizedNonEmpty(_ value: String?) -> String? {
         let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    func isAlreadyOnboardedError(_ error: Error) -> Bool {
+        guard case let APIError.apiError(_, apiError, _) = error else { return false }
+        let normalized = apiError.lowercased()
+        return normalized == "already_onboarded"
+            || normalized == "user_already_onboarded"
+            || normalized == "already_provisioned"
     }
 }

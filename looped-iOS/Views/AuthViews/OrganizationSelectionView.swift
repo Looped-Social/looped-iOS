@@ -8,10 +8,12 @@ struct OrganizationSelectionView: View {
     @Binding var searchText: String
     let selectedOrganizationId: UUID?
     let onSelect: (Organization) -> Void
-    let onNavigate: (AuthScreen) -> Void
+    let onContinue: (Organization) -> Void
 
     @StateObject private var viewModel: OnboardingOrganizationSearchViewModel
     @State private var isInfoPresented = false
+    @State private var pendingSelection: Organization?
+    @FocusState private var isSearchFieldFocused: Bool
 
     init(
         title: String,
@@ -19,39 +21,48 @@ struct OrganizationSelectionView: View {
         searchText: Binding<String>,
         selectedOrganizationId: UUID?,
         onSelect: @escaping (Organization) -> Void,
-        onNavigate: @escaping (AuthScreen) -> Void
+        onContinue: @escaping (Organization) -> Void
     ) {
         self.title = title
         self.scope = scope
         _searchText = searchText
         self.selectedOrganizationId = selectedOrganizationId
         self.onSelect = onSelect
-        self.onNavigate = onNavigate
+        self.onContinue = onContinue
         _viewModel = StateObject(wrappedValue: OnboardingOrganizationSearchViewModel(scope: scope))
     }
 
     var body: some View {
-        GeometryReader { geometry in
+        GeometryReader { _ in
             VStack(spacing: 0) {
                 Spacer()
-                    .frame(height: 12)
+                    .frame(height: isSearchFieldFocused ? 6 : 12)
 
-                Text(title)
-                    .font(.loopedHeadingMedium)
-                    .foregroundColor(.loopedContrast)
-                    .multilineTextAlignment(.center)
+                if !isSearchFieldFocused {
+                    Text(title)
+                        .font(.loopedHeadingMedium)
+                        .foregroundColor(.loopedContrast)
+                        .multilineTextAlignment(.center)
 
-                Button(action: { isInfoPresented = true }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "info.circle")
-                            .font(.loopedCustom(.medium, size: 13))
-                        Text("Why am I choosing this?")
-                            .font(.loopedSmallText)
+                    Text("On Looped, you can post only in communities where you're verified.")
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 6)
+
+                    Button(action: { isInfoPresented = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle")
+                                .font(.loopedCustom(.medium, size: 13))
+                            Text("More info")
+                                .font(.loopedSmallText)
+                        }
+                        .foregroundColor(.loopedTextSecondary)
                     }
-                    .foregroundColor(.loopedTextSecondary)
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 6)
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
@@ -62,6 +73,7 @@ struct OrganizationSelectionView: View {
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
                         .tint(.loopedPrimary)
+                        .focused($isSearchFieldFocused)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -75,12 +87,21 @@ struct OrganizationSelectionView: View {
                 .padding(.top, 16)
 
                 if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedError)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                        .padding(.top, 10)
+                    VStack(spacing: 6) {
+                        Text(error)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedError)
+                            .multilineTextAlignment(.center)
+
+                        Button("Retry") {
+                            viewModel.refresh()
+                        }
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedPrimary)
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.top, 10)
                 }
 
                 ScrollView {
@@ -102,18 +123,20 @@ struct OrganizationSelectionView: View {
                             .padding(.top, 24)
                         }
 
-	                        ForEach(viewModel.organizations) { organization in
-	                            OrganizationListRow(
-	                                organization: organization,
-	                                isSelected: organization.id == selectedOrganizationId
-	                            ) {
-	                                onSelect(organization)
-	                                onNavigate(organization.kind == .school ? .degreeSelection : .departmentSelection)
-	                            }
-	                        }
+                        ForEach(viewModel.organizations) { organization in
+                            OrganizationListRow(
+                                organization: organization,
+                                isSelected: organization.id == resolvedSelection?.id
+                            ) {
+                                isSearchFieldFocused = false
+                                pendingSelection = organization
+                                onSelect(organization)
+                            }
+                        }
 	                    }
 	                    .padding(.horizontal, 24)
 	                    .padding(.top, 20)
+                        .padding(.bottom, (resolvedSelection == nil || isSearchFieldFocused) ? 20 : 100)
                 }
 
                 Spacer()
@@ -131,11 +154,34 @@ struct OrganizationSelectionView: View {
         .onChange(of: searchText) { _, newValue in
             viewModel.query = newValue
         }
+        .onChange(of: selectedOrganizationId) { _, newValue in
+            guard pendingSelection?.id != newValue else { return }
+            pendingSelection = nil
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let selection = resolvedSelection, !isSearchFieldFocused {
+                PrimaryButton(title: "Continue") {
+                    onContinue(selection)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                .background(Color.loopedBackground)
+            }
+        }
         .alert("About your choice", isPresented: $isInfoPresented) {
             Button("Got it", role: .cancel) { }
         } message: {
-            Text("If you work and go to school, no worries — you can verify additional communities later. Pick the one you want to feature on your profile for now. You can always change this later.")
+            Text("If you're in multiple schools or workplaces, choose one for now. You can verify others later.")
         }
+    }
+
+    private var resolvedSelection: Organization? {
+        if let pendingSelection {
+            return pendingSelection
+        }
+        guard let selectedOrganizationId else { return nil }
+        return viewModel.organizations.first(where: { $0.id == selectedOrganizationId })
     }
 }
 
@@ -147,14 +193,7 @@ private struct OrganizationListRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                Circle()
-                    .fill(Color.loopedMutedBackground)
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        Text(organization.logoText)
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedContrast)
-                    )
+                avatarView
 
                 Text(organization.name)
                     .font(.loopedBodyMedium)
@@ -182,6 +221,40 @@ private struct OrganizationListRow: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
+
+    @ViewBuilder
+    var avatarView: some View {
+        let trimmed = (organization.imageURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: trimmed), !trimmed.isEmpty, url.scheme != nil {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .failure, .empty:
+                    placeholderAvatar
+                @unknown default:
+                    placeholderAvatar
+                }
+            }
+            .frame(width: 48, height: 48)
+            .clipShape(Circle())
+        } else {
+            placeholderAvatar
+        }
+    }
+
+    var placeholderAvatar: some View {
+        Circle()
+            .fill(Color.loopedMutedBackground)
+            .frame(width: 48, height: 48)
+            .overlay(
+                Text(organization.logoText)
+                    .font(.loopedSubBodyMedium)
+                    .foregroundColor(.loopedContrast)
+            )
+    }
 }
 
 #Preview {
@@ -192,7 +265,7 @@ private struct OrganizationListRow: View {
             searchText: .constant(""),
             selectedOrganizationId: nil,
             onSelect: { _ in },
-            onNavigate: { _ in }
+            onContinue: { _ in }
         )
     }
 }

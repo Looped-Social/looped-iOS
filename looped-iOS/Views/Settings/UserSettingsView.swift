@@ -61,12 +61,18 @@ struct UserSettingsView: View {
     @State private var profilePhotoPayload: ImageUploadPayload?
     @State private var pendingCropImage: UIImage?
     @State private var isShowingImageCropper = false
+    @State private var profileShareSheetPayload: ProfileShareSheetPayload?
     @State private var initialUsername: String = ""
     @State private var initialFirstName: String = ""
     @State private var initialLastName: String = ""
     @State private var initialDateOfBirth: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     @State private var initialBio: String = ""
     @State private var isShowingUnsavedChangesAlert = false
+
+    private struct ProfileShareSheetPayload: Identifiable {
+        let id = UUID()
+        let items: [Any]
+    }
 
     var body: some View {
         let profilePhotoPreviewSnapshot = profilePhotoPreview
@@ -328,6 +334,9 @@ struct UserSettingsView: View {
                                     .font(.loopedBody)
                                     .foregroundColor(.loopedTextSecondary)
                                     .padding(.leading, 12)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .allowsTightening(true)
 
                                 TextField("username", text: $shareSlugInput)
                                     .font(.loopedBody)
@@ -344,30 +353,33 @@ struct UserSettingsView: View {
                             .background(Color.loopedTextSecondary.opacity(0.1))
                             .cornerRadius(8)
 
-                            HStack(spacing: 8) {
-                                Button(action: copyShareLinkToClipboard) {
-                                    Text("Copy Link")
-                                        .font(.loopedSubBodyMedium)
-                                        .foregroundColor(.loopedPrimary)
-                                        .padding(.vertical, 10)
-                                        .frame(maxWidth: .infinity)
-                                        .background(Color.loopedPrimary.opacity(0.1))
-                                        .cornerRadius(8)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(userShareLink == nil)
-
-                                Button(action: useUsernameShareSlug) {
-                                    Text("Use Username")
-                                        .font(.loopedSubBodyMedium)
-                                        .foregroundColor(.loopedWhite)
-                                        .padding(.vertical, 10)
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.plain)
-                                .background(Color.loopedTextSecondary)
-                                .cornerRadius(8)
+                            HStack(spacing: 12) {
+                                profileLinkIconButton(
+                                    iconName: "copy-icon",
+                                    accessibilityLabel: "Copy profile link",
+                                    action: copyShareLinkToClipboard
+                                )
                                 .disabled(userShareLink == nil || isLoadingShareLink || isSaving)
+
+                                profileLinkIconButton(
+                                    iconName: "send-icon-fab",
+                                    accessibilityLabel: "Share profile link",
+                                    action: shareProfileLink
+                                )
+                                .disabled(userShareLink == nil || isLoadingShareLink || isSaving || profileShareSheetPayload != nil)
+
+                                if shouldShowResetShareSlug {
+                                    Button(action: useUsernameShareSlug) {
+                                        Text("Default")
+                                            .font(.loopedSubBodyMedium)
+                                            .foregroundColor(.loopedTextSecondary)
+                                            .padding(.vertical, 10)
+                                            .padding(.horizontal, 8)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(userShareLink == nil || isLoadingShareLink || isSaving)
+                                }
+                                Spacer(minLength: 0)
                             }
 
                             if let shareLinkStatusText {
@@ -672,6 +684,9 @@ struct UserSettingsView: View {
                 EmptyView()
             }
         }
+        .sheet(item: $profileShareSheetPayload) { payload in
+            ShareSheet(items: payload.items)
+        }
         .onAppear {
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }
@@ -878,6 +893,13 @@ private extension UserSettingsView {
         return pendingShareCustomSlugForSave != currentShareCustomSlugNormalized
     }
 
+    var shouldShowResetShareSlug: Bool {
+        guard userShareLink != nil else { return false }
+        let slug = normalizedShareSlugInput
+        guard !slug.isEmpty else { return false }
+        return slug != effectiveUsernameSlug
+    }
+
     var shareLinkStatusText: String? {
         if let shareLinkInlineMessage {
             return shareLinkInlineMessage
@@ -1044,14 +1066,54 @@ private extension UserSettingsView {
     }
 
     func copyShareLinkToClipboard() {
-        guard let canonical = userShareLink?.canonicalUrl, !canonical.isEmpty else {
+        guard let url = resolvedShareLinkURL else {
             let message = "Couldn't copy profile link right now."
             shareLinkInlineMessage = message
             presentToast(message: message, kind: .error)
             return
         }
-        UIPasteboard.general.string = canonical
+        UIPasteboard.general.string = url.absoluteString
         presentToast(message: "Profile link copied", kind: .success)
+    }
+
+    private func shareProfileLink() {
+        guard let url = resolvedShareLinkURL else {
+            let message = "Couldn't share profile link right now."
+            shareLinkInlineMessage = message
+            presentToast(message: message, kind: .error)
+            return
+        }
+
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        DispatchQueue.main.async {
+            profileShareSheetPayload = ProfileShareSheetPayload(items: [url])
+        }
+    }
+
+    private var resolvedShareLinkURL: URL? {
+        let canonical = (userShareLink?.canonicalUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !canonical.isEmpty, let url = URL(string: canonical) {
+            return url
+        }
+
+        let slug = normalizedShareSlugInput.isEmpty ? effectiveUsernameSlug : normalizedShareSlugInput
+        guard !slug.isEmpty else { return nil }
+        return URL(string: "https://mylooped.app/u/\(slug)")
+    }
+
+    @ViewBuilder
+    private func profileLinkIconButton(iconName: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(iconName)
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: 28, height: 28)
+                .foregroundColor(.loopedPrimary)
+                .frame(width: 48, height: 48)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     func mapShareLinkError(_ error: Error) -> String {

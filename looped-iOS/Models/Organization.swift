@@ -6,6 +6,7 @@ struct Organization: Identifiable {
     let name: String
     let category: String
     let logoText: String
+    let imageURL: String?
     let kind: OrganizationKind
 
     init(
@@ -14,6 +15,7 @@ struct Organization: Identifiable {
         name: String,
         category: String,
         logoText: String,
+        imageURL: String? = nil,
         kind: OrganizationKind = .company
     ) {
         self.backendId = backendId
@@ -21,6 +23,7 @@ struct Organization: Identifiable {
         self.name = name
         self.category = category
         self.logoText = logoText
+        self.imageURL = imageURL
         self.kind = kind
     }
 }
@@ -47,6 +50,7 @@ extension Organization {
             name: community.name,
             category: "",
             logoText: Self.logoText(for: community.name),
+            imageURL: community.imageUrl,
             kind: orgKind
         )
     }

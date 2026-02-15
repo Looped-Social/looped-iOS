@@ -6,46 +6,59 @@ struct OrganizationDetailSelectionView: View {
     @Binding var searchText: String
     @Binding var selectedItem: CommunitySearchResult?
     let onSelect: (CommunitySearchResult) -> Void
+    let onContinue: (CommunitySearchResult) -> Void
 
     @StateObject private var viewModel: OnboardingSpecializationSelectionViewModel
     @State private var isInfoPresented = false
+    @FocusState private var isSearchFieldFocused: Bool
 
     init(
         title: String,
         kind: CommunitySearchKind,
         searchText: Binding<String>,
         selectedItem: Binding<CommunitySearchResult?>,
-        onSelect: @escaping (CommunitySearchResult) -> Void
+        onSelect: @escaping (CommunitySearchResult) -> Void,
+        onContinue: @escaping (CommunitySearchResult) -> Void
     ) {
         self.title = title
         self.kind = kind
         _searchText = searchText
         _selectedItem = selectedItem
         self.onSelect = onSelect
+        self.onContinue = onContinue
         _viewModel = StateObject(wrappedValue: OnboardingSpecializationSelectionViewModel(kind: kind))
     }
 
     var body: some View {
-        GeometryReader { geometry in
+        GeometryReader { _ in
             VStack(spacing: 0) {
                 Spacer()
-                    .frame(height: 12)
+                    .frame(height: isSearchFieldFocused ? 6 : 12)
 
-                Text(title)
-                    .font(.loopedHeadingMedium)
-                    .foregroundColor(.loopedContrast)
+                if !isSearchFieldFocused {
+                    Text(title)
+                        .font(.loopedHeadingMedium)
+                        .foregroundColor(.loopedContrast)
 
-                Button(action: { isInfoPresented = true }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "info.circle")
-                            .font(.loopedCustom(.medium, size: 13))
-                        Text("Why am I choosing this?")
-                            .font(.loopedSmallText)
+                    Text(inlineHelperText)
+                        .font(.loopedSubBodyRegular)
+                        .foregroundColor(.loopedTextSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 6)
+
+                    Button(action: { isInfoPresented = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle")
+                                .font(.loopedCustom(.medium, size: 13))
+                            Text("More info")
+                                .font(.loopedSmallText)
+                        }
+                        .foregroundColor(.loopedTextSecondary)
                     }
-                    .foregroundColor(.loopedTextSecondary)
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 6)
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
@@ -56,6 +69,7 @@ struct OrganizationDetailSelectionView: View {
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
                         .tint(.loopedPrimary)
+                        .focused($isSearchFieldFocused)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -105,6 +119,7 @@ struct OrganizationDetailSelectionView: View {
                                 ) ?? result.name,
                                 isSelected: result.id == selectedItem?.id
                             ) {
+                                isSearchFieldFocused = false
                                 selectedItem = result
                                 onSelect(result)
                             }
@@ -112,7 +127,7 @@ struct OrganizationDetailSelectionView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, (selectedItem == nil || isSearchFieldFocused) ? 20 : 100)
                 }
 
                 Spacer()
@@ -130,6 +145,17 @@ struct OrganizationDetailSelectionView: View {
         .onChange(of: searchText) { _, newValue in
             viewModel.query = newValue
         }
+        .safeAreaInset(edge: .bottom) {
+            if let selectedItem, !isSearchFieldFocused {
+                PrimaryButton(title: "Continue") {
+                    onContinue(selectedItem)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                .background(Color.loopedBackground)
+            }
+        }
         .alert("About your choice", isPresented: $isInfoPresented) {
             Button("Got it", role: .cancel) { }
         } message: {
@@ -139,15 +165,19 @@ struct OrganizationDetailSelectionView: View {
 }
 
 private extension OrganizationDetailSelectionView {
-    var infoText: String {
+    var inlineHelperText: String {
         switch kind {
         case .field:
-            return "Pick a field to personalize your experience. After verification, you’ll join it (with limited changes)."
+            return "Looped has field specializations. You must join one to post in it."
         case .major:
-            return "Pick a major to personalize your experience. After verification, you’ll join it (with limited changes)."
+            return "Looped has major specializations. You must join one to post in it."
         default:
-            return "Pick what you want featured on your profile. You can update this later."
+            return "You must join a specialization to post in it."
         }
+    }
+
+    var infoText: String {
+        "Workplace verification lets you join up to 2 fields. School verification lets you join up to 2 majors. During onboarding we only follow this specialization to tailor content; you can join after onboarding."
     }
 }
 
@@ -194,7 +224,8 @@ private struct OrganizationDetailRow: View {
             kind: .field,
             searchText: .constant(""),
             selectedItem: .constant(nil as CommunitySearchResult?),
-            onSelect: { _ in }
+            onSelect: { _ in },
+            onContinue: { _ in }
         )
     }
 }

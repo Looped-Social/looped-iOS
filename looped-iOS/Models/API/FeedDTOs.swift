@@ -12,6 +12,12 @@ struct TrendingFeedResponseDTO: Codable {
 struct TrendingPostDTO: Codable {
     let id: Int
     let authorId: Int?
+    let authorDisplayName: String?
+    let authorFirstName: String?
+    let authorLastName: String?
+    let authorHandle: String?
+    let authorProfileImageUrl: String?
+    let authorIsAnonymous: Bool?
     let companyId: Int
     let communityId: Int?
     let content: String

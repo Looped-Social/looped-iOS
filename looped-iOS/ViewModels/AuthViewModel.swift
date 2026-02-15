@@ -28,6 +28,7 @@ class AuthViewModel: ObservableObject {
     private let deviceRegistrar: NotificationDeviceRegistrar
     private let notificationService: NotificationServiceProtocol
     private let onboardingStore = OnboardingProgressStore()
+    private let onboardingScopeUserDefaultsKey = "looped.onboarding.lastAuthUID"
     private var cancellables = Set<AnyCancellable>()
     
     init(
@@ -43,11 +44,13 @@ class AuthViewModel: ObservableObject {
         self.isAuthenticated = authService.isAuthenticated
         self.didLoadIdentity = !authService.isAuthenticated
         self.deviceRegistrar.updateAuthState(isAuthenticated: authService.isAuthenticated)
+        syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
         
         authService.authStateChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isAuthenticated in
                 guard let self else { return }
+                self.syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
                 self.isAuthenticated = isAuthenticated
                 self.deviceRegistrar.updateAuthState(isAuthenticated: isAuthenticated)
                 if isAuthenticated {
@@ -227,6 +230,7 @@ class AuthViewModel: ObservableObject {
 
     func signOut() {
         authService.signOut()
+        syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
         currentUser = nil
         onboardingComplete = false
         onboardingStep = nil
@@ -243,6 +247,7 @@ class AuthViewModel: ObservableObject {
     }
 
     func loadCurrentUser() async {
+        syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
         do {
             let identity = try await userService.getIdentity()
             onboardingComplete = identity.onboardingComplete ?? (identity.provisioned && identity.user != nil)
@@ -267,6 +272,8 @@ class AuthViewModel: ObservableObject {
             onboardingStep = .profileSetup
             isProvisioned = false
             currentUser = nil
+            selectedOrganization = nil
+            onboardingStore.clearAll()
             errorMessage = nil
         } catch let apiError as APIError where apiError.isAuthGatingError {
             // Centralized gating handling is applied via NotificationCenter.
@@ -419,6 +426,7 @@ class AuthViewModel: ObservableObject {
 private extension AuthViewModel {
     func handleAuthGating(_ context: AuthGatingContext) {
         guard isAuthenticated else { return }
+        syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
 
         switch context.code {
         case .userNotProvisioned:
@@ -429,11 +437,17 @@ private extension AuthViewModel {
             currentUser = nil
             selectedOrganization = nil
             errorMessage = nil
-            onboardingStore.clearProgress()
+            onboardingStore.clearAll()
         case .onboardingIncomplete:
             onboardingComplete = false
             shouldEnterOnboardingFlow = true
-            onboardingStep = context.onboardingStep ?? onboardingStep ?? .profileSetup
+            onboardingStep = context.onboardingStep ?? context.currentStep ?? .profileSetup
+            isProvisioned = true
+            errorMessage = nil
+        case .invalidOnboardingStep:
+            onboardingComplete = false
+            shouldEnterOnboardingFlow = true
+            onboardingStep = context.currentStep ?? context.onboardingStep ?? .profileSetup
             isProvisioned = true
             errorMessage = nil
         case .accountDeleted:
@@ -441,6 +455,51 @@ private extension AuthViewModel {
             errorMessage = nil
             signOut()
         }
+    }
+
+    var persistedOnboardingScopeUserId: String? {
+        get {
+            UserDefaults.standard.string(forKey: onboardingScopeUserDefaultsKey)
+        }
+        set {
+            let trimmed = (newValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                UserDefaults.standard.removeObject(forKey: onboardingScopeUserDefaultsKey)
+            } else {
+                UserDefaults.standard.set(trimmed, forKey: onboardingScopeUserDefaultsKey)
+            }
+        }
+    }
+
+    func currentAuthUserId() -> String? {
+        #if canImport(FirebaseAuth)
+        return Auth.auth().currentUser?.uid
+        #else
+        return nil
+        #endif
+    }
+
+    func syncOnboardingScopeForCurrentAuthUser(clearPrevious: Bool) {
+        let currentUserId = currentAuthUserId()
+        let previousUserId = persistedOnboardingScopeUserId
+        onboardingStore.setActiveUserId(currentUserId)
+        if let currentUserId {
+            let shouldMigrateLegacyScope = (previousUserId == nil || previousUserId == currentUserId)
+            if shouldMigrateLegacyScope {
+                onboardingStore.migrateLegacyGlobalScopeIfNeeded(toUserId: currentUserId)
+            }
+            onboardingStore.clearLegacyGlobalScope()
+        }
+
+        guard clearPrevious else {
+            persistedOnboardingScopeUserId = currentUserId
+            return
+        }
+
+        if let previousUserId, previousUserId != currentUserId {
+            onboardingStore.clearAll(forUserId: previousUserId)
+        }
+        persistedOnboardingScopeUserId = currentUserId
     }
 
     func updateLinkedProviders() {

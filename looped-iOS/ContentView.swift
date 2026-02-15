@@ -328,7 +328,11 @@ struct MainTabView: View {
     @AppStorage("lastSeenMessagesAt") private var lastSeenMessagesAt = 0.0
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("didShowFeedDiscovery") private var didShowFeedDiscovery = false
+    @AppStorage("didShowFeedSearchDiscovery") private var didShowFeedSearchDiscovery = false
     @State private var feedDiscoveryStep: FeedDiscoveryStep?
+    @AppStorage("didShowSearchPageDiscovery") private var didShowSearchPageDiscovery = false
+    @AppStorage("searchPageUnverifiedHintLastShownAt") private var searchPageUnverifiedHintLastShownAt = 0.0
+    @State private var isShowingSearchPageDiscovery = false
     @AppStorage("unverifiedSearchDiscoveryLastShownAt") private var unverifiedSearchDiscoveryLastShownAt = 0.0
     @AppStorage("unverifiedSearchDiscoveryParity") private var unverifiedSearchDiscoveryParity = 0
     @State private var isShowingUnverifiedSearchDiscovery = false
@@ -355,10 +359,12 @@ struct MainTabView: View {
             }
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
+            startSearchPageDiscoveryIfNeeded()
         }
         .onAppear {
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
+            startSearchPageDiscoveryIfNeeded()
         }
         .onChange(of: selectedTab) { _, _ in
             withAnimation(.easeInOut(duration: 0.25)) {
@@ -367,6 +373,7 @@ struct MainTabView: View {
             updateLastSeen(for: selectedTab)
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
+            startSearchPageDiscoveryIfNeeded()
             syncFloatingActionButtonVisibility()
             if selectedTab == .home {
                 VideoPlaybackManager.shared.requestVisibilityRefresh()
@@ -387,14 +394,17 @@ struct MainTabView: View {
         .onChange(of: isRightMenuOpen) { _, _ in
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
+            startSearchPageDiscoveryIfNeeded()
         }
         .onChange(of: commentsManager.isPresented) { _, _ in
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
+            startSearchPageDiscoveryIfNeeded()
         }
         .onChange(of: showingChat) { _, _ in
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
+            startSearchPageDiscoveryIfNeeded()
         }
         .onReceive(notificationsViewModel.$notifications) { _ in
             guard selectedTab == .notifications else { return }
@@ -537,6 +547,7 @@ struct MainTabView: View {
             ZStack {
                 feedDiscoveryOverlay(targets: targets)
                 unverifiedSearchDiscoveryOverlay(targets: targets)
+                searchPageDiscoveryOverlay(targets: targets)
                 presentedCoachMarkOverlay(targets: targets)
             }
         }
@@ -840,6 +851,28 @@ struct MainTabView: View {
     }
 
     @ViewBuilder
+    private func searchPageDiscoveryOverlay(targets: [CoachMarkTarget: Anchor<CGRect>]) -> some View {
+        if isShowingSearchPageDiscovery,
+           selectedTab == .search,
+           !commentsManager.isPresented,
+           !showingChat,
+           !isRightMenuOpen,
+           feedDiscoveryStep == nil,
+           coachMarkPresenter.overlay == nil,
+           targets[.searchPageSearchBar] != nil {
+            CoachMarkOverlay(
+                target: .searchPageSearchBar,
+                targets: targets,
+                message: "Search for a community to get verified.",
+                primaryTitle: "Got it",
+                secondaryTitle: nil,
+                onPrimary: dismissSearchPageDiscovery,
+                onSecondary: nil
+            )
+        }
+    }
+
+    @ViewBuilder
     private func destinationView(for destination: MenuDestination) -> some View {
         MenuDestinationView(destination: destination)
     }
@@ -849,12 +882,21 @@ struct MainTabView: View {
     }
 
     private func startFeedDiscoveryIfNeeded() {
-        guard !didShowFeedDiscovery else { return }
         guard isVerifiedInAnyCommunity else { return }
         guard selectedTab == .home else { return }
         guard !isRightMenuOpen, !commentsManager.isPresented, !showingChat else { return }
         guard feedDiscoveryStep == nil else { return }
         guard !isShowingUnverifiedSearchDiscovery else { return }
+
+        if didShowFeedDiscovery {
+            guard !didShowFeedSearchDiscovery else { return }
+            DispatchQueue.main.async {
+                guard feedDiscoveryStep == nil else { return }
+                feedDiscoveryStep = .search
+            }
+            return
+        }
+
         DispatchQueue.main.async {
             guard feedDiscoveryStep == nil else { return }
             feedDiscoveryStep = .postButton
@@ -893,17 +935,65 @@ struct MainTabView: View {
         isShowingUnverifiedSearchDiscovery = false
     }
 
+    private func startSearchPageDiscoveryIfNeeded() {
+        guard selectedTab == .search else {
+            isShowingSearchPageDiscovery = false
+            return
+        }
+        guard !isShowingSearchPageDiscovery else { return }
+        guard !commentsManager.isPresented, !showingChat, !isRightMenuOpen else { return }
+        guard feedDiscoveryStep == nil else { return }
+        guard coachMarkPresenter.overlay == nil else { return }
+
+        if isVerifiedInAnyCommunity {
+            guard !didShowSearchPageDiscovery else { return }
+            DispatchQueue.main.async {
+                guard selectedTab == .search else { return }
+                isShowingSearchPageDiscovery = true
+            }
+            return
+        }
+
+        let now = Date().timeIntervalSince1970
+        let minInterval: TimeInterval = 18 * 60 * 60
+        let shouldShowBecauseNeverSeen = !didShowSearchPageDiscovery
+        let shouldShowBecauseIntervalElapsed =
+            searchPageUnverifiedHintLastShownAt <= 0
+            || now - searchPageUnverifiedHintLastShownAt >= minInterval
+        guard shouldShowBecauseNeverSeen || shouldShowBecauseIntervalElapsed else { return }
+
+        DispatchQueue.main.async {
+            guard selectedTab == .search else { return }
+            if !isVerifiedInAnyCommunity {
+                searchPageUnverifiedHintLastShownAt = now
+            }
+            isShowingSearchPageDiscovery = true
+        }
+    }
+
+    private func dismissSearchPageDiscovery() {
+        didShowSearchPageDiscovery = true
+        if !isVerifiedInAnyCommunity {
+            searchPageUnverifiedHintLastShownAt = Date().timeIntervalSince1970
+        }
+        isShowingSearchPageDiscovery = false
+    }
+
     private func advanceFeedDiscovery() {
         guard let step = feedDiscoveryStep else { return }
         if let next = FeedDiscoveryStep(rawValue: step.rawValue + 1) {
             feedDiscoveryStep = next
         } else {
             didShowFeedDiscovery = true
+            if step == .search {
+                didShowFeedSearchDiscovery = true
+            }
             feedDiscoveryStep = nil
         }
     }
 
     private func skipFeedDiscovery() {
+        didShowFeedSearchDiscovery = true
         didShowFeedDiscovery = true
         feedDiscoveryStep = nil
     }
@@ -1152,6 +1242,7 @@ struct MainTabView: View {
     private enum FeedDiscoveryStep: Int, CaseIterable {
         case postButton
         case filters
+        case search
 
         var target: CoachMarkTarget {
             switch self {
@@ -1159,6 +1250,8 @@ struct MainTabView: View {
                 return .feedPostButton
             case .filters:
                 return .feedFilterPills
+            case .search:
+                return .mainTabSearch
             }
         }
 
@@ -1168,6 +1261,8 @@ struct MainTabView: View {
                 return "Post here once you're verified in a community. You can still read every post."
             case .filters:
                 return "Filter the feed by the communities you follow."
+            case .search:
+                return "Search for a community to get verified."
             }
         }
 
@@ -1176,6 +1271,8 @@ struct MainTabView: View {
             case .postButton:
                 return "Next"
             case .filters:
+                return "Next"
+            case .search:
                 return "Got it"
             }
         }
@@ -1184,7 +1281,7 @@ struct MainTabView: View {
             switch self {
             case .postButton:
                 return "Skip"
-            case .filters:
+            case .filters, .search:
                 return nil
             }
         }

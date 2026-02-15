@@ -8,6 +8,7 @@ enum CoachMarkTarget: Hashable {
     case feedPostButton
     case feedFilterPills
     case mainTabSearch
+    case searchPageSearchBar
 }
 
 private enum CoachMarkHighlightShape {
@@ -22,6 +23,8 @@ private extension CoachMarkTarget {
             return 14
         case .mainTabSearch:
             return 12
+        case .searchPageSearchBar:
+            return 8
         case .profileSettingsButton:
             return 10
         case .feedFilterPills:
@@ -37,7 +40,7 @@ private extension CoachMarkTarget {
         switch self {
         case .feedPostButton, .profileSettingsButton, .mainTabSearch:
             return .circle
-        case .feedFilterPills:
+        case .feedFilterPills, .searchPageSearchBar:
             return .roundedRect(cornerRadius: 18)
         case .profileStats:
             return .roundedRect(cornerRadius: 18)

@@ -31,6 +31,7 @@ class NotificationsViewModel: ObservableObject {
         self.userService = userService
         self.cacheStore = cacheStore
         self.followStateStore = followStateStore ?? .shared
+        _ = self.cacheStore.syncActiveUserWithAuth()
         self.notifications = cacheStore.load()
         self.followedActorIds = self.followStateStore.followingUserIds
 
@@ -55,6 +56,7 @@ class NotificationsViewModel: ObservableObject {
 
     // MARK: - Load Notifications
     func loadNotifications() async {
+        syncCacheScopeIfNeeded()
         isLoading = true
         defer { isLoading = false }
 
@@ -73,11 +75,13 @@ class NotificationsViewModel: ObservableObject {
 
     // MARK: - Refresh Notifications
     func refreshNotifications() async {
+        syncCacheScopeIfNeeded()
         nextCursor = nil
         await loadNotifications()
     }
 
     func loadMoreNotifications() async {
+        syncCacheScopeIfNeeded()
         guard !isLoadingMore else { return }
         guard let nextCursor, !nextCursor.isEmpty else { return }
 
@@ -430,6 +434,15 @@ class NotificationsViewModel: ObservableObject {
         guard notifications[index].isRead == false else { return }
         notifications[index] = notifications[index].markingRead()
         cacheStore.save(notifications)
+    }
+
+    private func syncCacheScopeIfNeeded() {
+        guard cacheStore.syncActiveUserWithAuth() else { return }
+        notifications = cacheStore.load()
+        nextCursor = nil
+        currentUserBackendId = nil
+        actorCache.removeAll()
+        errorMessage = nil
     }
 }
 

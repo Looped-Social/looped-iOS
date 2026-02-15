@@ -4,7 +4,11 @@ struct TrendingPost: Identifiable {
     let id: Int
     let imageURL: String?
     let title: String
+    let contentPreview: String?
     let subtitle: String
+    let authorDisplayName: String?
+    let authorProfileImageURL: String?
+    let isAnonymous: Bool
     let communityName: String?
     let communityShortName: String?
     let communityKind: String?
@@ -14,7 +18,11 @@ struct TrendingPost: Identifiable {
         id: Int,
         imageURL: String?,
         title: String,
+        contentPreview: String? = nil,
         subtitle: String,
+        authorDisplayName: String? = nil,
+        authorProfileImageURL: String? = nil,
+        isAnonymous: Bool = false,
         communityName: String? = nil,
         communityShortName: String? = nil,
         communityKind: String? = nil,
@@ -23,7 +31,11 @@ struct TrendingPost: Identifiable {
         self.id = id
         self.imageURL = imageURL
         self.title = title
+        self.contentPreview = contentPreview
         self.subtitle = subtitle
+        self.authorDisplayName = authorDisplayName
+        self.authorProfileImageURL = authorProfileImageURL
+        self.isAnonymous = isAnonymous
         self.communityName = communityName
         self.communityShortName = communityShortName
         self.communityKind = communityKind
@@ -56,8 +68,27 @@ extension TrendingPost {
             return nil
         }()
         let trimmedTitle = dto.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let fallbackTitle = TrendingPost.snippet(from: dto.content)
+        let contentSnippet = TrendingPost.snippet(from: dto.content)
+        let fallbackTitle = contentSnippet
         let title = trimmedTitle.isEmpty ? fallbackTitle : trimmedTitle
+        let contentPreview: String? = {
+            guard !contentSnippet.isEmpty else { return nil }
+            return trimmedTitle.isEmpty ? nil : contentSnippet
+        }()
+        let authorDisplayName: String? = {
+            if dto.isAnonymous == true || dto.authorIsAnonymous == true {
+                return "Anonymous"
+            }
+            let trimmedName = dto.authorDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !trimmedName.isEmpty { return trimmedName }
+            let first = dto.authorFirstName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let last = dto.authorLastName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let joined = "\(first) \(last)".trimmingCharacters(in: .whitespacesAndNewlines)
+            if !joined.isEmpty { return joined }
+            let handle = dto.authorHandle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !handle.isEmpty { return handle }
+            return nil
+        }()
         let subtitle: String = {
             if let label = CommunityLabelText.preferredName(
                 preferShortNames: false,
@@ -76,7 +107,11 @@ extension TrendingPost {
             id: dto.id,
             imageURL: dto.cdnUrl ?? dto.mediaUrl,
             title: title,
+            contentPreview: contentPreview,
             subtitle: subtitle,
+            authorDisplayName: authorDisplayName,
+            authorProfileImageURL: dto.authorProfileImageUrl,
+            isAnonymous: dto.isAnonymous == true || dto.authorIsAnonymous == true,
             communityName: dto.communityName,
             communityShortName: dto.communityShortName,
             communityKind: dto.communityKind,
@@ -100,7 +135,11 @@ extension TrendingPost {
             id: id,
             imageURL: imageURL,
             title: title,
+            contentPreview: contentPreview,
             subtitle: subtitle,
+            authorDisplayName: authorDisplayName,
+            authorProfileImageURL: authorProfileImageURL,
+            isAnonymous: isAnonymous,
             communityName: communityName,
             communityShortName: communityShortName,
             communityKind: communityKind,

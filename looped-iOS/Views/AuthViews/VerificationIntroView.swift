@@ -49,10 +49,12 @@ struct VerificationIntroView: View {
                     .padding(.horizontal, 28)
 
                 VStack(spacing: 12) {
-                    Text("Verify Your Identity\nto join \(loopName)")
+                    Text("Verify your identity for \(loopName)")
                         .font(.loopedHeading)
                         .foregroundColor(.loopedContrast)
                         .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.85)
 
                     Text("We require verification to post, comment, and like in communities\nto keep your experience authentic")
                         .font(.loopedSubBodyRegular)
