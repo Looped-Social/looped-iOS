@@ -39,6 +39,7 @@ class FeedViewModel: ObservableObject {
     private let pageSize = 20
     private let communityPageSize = 50
     private var activeFeedRequestId = UUID()
+    private var telemetryRequestIdByPostKey: [String: UUID] = [:]
     private var skeletonDelayTask: Task<Void, Never>?
     private let lastPostedCommunityKey = "lastPostedCommunityId"
     private let lastSelectedCommunityKey = "lastSelectedCommunityId"
@@ -243,6 +244,7 @@ class FeedViewModel: ObservableObject {
     
     func loadPosts(reset: Bool = true, clearExistingPosts: Bool = false, force: Bool = false) async {
         let requestId = UUID()
+        let telemetryRequestId = UUID()
         let contextId: UUID
         if reset {
             activeFeedRequestId = requestId
@@ -289,11 +291,17 @@ class FeedViewModel: ObservableObject {
             )
             guard activeFeedRequestId == contextId else { return }
             guard requestedMode == feedMode, requestedCommunityId == selectedCommunity?.id else { return }
+            updateTelemetryRequestIds(
+                for: page.posts,
+                requestId: telemetryRequestId,
+                reset: reset
+            )
             if reset {
                 posts = deduplicatedPosts(page.posts)
             } else {
                 posts = deduplicatedPosts(posts + page.posts)
             }
+            pruneTelemetryRequestIdsForVisiblePosts()
             nextCursor = page.nextCursor
         } catch {
             guard activeFeedRequestId == contextId else { return }
@@ -418,14 +426,17 @@ class FeedViewModel: ObservableObject {
     func removePost(backendId: Int?) {
         guard let backendId else { return }
         posts.removeAll { $0.backendId == backendId }
+        pruneTelemetryRequestIdsForVisiblePosts()
     }
 
     func removePosts(authorBackendId: Int) {
         posts.removeAll { $0.authorBackendId == authorBackendId }
+        pruneTelemetryRequestIdsForVisiblePosts()
     }
 
     func removePosts(authorPrincipalId: Int) {
         posts.removeAll { $0.authorPrincipalId == authorPrincipalId }
+        pruneTelemetryRequestIdsForVisiblePosts()
     }
 
     func updatePost(_ updated: Post) {
@@ -433,6 +444,15 @@ class FeedViewModel: ObservableObject {
         if let index = posts.firstIndex(where: { $0.backendId == backendId }) {
             posts[index] = updated
         }
+    }
+
+    func feedTelemetryContext(for post: Post, position: Int?) -> TelemetryFeedContext {
+        return TelemetryFeedContext(
+            mode: feedMode.rawValue,
+            communityId: selectedCommunity.map { Int64($0.id) },
+            requestId: telemetryRequestId(for: post),
+            position: position
+        )
     }
     
     @discardableResult
@@ -946,6 +966,38 @@ private extension FeedViewModel {
     func resetNewPostsToast() {
         newPostsToastCount = nil
         lastToastAt = nil
+    }
+
+    func telemetryRequestId(for post: Post) -> UUID? {
+        telemetryRequestIdByPostKey[telemetryKey(for: post)]
+    }
+
+    func updateTelemetryRequestIds(
+        for posts: [Post],
+        requestId: UUID,
+        reset: Bool
+    ) {
+        if reset {
+            telemetryRequestIdByPostKey.removeAll(keepingCapacity: true)
+        }
+        for post in posts {
+            let key = telemetryKey(for: post)
+            if telemetryRequestIdByPostKey[key] == nil || reset {
+                telemetryRequestIdByPostKey[key] = requestId
+            }
+        }
+    }
+
+    func pruneTelemetryRequestIdsForVisiblePosts() {
+        let activeKeys = Set(posts.map { telemetryKey(for: $0) })
+        telemetryRequestIdByPostKey = telemetryRequestIdByPostKey.filter { activeKeys.contains($0.key) }
+    }
+
+    func telemetryKey(for post: Post) -> String {
+        if let backendId = post.backendId {
+            return "b:\(backendId)"
+        }
+        return "u:\(post.id.uuidString)"
     }
 
     func isNotFound(_ error: Error) -> Bool {

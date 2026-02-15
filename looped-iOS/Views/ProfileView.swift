@@ -74,7 +74,8 @@ struct ProfileView: View {
                 .background(
                     GeometryReader { geo in
                         Color.loopedClear
-                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                            .onChange(of: geo.frame(in: .global).minY) { oldValue, newValue in
+                                guard abs(newValue - oldValue) > 0.5 else { return }
                                 handleScroll(newValue)
                             }
                     }
@@ -242,45 +243,41 @@ struct ProfileView: View {
 					guard !isShowingDiscoveryOverlay else {
 						if !headerVisible {
 							withAnimation(.easeInOut(duration: 0.25)) {
-							headerVisible = true
+								headerVisible = true
+							}
 						}
+						lastScrollOffset = offset
+                        let atTop = offset >= -50
+                        if atTop != isAtTop {
+                            isAtTop = atTop
+                        }
+						return
 					}
-					lastScrollOffset = offset
-                let atTop = offset >= -50
-                if atTop != isAtTop {
-                    isAtTop = atTop
+
+                    let delta = offset - lastScrollOffset
+                    var nextHeaderVisible: Bool?
+
+                    if offset >= -50 {
+                        nextHeaderVisible = true
+                    } else if delta < -2 {
+                        nextHeaderVisible = false
+                    } else if delta > 2 {
+                        nextHeaderVisible = true
+                    }
+
+                    if let nextHeaderVisible, nextHeaderVisible != headerVisible {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            headerVisible = nextHeaderVisible
+                        }
+                    }
+
+                    let atTop = offset >= -50
+                    if atTop != isAtTop {
+                        isAtTop = atTop
+                    }
+                    lastScrollOffset = offset
                 }
-					return
-				}
-
-		let delta = offset - lastScrollOffset
-
-		// Show header when near top
-		if offset >= -50 {
-            withAnimation(.easeInOut(duration: 0.22)) {
-                headerVisible = true
-            }
-        }
-        // Hide on any meaningful scroll down once we're past the top threshold
-        else if delta < -2 {
-            withAnimation(.easeInOut(duration: 0.22)) {
-                headerVisible = false
-            }
-        }
-        // Show on any meaningful scroll up
-        else if delta > 2 {
-            withAnimation(.easeInOut(duration: 0.22)) {
-                headerVisible = true
-            }
-        }
-
-		        let atTop = offset >= -50
-                if atTop != isAtTop {
-                    isAtTop = atTop
-                }
-		        lastScrollOffset = offset
-		    }
-	}
+		}
 
 private struct ProfileHeaderHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0

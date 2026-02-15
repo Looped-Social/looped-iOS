@@ -281,7 +281,7 @@ private extension EmailSignInSettingsView {
         #if canImport(FirebaseAuth)
         guard let user = Auth.auth().currentUser else { throw EmailSignInSettingsError.missingUser }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            user.updateEmail(to: value) { error in
+            user.sendEmailVerification(beforeUpdatingEmail: value) { error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else {

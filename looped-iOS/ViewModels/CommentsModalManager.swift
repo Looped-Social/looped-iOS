@@ -44,8 +44,25 @@ class CommentsModalManager: ObservableObject {
             .store(in: &cancellables)
     }
     
-    func showComments(for post: Post, focusCommentId: Int? = nil, focusParentId: Int? = nil) {
+    func showComments(
+        for post: Post,
+        focusCommentId: Int? = nil,
+        focusParentId: Int? = nil,
+        telemetryFeedContext: TelemetryFeedContext? = nil,
+        telemetryEntryPoint: String? = nil
+    ) {
         guard let backendId = post.backendId else { return }
+        Task {
+            await TelemetryManager.shared.trackPostOpen(
+                postId: backendId,
+                feed: telemetryFeedContext,
+                entryPoint: telemetryEntryPoint
+            )
+            await TelemetryManager.shared.trackCommentsOpen(
+                postId: backendId,
+                feed: telemetryFeedContext
+            )
+        }
         currentPost = post
         currentPostBackendId = backendId
         currentComments = []
@@ -195,16 +212,20 @@ class CommentsModalManager: ObservableObject {
             if let capabilities = currentPost?.viewerCapabilities {
                 if replyTarget != nil {
                     guard capabilities.canInteract && capabilities.canReply else {
+                        trackBlockedInteraction(action: .reply, capabilities: capabilities)
                         errorMessage = lockMessage(from: capabilities, verb: "reply")
                         return
                     }
                 } else {
                     guard capabilities.canInteract && capabilities.canComment else {
+                        trackBlockedInteraction(action: .comment, capabilities: capabilities)
                         errorMessage = lockMessage(from: capabilities, verb: "comment")
                         return
                     }
                 }
             } else if let permissions = communityPermissions, !permissions.canPost {
+                let action: TelemetryInteractionAction = replyTarget != nil ? .reply : .comment
+                trackBlockedInteraction(action: action, permissions: permissions)
                 if permissions.requiresJoin {
                     errorMessage = "Join this major or field to comment or like."
                 } else if permissions.requiresVerification {
@@ -514,6 +535,41 @@ class CommentsModalManager: ObservableObject {
             return "Join this major or field to \(verb)."
         }
         return capabilities.lockMessage(for: verb)
+    }
+
+    private func trackBlockedInteraction(
+        action: TelemetryInteractionAction,
+        capabilities: PostViewerCapabilities
+    ) {
+        let lockReason = capabilities.lockReason?.rawValue ?? PostViewerLockReason.unknownRestriction.rawValue
+        trackBlockedInteraction(action: action, lockReason: lockReason)
+    }
+
+    private func trackBlockedInteraction(
+        action: TelemetryInteractionAction,
+        permissions: CommunityPermissions
+    ) {
+        let lockReason: String
+        if permissions.requiresJoin {
+            lockReason = PostViewerLockReason.specializationNotJoined.rawValue
+        } else if permissions.requiresVerification {
+            lockReason = PostViewerLockReason.communityNotVerified.rawValue
+        } else {
+            lockReason = PostViewerLockReason.unknownRestriction.rawValue
+        }
+        trackBlockedInteraction(action: action, lockReason: lockReason)
+    }
+
+    private func trackBlockedInteraction(action: TelemetryInteractionAction, lockReason: String) {
+        guard let postId = currentPostBackendId else { return }
+        Task {
+            await TelemetryManager.shared.trackInteractionBlocked(
+                postId: postId,
+                feed: nil,
+                action: action,
+                lockReason: lockReason
+            )
+        }
     }
 }
 

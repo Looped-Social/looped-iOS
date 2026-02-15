@@ -11,6 +11,7 @@ struct FeedView: View {
     @State private var isAtTop = true
     @State private var pollingTask: Task<Void, Never>?
     @State private var measuredHeaderHeight: CGFloat = 140
+    @State private var activeImpressions: [String: ActiveFeedImpression] = [:]
 
     private var headerHeight: CGFloat { max(0, measuredHeaderHeight) }
     private let pollInterval: TimeInterval = 90
@@ -58,11 +59,14 @@ struct FeedView: View {
                         } else if viewModel.posts.isEmpty {
                             EmptyFeedView()
                         } else {
-                            ForEach(viewModel.posts) { post in
+                            ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
+                                let telemetryContext = viewModel.feedTelemetryContext(for: post, position: index)
                                 PostCard(
                                     post: post,
                                     showsCommunityLabel: true,
                                     showsRepostBanner: true,
+                                    telemetryFeedContext: telemetryContext,
+                                    telemetryEntryPoint: "feed",
                                     onUpdate: { updated in
                                         viewModel.updatePost(updated)
                                     },
@@ -77,9 +81,13 @@ struct FeedView: View {
                                     }
                                 )
                                     .onAppear {
+                                        beginImpressionTracking(for: post, context: telemetryContext)
                                         Task {
                                             await viewModel.loadMoreIfNeeded(currentPost: post)
                                         }
+                                    }
+                                    .onDisappear {
+                                        endImpressionTracking(for: post)
                                     }
 
                                 Rectangle()
@@ -220,6 +228,7 @@ struct FeedView: View {
             startPolling()
         }
         .onDisappear {
+            flushActiveImpressions()
             withAnimation(.easeInOut(duration: 0.2)) {
                 isTabBarVisible = true
             }
@@ -296,6 +305,53 @@ struct FeedView: View {
         pollingTask = nil
     }
 
+    private func beginImpressionTracking(for post: Post, context: TelemetryFeedContext) {
+        guard let postId = post.backendId else { return }
+        let key = impressionKey(postId: postId)
+        guard activeImpressions[key] == nil else { return }
+        activeImpressions[key] = ActiveFeedImpression(
+            postId: postId,
+            feedContext: context,
+            startMs: TelemetryClock.nowMs,
+            canInteract: post.viewerCapabilities?.canInteract,
+            lockReason: post.viewerCapabilities?.lockReason?.rawValue
+        )
+    }
+
+    private func endImpressionTracking(for post: Post) {
+        guard let postId = post.backendId else { return }
+        let key = impressionKey(postId: postId)
+        guard let active = activeImpressions.removeValue(forKey: key) else { return }
+        emitImpressionIfNeeded(from: active, endedAtMs: TelemetryClock.nowMs)
+    }
+
+    private func flushActiveImpressions() {
+        let endedAt = TelemetryClock.nowMs
+        let active = activeImpressions.values
+        activeImpressions.removeAll(keepingCapacity: false)
+        for impression in active {
+            emitImpressionIfNeeded(from: impression, endedAtMs: endedAt)
+        }
+    }
+
+    private func emitImpressionIfNeeded(from active: ActiveFeedImpression, endedAtMs: Int64) {
+        let visibleMs = max(0, Int(endedAtMs - active.startMs))
+        guard visibleMs >= 500 else { return }
+        Task {
+            await TelemetryManager.shared.trackFeedImpression(
+                postId: active.postId,
+                feed: active.feedContext,
+                visibleMs: visibleMs,
+                canInteract: active.canInteract,
+                lockReason: active.lockReason
+            )
+        }
+    }
+
+    private func impressionKey(postId: Int) -> String {
+        return "\(postId)"
+    }
+
     private func handleToastTap(proxy: ScrollViewProxy) {
         viewModel.dismissNewPostsToast()
         Task {
@@ -322,6 +378,14 @@ struct FeedView: View {
             }
         }
     }
+}
+
+private struct ActiveFeedImpression {
+    let postId: Int
+    let feedContext: TelemetryFeedContext
+    let startMs: Int64
+    let canInteract: Bool?
+    let lockReason: String?
 }
 
 private struct FeedHeaderHeightPreferenceKey: PreferenceKey {

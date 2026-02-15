@@ -34,12 +34,18 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
   func applicationDidBecomeActive(_ application: UIApplication) {
       DeepLinkRouter.shared.markDidBecomeActive()
+      Task {
+          await TelemetryManager.shared.appDidBecomeActive()
+      }
       DispatchQueue.global(qos: .utility).async {
           CacheHousekeeper.runIfNeeded()
       }
   }
 
   func applicationDidEnterBackground(_ application: UIApplication) {
+      Task {
+          await TelemetryManager.shared.appDidEnterBackground()
+      }
       DispatchQueue.global(qos: .utility).async {
           CacheHousekeeper.runIfNeeded()
       }

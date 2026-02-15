@@ -253,14 +253,15 @@ struct UserProfileView: View {
 	                    scrollContent
 	                    Color.loopedClear.frame(height: 80)
 	                }
-	                .background(
-	                    GeometryReader { geo in
-	                        Color.loopedClear
-	                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-	                                handleScroll(newValue)
-	                            }
-	                    }
-	                )
+		                .background(
+		                    GeometryReader { geo in
+		                        Color.loopedClear
+		                            .onChange(of: geo.frame(in: .global).minY) { oldValue, newValue in
+		                                guard abs(newValue - oldValue) > 0.5 else { return }
+		                                handleScroll(newValue)
+		                            }
+		                    }
+		                )
 	            }
 	            .background(Color.loopedBackground.ignoresSafeArea())
 	            .task { await loadIfNeeded() }
@@ -378,8 +379,8 @@ struct UserProfileView: View {
 	        headerHeight = newValue
 	    }
 
-        private func handleScroll(_ offset: CGFloat) {
-            let delta = offset - lastScrollOffset
+	        private func handleScroll(_ offset: CGFloat) {
+	            let delta = offset - lastScrollOffset
 
             // At/near top: always show header
             if offset >= -20 {
@@ -400,9 +401,12 @@ struct UserProfileView: View {
                 }
             }
 
-            isAtTop = offset >= -20
-            lastScrollOffset = offset
-        }
+	            let atTop = offset >= -20
+	            if atTop != isAtTop {
+	                isAtTop = atTop
+	            }
+	            lastScrollOffset = offset
+	        }
 
     private func reload() async {
         await viewModel.loadProfile()

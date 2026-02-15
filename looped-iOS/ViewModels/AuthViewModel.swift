@@ -45,6 +45,7 @@ class AuthViewModel: ObservableObject {
         self.didLoadIdentity = !authService.isAuthenticated
         self.deviceRegistrar.updateAuthState(isAuthenticated: authService.isAuthenticated)
         syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
+        syncTelemetryAuthState()
         
         authService.authStateChanged
             .receive(on: DispatchQueue.main)
@@ -66,6 +67,7 @@ class AuthViewModel: ObservableObject {
                     self.didLoadIdentity = true
                 }
                 self.updateLinkedProviders()
+                self.syncTelemetryAuthState()
             }
             .store(in: &cancellables)
 
@@ -244,6 +246,7 @@ class AuthViewModel: ObservableObject {
         mfaSession = nil
         #endif
         onboardingStore.clearAll()
+        syncTelemetryAuthState()
     }
 
     func loadCurrentUser() async {
@@ -266,6 +269,7 @@ class AuthViewModel: ObservableObject {
 
             errorMessage = nil
             updateLinkedProviders()
+            syncTelemetryAuthState()
         } catch UserServiceError.userNotProvisioned {
             shouldEnterOnboardingFlow = true
             onboardingComplete = false
@@ -275,11 +279,14 @@ class AuthViewModel: ObservableObject {
             selectedOrganization = nil
             onboardingStore.clearAll()
             errorMessage = nil
+            syncTelemetryAuthState()
         } catch let apiError as APIError where apiError.isAuthGatingError {
             // Centralized gating handling is applied via NotificationCenter.
             errorMessage = nil
+            syncTelemetryAuthState()
         } catch {
             errorMessage = error.localizedDescription
+            syncTelemetryAuthState()
         }
     }
 
@@ -454,7 +461,9 @@ private extension AuthViewModel {
             UserDefaults.standard.set(true, forKey: "showAccountDeletedAlert")
             errorMessage = nil
             signOut()
+            return
         }
+        syncTelemetryAuthState()
     }
 
     var persistedOnboardingScopeUserId: String? {
@@ -509,6 +518,17 @@ private extension AuthViewModel {
         #else
         linkedProviders = []
         #endif
+    }
+
+    func syncTelemetryAuthState() {
+        let isAuthenticated = self.isAuthenticated
+        let onboardingComplete = self.onboardingComplete
+        Task {
+            await TelemetryManager.shared.updateAuthState(
+                isAuthenticated: isAuthenticated,
+                onboardingComplete: onboardingComplete
+            )
+        }
     }
 
     func persistAppleNameDraft(from credential: ASAuthorizationAppleIDCredential) {

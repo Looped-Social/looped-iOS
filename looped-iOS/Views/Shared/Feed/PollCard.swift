@@ -8,6 +8,8 @@ struct PollCard: View {
     let communityKind: CommunityKind?
     let communityPermissions: CommunityPermissions?
     let viewerCapabilities: PostViewerCapabilities?
+    let postBackendId: Int?
+    let telemetryFeedContext: TelemetryFeedContext?
     let onPollUpdate: (Poll) -> Void
     private let pollsService: PollsServiceProtocol
 
@@ -27,6 +29,8 @@ struct PollCard: View {
         communityKind: CommunityKind? = nil,
         communityPermissions: CommunityPermissions? = nil,
         viewerCapabilities: PostViewerCapabilities? = nil,
+        postBackendId: Int? = nil,
+        telemetryFeedContext: TelemetryFeedContext? = nil,
         pollsService: PollsServiceProtocol = PollsService(),
         onPollUpdate: @escaping (Poll) -> Void
     ) {
@@ -37,6 +41,8 @@ struct PollCard: View {
         self.communityKind = communityKind
         self.communityPermissions = communityPermissions
         self.viewerCapabilities = viewerCapabilities
+        self.postBackendId = postBackendId
+        self.telemetryFeedContext = telemetryFeedContext
         self.pollsService = pollsService
         self.onPollUpdate = onPollUpdate
         _currentPoll = State(initialValue: poll)
@@ -177,7 +183,10 @@ struct PollCard: View {
         guard selectedOptionId != optionId else { return }
         errorMessage = nil
 
-        guard activeVoteGate == nil else { return }
+        if let activeVoteGate {
+            trackBlockedVote(gate: activeVoteGate)
+            return
+        }
 
         selectedOptionId = optionId
         Task { await submitVote(optionId: optionId) }
@@ -286,6 +295,18 @@ struct PollCard: View {
         guard localCommunityPermissions != nil else { return }
         if gateFromPermissions == nil {
             self.voteGate = nil
+        }
+    }
+
+    private func trackBlockedVote(gate: VoteGate) {
+        guard let postBackendId else { return }
+        Task {
+            await TelemetryManager.shared.trackInteractionBlocked(
+                postId: postBackendId,
+                feed: telemetryFeedContext,
+                action: .vote,
+                lockReason: gate.telemetryLockReason
+            )
         }
     }
 
@@ -412,6 +433,21 @@ private enum VoteGate: Equatable {
             return "You’re banned from this community."
         case .unknownRestriction:
             return "You can’t vote right now."
+        }
+    }
+
+    var telemetryLockReason: String {
+        switch self {
+        case .specializationNotJoined:
+            return PostViewerLockReason.specializationNotJoined.rawValue
+        case .communityNotVerified:
+            return PostViewerLockReason.communityNotVerified.rawValue
+        case .verificationExpired:
+            return PostViewerLockReason.verificationExpired.rawValue
+        case .communityBanned:
+            return PostViewerLockReason.communityBanned.rawValue
+        case .unknownRestriction:
+            return PostViewerLockReason.unknownRestriction.rawValue
         }
     }
 }

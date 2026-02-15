@@ -6,6 +6,8 @@ struct PostCard: View {
     let showsCommunityLabel: Bool
     let showsAppealPostRemoval: Bool
     let showsRepostBanner: Bool
+    let telemetryFeedContext: TelemetryFeedContext?
+    let telemetryEntryPoint: String?
     let onBookmarkToggle: ((Bool) -> Void)?
     let onUpdate: ((Post) -> Void)?
     let onDelete: ((Post) -> Void)?
@@ -72,6 +74,8 @@ struct PostCard: View {
         showsCommunityLabel: Bool = false,
         showsAppealPostRemoval: Bool = false,
         showsRepostBanner: Bool = false,
+        telemetryFeedContext: TelemetryFeedContext? = nil,
+        telemetryEntryPoint: String? = nil,
         onBookmarkToggle: ((Bool) -> Void)? = nil,
         onUpdate: ((Post) -> Void)? = nil,
         onDelete: ((Post) -> Void)? = nil,
@@ -83,6 +87,8 @@ struct PostCard: View {
         self.showsCommunityLabel = showsCommunityLabel
         self.showsAppealPostRemoval = showsAppealPostRemoval
         self.showsRepostBanner = showsRepostBanner
+        self.telemetryFeedContext = telemetryFeedContext
+        self.telemetryEntryPoint = telemetryEntryPoint
         self.onBookmarkToggle = onBookmarkToggle
         self.onUpdate = onUpdate
         self.onDelete = onDelete
@@ -491,7 +497,9 @@ struct PostCard: View {
                             communityShortName: post.communityShortName,
                             communityKind: post.communityKind,
                             communityPermissions: communityPermissions,
-                            viewerCapabilities: viewerCapabilities
+                            viewerCapabilities: viewerCapabilities,
+                            postBackendId: post.backendId,
+                            telemetryFeedContext: telemetryFeedContext
                         ) { updatedPoll in
                             onUpdate?(post.updating(poll: .some(updatedPoll), updatedAt: Date()))
                     }
@@ -605,7 +613,7 @@ struct PostCard: View {
         PostActionBarConfig(
             state: postActionState,
             onLike: handleLikeToggle,
-            onComment: { commentsManager.showComments(for: post) },
+            onComment: openCommentsIfPossible,
             onRepost: toggleRepost,
             onShare: prepareShareSheet,
             onSave: toggleBookmark
@@ -1199,6 +1207,7 @@ struct PostCard: View {
 
     private func handleLikeToggle() {
         if isReactionLocked {
+            trackBlockedInteraction(.like)
             refreshPermissionsAndRetryReactionIfNeeded(verb: "like")
             return
         }
@@ -1496,6 +1505,16 @@ struct PostCard: View {
         return requiresGate && !communityPermissions.canPost
     }
 
+    private var isCommentLocked: Bool {
+        guard !isAnonymousMode else { return false }
+        if let viewerCapabilities {
+            return !viewerCapabilities.canInteract || !viewerCapabilities.canComment
+        }
+        guard let communityPermissions else { return false }
+        let requiresGate = communityPermissions.requiresVerification || communityPermissions.requiresJoin
+        return requiresGate && !communityPermissions.canPost
+    }
+
     private var isRepostLocked: Bool {
         guard !isAnonymousMode else { return false }
         if let viewerCapabilities {
@@ -1554,6 +1573,34 @@ struct PostCard: View {
         return "You can’t \(verb) right now."
     }
 
+    private var telemetryLockReason: String? {
+        if let viewerCapabilities {
+            return viewerCapabilities.lockReason?.rawValue ?? PostViewerLockReason.unknownRestriction.rawValue
+        }
+        if let communityPermissions {
+            if communityPermissions.requiresJoin && !communityPermissions.canPost {
+                return PostViewerLockReason.specializationNotJoined.rawValue
+            }
+            if communityPermissions.requiresVerification && !communityPermissions.canPost {
+                return PostViewerLockReason.communityNotVerified.rawValue
+            }
+        }
+        return nil
+    }
+
+    private func trackBlockedInteraction(_ action: TelemetryInteractionAction) {
+        guard let postId = post.backendId else { return }
+        let lockReason = telemetryLockReason ?? PostViewerLockReason.unknownRestriction.rawValue
+        Task {
+            await TelemetryManager.shared.trackInteractionBlocked(
+                postId: postId,
+                feed: telemetryFeedContext,
+                action: action,
+                lockReason: lockReason
+            )
+        }
+    }
+
     private var joinPrimaryAction: PostActionError.PrimaryAction? {
         if viewerCapabilities?.lockReason == .specializationNotJoined,
            let communityId = post.communityId,
@@ -1578,7 +1625,14 @@ struct PostCard: View {
             presentMissingPostIdError(action: "open comments")
             return
         }
-        commentsManager.showComments(for: post)
+        if isCommentLocked {
+            trackBlockedInteraction(.comment)
+        }
+        commentsManager.showComments(
+            for: post,
+            telemetryFeedContext: telemetryFeedContext,
+            telemetryEntryPoint: telemetryEntryPoint
+        )
     }
 
     private func presentMissingPostIdError(action: String) {
@@ -1598,6 +1652,14 @@ struct PostCard: View {
     private func joinSpecialization(communityId: Int) {
         guard communityId > 0 else { return }
         guard !isJoiningSpecialization else { return }
+        let postId = post.backendId
+        Task {
+            await TelemetryManager.shared.trackCommunityJoinIntent(
+                communityId: communityId,
+                postId: postId,
+                feed: telemetryFeedContext
+            )
+        }
         isJoiningSpecialization = true
         Task {
             defer { isJoiningSpecialization = false }
