@@ -12,10 +12,12 @@ struct CommentsView: View {
     let onDismiss: () -> Void
     let presentationStyle: PresentationStyle
     let onOpenHashtag: ((String) -> Void)?
+    let onOpenMention: ((String) -> Void)?
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
     @Environment(\.loopedOpenHashtag) private var openHashtag
+    @Environment(\.loopedOpenMention) private var openMention
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var commentText: String = ""
     @State private var selectedMedia: [LocalMediaItem] = []
@@ -149,11 +151,13 @@ struct CommentsView: View {
         post: Post,
         presentationStyle: PresentationStyle = .overlay,
         onOpenHashtag: ((String) -> Void)? = nil,
+        onOpenMention: ((String) -> Void)? = nil,
         onDismiss: @escaping () -> Void
     ) {
         self.post = post
         self.presentationStyle = presentationStyle
         self.onOpenHashtag = onOpenHashtag
+        self.onOpenMention = onOpenMention
         self.onDismiss = onDismiss
     }
 
@@ -306,13 +310,14 @@ private extension CommentsView {
             VStack(alignment: .leading, spacing: 8) {
                 let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedContent.isEmpty {
-                    if trimmedContent.contains("#") {
+                    if trimmedContent.contains("#") || trimmedContent.contains("@") {
                         HashtagText(
                             text: trimmedContent,
                             font: .loopedHeadingMedium,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary,
-                            onHashtagTap: handleHashtagTap
+                            onHashtagTap: handleHashtagTap,
+                            onMentionTap: handleMentionTap
                         )
                         .multilineTextAlignment(.leading)
                     } else {
@@ -472,7 +477,8 @@ private extension CommentsView {
                                 selectedCommentForModeration = target
                                 activeModerationSheet = .reportComment
                             },
-                            onHashtagTap: handleHashtagTap
+                            onHashtagTap: handleHashtagTap,
+                            onMentionTap: handleMentionTap
                         )
                         .id(comment.backendId ?? comment.id.hashValue)
                         .onAppear {
@@ -850,6 +856,17 @@ private extension CommentsView {
             return
         }
         openHashtag(cleanHashtag)
+    }
+
+    func handleMentionTap(_ mention: String) {
+        let trimmed = mention.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanHandle = (trimmed.hasPrefix("@") ? String(trimmed.dropFirst()) : trimmed).lowercased()
+        guard !cleanHandle.isEmpty else { return }
+        if let onOpenMention {
+            onOpenMention(cleanHandle)
+            return
+        }
+        openMention(cleanHandle)
     }
 }
 

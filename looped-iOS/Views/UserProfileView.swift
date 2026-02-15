@@ -147,6 +147,7 @@ struct UserProfileView: View {
                 }
             }
             .loopedHashtagNavigationHost()
+            .loopedMentionNavigationHost()
     }
 
     private var tabs: [UserProfileTab] {

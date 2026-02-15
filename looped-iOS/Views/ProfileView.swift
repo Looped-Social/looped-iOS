@@ -237,6 +237,7 @@ struct ProfileView: View {
 	            coachMarkPresenter.dismissIfSource(.profile)
 	        }
             .loopedHashtagNavigationHost()
+            .loopedMentionNavigationHost()
 		    }
 
 				private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {

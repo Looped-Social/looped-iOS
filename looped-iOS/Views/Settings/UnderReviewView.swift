@@ -88,6 +88,7 @@ struct UnderReviewView: View {
             await viewModel.refresh()
         }
         .loopedHashtagNavigationHost()
+        .loopedMentionNavigationHost()
     }
 }
 

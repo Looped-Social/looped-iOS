@@ -15,7 +15,8 @@ class NotificationService: NotificationServiceProtocol {
         }
         let response: NotificationListResponseDTO = try await apiClient.get(endpoint)
         let notifications: [Notification] = response.items.map { dto -> Notification in
-            let type = NotificationType(rawValue: dto.type) ?? .system
+            let normalizedType = dto.type.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let type = NotificationType(rawValue: normalizedType) ?? .system
             let payload = dto.payload
             let actorIsAnonymous = payload?.actorIsAnonymous
                 ?? (payload?.actorUserId == nil && payload?.actorAnonProfileId != nil)
@@ -47,10 +48,19 @@ class NotificationService: NotificationServiceProtocol {
                 targetContent: nil,
                 title: payload?.title,
                 body: payload?.body,
+                category: payload?.category,
+                verificationKind: payload?.kind,
+                verificationStatus: payload?.status,
+                verificationMethod: payload?.method,
+                verificationCommunityId: payload?.communityId ?? payload?.companyId,
+                verificationCommunityName: payload?.communityName,
+                verificationExpiresAt: parseISODate(payload?.expiresAt),
+                verificationDaysRemaining: payload?.daysRemaining,
+                verificationEventKey: payload?.eventKey,
                 announcementKind: announcementKind,
                 announcementYears: payload?.years,
                 deeplink: payload?.deeplink,
-                actionDeeplink: payload?.actionDeeplink,
+                actionDeeplink: payload?.actionDeeplink ?? payload?.deeplink,
                 mentionContext: mentionContext,
                 isRead: !dto.unread,
                 createdAt: dto.createdAt
@@ -96,4 +106,24 @@ private extension NotificationService {
             return isAnonymous ? "Anonymous" : "Someone"
         }
     }
+
+    func parseISODate(_ value: String?) -> Date? {
+        guard let value, !value.isEmpty else { return nil }
+        if let date = Self.iso8601WithFractional.date(from: value) {
+            return date
+        }
+        return Self.iso8601.date(from: value)
+    }
+
+    static let iso8601WithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    static let iso8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 }

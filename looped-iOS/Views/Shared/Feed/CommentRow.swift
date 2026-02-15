@@ -20,6 +20,7 @@ struct CommentRow: View {
     let canReport: ((Comment) -> Bool)?
     let onReport: ((Comment) -> Void)?
     let onHashtagTap: ((String) -> Void)?
+    let onMentionTap: ((String) -> Void)?
 
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
@@ -44,7 +45,8 @@ struct CommentRow: View {
         onDelete: ((Comment) -> Void)? = nil,
         canReport: ((Comment) -> Bool)? = nil,
         onReport: ((Comment) -> Void)? = nil,
-        onHashtagTap: ((String) -> Void)? = nil
+        onHashtagTap: ((String) -> Void)? = nil,
+        onMentionTap: ((String) -> Void)? = nil
     ) {
         self.comment = comment
         self.nestingLevel = nestingLevel
@@ -64,6 +66,7 @@ struct CommentRow: View {
         self.canReport = canReport
         self.onReport = onReport
         self.onHashtagTap = onHashtagTap
+        self.onMentionTap = onMentionTap
     }
     
     private var displayName: String {
@@ -244,7 +247,9 @@ struct CommentRow: View {
                             hashtagColor: .loopedPrimary
 	                        ) { hashtag in
 	                            onHashtagTap?(hashtag)
-	                        }
+	                        } onMentionTap: { handle in
+                                onMentionTap?(handle)
+                            }
 	                        .multilineTextAlignment(.leading)
 	                        .fixedSize(horizontal: false, vertical: true)
 	                        .frame(maxWidth: .infinity, alignment: .leading)
@@ -426,7 +431,8 @@ struct CommentRow: View {
 	                                onDelete: onDelete,
                                     canReport: canReport,
                                     onReport: onReport,
-	                                onHashtagTap: onHashtagTap
+	                                onHashtagTap: onHashtagTap,
+                                    onMentionTap: onMentionTap
 	                            )
 	                            .id(reply.backendId ?? reply.id.hashValue)
 	                        }

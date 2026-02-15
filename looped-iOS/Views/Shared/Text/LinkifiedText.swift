@@ -29,7 +29,7 @@ struct LinkifiedText: View {
 
         for component in components {
             switch component {
-            case .regular(let string), .hashtag(let string):
+            case .regular(let string), .hashtag(let string), .mention(let string):
                 var regularText = AttributedString(string)
                 regularText.foregroundColor = textColor
                 result.append(regularText)
@@ -53,4 +53,3 @@ struct LinkifiedText: View {
     }
     .padding()
 }
-

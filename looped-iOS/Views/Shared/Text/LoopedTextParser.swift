@@ -3,12 +3,23 @@ import Foundation
 enum LoopedTextComponent: Equatable {
     case regular(String)
     case hashtag(String)
+    case mention(String)
     case url(text: String, url: URL)
 }
 
 struct LoopedTextParser {
-    static func parse(_ text: String, detectHashtags: Bool = true, detectLinks: Bool = true) -> [LoopedTextComponent] {
-        let matches = collectMatches(in: text, detectHashtags: detectHashtags, detectLinks: detectLinks)
+    static func parse(
+        _ text: String,
+        detectHashtags: Bool = true,
+        detectMentions: Bool = false,
+        detectLinks: Bool = true
+    ) -> [LoopedTextComponent] {
+        let matches = collectMatches(
+            in: text,
+            detectHashtags: detectHashtags,
+            detectMentions: detectMentions,
+            detectLinks: detectLinks
+        )
         guard !matches.isEmpty else { return [.regular(text)] }
 
         var components: [LoopedTextComponent] = []
@@ -25,6 +36,8 @@ struct LoopedTextParser {
             switch match.kind {
             case .hashtag:
                 components.append(.hashtag(String(text[range])))
+            case .mention:
+                components.append(.mention(String(text[range])))
             case .url(let url):
                 components.append(.url(text: String(text[range]), url: url))
             }
@@ -41,6 +54,7 @@ struct LoopedTextParser {
 
     private enum MatchKind: Equatable {
         case hashtag
+        case mention
         case url(URL)
     }
 
@@ -49,7 +63,12 @@ struct LoopedTextParser {
         let kind: MatchKind
     }
 
-    private static func collectMatches(in text: String, detectHashtags: Bool, detectLinks: Bool) -> [Match] {
+    private static func collectMatches(
+        in text: String,
+        detectHashtags: Bool,
+        detectMentions: Bool,
+        detectLinks: Bool
+    ) -> [Match] {
         let searchRange = NSRange(text.startIndex..., in: text)
         var matches: [Match] = []
 
@@ -64,6 +83,13 @@ struct LoopedTextParser {
         if detectHashtags, let regex = try? NSRegularExpression(pattern: "#\\w+") {
             for result in regex.matches(in: text, options: [], range: searchRange) {
                 matches.append(Match(range: result.range, kind: .hashtag))
+            }
+        }
+
+        // Mentions are only recognized at token boundaries to avoid emails like a@b.com.
+        if detectMentions, let regex = try? NSRegularExpression(pattern: "(?<![\\w])@[A-Za-z0-9_]+") {
+            for result in regex.matches(in: text, options: [], range: searchRange) {
+                matches.append(Match(range: result.range, kind: .mention))
             }
         }
 

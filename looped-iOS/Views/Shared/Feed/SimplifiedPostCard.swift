@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SimplifiedPostCard: View {
     let post: Post
+    @Environment(\.loopedOpenHashtag) private var openHashtag
+    @Environment(\.loopedOpenMention) private var openMention
 
     private var authorName: String {
         post.resolvedAuthorName
@@ -25,13 +27,18 @@ struct SimplifiedPostCard: View {
                         .foregroundColor(.loopedTextPrimary)
                     
                     // Post content
-                    if post.content.contains("#") {
+                    if post.content.contains("#") || post.content.contains("@") {
                         HashtagText(
                             text: post.content,
                             font: .loopedBody,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary,
-                            onHashtagTap: { _ in }
+                            onHashtagTap: { hashtag in
+                                openHashtag(hashtag)
+                            },
+                            onMentionTap: { handle in
+                                openMention(handle)
+                            }
                         )
                         .multilineTextAlignment(.leading)
                     } else {

@@ -213,8 +213,15 @@ private struct NotificationDetailDestination: Hashable, Identifiable {
         id = notification.id
         kindRawValue = notification.type.rawValue
         actorName = notification.actorName
-        title = notification.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-        body = notification.body?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTitle = notification.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let trimmedTitle, !trimmedTitle.isEmpty {
+            title = trimmedTitle
+        } else if notification.type == .announcement || notification.type == .system {
+            title = notification.notificationText.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            title = nil
+        }
+        body = notification.previewText?.trimmingCharacters(in: .whitespacesAndNewlines)
         createdAt = notification.createdAt
     }
 

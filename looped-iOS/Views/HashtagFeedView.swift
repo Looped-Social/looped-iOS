@@ -108,6 +108,7 @@ struct HashtagFeedView: View {
             await viewModel.loadInitial()
         }
         .loopedHashtagNavigationHost()
+        .loopedMentionNavigationHost()
     }
 
     @ViewBuilder

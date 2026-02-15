@@ -106,6 +106,7 @@ struct SearchPostsFeedView: View {
             await viewModel.loadInitial()
         }
         .loopedHashtagNavigationHost()
+        .loopedMentionNavigationHost()
     }
 
     private var header: some View {

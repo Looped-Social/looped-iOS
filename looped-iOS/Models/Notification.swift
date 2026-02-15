@@ -15,6 +15,15 @@ struct Notification: Codable, Identifiable {
     let targetContent: String? // Preview of post/comment content
     let title: String?
     let body: String?
+    let category: String?
+    let verificationKind: String?
+    let verificationStatus: String?
+    let verificationMethod: String?
+    let verificationCommunityId: Int?
+    let verificationCommunityName: String?
+    let verificationExpiresAt: Date?
+    let verificationDaysRemaining: Int?
+    let verificationEventKey: String?
     let announcementKind: NotificationAnnouncementKind?
     let announcementYears: Int?
     let deeplink: String?
@@ -37,6 +46,15 @@ struct Notification: Codable, Identifiable {
         targetContent: String? = nil,
         title: String? = nil,
         body: String? = nil,
+        category: String? = nil,
+        verificationKind: String? = nil,
+        verificationStatus: String? = nil,
+        verificationMethod: String? = nil,
+        verificationCommunityId: Int? = nil,
+        verificationCommunityName: String? = nil,
+        verificationExpiresAt: Date? = nil,
+        verificationDaysRemaining: Int? = nil,
+        verificationEventKey: String? = nil,
         announcementKind: NotificationAnnouncementKind? = nil,
         announcementYears: Int? = nil,
         deeplink: String? = nil,
@@ -58,6 +76,15 @@ struct Notification: Codable, Identifiable {
         self.targetContent = targetContent
         self.title = title
         self.body = body
+        self.category = category
+        self.verificationKind = verificationKind
+        self.verificationStatus = verificationStatus
+        self.verificationMethod = verificationMethod
+        self.verificationCommunityId = verificationCommunityId
+        self.verificationCommunityName = verificationCommunityName
+        self.verificationExpiresAt = verificationExpiresAt
+        self.verificationDaysRemaining = verificationDaysRemaining
+        self.verificationEventKey = verificationEventKey
         self.announcementKind = announcementKind
         self.announcementYears = announcementYears
         self.deeplink = deeplink
@@ -154,12 +181,18 @@ extension Notification {
         case .messageRequest:
             return "\(actorText) sent you a message request"
         case .announcement:
-            if let title, !title.isEmpty {
+            if isVerificationNotification {
+                return resolvedVerificationTitle
+            }
+            if let title = trimmedTitle, !title.isEmpty {
                 return "\(actorText): \(title)"
             }
             return "\(actorText) posted an announcement"
         case .system:
-            if let title, !title.isEmpty {
+            if isVerificationNotification {
+                return resolvedVerificationTitle
+            }
+            if let title = trimmedTitle, !title.isEmpty {
                 return "System: \(title)"
             }
             return "System notification"
@@ -255,8 +288,11 @@ extension Notification {
         if let targetContent, !targetContent.isEmpty {
             return targetContent
         }
-        if let body, !body.isEmpty {
+        if let body = trimmedBody, !body.isEmpty {
             return body
+        }
+        if isVerificationNotification {
+            return resolvedVerificationBody
         }
         return nil
     }
@@ -276,6 +312,15 @@ extension Notification {
             targetContent: targetContent,
             title: title,
             body: body,
+            category: category,
+            verificationKind: verificationKind,
+            verificationStatus: verificationStatus,
+            verificationMethod: verificationMethod,
+            verificationCommunityId: verificationCommunityId,
+            verificationCommunityName: verificationCommunityName,
+            verificationExpiresAt: verificationExpiresAt,
+            verificationDaysRemaining: verificationDaysRemaining,
+            verificationEventKey: verificationEventKey,
             announcementKind: announcementKind,
             announcementYears: announcementYears,
             deeplink: deeplink,
@@ -301,6 +346,15 @@ extension Notification {
             targetContent: targetContent,
             title: title,
             body: body,
+            category: category,
+            verificationKind: verificationKind,
+            verificationStatus: verificationStatus,
+            verificationMethod: verificationMethod,
+            verificationCommunityId: verificationCommunityId,
+            verificationCommunityName: verificationCommunityName,
+            verificationExpiresAt: verificationExpiresAt,
+            verificationDaysRemaining: verificationDaysRemaining,
+            verificationEventKey: verificationEventKey,
             announcementKind: announcementKind,
             announcementYears: announcementYears,
             deeplink: deeplink,
@@ -309,5 +363,91 @@ extension Notification {
             isRead: true,
             createdAt: createdAt
         )
+    }
+
+    private var trimmedTitle: String? {
+        title?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedBody: String? {
+        body?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var normalizedCategory: String? {
+        category?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private var normalizedVerificationKind: String? {
+        verificationKind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private var normalizedVerificationStatus: String? {
+        verificationStatus?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private var verificationCommunityLabel: String? {
+        let trimmed = verificationCommunityName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var isVerificationNotification: Bool {
+        normalizedCategory == "verification"
+            || normalizedVerificationKind == "community_verification"
+            || normalizedVerificationKind == "user_verification"
+    }
+
+    private var resolvedVerificationTitle: String {
+        if let title = trimmedTitle, !title.isEmpty {
+            return title
+        }
+
+        switch normalizedVerificationStatus {
+        case "approved":
+            if let community = verificationCommunityLabel {
+                return "You're verified for \(community)"
+            }
+            return "You're verified"
+        case "rejected":
+            return "Verification rejected"
+        case "expiring":
+            if let days = verificationDaysRemaining, days > 0 {
+                let dayLabel = days == 1 ? "day" : "days"
+                return "Verification expires in \(days) \(dayLabel)"
+            }
+            return "Verification expiring soon"
+        case "expired":
+            return "Verification expired"
+        default:
+            return "Verification update"
+        }
+    }
+
+    private var resolvedVerificationBody: String? {
+        switch normalizedVerificationStatus {
+        case "approved":
+            if let community = verificationCommunityLabel {
+                return "Your verification for \(community) is approved."
+            }
+            return "Your verification is approved."
+        case "rejected":
+            return "Your verification wasn't approved."
+        case "expiring":
+            if let community = verificationCommunityLabel, let days = verificationDaysRemaining, days > 0 {
+                let dayLabel = days == 1 ? "day" : "days"
+                return "Your verification for \(community) expires in \(days) \(dayLabel)."
+            }
+            if let days = verificationDaysRemaining, days > 0 {
+                let dayLabel = days == 1 ? "day" : "days"
+                return "Your verification expires in \(days) \(dayLabel)."
+            }
+            return "Your verification is expiring soon."
+        case "expired":
+            if let community = verificationCommunityLabel {
+                return "Your verification for \(community) has expired. Re-verify to keep posting."
+            }
+            return "Your verification has expired. Re-verify to keep posting."
+        default:
+            return nil
+        }
     }
 }

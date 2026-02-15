@@ -375,6 +375,7 @@ struct LikedPostsView: View {
             await likedViewModel.loadInitial()
         }
         .loopedHashtagNavigationHost()
+        .loopedMentionNavigationHost()
     }
 }
 
@@ -412,6 +413,7 @@ struct SavedPostsView: View {
             await savedViewModel.loadInitial()
         }
         .loopedHashtagNavigationHost()
+        .loopedMentionNavigationHost()
     }
 }
 

@@ -44,6 +44,7 @@ struct PostCard: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @Environment(\.loopedOpenHashtag) private var openHashtag
+    @Environment(\.loopedOpenMention) private var openMention
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var showActionMenu = false
@@ -479,6 +480,8 @@ struct PostCard: View {
 				                hashtagColor: .loopedPrimary
 				            ) { hashtag in
 				                openHashtag(hashtag)
+				            } onMentionTap: { handle in
+                                openMention(handle)
 				            }
 				            .multilineTextAlignment(.leading)
                         .loopedDoubleTapToLike {

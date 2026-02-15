@@ -14,7 +14,10 @@ struct NotificationDTO: Codable {
 }
 
 struct NotificationPayloadDTO: Codable {
+    let category: String?
     let kind: String?
+    let status: String?
+    let method: String?
     let actorPrincipalId: Int?
     let actorUserId: Int?
     let actorAnonProfileId: Int?
@@ -32,4 +35,9 @@ struct NotificationPayloadDTO: Codable {
     let deeplink: String?
     let actionDeeplink: String?
     let companyId: Int?
+    let communityId: Int?
+    let communityName: String?
+    let expiresAt: String?
+    let daysRemaining: Int?
+    let eventKey: String?
 }

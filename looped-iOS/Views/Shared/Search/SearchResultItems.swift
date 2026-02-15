@@ -107,13 +107,14 @@ struct PostSearchResultItem: View {
                 .font(.loopedBody)
                 .foregroundColor(.loopedTextSecondary)
                 .lineLimit(2)
-        } else if trimmed.contains("#") {
+        } else if trimmed.contains("#") || trimmed.contains("@") {
             HashtagText(
                 text: trimmed,
                 font: .loopedBody,
                 textColor: .loopedTextPrimary,
                 hashtagColor: .loopedPrimary,
-                onHashtagTap: { _ in }
+                onHashtagTap: { _ in },
+                onMentionTap: { _ in }
             )
             .multilineTextAlignment(.leading)
             .lineLimit(3)

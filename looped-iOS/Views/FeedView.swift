@@ -235,6 +235,7 @@ struct FeedView: View {
             stopPolling()
         }
         .loopedHashtagNavigationHost()
+        .loopedMentionNavigationHost()
     }
 
 

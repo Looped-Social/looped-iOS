@@ -118,6 +118,7 @@ struct CommunityProfileView: View {
             Text(viewModel.followErrorMessage ?? "")
         }
         .loopedHashtagNavigationHost()
+        .loopedMentionNavigationHost()
     }
 
     private var headerContent: some View {
@@ -781,6 +782,8 @@ struct CommunityProfileView: View {
 }
 
 struct CommunityProfileBanner: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let name: String
     let imageUrl: String?
 
@@ -831,19 +834,23 @@ struct CommunityProfileBanner: View {
                             .resizable()
                             .scaledToFit()
                     case .failure:
-                        Color.loopedBackground
+                        bannerBackdropColor
                     case .empty:
-                        Color.loopedBackground
+                        bannerBackdropColor
                     @unknown default:
-                        Color.loopedBackground
+                        bannerBackdropColor
                     }
                 }
             } else {
-                Color.loopedBackground
+                bannerBackdropColor
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.loopedBackground)
+        .background(bannerBackdropColor)
+    }
+
+    private var bannerBackdropColor: Color {
+        colorScheme == .dark ? .loopedWhite : .loopedBackground
     }
 
     private var localBannerImage: UIImage? {

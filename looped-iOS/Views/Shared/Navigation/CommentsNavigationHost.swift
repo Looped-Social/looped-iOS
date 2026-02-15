@@ -9,6 +9,7 @@ struct CommentsNavigationHost: View {
     enum Route: Hashable {
         case comments
         case hashtag(String)
+        case mention(String)
     }
 
     var body: some View {
@@ -24,10 +25,15 @@ struct CommentsNavigationHost: View {
                             onOpenHashtag: { hashtag in
                                 path.append(.hashtag(hashtag))
                             },
+                            onOpenMention: { handle in
+                                path.append(.mention(handle))
+                            },
                             onDismiss: onDismiss
                         )
                     case .hashtag(let hashtag):
                         HashtagFeedView(hashtag: hashtag, presentationStyle: .navigation)
+                    case .mention(let handle):
+                        MentionProfileDestinationView(handle: handle)
                     }
                 }
         }
