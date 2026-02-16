@@ -308,13 +308,26 @@ private extension AuthService {
         let code: String?
     }
 
+    struct ProviderUnlinkSuccessPayload: Decodable {
+        let provider: String?
+        let unlinked: Bool?
+    }
+
     func unlinkProviderViaBackend(provider: String) async throws {
         #if canImport(FirebaseAuth)
         guard Auth.auth().currentUser != nil else {
             throw AuthError.invalidCredentials
         }
-        guard let idToken = try await currentIDToken(forcingRefresh: true) else {
-            throw AuthError.invalidCredentials
+        let idToken: String
+        do {
+            guard let token = try await currentIDToken(forcingRefresh: true) else {
+                throw AuthError.sessionExpired
+            }
+            idToken = token
+        } catch let authError as AuthError {
+            throw authError
+        } catch {
+            throw mapUnlinkSessionError(error)
         }
 
         let url = LoopedEnvironment
@@ -334,11 +347,27 @@ private extension AuthService {
         }
 
         if 200...299 ~= httpResponse.statusCode {
-            if let user = Auth.auth().currentUser {
-                try await reload(user: user)
+            let successPayload = try? JSONDecoder().decode(ProviderUnlinkSuccessPayload.self, from: data)
+            if successPayload?.unlinked == false {
+                throw AuthError.providerUnlinkFailed(message: "That account is already disconnected.")
             }
-            if let refreshed = try await currentIDToken(forcingRefresh: true) {
-                tokenStorage.token = refreshed
+            if let user = Auth.auth().currentUser {
+                do {
+                    try await reload(user: user)
+                } catch {
+                    throw mapPostUnlinkSessionError(error)
+                }
+            }
+            do {
+                if let refreshed = try await currentIDToken(forcingRefresh: true) {
+                    tokenStorage.token = refreshed
+                } else {
+                    throw AuthError.providerDisconnectedRequiresSignIn
+                }
+            } catch let authError as AuthError {
+                throw authError
+            } catch {
+                throw mapPostUnlinkSessionError(error)
             }
             return
         }
@@ -420,6 +449,32 @@ private extension AuthService {
         return .invalidCredentials
     }
 
+    func mapUnlinkSessionError(_ error: Error) -> AuthError {
+        let nsError = error as NSError
+        if let code = AuthErrorCode(rawValue: nsError.code) {
+            switch code {
+            case .userTokenExpired, .requiresRecentLogin, .userNotFound:
+                return .sessionExpired
+            default:
+                break
+            }
+        }
+        return .sessionExpired
+    }
+
+    func mapPostUnlinkSessionError(_ error: Error) -> AuthError {
+        let nsError = error as NSError
+        if let code = AuthErrorCode(rawValue: nsError.code) {
+            switch code {
+            case .userTokenExpired, .requiresRecentLogin, .userNotFound:
+                return .providerDisconnectedRequiresSignIn
+            default:
+                break
+            }
+        }
+        return .providerDisconnectedRequiresSignIn
+    }
+
     func mfaResolver(from error: Error) -> MultiFactorResolver? {
         let nsError = error as NSError
         guard let code = AuthErrorCode(rawValue: nsError.code), code == .secondFactorRequired else {
@@ -440,6 +495,8 @@ struct MFARequiredError: Error {
 enum AuthError: Error, LocalizedError {
     case noRefreshToken
     case invalidCredentials
+    case sessionExpired
+    case providerDisconnectedRequiresSignIn
     case invalidEmail
     case weakPassword
     case emailAlreadyInUse
@@ -459,6 +516,10 @@ enum AuthError: Error, LocalizedError {
             return "No refresh token available"
         case .invalidCredentials:
             return "Invalid email or password"
+        case .sessionExpired:
+            return "Your sign-in session expired. Please sign in again."
+        case .providerDisconnectedRequiresSignIn:
+            return "Connected account updated. Please sign in again."
         case .invalidEmail:
             return "Enter a valid email address."
         case .weakPassword:

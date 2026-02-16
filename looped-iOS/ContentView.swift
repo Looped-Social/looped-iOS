@@ -48,6 +48,8 @@ struct ContentView: View {
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeletionPendingAlert") private var showAccountDeletionPendingAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
+    @AppStorage("showProviderDisconnectStatusAlert") private var showProviderDisconnectStatusAlert = false
+    @AppStorage("providerDisconnectStatusMessage") private var providerDisconnectStatusMessage = ""
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
     @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
@@ -105,6 +107,16 @@ struct ContentView: View {
             }
         } message: {
             Text("Your profile is hidden until you log back in.")
+        }
+        .alert("Connected Account Updated", isPresented: $showProviderDisconnectStatusAlert) {
+            Button("OK", role: .cancel) {
+                showProviderDisconnectStatusAlert = false
+                providerDisconnectStatusMessage = ""
+            }
+        } message: {
+            Text(providerDisconnectStatusMessage.isEmpty
+                 ? "Connected account status changed. Please sign in again."
+                 : providerDisconnectStatusMessage)
         }
         .environmentObject(authViewModel)
         .environmentObject(feedViewModel)

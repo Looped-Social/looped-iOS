@@ -55,6 +55,8 @@ struct SettingsView: View {
     @State private var anonErrorMessage = ""
     @State private var showLinkErrorAlert = false
     @State private var linkErrorMessage = ""
+    @State private var showLinkSuccessAlert = false
+    @State private var linkSuccessMessage = ""
     @State private var showFollowerUpdateAlert = false
     @State private var followerUpdateError = ""
     @State private var isUpdatingFollowerCount = false
@@ -63,6 +65,8 @@ struct SettingsView: View {
     @State private var showContentPreferencesUpdateAlert = false
     @State private var isUpdatingContentPreferences = false
     @State private var skipContentPreferencesToggleUpdate = false
+    @AppStorage("showProviderDisconnectStatusAlert") private var showProviderDisconnectStatusAlert = false
+    @AppStorage("providerDisconnectStatusMessage") private var providerDisconnectStatusMessage = ""
 
     var body: some View {
         let onOpenFeedback = { showFeedback = true }
@@ -79,6 +83,10 @@ struct SettingsView: View {
         }
         let onTapGoogle = {
             if authViewModel.isGoogleLinked {
+                guard canDisconnect(provider: .google) else {
+                    presentOnlySignInMethodError(provider: .google)
+                    return
+                }
                 pendingDisconnectProvider = .google
             } else {
                 connectGoogle()
@@ -86,6 +94,10 @@ struct SettingsView: View {
         }
         let onTapApple = {
             if authViewModel.isAppleLinked {
+                guard canDisconnect(provider: .apple) else {
+                    presentOnlySignInMethodError(provider: .apple)
+                    return
+                }
                 pendingDisconnectProvider = .apple
             } else {
                 connectApple()
@@ -201,10 +213,15 @@ struct SettingsView: View {
         } message: {
             Text(contentPreferencesUpdateError)
         }
-        .alert("Connection Failed", isPresented: $showLinkErrorAlert) {
+        .alert("Connected Account Update Failed", isPresented: $showLinkErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(linkErrorMessage)
+        }
+        .alert("Connected Account Updated", isPresented: $showLinkSuccessAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(linkSuccessMessage)
         }
         .alert(item: $pendingDisconnectProvider) { provider in
             Alert(
@@ -508,6 +525,12 @@ private extension SettingsView {
     }
 
     func disconnect(_ provider: LinkedProvider) async {
+        guard canDisconnect(provider: provider) else {
+            await MainActor.run {
+                presentOnlySignInMethodError(provider: provider)
+            }
+            return
+        }
         switch provider {
         case .google:
             guard !isUnlinkingGoogle else { return }
@@ -519,11 +542,12 @@ private extension SettingsView {
             }
             do {
                 try await authViewModel.unlinkGoogle()
-            } catch {
                 await MainActor.run {
-                    linkErrorMessage = error.localizedDescription
-                    showLinkErrorAlert = true
+                    linkSuccessMessage = "Google disconnected."
+                    showLinkSuccessAlert = true
                 }
+            } catch {
+                await MainActor.run { handleDisconnectFailure(error, provider: .google) }
             }
         case .apple:
             guard !isUnlinkingApple else { return }
@@ -535,13 +559,86 @@ private extension SettingsView {
             }
             do {
                 try await authViewModel.unlinkApple()
-            } catch {
                 await MainActor.run {
-                    linkErrorMessage = error.localizedDescription
-                    showLinkErrorAlert = true
+                    linkSuccessMessage = "Apple disconnected."
+                    showLinkSuccessAlert = true
                 }
+            } catch {
+                await MainActor.run { handleDisconnectFailure(error, provider: .apple) }
             }
         }
+    }
+
+    func handleDisconnectFailure(_ error: Error, provider: LinkedProvider) {
+        if shouldForceSignOut(for: error) {
+            providerDisconnectStatusMessage = postSignOutDisconnectMessage(for: error, provider: provider)
+            showProviderDisconnectStatusAlert = true
+            authViewModel.signOut()
+            return
+        }
+        linkErrorMessage = friendlyDisconnectMessage(for: error)
+        showLinkErrorAlert = true
+    }
+
+    var linkedSignInMethodCount: Int {
+        var count = 0
+        if authViewModel.isEmailPasswordLinked { count += 1 }
+        if authViewModel.isGoogleLinked { count += 1 }
+        if authViewModel.isAppleLinked { count += 1 }
+        return count
+    }
+
+    func canDisconnect(provider: LinkedProvider) -> Bool {
+        switch provider {
+        case .google:
+            guard authViewModel.isGoogleLinked else { return false }
+        case .apple:
+            guard authViewModel.isAppleLinked else { return false }
+        }
+        return linkedSignInMethodCount > 1
+    }
+
+    func presentOnlySignInMethodError(provider: LinkedProvider) {
+        linkErrorMessage = "You can’t disconnect \(provider.displayName) because it’s your only sign-in method. Add another sign-in method first."
+        showLinkErrorAlert = true
+    }
+
+    func shouldForceSignOut(for error: Error) -> Bool {
+        if let authError = error as? AuthError {
+            switch authError {
+            case .sessionExpired, .invalidCredentials, .providerDisconnectedRequiresSignIn:
+                return true
+            default:
+                return false
+            }
+        }
+        return false
+    }
+
+    func postSignOutDisconnectMessage(for error: Error, provider: LinkedProvider) -> String {
+        if let authError = error as? AuthError {
+            switch authError {
+            case .providerDisconnectedRequiresSignIn:
+                return "\(provider.displayName) was disconnected. Please sign in again."
+            case .sessionExpired, .invalidCredentials:
+                return "Your sign-in session expired while updating connected accounts. Please sign in again to confirm whether \(provider.displayName) was disconnected."
+            default:
+                break
+            }
+        }
+        return "Please sign in again to confirm your connected account changes."
+    }
+
+    func friendlyDisconnectMessage(for error: Error) -> String {
+        if let authError = error as? AuthError {
+            switch authError {
+            case .invalidCredentials, .sessionExpired:
+                return "Your sign-in session expired. Please sign in again."
+            default:
+                return authError.localizedDescription
+            }
+        }
+        return error.localizedDescription
     }
 
     func updateFollowerCount(oldValue: Bool, newValue: Bool) async {
