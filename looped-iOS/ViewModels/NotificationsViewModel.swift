@@ -105,34 +105,49 @@ class NotificationsViewModel: ObservableObject {
         // Mark notification as read
         markAsRead(notification)
 
-        if openDeeplink(notification.deeplink) {
-            return
-        }
-
-        // Fallback routing if deeplink missing.
+        // Prefer explicit IDs from payload; fall back to deeplinks when IDs are missing.
         switch notification.type {
         case .like, .comment, .reply, .mention, .repost:
             let shouldOpenComment = (notification.type == .comment || notification.type == .reply)
                 && notification.targetCommentId != nil
-            navigateToPost(
-                notification.targetId,
-                commentId: shouldOpenComment ? notification.targetCommentId : nil
-            )
+            if notification.targetId != nil {
+                navigateToPost(
+                    notification.targetId,
+                    commentId: shouldOpenComment ? notification.targetCommentId : nil
+                )
+                return
+            }
+            if openDeeplink(notification.deeplink) { return }
+            if openDeeplink(notification.actionDeeplink) { return }
+            toastMessage = ToastMessage(text: "This post isn't available right now.", kind: .info)
         case .follow:
             if notification.actorIsAnonymous, let actorAnonProfileId = notification.actorAnonProfileId {
                 navigateToUserProfile(actorAnonProfileId, isAnonymous: true)
             } else if let actorId = notification.actorId {
                 navigateToUserProfile(actorId, isAnonymous: false)
+            } else if openDeeplink(notification.deeplink) {
+                return
+            } else if openDeeplink(notification.actionDeeplink) {
+                return
             }
         case .postFromFollowed:
-            navigateToPost(notification.targetId)
+            if notification.targetId != nil {
+                navigateToPost(notification.targetId)
+                return
+            }
+            if openDeeplink(notification.deeplink) { return }
+            if openDeeplink(notification.actionDeeplink) { return }
+            toastMessage = ToastMessage(text: "This post isn't available right now.", kind: .info)
         case .messageRequest:
             if openDeeplink(notification.actionDeeplink) { return }
+            if openDeeplink(notification.deeplink) { return }
             toastMessage = ToastMessage(text: "Message request isn't available yet.", kind: .info)
         case .announcement, .system:
-            _ = openDeeplink(notification.actionDeeplink)
+            if openDeeplink(notification.actionDeeplink) { return }
+            _ = openDeeplink(notification.deeplink)
         case .loopInvite, .groupInvite:
             if openDeeplink(notification.actionDeeplink) { return }
+            if openDeeplink(notification.deeplink) { return }
             toastMessage = ToastMessage(text: "Invite destination isn't available yet.", kind: .info)
         }
     }
@@ -284,6 +299,12 @@ class NotificationsViewModel: ObservableObject {
 
     private func openDeeplink(_ deeplink: String?) -> Bool {
         guard let deeplink, let url = URL(string: deeplink) else { return false }
+        if DeepLinkRouter.shared.handleIncomingURL(url) {
+            return true
+        }
+        if (url.scheme ?? "").lowercased() == "looped" {
+            return false
+        }
         UIApplication.shared.open(url)
         return true
     }
@@ -297,8 +318,7 @@ class NotificationsViewModel: ObservableObject {
             components.queryItems = queryItems
         }
         guard let url = components.url else { return false }
-        UIApplication.shared.open(url)
-        return true
+        return DeepLinkRouter.shared.handleIncomingURL(url)
     }
 
     private func hydrateActorProfiles(for notifications: [Notification]) async {

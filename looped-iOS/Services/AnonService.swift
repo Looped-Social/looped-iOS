@@ -53,6 +53,8 @@ enum AnonServiceError: Error, LocalizedError {
     case missingIdentity
     case missingCommunityContext
     case specializationNotJoined(message: String?)
+    case scopeMismatch(requestedCommunityId: Int, certCommunityId: Int?)
+    case membershipExpiredSoon
 
     var errorDescription: String? {
         switch self {
@@ -62,6 +64,10 @@ enum AnonServiceError: Error, LocalizedError {
             return "Verify your company or workplace before enabling anonymous mode."
         case .specializationNotJoined:
             return "Verify your company or workplace before enabling anonymous mode."
+        case .scopeMismatch:
+            return "Anonymous access was issued for a different community. Please try again."
+        case .membershipExpiredSoon:
+            return "Anonymous access expired too quickly. Please try again."
         }
     }
 }
@@ -76,6 +82,7 @@ actor AnonService {
     private let anonHeaders = ["X-Actor": "anon"]
     private let lastPostedCommunityKey = "lastPostedCommunityId"
     private let lastSelectedCommunityKey = "lastSelectedCommunityId"
+    private let membershipExpirySkewSeconds: TimeInterval = 300
     private let apiClient: APIClient
     private let store: AnonIdentityStore
     private let signer: RSABlindSigner
@@ -453,7 +460,7 @@ actor AnonService {
         guard let communityId = resolveCommunityId(explicit: nil) else {
             throw AnonServiceError.missingCommunityContext
         }
-        let identity = try await enroll(using: privateKey, communityId: communityId)
+        let identity = try await enroll(using: privateKey, communityId: communityId, allowScopeRetry: true)
         let state = AnonBackupState(blobId: trimmedBlobId, createdAt: Date())
         backupStore.saveState(state)
         return identity
@@ -461,10 +468,14 @@ actor AnonService {
 
     private func enroll(communityId: Int) async throws -> AnonIdentity {
         let privateKey = try loadOrCreatePrivateKey()
-        return try await enroll(using: privateKey, communityId: communityId)
+        return try await enroll(using: privateKey, communityId: communityId, allowScopeRetry: true)
     }
 
-    private func enroll(using privateKey: Curve25519.Signing.PrivateKey, communityId: Int) async throws -> AnonIdentity {
+    private func enroll(
+        using privateKey: Curve25519.Signing.PrivateKey,
+        communityId: Int,
+        allowScopeRetry: Bool
+    ) async throws -> AnonIdentity {
         let publicKey = privateKey.publicKey.rawRepresentation.base64EncodedString()
         let certMessage = "anon-cert|v1|\(publicKey)"
         let certHash = Data(certMessage.utf8).sha256
@@ -491,6 +502,9 @@ actor AnonService {
             }
             throw apiError
         }
+        if isNearExpiry(issueResponse.expiresAt) {
+            throw AnonServiceError.membershipExpiredSoon
+        }
         guard let blindedSignature = Data(base64Encoded: issueResponse.blindedSignature) else {
             throw RSAKeyError.invalidDER
         }
@@ -498,16 +512,42 @@ actor AnonService {
         let unblinded = try signer.unblind(signature: blindedSignature, context: blindResult.context)
         let registerRequest = AnonRegisterRequestDTO(
             personaPubkey: publicKey,
+            communityId: communityId,
             anonCert: unblinded.base64EncodedString(),
             anonCertKid: issueResponse.anonCertKid
         )
-        let registerResponse: AnonRegisterResponseDTO = try await apiClient.post(
-            "/anon/register",
-            body: registerRequest,
-            requiresAuth: false,
-            headers: anonHeaders
-        )
-        let resolvedCommunityId = registerResponse.communityId ?? communityId
+        let registerResponse: AnonRegisterResponseDTO
+        do {
+            registerResponse = try await apiClient.post(
+                "/anon/register",
+                body: registerRequest,
+                requiresAuth: false,
+                headers: anonHeaders
+            )
+        } catch let apiError as APIError {
+            if isScopeMismatch(error: apiError) {
+                if allowScopeRetry {
+                    return try await enroll(using: privateKey, communityId: communityId, allowScopeRetry: false)
+                }
+                throw AnonServiceError.scopeMismatch(requestedCommunityId: communityId, certCommunityId: nil)
+            }
+            throw apiError
+        }
+        if isNearExpiry(registerResponse.expiresAt) {
+            throw AnonServiceError.membershipExpiredSoon
+        }
+        guard let resolvedCommunityId = registerResponse.communityId else {
+            if allowScopeRetry {
+                return try await enroll(using: privateKey, communityId: communityId, allowScopeRetry: false)
+            }
+            throw AnonServiceError.scopeMismatch(requestedCommunityId: communityId, certCommunityId: nil)
+        }
+        if resolvedCommunityId != communityId {
+            if allowScopeRetry {
+                return try await enroll(using: privateKey, communityId: communityId, allowScopeRetry: false)
+            }
+            throw AnonServiceError.scopeMismatch(requestedCommunityId: communityId, certCommunityId: resolvedCommunityId)
+        }
         let membership = AnonCommunityMembership(
             cert: unblinded.base64EncodedString(),
             certKid: registerResponse.anonCertKid,
@@ -532,6 +572,15 @@ actor AnonService {
             throw RSAKeyError.invalidPEM
         }
         return pem
+    }
+
+    private func isScopeMismatch(error: APIError) -> Bool {
+        guard case let .apiError(code, errorCode, _) = error else { return false }
+        return code == 409 && errorCode == "anon_scope_mismatch"
+    }
+
+    private func isNearExpiry(_ expiration: Date) -> Bool {
+        expiration <= Date().addingTimeInterval(membershipExpirySkewSeconds)
     }
 
     private func resolveCommunityId(explicit: Int?) -> Int? {

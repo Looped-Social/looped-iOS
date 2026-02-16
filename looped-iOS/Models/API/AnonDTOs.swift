@@ -13,6 +13,7 @@ struct AnonIssueResponseDTO: Decodable {
 
 struct AnonRegisterRequestDTO: Encodable {
     let personaPubkey: String
+    let communityId: Int
     let anonCert: String
     let anonCertKid: String
 }

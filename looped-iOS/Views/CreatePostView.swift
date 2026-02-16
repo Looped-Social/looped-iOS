@@ -16,6 +16,7 @@ struct CreatePostView: View {
     @State private var pollDraft: PollDraft?
     @State private var anonMembershipExpired = false
     @State private var anonMembershipMissing = false
+    @State private var isRefreshingAnonMembership = false
     @State private var showVerificationInfoAlert = false
     @State private var showDraftPrompt = false
     @State private var activeDraftId: UUID?
@@ -436,7 +437,7 @@ struct CreatePostView: View {
 	        }
         .onAppear {
             syncSelectedCommunity()
-            updateAnonMembershipStatus()
+            updateAnonMembershipStatus(autoEnroll: true)
             Task { await loadPostableCommunities() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .communityStateChanged)) { _ in
@@ -444,11 +445,11 @@ struct CreatePostView: View {
         }
         .onChange(of: feedViewModel.selectedCommunity?.id) { _, _ in
             syncSelectedCommunity()
-            updateAnonMembershipStatus()
+            updateAnonMembershipStatus(autoEnroll: true)
         }
         .onChange(of: feedViewModel.followedCommunities) { _, _ in
             syncSelectedCommunity()
-            updateAnonMembershipStatus()
+            updateAnonMembershipStatus(autoEnroll: true)
         }
         .onChange(of: selectedMedia) { _, newValue in
             let videos = newValue.filter { $0.type == .video }
@@ -472,11 +473,11 @@ struct CreatePostView: View {
             }
         }
         .onChange(of: selectedCommunityId) { _, _ in
-            updateAnonMembershipStatus()
+            updateAnonMembershipStatus(autoEnroll: true)
         }
         .onChange(of: isAnonymous) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }
-            updateAnonMembershipStatus()
+            updateAnonMembershipStatus(autoEnroll: newValue)
         }
         .onChange(of: postText) { _, _ in
             queueMentionLookup()
@@ -653,11 +654,14 @@ struct CreatePostView: View {
             postableCommunitiesError = error.localizedDescription
         }
         syncSelectedCommunity()
-        updateAnonMembershipStatus()
+        updateAnonMembershipStatus(autoEnroll: true)
     }
 
     private var disabledPostMessage: String {
-        if isAnonymous, selectedCommunity != nil, (anonMembershipMissing || anonMembershipExpired) {
+        if isAnonymous, selectedCommunity != nil, anonMembershipMissing {
+            return "Anonymous access isn't enabled for this community yet. Re-enroll to post, comment, or like."
+        }
+        if isAnonymous, selectedCommunity != nil, anonMembershipExpired {
             return "Anonymous access expired for this community. Re-enroll to post, comment, or like."
         }
         if let selectedCommunity {
@@ -671,14 +675,29 @@ struct CreatePostView: View {
         return "Verification is required to post, comment, or like in this community."
     }
 
-    private func updateAnonMembershipStatus() {
+    private func updateAnonMembershipStatus(autoEnroll: Bool = false) {
         guard isAnonymous, let communityId = selectedCommunityId else {
             anonMembershipExpired = false
             anonMembershipMissing = false
             return
         }
+        if autoEnroll, isRefreshingAnonMembership { return }
         Task { @MainActor in
-            let membership = await AnonService.shared.membership(for: communityId)
+            var membership = await AnonService.shared.membership(for: communityId)
+            if autoEnroll,
+               (membership == nil || membership?.isExpired == true),
+               !isEnrollingAnon,
+               !isRefreshingAnonMembership {
+                isRefreshingAnonMembership = true
+                defer { isRefreshingAnonMembership = false }
+                do {
+                    AnonCommunityResolver.cacheSelectedCommunityId(communityId)
+                    _ = try await AnonService.shared.ensureIdentity(communityId: communityId)
+                    membership = await AnonService.shared.membership(for: communityId)
+                } catch {
+                    presentToast(message: error.localizedDescription, kind: .error)
+                }
+            }
             anonMembershipMissing = membership == nil
             anonMembershipExpired = membership?.isExpired ?? false
         }
@@ -703,7 +722,7 @@ struct CreatePostView: View {
             presentToast(message: error.localizedDescription, kind: .error)
             isAnonymous = false
         }
-        updateAnonMembershipStatus()
+        updateAnonMembershipStatus(autoEnroll: false)
     }
 
     private var hasDraftableContent: Bool {

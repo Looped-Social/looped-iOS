@@ -9,7 +9,10 @@ final class KeychainStore {
             kSecValueData as String: data
         ]
         SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
+        let addStatus = SecItemAdd(query as CFDictionary, nil)
+        if addStatus != errSecSuccess {
+            print("Keychain save failed: key=\(key) status=\(addStatus)")
+        }
     }
 
     func load(key: String) -> Data? {
@@ -22,7 +25,12 @@ final class KeychainStore {
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess else { return nil }
+        guard status == errSecSuccess else {
+            if status != errSecItemNotFound {
+                print("Keychain load failed: key=\(key) status=\(status)")
+            }
+            return nil
+        }
         return result as? Data
     }
 

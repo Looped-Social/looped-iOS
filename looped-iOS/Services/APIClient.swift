@@ -358,6 +358,7 @@ class APIClient {
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.invalidResponse
             }
+            logAnonEnrollmentRequestIdIfNeeded(request: request, response: httpResponse)
 
             guard 200...299 ~= httpResponse.statusCode else {
                 #if DEBUG
@@ -428,6 +429,7 @@ class APIClient {
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.invalidResponse
             }
+            logAnonEnrollmentRequestIdIfNeeded(request: request, response: httpResponse)
 
             guard 200...299 ~= httpResponse.statusCode else {
                 #if DEBUG
@@ -451,6 +453,21 @@ class APIClient {
         } catch {
             throw APIError.networkError(error)
         }
+    }
+
+    private func shouldCaptureAnonEnrollmentRequestId(request: URLRequest) -> Bool {
+        guard let path = request.url?.path else { return false }
+        return path.hasSuffix("/anon/issuer")
+            || path.hasSuffix("/anon/issue")
+            || path.hasSuffix("/anon/register")
+    }
+
+    private func logAnonEnrollmentRequestIdIfNeeded(request: URLRequest, response: HTTPURLResponse) {
+        guard shouldCaptureAnonEnrollmentRequestId(request: request) else { return }
+        let method = request.httpMethod ?? "GET"
+        let path = request.url?.path ?? "unknown"
+        let requestId = response.value(forHTTPHeaderField: "X-Request-Id") ?? "<missing>"
+        print("Anon enrollment request-id: \(method) \(path) status=\(response.statusCode) requestId=\(requestId)")
     }
 
     private func shouldLogProfileResponse(request: URLRequest) -> Bool {
