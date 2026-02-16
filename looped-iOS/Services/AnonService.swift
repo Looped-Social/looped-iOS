@@ -55,6 +55,8 @@ enum AnonServiceError: Error, LocalizedError {
     case specializationNotJoined(message: String?)
     case scopeMismatch(requestedCommunityId: Int, certCommunityId: Int?)
     case membershipExpiredSoon
+    case issueTokenRequired
+    case issueTokenInvalid
 
     var errorDescription: String? {
         switch self {
@@ -68,6 +70,10 @@ enum AnonServiceError: Error, LocalizedError {
             return "Anonymous access was issued for a different community. Please try again."
         case .membershipExpiredSoon:
             return "Anonymous access expired too quickly. Please try again."
+        case .issueTokenRequired:
+            return "Anonymous enrollment token is required. Please try again."
+        case .issueTokenInvalid:
+            return "Anonymous enrollment token expired. Please try again."
         }
     }
 }
@@ -505,6 +511,10 @@ actor AnonService {
         if isNearExpiry(issueResponse.expiresAt) {
             throw AnonServiceError.membershipExpiredSoon
         }
+        if let issueTokenExpiresAt = issueResponse.issueTokenExpiresAt,
+           isNearExpiry(issueTokenExpiresAt) {
+            throw AnonServiceError.membershipExpiredSoon
+        }
         guard let blindedSignature = Data(base64Encoded: issueResponse.blindedSignature) else {
             throw RSAKeyError.invalidDER
         }
@@ -514,7 +524,8 @@ actor AnonService {
             personaPubkey: publicKey,
             communityId: communityId,
             anonCert: unblinded.base64EncodedString(),
-            anonCertKid: issueResponse.anonCertKid
+            anonCertKid: issueResponse.anonCertKid,
+            issueToken: issueResponse.issueToken
         )
         let registerResponse: AnonRegisterResponseDTO
         do {
@@ -525,9 +536,15 @@ actor AnonService {
                 headers: anonHeaders
             )
         } catch let apiError as APIError {
-            if isScopeMismatch(error: apiError) {
+            if isIssueTokenRequired(error: apiError) {
+                throw AnonServiceError.issueTokenRequired
+            }
+            if isRegisterRetryable(error: apiError) {
                 if allowScopeRetry {
                     return try await enroll(using: privateKey, communityId: communityId, allowScopeRetry: false)
+                }
+                if isIssueTokenInvalid(error: apiError) {
+                    throw AnonServiceError.issueTokenInvalid
                 }
                 throw AnonServiceError.scopeMismatch(requestedCommunityId: communityId, certCommunityId: nil)
             }
@@ -574,9 +591,20 @@ actor AnonService {
         return pem
     }
 
-    private func isScopeMismatch(error: APIError) -> Bool {
+    private func isRegisterRetryable(error: APIError) -> Bool {
         guard case let .apiError(code, errorCode, _) = error else { return false }
-        return code == 409 && errorCode == "anon_scope_mismatch"
+        guard code == 409 else { return false }
+        return errorCode == "anon_scope_mismatch" || errorCode == "issue_token_invalid"
+    }
+
+    private func isIssueTokenInvalid(error: APIError) -> Bool {
+        guard case let .apiError(code, errorCode, _) = error else { return false }
+        return code == 409 && errorCode == "issue_token_invalid"
+    }
+
+    private func isIssueTokenRequired(error: APIError) -> Bool {
+        guard case let .apiError(code, errorCode, _) = error else { return false }
+        return code == 400 && errorCode == "issue_token_required"
     }
 
     private func isNearExpiry(_ expiration: Date) -> Bool {

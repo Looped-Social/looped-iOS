@@ -604,7 +604,6 @@ struct ConnectedAccountRow: View {
     let title: String
     let isConnected: Bool
     let action: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
 
     init(
         icon: IconSource,
@@ -628,7 +627,7 @@ struct ConnectedAccountRow: View {
                     .foregroundColor(.loopedTextPrimary)
                     .frame(width: 20, height: 20)
             case .asset(let name):
-                Image(resolvedAssetName(for: name))
+                Image(name)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 20, height: 20)
@@ -648,13 +647,6 @@ struct ConnectedAccountRow: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-    }
-
-    private func resolvedAssetName(for name: String) -> String {
-        if name == "apple-logo", colorScheme == .dark {
-            return "apple-logo-dark"
-        }
-        return name
     }
 }
 

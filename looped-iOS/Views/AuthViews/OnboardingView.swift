@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 
 struct OnboardingView: View {
     @ObservedObject var authViewModel: AuthViewModel
@@ -56,42 +55,29 @@ struct OnboardingView: View {
                     Button(action: {
                         Task { await authViewModel.signInWithGoogle() }
                     }) {
-                        HStack(spacing: 12) {
-                            Image("google-logo")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 24, height: 24)
-
-                            Text("Continue with Google")
-                                .font(socialButtonFont)
-                                .foregroundColor(socialButtonTextColor)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Color.loopedBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 25)
-                                .stroke(socialButtonBorderColor, lineWidth: 1)
+                        socialButtonLabel(
+                            iconAssetName: "google-logo",
+                            title: "Continue with Google",
+                            font: socialButtonFont,
+                            textColor: socialButtonTextColor,
+                            borderColor: socialButtonBorderColor
                         )
-                        .cornerRadius(25)
                     }
                     .disabled(authViewModel.isLoading)
 
-                    // Continue with Apple button (auto style per mode)
-                    SignInWithAppleButton(.continue) { request in
-                        authViewModel.configureAppleRequest(request)
-                    } onCompletion: { result in
-                        Task { await authViewModel.handleAppleCompletion(result) }
+                    // Continue with Apple button (custom to match Google sizing/typography)
+                    Button(action: {
+                        Task { await authViewModel.signInWithApple() }
+                    }) {
+                        socialButtonLabel(
+                            iconAssetName: "apple-logo",
+                            title: "Continue with Apple",
+                            font: socialButtonFont,
+                            textColor: socialButtonTextColor,
+                            borderColor: socialButtonBorderColor
+                        )
                     }
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .black : .white)
-                    .id(colorScheme)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .cornerRadius(25)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 25)
-                            .stroke(socialButtonBorderColor, lineWidth: 1)
-                    )
+                    .disabled(authViewModel.isLoading)
                 }
                 .padding(.horizontal, 32)
 
@@ -120,6 +106,34 @@ struct OnboardingView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func socialButtonLabel(
+        iconAssetName: String,
+        title: String,
+        font: Font,
+        textColor: Color,
+        borderColor: Color
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(iconAssetName)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 24, height: 24)
+
+            Text(title)
+                .font(font)
+                .foregroundColor(textColor)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 50)
+        .background(Color.loopedBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 25)
+                .stroke(borderColor, lineWidth: 1)
+        )
+        .cornerRadius(25)
     }
 }
 

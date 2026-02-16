@@ -186,6 +186,28 @@ class AuthViewModel: ObservableObject {
         isLoading = false
     }
 
+    func signInWithApple() async {
+        shouldEnterOnboardingFlow = true
+        isLoading = true
+        errorMessage = nil
+        do {
+            guard let anchor = UIHelpers.currentPresentationAnchor() else {
+                throw AuthError.networkError
+            }
+            try await authService.signInWithApple(presentationAnchor: anchor)
+            await loadCurrentUser()
+        } catch {
+            #if canImport(FirebaseAuth)
+            if handleMfaRequired(error) {
+                isLoading = false
+                return
+            }
+            #endif
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
     // MARK: - Sign in with Apple (pure SwiftUI button flow)
     private var appleRawNonce: String?
 

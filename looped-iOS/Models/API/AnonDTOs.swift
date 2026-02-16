@@ -9,6 +9,8 @@ struct AnonIssueResponseDTO: Decodable {
     let anonCertKid: String
     let blindedSignature: String
     let expiresAt: Date
+    let issueToken: String?
+    let issueTokenExpiresAt: Date?
 }
 
 struct AnonRegisterRequestDTO: Encodable {
@@ -16,6 +18,7 @@ struct AnonRegisterRequestDTO: Encodable {
     let communityId: Int
     let anonCert: String
     let anonCertKid: String
+    let issueToken: String?
 }
 
 struct AnonRegisterResponseDTO: Decodable {
