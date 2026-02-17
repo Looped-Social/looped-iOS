@@ -44,6 +44,7 @@ struct OnboardingView: View {
                             .background(Color.loopedPrimary)
                             .cornerRadius(25)
                     }
+                    .accessibilityIdentifier("auth.onboarding.getStartedButton")
 
                     // "or" divider
                     Text("or")
@@ -64,6 +65,7 @@ struct OnboardingView: View {
                         )
                     }
                     .disabled(authViewModel.isLoading)
+                    .accessibilityIdentifier("auth.onboarding.googleButton")
 
                     // Continue with Apple button (custom to match Google sizing/typography)
                     Button(action: {
@@ -78,6 +80,7 @@ struct OnboardingView: View {
                         )
                     }
                     .disabled(authViewModel.isLoading)
+                    .accessibilityIdentifier("auth.onboarding.appleButton")
                 }
                 .padding(.horizontal, 32)
 
@@ -96,6 +99,7 @@ struct OnboardingView: View {
                         }
                         .font(.loopedSubBodyMedium)
                         .foregroundColor(.loopedSecondary)
+                        .accessibilityIdentifier("auth.onboarding.loginButton")
                     }
                 }
                 .padding(.bottom, max(8, geometry.safeAreaInsets.bottom + 4))

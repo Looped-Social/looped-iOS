@@ -38,6 +38,20 @@
 			remoteGlobalIDString = 4F4C188D2E6B3D150043DD49;
 			remoteInfo = "looped-iOS";
 		};
+		4FA632A62F44C16E00CF1006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4F4C18862E6B3D150043DD49 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F5204822F23EA2400762196;
+			remoteInfo = "looped-iOS Staging";
+		};
+		4FA632A82F44C17200CF1006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4F4C18862E6B3D150043DD49 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F5204822F23EA2400762196;
+			remoteInfo = "looped-iOS Staging";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -213,6 +227,7 @@
 			);
 			dependencies = (
 				4F4C189D2E6B3D160043DD49 /* PBXTargetDependency */,
+				4FA632A92F44C17200CF1006 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4F4C189E2E6B3D160043DD49 /* looped-iOSTests */,
@@ -236,6 +251,7 @@
 			);
 			dependencies = (
 				4F4C18A72E6B3D160043DD49 /* PBXTargetDependency */,
+				4FA632A72F44C16E00CF1006 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4F4C18A82E6B3D160043DD49 /* looped-iOSUITests */,
@@ -291,11 +307,11 @@
 					};
 					4F4C189A2E6B3D160043DD49 = {
 						CreatedOnToolsVersion = 16.4;
-						TestTargetID = 4F4C188D2E6B3D150043DD49;
+						TestTargetID = 4F5204822F23EA2400762196;
 					};
 					4F4C18A42E6B3D160043DD49 = {
 						CreatedOnToolsVersion = 16.4;
-						TestTargetID = 4F4C188D2E6B3D150043DD49;
+						TestTargetID = 4F5204822F23EA2400762196;
 					};
 				};
 			};
@@ -399,6 +415,16 @@
 			isa = PBXTargetDependency;
 			target = 4F4C188D2E6B3D150043DD49 /* looped-iOS */;
 			targetProxy = 4F4C18A62E6B3D160043DD49 /* PBXContainerItemProxy */;
+		};
+		4FA632A72F44C16E00CF1006 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F5204822F23EA2400762196 /* looped-iOS Staging */;
+			targetProxy = 4FA632A62F44C16E00CF1006 /* PBXContainerItemProxy */;
+		};
+		4FA632A92F44C17200CF1006 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F5204822F23EA2400762196 /* looped-iOS Staging */;
+			targetProxy = 4FA632A82F44C17200CF1006 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -605,17 +631,19 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RAB89P8X48;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "looped.looped-iOSTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/looped-iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/looped-iOS";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/looped-iOS Staging.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/looped-iOS Staging";
 			};
 			name = Debug;
 		};
@@ -626,14 +654,14 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "looped.looped-iOSTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/looped-iOS.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/looped-iOS";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/looped-iOS Staging.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/looped-iOS Staging";
 			};
 			name = Release;
 		};
@@ -642,14 +670,16 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RAB89P8X48;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "looped.looped-iOSUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "looped-iOS";
+				TEST_TARGET_NAME = "looped-iOS Staging";
 			};
 			name = Debug;
 		};
@@ -659,13 +689,14 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "looped.looped-iOSUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "looped-iOS";
+				TEST_TARGET_NAME = "looped-iOS Staging";
 			};
 			name = Release;
 		};

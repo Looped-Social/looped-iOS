@@ -27,7 +27,14 @@ struct LoginView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     VStack(spacing: 16) {
-                        inputField(title: "Email", placeholder: "you@example.com", text: $email, isSecure: false, keyboard: .emailAddress)
+                        inputField(
+                            title: "Email",
+                            placeholder: "you@example.com",
+                            text: $email,
+                            isSecure: false,
+                            keyboard: .emailAddress,
+                            accessibilityId: "auth.login.emailField"
+                        )
                         passwordField(title: "Password", placeholder: "Enter your password", text: $password)
 
                         HStack {
@@ -60,6 +67,7 @@ struct LoginView: View {
                             .cornerRadius(14)
                     }
                     .disabled(email.isEmpty || password.isEmpty || viewModel.isLoading)
+                    .accessibilityIdentifier("auth.login.submitButton")
 
                     if let error = viewModel.errorMessage {
                         Text(error)
@@ -89,7 +97,14 @@ struct LoginView: View {
         }
     }
 
-    private func inputField(title: String, placeholder: String, text: Binding<String>, isSecure: Bool, keyboard: UIKeyboardType = .default) -> some View {
+    private func inputField(
+        title: String,
+        placeholder: String,
+        text: Binding<String>,
+        isSecure: Bool,
+        keyboard: UIKeyboardType = .default,
+        accessibilityId: String? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.loopedSubBodyMedium)
@@ -109,6 +124,7 @@ struct LoginView: View {
             .font(.loopedBody)
             .foregroundColor(.loopedTextPrimary)
             .tint(.loopedPrimary)
+            .accessibilityIdentifier(accessibilityId ?? "")
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(Color.loopedMutedBackground.opacity(0.6))
@@ -135,6 +151,7 @@ struct LoginView: View {
                 .textContentType(.password)
                 .foregroundColor(.loopedTextPrimary)
                 .tint(.loopedPrimary)
+                .accessibilityIdentifier("auth.login.passwordField")
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button(isPasswordVisible ? "Hide" : "Show") {

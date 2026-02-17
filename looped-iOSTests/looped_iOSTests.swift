@@ -46,6 +46,7 @@ private struct StaticTokenProvider: AuthTokenProvider {
     }
 }
 
+@Suite(.serialized)
 struct looped_iOSTests {
 
     @Test func messageSenderIdMatchesCurrentUserIdWhenSameBackendId() async throws {
@@ -88,6 +89,8 @@ struct looped_iOSTests {
         let now = Date()
         let dto = PostDTO(
             id: 1,
+            fypRank: nil,
+            fypSourcePool: nil,
             authorId: nil,
             authorHandle: nil,
             authorDisplayName: nil,
@@ -100,9 +103,12 @@ struct looped_iOSTests {
             companyId: nil,
             communityId: 99,
             communityName: nil,
+            communityShortName: nil,
             communityKind: nil,
             content: "Hello",
             mediaAssetId: nil,
+            mediaAssetIds: nil,
+            mediaAssetIdsSnake: nil,
             mediaUrl: nil,
             cdnUrl: nil,
             likesCount: nil,
@@ -118,7 +124,9 @@ struct looped_iOSTests {
             isAnonymous: true,
             authorDisplayCommunity: nil,
             authorDisplaySpecialization: nil,
-            poll: nil
+            poll: nil,
+            isUnderReview: nil,
+            viewerCapabilities: nil
         )
 
         let post = Post(dto: dto)
@@ -131,6 +139,7 @@ struct looped_iOSTests {
         let dto = BlockedUserDTO(
             principalId: 77,
             id: 42,
+            kind: "user",
             handle: "someone",
             displayName: "Someone",
             profileImageUrl: nil,
@@ -171,7 +180,10 @@ struct looped_iOSTests {
 
         _ = try await service.blockPrincipal(principalId: 456, asAnonymousActor: false, communityId: nil)
 
-        let request = try #require(requestBox.request)
+        guard let request = requestBox.request else {
+            Issue.record("Expected captured request for blockPrincipal")
+            return
+        }
         #expect(request.httpMethod == "POST")
         #expect(request.url?.path == "/v1/principals/456/block")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer jwt-token")
@@ -206,7 +218,10 @@ struct looped_iOSTests {
 
         _ = try await service.unblockPrincipal(principalId: 456, asAnonymousActor: false, communityId: nil)
 
-        let request = try #require(requestBox.request)
+        guard let request = requestBox.request else {
+            Issue.record("Expected captured request for unblockPrincipal")
+            return
+        }
         #expect(request.httpMethod == "DELETE")
         #expect(request.url?.path == "/v1/principals/456/block")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer jwt-token")

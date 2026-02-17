@@ -56,6 +56,7 @@ struct MessagesTabs: View {
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityIdentifier(accessibilityIdentifier(for: tab))
             }
         }
         .padding(.horizontal, 16)
@@ -64,6 +65,15 @@ struct MessagesTabs: View {
 
     private var badgeText: String {
         pendingRequestCount > 99 ? "99+" : "\(pendingRequestCount)"
+    }
+
+    private func accessibilityIdentifier(for tab: MessageTab) -> String {
+        switch tab {
+        case .messages:
+            return "messages.tab.messages"
+        case .requests:
+            return "messages.tab.requests"
+        }
     }
 }
 

@@ -5,6 +5,13 @@
 - Ignore Xcode user/workspace state files (anything under `*.xcodeproj/**/xcuserdata/**` and `**/*.xcuserstate`) unless explicitly asked.
 - **IMPORTANT (multi-agent repo):** other agents may be working in parallel. Don’t include `git diff`/`git status` “noise” in handoffs or responses; only mention unrelated changes if they directly conflict with your work or the user asks.
 
+## Testing Policy (effective February 17, 2026)
+- For meaningful bug fixes, add a regression test in the same change whenever practical.
+- For new features, add tests for primary success paths and important failure/edge states when testable.
+- Prefer unit tests in `looped-iOSTests/` for ViewModel/service behavior; use `looped-iOSUITests/` for critical end-to-end flows only.
+- If a test is not added, explicitly document why and what manual verification was performed.
+- Always tell the user exactly what tests to run in Xcode after code changes.
+
 ## What’s Live (ready today)
 - **Authentication:** Firebase email/password + Google + Apple. Tokens automatically pulled via FirebaseAuth token provider; API client adds `Authorization: Bearer <Firebase ID token>` on every call.
 - **Identity:** `/v1/me` wired into `UserService` + `AuthViewModel`. Signed-in user data (display name, @handle, company, bio) is propagated via `AuthViewModel.currentUser`.

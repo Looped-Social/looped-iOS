@@ -22,6 +22,9 @@ struct AuthView: View {
     @State private var lastReportedRemoteStep: RemoteOnboardingStep?
     private let communityService: CommunityServiceProtocol = CommunityService()
     private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
+    private var uiTestStartOnLogin: Bool {
+        ProcessInfo.processInfo.environment["LOOPED_UI_TEST_START_ON_LOGIN"] == "1"
+    }
     private var shouldSuppressWelcomeScreen: Bool {
         authViewModel.isAuthenticated
             && !authViewModel.onboardingComplete
@@ -72,6 +75,10 @@ struct AuthView: View {
             }
         }
         .onAppear {
+            if uiTestStartOnLogin, path.isEmpty {
+                navigate(to: .login)
+                return
+            }
             if authViewModel.isAuthenticated {
                 Task {
                     await authViewModel.loadCurrentUser()

@@ -69,6 +69,9 @@ struct MessagesView: View {
     private var isUsingBackendSearch: Bool {
         selectedTab != .requests && trimmedSearchText.count >= 2
     }
+    private var uiTestDisableNetworkBootstrap: Bool {
+        ProcessInfo.processInfo.environment["LOOPED_UI_TEST_DISABLE_NETWORK"] == "1"
+    }
 
     private var filteredSearchResults: [MessageSearchHit] {
         switch selectedTab {
@@ -345,12 +348,14 @@ struct MessagesView: View {
             }
         }
         .task {
+            guard !uiTestDisableNetworkBootstrap else { return }
             if viewModel.conversations.isEmpty && viewModel.messageRequests.isEmpty && viewModel.channels.isEmpty {
                 await viewModel.loadInbox()
             }
         }
         .onChange(of: selectedTab) { _, newValue in
             if newValue == .requests, viewModel.messageRequests.isEmpty {
+                guard !uiTestDisableNetworkBootstrap else { return }
                 Task { await viewModel.loadMessageRequests() }
             }
             if newValue == .requests {
@@ -359,6 +364,7 @@ struct MessagesView: View {
                 viewModel.searchMessages(query: trimmedSearchText)
             }
         }
+        .accessibilityIdentifier("messages.screen")
         .sheet(isPresented: $showNewMessage) {
             NewMessageView(onChatSelected: onChatSelected)
         }

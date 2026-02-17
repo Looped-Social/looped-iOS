@@ -15,6 +15,7 @@ struct MessagesSearchBar: View {
             TextField(placeholder, text: $searchText)
                 .font(.loopedBody)
                 .foregroundColor(.loopedTextPrimary)
+                .accessibilityIdentifier("messages.searchField")
 
             // Clear button (only show when there's text)
             if !searchText.isEmpty {
@@ -25,6 +26,7 @@ struct MessagesSearchBar: View {
                         .foregroundColor(.loopedTextSecondary)
                         .font(.loopedCustom(size: 16))
                 }
+                .accessibilityIdentifier("messages.searchClearButton")
             }
         }
         .padding(.horizontal, 12)

@@ -1,0 +1,699 @@
+import Foundation
+import Combine
+@testable import looped_iOS
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AuthenticationServices)
+import AuthenticationServices
+#endif
+#if canImport(FirebaseAuth)
+import FirebaseAuth
+#endif
+typealias AppUser = looped_iOS.User
+
+private func unimplemented<T>(_ function: String = #function) throws -> T {
+    throw TestError.unimplemented(function)
+}
+
+final class MockFeedService: FeedServiceProtocol {
+    var fetchFeedCalls: [(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode)] = []
+    var fetchFeedHandler: ((Int, String?, Int?, FeedMode) async throws -> FeedPage)?
+
+    var searchPostsCalls: [(query: String, limit: Int, cursor: String?)] = []
+    var searchPostsHandler: ((String, Int, String?) async throws -> FeedPage)?
+
+    func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage {
+        fetchFeedCalls.append((limit, cursor, communityId, mode))
+        if let handler = fetchFeedHandler {
+            return try await handler(limit, cursor, communityId, mode)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchCommunityHashtagPosts(communityId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost] {
+        try unimplemented(#function)
+    }
+
+    func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage {
+        searchPostsCalls.append((query, limit, cursor))
+        if let handler = searchPostsHandler {
+            return try await handler(query, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, mediaAssetIds: [Int]?, poll: PollDraft?) async throws -> Post {
+        try unimplemented(#function)
+    }
+
+    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post {
+        try unimplemented(#function)
+    }
+
+    func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse {
+        try unimplemented(#function)
+    }
+
+    func unlikePost(postId: Int, communityId: Int?) async throws -> PostReactionResponse {
+        try unimplemented(#function)
+    }
+
+    func sharePost(postId: Int) async throws -> PostShareResponse {
+        try unimplemented(#function)
+    }
+
+    func repostPost(postId: Int) async throws -> PostRepostResponse {
+        try unimplemented(#function)
+    }
+
+    func unrepostPost(postId: Int) async throws -> PostRepostResponse {
+        try unimplemented(#function)
+    }
+
+    func fetchUserPosts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchHashtagPosts(hashtag: String, limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchPost(postId: Int) async throws -> Post {
+        try unimplemented(#function)
+    }
+
+    func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchRepostedPosts(limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchUserReposts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchMyReposts(limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchAnonReposts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func fetchMyContent(limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
+        try unimplemented(#function)
+    }
+
+    func fetchUserContent(userId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
+        try unimplemented(#function)
+    }
+
+    func fetchAnonContent(anonProfileId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
+        try unimplemented(#function)
+    }
+
+    func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
+        try unimplemented(#function)
+    }
+
+    func savePost(postId: Int, communityId: Int?) async throws -> Bool {
+        try unimplemented(#function)
+    }
+
+    func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool {
+        try unimplemented(#function)
+    }
+
+    func deletePost(postId: Int, communityId: Int?, asAnon: Bool) async throws -> PostDeleteResponse {
+        try unimplemented(#function)
+    }
+}
+
+final class MockCommunityService: CommunityServiceProtocol {
+    var fetchRecommendedCalls: [(kind: CommunitySearchKind?, limit: Int, cursor: String?)] = []
+    var fetchRecommendedHandler: ((CommunitySearchKind?, Int, String?) async throws -> SearchResultPage<CommunitySearchResult>)?
+
+    var searchCommunitiesCalls: [(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?)] = []
+    var searchCommunitiesHandler: ((String, Int, String?, CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult>)?
+
+    func fetchFollowedCommunities(limit: Int, cursor: String?, order: CommunityFollowOrder) async throws -> CommunityPage {
+        try unimplemented(#function)
+    }
+
+    func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult> {
+        fetchRecommendedCalls.append((kind, limit, cursor))
+        if let handler = fetchRecommendedHandler {
+            return try await handler(kind, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchCommunityDetails(communityId: Int) async throws -> CommunityProfileData {
+        try unimplemented(#function)
+    }
+
+    func fetchCommunityDetailsDTO(communityId: Int, kind: CommunityKind) async throws -> CommunityDetailsDTO {
+        try unimplemented(#function)
+    }
+
+    func fetchCommunityDomains(communityId: Int) async throws -> [String] {
+        try unimplemented(#function)
+    }
+
+    func fetchPostableCommunities() async throws -> [CommunitySummary] {
+        try unimplemented(#function)
+    }
+
+    func fetchJoinedSpecializations(type: CommunitySpecializationType?) async throws -> [DisplayCommunity] {
+        try unimplemented(#function)
+    }
+
+    func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit] {
+        try unimplemented(#function)
+    }
+
+    func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult> {
+        searchCommunitiesCalls.append((query, limit, cursor, kind))
+        if let handler = searchCommunitiesHandler {
+            return try await handler(query, limit, cursor, kind)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func followCommunity(id: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func unfollowCommunity(id: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func followSpecialization(id: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func unfollowSpecialization(id: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func joinSpecialization(id: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func unjoinSpecialization(id: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions {
+        try unimplemented(#function)
+    }
+}
+
+final class MockMessageService: MessageServiceProtocol {
+    var listConversationsCalls: [String?] = []
+    var listConversationsHandler: ((String?) async throws -> ConversationPage)?
+
+    var fetchMessageRequestsCalls: [String?] = []
+    var fetchMessageRequestsHandler: ((String?) async throws -> MessageRequestPage)?
+
+    var getChannelsCalls: [String?] = []
+    var getChannelsHandler: ((String?) async throws -> ChannelPage)?
+
+    var approveRequestCalls: [Int] = []
+    var approveRequestHandler: ((Int) async throws -> Void)?
+
+    var rejectRequestCalls: [Int] = []
+    var rejectRequestHandler: ((Int) async throws -> Void)?
+
+    var searchMessagesCalls: [(query: String, limit: Int, cursor: String?)] = []
+    var searchMessagesHandler: ((String, Int, String?) async throws -> MessageSearchPage)?
+
+    var startConversationCalls: [Int] = []
+    var startConversationHandler: ((Int) async throws -> Conversation)?
+
+    func listConversations(cursor: String?) async throws -> ConversationPage {
+        listConversationsCalls.append(cursor)
+        if let handler = listConversationsHandler {
+            return try await handler(cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func startConversation(with participantBackendId: Int) async throws -> Conversation {
+        startConversationCalls.append(participantBackendId)
+        if let handler = startConversationHandler {
+            return try await handler(participantBackendId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func updateConversationPreferences(conversationId: Int, muted: Bool) async throws -> Bool {
+        try unimplemented(#function)
+    }
+
+    func updateChannelPreferences(channelBackendId: Int, muted: Bool) async throws -> Bool {
+        try unimplemented(#function)
+    }
+
+    func getConversationMessages(conversationId: Int, cursor: String?) async throws -> MessagePage {
+        try unimplemented(#function)
+    }
+
+    func sendConversationMessage(conversationId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message {
+        try unimplemented(#function)
+    }
+
+    func searchMessages(query: String, limit: Int, cursor: String?) async throws -> MessageSearchPage {
+        searchMessagesCalls.append((query, limit, cursor))
+        if let handler = searchMessagesHandler {
+            return try await handler(query, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func getChannels(cursor: String?) async throws -> ChannelPage {
+        getChannelsCalls.append(cursor)
+        if let handler = getChannelsHandler {
+            return try await handler(cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func createChannel(name: String, memberUserIds: [Int]) async throws -> Channel {
+        try unimplemented(#function)
+    }
+
+    func updateChannel(channelBackendId: Int, name: String) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func updateChannelPhoto(channelBackendId: Int, photoMediaAssetId: Int?) async throws -> Channel {
+        try unimplemented(#function)
+    }
+
+    func deleteChannel(channelBackendId: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func getChannelMembers(channelBackendId: Int, cursor: String?) async throws -> ChannelMembersPage {
+        try unimplemented(#function)
+    }
+
+    func addChannelMembers(channelBackendId: Int, userIds: [Int]) async throws -> Int {
+        try unimplemented(#function)
+    }
+
+    func removeChannelMember(channelBackendId: Int, userId: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func updateChannelMemberPermission(channelBackendId: Int, userId: Int, canManageMembers: Bool) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func getChannelMessages(channelBackendId: Int, cursor: String?) async throws -> MessagePage {
+        try unimplemented(#function)
+    }
+
+    func sendChannelMessage(channelBackendId: Int, content: String, attachments: [SendMessageAttachmentDTO]?) async throws -> Message {
+        try unimplemented(#function)
+    }
+
+    func fetchMessageRequests(cursor: String?) async throws -> MessageRequestPage {
+        fetchMessageRequestsCalls.append(cursor)
+        if let handler = fetchMessageRequestsHandler {
+            return try await handler(cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func approveMessageRequest(requestId: Int) async throws {
+        approveRequestCalls.append(requestId)
+        if let handler = approveRequestHandler {
+            try await handler(requestId)
+            return
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func rejectMessageRequest(requestId: Int) async throws {
+        rejectRequestCalls.append(requestId)
+        if let handler = rejectRequestHandler {
+            try await handler(requestId)
+            return
+        }
+        throw TestError.unimplemented(#function)
+    }
+}
+
+final class MockBlockService: BlockServiceProtocol {
+    var fetchBlockedUsersCalls: [(limit: Int, cursor: String?)] = []
+    var fetchBlockedUsersHandler: ((Int, String?) async throws -> BlockedUsersPage)?
+
+    var unblockPrincipalCalls: [(principalId: Int, asAnonymousActor: Bool, communityId: Int?)] = []
+    var unblockPrincipalHandler: ((Int, Bool, Int?) async throws -> PrincipalBlockActionResult)?
+
+    func fetchBlockedUsers(limit: Int, cursor: String?) async throws -> BlockedUsersPage {
+        fetchBlockedUsersCalls.append((limit, cursor))
+        if let handler = fetchBlockedUsersHandler {
+            return try await handler(limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func blockUser(userId: Int) async throws -> BlockActionResult {
+        try unimplemented(#function)
+    }
+
+    func unblockUser(userId: Int) async throws -> BlockActionResult {
+        try unimplemented(#function)
+    }
+
+    func blockUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> BlockActionResult {
+        try unimplemented(#function)
+    }
+
+    func unblockUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> BlockActionResult {
+        try unimplemented(#function)
+    }
+
+    func blockPrincipal(principalId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> PrincipalBlockActionResult {
+        try unimplemented(#function)
+    }
+
+    func unblockPrincipal(principalId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> PrincipalBlockActionResult {
+        unblockPrincipalCalls.append((principalId, asAnonymousActor, communityId))
+        if let handler = unblockPrincipalHandler {
+            return try await handler(principalId, asAnonymousActor, communityId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+}
+
+final class MockNotificationService: NotificationServiceProtocol {
+    var fetchPreferencesCallCount = 0
+    var fetchPreferencesHandler: (() async throws -> NotificationPreferencesDTO)?
+
+    var updateRequests: [NotificationPreferencesUpdateRequest] = []
+    var updatePreferencesHandler: ((NotificationPreferencesUpdateRequest) async throws -> NotificationPreferencesDTO)?
+
+    func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage {
+        try unimplemented(#function)
+    }
+
+    func markRead(notificationId: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchPreferences() async throws -> NotificationPreferencesDTO {
+        fetchPreferencesCallCount += 1
+        if let handler = fetchPreferencesHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func updatePreferences(_ update: NotificationPreferencesUpdateRequest) async throws -> NotificationPreferencesDTO {
+        updateRequests.append(update)
+        if let handler = updatePreferencesHandler {
+            return try await handler(update)
+        }
+        throw TestError.unimplemented(#function)
+    }
+}
+
+final class MockAuthService: AuthServiceProtocol {
+    private let authStateSubject = PassthroughSubject<Bool, Never>()
+
+    var authStateChanged: AnyPublisher<Bool, Never> {
+        authStateSubject.eraseToAnyPublisher()
+    }
+
+    var isAuthenticated: Bool = false
+
+    var loginCalls: [(email: String, password: String)] = []
+    var loginHandler: ((String, String) async throws -> Void)?
+
+    var signUpCalls: [(email: String, password: String)] = []
+    var signUpHandler: ((String, String) async throws -> Void)?
+
+    var sendPasswordResetCalls: [String] = []
+    var sendPasswordResetHandler: ((String) async throws -> Void)?
+
+    var signOutCallCount = 0
+    var refreshTokenCallCount = 0
+
+    func emitAuthState(_ isAuthenticated: Bool) {
+        self.isAuthenticated = isAuthenticated
+        authStateSubject.send(isAuthenticated)
+    }
+
+    func login(email: String, password: String) async throws {
+        loginCalls.append((email, password))
+        if let handler = loginHandler {
+            try await handler(email, password)
+            return
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func signUp(email: String, password: String) async throws {
+        signUpCalls.append((email, password))
+        if let handler = signUpHandler {
+            try await handler(email, password)
+            return
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func sendPasswordReset(email: String) async throws {
+        sendPasswordResetCalls.append(email)
+        if let handler = sendPasswordResetHandler {
+            try await handler(email)
+            return
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func signOut() {
+        signOutCallCount += 1
+        isAuthenticated = false
+    }
+
+    func refreshToken() async throws {
+        refreshTokenCallCount += 1
+    }
+
+    func signInWithGoogle(presenting: UIViewController) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func signInWithApple(presentationAnchor: ASPresentationAnchor) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func linkWithGoogle(presenting: UIViewController) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func linkWithApple(presentationAnchor: ASPresentationAnchor) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func unlinkGoogle() async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func unlinkApple() async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    #if canImport(FirebaseAuth)
+    func sendMfaCode(resolver: MultiFactorResolver, hint: PhoneMultiFactorInfo) async throws -> String {
+        throw TestError.unimplemented(#function)
+    }
+
+    func resolveMfaSignIn(resolver: MultiFactorResolver, verificationId: String, verificationCode: String) async throws {
+        throw TestError.unimplemented(#function)
+    }
+    #endif
+}
+
+final class MockDeviceService: DeviceServiceProtocol {
+    var registerCalls: [String] = []
+    var registerHandler: ((String) async throws -> Void)?
+
+    func registerDevice(apnsToken: String) async throws {
+        registerCalls.append(apnsToken)
+        if let handler = registerHandler {
+            try await handler(apnsToken)
+        }
+    }
+}
+
+final class MockMediaService: MediaServiceProtocol {
+    func uploadImage(data: Data, mimeType: String, width: Int, height: Int, actor: MediaUploadActor) async throws -> MediaAsset {
+        throw TestError.unimplemented(#function)
+    }
+
+    func uploadVideo(
+        fileURL: URL,
+        mimeType: String,
+        width: Int,
+        height: Int,
+        durationSeconds: Int,
+        actor: MediaUploadActor,
+        thumbnailMediaAssetId: Int?
+    ) async throws -> MediaAsset {
+        throw TestError.unimplemented(#function)
+    }
+
+    func resolvePublicMedia(ids: [Int]) async throws -> [MediaAsset] {
+        throw TestError.unimplemented(#function)
+    }
+}
+
+final class MockUserService: UserServiceProtocol {
+    var getIdentityCallCount = 0
+    var getIdentityHandler: (() async throws -> IdentityResponseDTO)?
+
+    var getCurrentUserCallCount = 0
+    var getCurrentUserHandler: (() async throws -> AppUser)?
+
+    var getUserCalls: [Int] = []
+    var getUserHandler: ((Int) async throws -> AppUser)?
+
+    var followUserCalls: [(userId: Int, asAnonymousActor: Bool, communityId: Int?)] = []
+    var followUserHandler: ((Int, Bool, Int?) async throws -> UserFollowActionResult)?
+
+    var unfollowUserCalls: [(userId: Int, asAnonymousActor: Bool, communityId: Int?)] = []
+    var unfollowUserHandler: ((Int, Bool, Int?) async throws -> UserFollowActionResult)?
+
+    var followAnonCalls: [(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?)] = []
+    var followAnonHandler: ((Int, Bool, Int?) async throws -> AnonProfileFollowActionResult)?
+
+    var unfollowAnonCalls: [(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?)] = []
+    var unfollowAnonHandler: ((Int, Bool, Int?) async throws -> AnonProfileFollowActionResult)?
+
+    var fetchUserFollowingCalls: [(userId: Int, limit: Int, cursor: String?, query: String?)] = []
+    var fetchUserFollowingHandler: ((Int, Int, String?, String?) async throws -> UserFollowListPage)?
+
+    var updateOnboardingStepCalls: [RemoteOnboardingStep] = []
+    var updateOnboardingStepHandler: ((RemoteOnboardingStep) async throws -> OnboardingStateDTO)?
+
+    func getIdentity() async throws -> IdentityResponseDTO {
+        getIdentityCallCount += 1
+        if let handler = getIdentityHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func getCurrentUser() async throws -> AppUser {
+        getCurrentUserCallCount += 1
+        if let handler = getCurrentUserHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func getUser(by id: Int) async throws -> AppUser {
+        getUserCalls.append(id)
+        if let handler = getUserHandler {
+            return try await handler(id)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func followUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult {
+        followUserCalls.append((userId, asAnonymousActor, communityId))
+        if let handler = followUserHandler {
+            return try await handler(userId, asAnonymousActor, communityId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func unfollowUser(userId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> UserFollowActionResult {
+        unfollowUserCalls.append((userId, asAnonymousActor, communityId))
+        if let handler = unfollowUserHandler {
+            return try await handler(userId, asAnonymousActor, communityId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func followAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult {
+        followAnonCalls.append((anonProfileId, asAnonymousActor, communityId))
+        if let handler = followAnonHandler {
+            return try await handler(anonProfileId, asAnonymousActor, communityId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func unfollowAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult {
+        unfollowAnonCalls.append((anonProfileId, asAnonymousActor, communityId))
+        if let handler = unfollowAnonHandler {
+            return try await handler(anonProfileId, asAnonymousActor, communityId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchMyShareLink() async throws -> UserShareLink { throw TestError.unimplemented(#function) }
+    func checkSlugAvailability(_ slug: String) async throws -> UserSlugAvailability { throw TestError.unimplemented(#function) }
+    func resolveUserId(fromSlug slug: String) async throws -> Int { throw TestError.unimplemented(#function) }
+    func updateMyShareLink(customSlug: String?) async throws -> UserShareLink { throw TestError.unimplemented(#function) }
+    func fetchUserFollowers(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage { throw TestError.unimplemented(#function) }
+
+    func fetchUserFollowing(userId: Int, limit: Int, cursor: String?, query: String?) async throws -> UserFollowListPage {
+        fetchUserFollowingCalls.append((userId, limit, cursor, query))
+        if let handler = fetchUserFollowingHandler {
+            return try await handler(userId, limit, cursor, query)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func updateProfile(
+        displayName: String?,
+        bio: String?,
+        isAnonymous: Bool,
+        showFollowerCount: Bool?,
+        messagePermission: MessagePermission?,
+        profileMediaAssetId: Int?
+    ) async throws -> AppUser { throw TestError.unimplemented(#function) }
+
+    func updateIdentity(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> AppUser {
+        throw TestError.unimplemented(#function)
+    }
+
+    func updateDisplayCommunity(communityId: Int?) async throws -> AppUser { throw TestError.unimplemented(#function) }
+    func updateDisplaySpecialization(specializationId: Int?) async throws -> AppUser { throw TestError.unimplemented(#function) }
+    func verifyEmployment(verification: EmploymentVerification) async throws { throw TestError.unimplemented(#function) }
+    func deleteAccount(mode: DeleteAccountMode) async throws -> DeleteAccountResult { throw TestError.unimplemented(#function) }
+    func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage { throw TestError.unimplemented(#function) }
+    func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage { throw TestError.unimplemented(#function) }
+    func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage { throw TestError.unimplemented(#function) }
+    func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO { throw TestError.unimplemented(#function) }
+    func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> AppUser { throw TestError.unimplemented(#function) }
+
+    func updateOnboardingStep(_ step: RemoteOnboardingStep) async throws -> OnboardingStateDTO {
+        updateOnboardingStepCalls.append(step)
+        if let handler = updateOnboardingStepHandler {
+            return try await handler(step)
+        }
+        throw TestError.unimplemented(#function)
+    }
+}

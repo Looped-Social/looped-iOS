@@ -150,8 +150,15 @@ The app is fully past the template stage:
 
 ## Testing Strategy
 
-- **Unit Tests**: Swift Testing framework in `loopedTests/`
-- **UI Tests**: XCTest framework in `loopedUITests/` 
+- **Unit Tests**: Swift Testing framework in `looped-iOSTests/`
+- **UI Tests**: XCTest framework in `looped-iOSUITests/`
 - **ViewModel Testing**: Test UI state management and API interaction logic
 - **Service Testing**: Mock HTTP/WebSocket services for reliable tests
 - **No Backend Testing**: Java backend testing handled in separate repository
+
+### Required Delivery Policy
+- **Bug fixes**: When a bug fix is meaningful and testable, add a regression test in the same change.
+- **New features**: Add tests for core behavior and key failure states whenever practical.
+- **Test type preference**: Prefer unit tests for ViewModels/services; use UI tests only for critical end-to-end flows.
+- **If a test is skipped**: Explicitly state why it is not practical or valuable and what manual verification was used.
+- **Always instruct test run**: End responses with exact Xcode test actions for the user to run (`Cmd+U` or targeted test suites).

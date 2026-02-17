@@ -55,10 +55,15 @@ struct ContentView: View {
     @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
     @AppStorage("defaultProfileImageUrlFetchedAt") private var defaultProfileImageUrlFetchedAt = 0.0
     @AppStorage("didShowNotificationPermissionPrompt") private var didShowNotificationPermissionPrompt = false
+    private var uiTestBypassAuth: Bool {
+        ProcessInfo.processInfo.environment["LOOPED_UI_TEST_BYPASS_AUTH"] == "1"
+    }
 
     var body: some View {
         Group {
-            if authViewModel.isAuthenticated, (!authViewModel.didLoadIdentity || keepBootstrapVisible) {
+            if uiTestBypassAuth {
+                MainTabView()
+            } else if authViewModel.isAuthenticated, (!authViewModel.didLoadIdentity || keepBootstrapVisible) {
                 LaunchBootstrapView(isReady: authViewModel.didLoadIdentity) {
                     keepBootstrapVisible = false
                 }
@@ -350,6 +355,9 @@ struct MainTabView: View {
     @State private var isShowingUnverifiedSearchDiscovery = false
     @State private var didEvaluateUnverifiedSearchDiscoveryThisSession = false
     @State private var toastMessage: ToastMessage?
+    private var uiTestDisableNetworkBootstrap: Bool {
+        ProcessInfo.processInfo.environment["LOOPED_UI_TEST_DISABLE_NETWORK"] == "1"
+    }
     private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
     private let deepLinkFeedService: FeedServiceProtocol = FeedService()
     private let deepLinkUserService: UserServiceProtocol = UserService()
@@ -360,6 +368,7 @@ struct MainTabView: View {
         }
         .environment(\.floatingActionButtonState, fabState)
         .task {
+            guard !uiTestDisableNetworkBootstrap else { return }
             didEvaluateUnverifiedSearchDiscoveryThisSession = false
             async let loadCommunities: Void = feedViewModel.loadFollowedCommunities()
             async let loadNotifications: Void = notificationsViewModel.loadNotifications()

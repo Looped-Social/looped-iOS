@@ -21,11 +21,14 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
 
     init(
         scope: Scope,
-        communityService: CommunityServiceProtocol = CommunityService()
+        communityService: CommunityServiceProtocol = CommunityService(),
+        enableQueryBinding: Bool = true
     ) {
         self.scope = scope
         self.communityService = communityService
-        bindQuery()
+        if enableQueryBinding {
+            bindQuery()
+        }
     }
 
     func refresh() {

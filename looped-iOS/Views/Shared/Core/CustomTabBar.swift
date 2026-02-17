@@ -37,6 +37,21 @@ enum TabItem: String, CaseIterable {
             return "profile-selected"
         }
     }
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .home:
+            return "mainTab.home"
+        case .messages:
+            return "mainTab.messages"
+        case .search:
+            return "mainTab.search"
+        case .notifications:
+            return "mainTab.notifications"
+        case .profile:
+            return "mainTab.profile"
+        }
+    }
     
     static let iconSize = CGSize(width: 28, height: 28)
 }
@@ -131,6 +146,7 @@ struct TabBarButton: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityIdentifier(tab.accessibilityIdentifier)
     }
 
     private var tabIcon: some View {

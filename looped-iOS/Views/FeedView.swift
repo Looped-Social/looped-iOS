@@ -19,6 +19,9 @@ struct FeedView: View {
     private let minNewPostsCount = 7
     private let topAnchorId = "feedTop"
     private let scrollCoordinateSpace = "feedScrollCoordinateSpace"
+    private var uiTestDisableNetworkBootstrap: Bool {
+        ProcessInfo.processInfo.environment["LOOPED_UI_TEST_DISABLE_NETWORK"] == "1"
+    }
 
     init(
         isTabBarVisible: Binding<Bool> = .constant(true),
@@ -218,6 +221,7 @@ struct FeedView: View {
             }
         }
         .task {
+            guard !uiTestDisableNetworkBootstrap else { return }
             await viewModel.loadInitial()
         }
         .onAppear {
@@ -236,6 +240,7 @@ struct FeedView: View {
         }
         .loopedHashtagNavigationHost()
         .loopedMentionNavigationHost()
+        .accessibilityIdentifier("feed.screen")
     }
 
 
