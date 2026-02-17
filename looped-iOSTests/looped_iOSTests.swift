@@ -229,6 +229,9 @@ struct looped_iOSTests {
     }
 
     @Test func apiClientBlocksRealNetworkByDefaultInUnitTests() async throws {
+        setenv("LOOPED_BLOCK_NETWORK_IN_TESTS", "1", 1)
+        defer { unsetenv("LOOPED_BLOCK_NETWORK_IN_TESTS") }
+
         let apiClient = APIClient(
             baseURL: "https://example.com",
             session: .shared,

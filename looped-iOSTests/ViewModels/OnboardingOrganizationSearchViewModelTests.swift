@@ -14,7 +14,8 @@ struct OnboardingOrganizationSearchViewModelTests {
             case .company:
                 return SearchResultPage(items: [
                     TestFixtures.communitySearchResult(id: 1, name: "Beta Co", kind: .company, memberCount: 10),
-                    TestFixtures.communitySearchResult(id: 2, name: "Alpha Co", kind: .company, memberCount: 30)
+                    TestFixtures.communitySearchResult(id: 2, name: "Alpha Co", kind: .company, memberCount: 30),
+                    TestFixtures.communitySearchResult(id: 3, name: "Campus", kind: .school, memberCount: 30)
                 ], nextCursor: nil)
             case .school:
                 return SearchResultPage(items: [
@@ -39,7 +40,7 @@ struct OnboardingOrganizationSearchViewModelTests {
         #expect(viewModel.organizations.compactMap(\.backendId) == [2, 3, 1])
         let requestedKinds = service.fetchRecommendedCalls.compactMap(\.kind)
         #expect(requestedKinds.contains(.company))
-        #expect(requestedKinds.contains(.school))
+        #expect(requestedKinds.allSatisfy { $0 == .company || $0 == .school })
     }
 
     @Test

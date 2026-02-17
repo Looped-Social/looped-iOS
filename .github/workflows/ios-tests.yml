@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild test \
+          LOOPED_BLOCK_NETWORK_IN_TESTS=1 xcodebuild test \
             -project looped-iOS.xcodeproj \
             -scheme "looped-iOS" \
             -destination "platform=iOS Simulator,OS=latest,name=${{ steps.sim.outputs.sim_name }}" \

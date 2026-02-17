@@ -18,12 +18,8 @@ class APIClient {
     private let session: URLSession
     private let tokenStorage: TokenStorage
     private let tokenProvider: AuthTokenProvider?
+    private static let blockNetworkInTestsEnvKey = "LOOPED_BLOCK_NETWORK_IN_TESTS"
     private static let allowNetworkInTestsEnvKey = "LOOPED_ALLOW_NETWORK_IN_TESTS"
-    private static let isUnitTestProcess: Bool = {
-        Bundle.allBundles.contains { bundle in
-            bundle.bundlePath.hasSuffix(".xctest") && !bundle.bundlePath.contains("UITests")
-        }
-    }()
     
     init(
         baseURL: String? = nil,
@@ -532,15 +528,46 @@ class APIClient {
     }
 
     private func enforceNoRealNetworkInUnitTests(for request: URLRequest) throws {
-        guard Self.isUnitTestProcess else { return }
-        let allowNetwork = ProcessInfo.processInfo.environment[Self.allowNetworkInTestsEnvKey] == "1"
+        let allowNetwork = Self.envFlag(Self.allowNetworkInTestsEnvKey)
         guard !allowNetwork else { return }
+        let forceBlock = Self.envFlag(Self.blockNetworkInTestsEnvKey)
+        guard forceBlock || Self.isRunningUnitTests() else { return }
 
         // Allow sessions that explicitly inject a URLProtocol-based transport (test doubles).
-        let hasExplicitProtocolMock = !(session.configuration.protocolClasses ?? []).isEmpty
+        let hasExplicitProtocolMock = session !== URLSession.shared
+            && !(session.configuration.protocolClasses ?? []).isEmpty
         guard !hasExplicitProtocolMock else { return }
 
         throw APIError.networkError(UnitTestNetworkBlockedError(url: request.url))
+    }
+
+    private static func isRunningUnitTests() -> Bool {
+        if let bundlePath = envValue("XCTestBundlePath")?.lowercased(),
+           bundlePath.contains("looped-iostests.xctest") || bundlePath.contains("looped_iostests.xctest") {
+            return true
+        }
+        if let configPath = envValue("XCTestConfigurationFilePath")?.lowercased(),
+           configPath.contains("looped-iostests") || configPath.contains("looped_iostests") {
+            return true
+        }
+
+        let xctestBundles = Bundle.allBundles
+            .map(\.bundlePath)
+            .map { $0.lowercased() }
+            .filter { $0.hasSuffix(".xctest") }
+
+        return xctestBundles.contains {
+            $0.contains("looped-iostests.xctest") || $0.contains("looped_iostests.xctest")
+        }
+    }
+
+    private static func envFlag(_ key: String) -> Bool {
+        envValue(key) == "1"
+    }
+
+    private static func envValue(_ key: String) -> String? {
+        guard let value = getenv(key) else { return nil }
+        return String(cString: value)
     }
 }
 
