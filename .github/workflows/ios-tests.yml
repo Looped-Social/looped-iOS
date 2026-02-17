@@ -51,7 +51,7 @@ jobs:
           set -euo pipefail
           xcodebuild test \
             -project looped-iOS.xcodeproj \
-            -scheme "looped-iOS Staging" \
+            -scheme "looped-iOS" \
             -destination "platform=iOS Simulator,OS=latest,name=${{ steps.sim.outputs.sim_name }}" \
             -only-testing:looped-iOSTests \
             CODE_SIGNING_ALLOWED=NO \

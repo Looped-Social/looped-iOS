@@ -35,9 +35,18 @@ struct CommentsView: View {
     @State private var activeModerationSheet: ModerationSheet?
     @State private var selectedCommentForModeration: Comment?
     @State private var moderationAlertMessage: String?
+    @State private var isPostLikeLoading = false
+    @State private var postLikeCountOverride: Int?
+    @State private var postIsLikedOverride: Bool?
+    @State private var isPreparingPostShareSheet = false
+    @State private var showPostShareSheet = false
+    @State private var postShareItems: [Any] = []
+    @State private var postShareCountOverride: Int?
+    @State private var isPostShareTracking = false
 	@FocusState private var isCommentFieldFocused: Bool
 
     private let moderationService: ModerationServiceProtocol = ModerationService()
+    private let feedService: FeedServiceProtocol = FeedService()
 
 	private var comments: [Comment] {
 		commentsManager.currentComments
@@ -110,6 +119,32 @@ struct CommentsView: View {
 
     private var titleText: String {
         "\(comments.count) comment\(comments.count == 1 ? "" : "s")"
+    }
+
+    private var displayedPostLikeCount: Int {
+        max(postLikeCountOverride ?? post.reactionCount, 0)
+    }
+
+    private var displayedPostCommentsCount: Int {
+        max(commentsManager.currentPost?.commentsCount ?? post.commentsCount, 0)
+    }
+
+    private var displayedPostShareCount: Int {
+        max(postShareCountOverride ?? post.shareCount, 0)
+    }
+
+    private var isPostLiked: Bool {
+        postIsLikedOverride ?? (post.userReaction == .like)
+    }
+
+    private var canLikePost: Bool {
+        if isAnonymousMode {
+            return true
+        }
+        if let capabilities = post.viewerCapabilities {
+            return capabilities.canInteract && capabilities.canLike
+        }
+        return canComment
     }
 
 	    @ViewBuilder
@@ -226,6 +261,13 @@ struct CommentsView: View {
                     )
                 )
             }
+            .sheet(isPresented: $showPostShareSheet) {
+                ShareSheet(items: postShareItems.isEmpty ? defaultPostShareItems : postShareItems) { completed, activityType in
+                    if shouldTrackPostShare(completed: completed, activityType: activityType) {
+                        trackPostShare()
+                    }
+                }
+            }
             .sheet(item: $activeModerationSheet, onDismiss: {
                 selectedCommentForModeration = nil
             }) { sheet in
@@ -334,10 +376,10 @@ private extension CommentsView {
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
 
-	                if let attachments = post.attachments, !attachments.isEmpty {
-	                    PostedMediaGrid(
-	                        attachments: attachments,
-	                        maxHeight: 240,
+	                    if let attachments = post.attachments, !attachments.isEmpty {
+	                        PostedMediaGrid(
+	                            attachments: attachments,
+	                            maxHeight: 240,
 	                        onImageTap: { url in
 	                            guard !url.isEmpty, URL(string: url) != nil else { return }
 	                            if let index = imageUrls.firstIndex(of: url) {
@@ -361,11 +403,69 @@ private extension CommentsView {
                                 inlineId: selection.inlineId,
                                 inlineViewModel: selection.inlineViewModel
                             )
-                        }
-                    )
+	                        }
+	                    )
+	                }
+
+                    threadEngagementBar
+	            }
+	        }
+	    }
+
+    private var threadEngagementBar: some View {
+        HStack(spacing: 14) {
+            Button(action: togglePostLike) {
+                HStack(spacing: 4) {
+                    Image(systemName: isPostLiked ? "heart.fill" : "heart")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .foregroundColor(isPostLiked ? .loopedError : .loopedTextSecondary)
+                    Text("\(displayedPostLikeCount)")
+                        .font(.loopedSubheadlineScaled)
+                        .foregroundColor(.loopedTextSecondary)
                 }
             }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(isPostLikeLoading || !canLikePost)
+            .opacity((isPostLikeLoading || !canLikePost) ? 0.6 : 1.0)
+
+            Button(action: focusCommentComposer) {
+                HStack(spacing: 4) {
+                    Image("comment-icon")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .foregroundColor(.loopedTextSecondary)
+                    Text("\(displayedPostCommentsCount)")
+                        .font(.loopedSubheadlineScaled)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Button(action: preparePostShareSheet) {
+                HStack(spacing: 4) {
+                    Image("send-icon-fab")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .foregroundColor(.loopedTextSecondary)
+                    Text("\(displayedPostShareCount)")
+                        .font(.loopedSubheadlineScaled)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(isPreparingPostShareSheet)
+            .opacity(isPreparingPostShareSheet ? 0.6 : 1.0)
+
+            Spacer(minLength: 0)
         }
+        .padding(.top, 6)
     }
 
     @ViewBuilder
@@ -661,6 +761,137 @@ private extension CommentsView {
         }
     }
 
+    var canonicalPostURL: URL? {
+        guard let postId = post.backendId else { return nil }
+        return URL(string: "https://mylooped.app/p/\(postId)")
+    }
+
+    var defaultPostShareItems: [Any] {
+        if let canonicalPostURL {
+            return [canonicalPostURL]
+        }
+        return ["Check this out on Looped"]
+    }
+
+    func focusCommentComposer() {
+        guard canComment else {
+            commentsManager.toastMessage = ToastMessage(text: restrictedInteractionMessage, kind: .info)
+            return
+        }
+        DispatchQueue.main.async {
+            isCommentFieldFocused = true
+        }
+    }
+
+    func togglePostLike() {
+        guard !isPostLikeLoading else { return }
+        guard canLikePost else {
+            commentsManager.toastMessage = ToastMessage(text: restrictedInteractionMessage, kind: .info)
+            return
+        }
+        guard let postId = post.backendId else {
+            commentsManager.toastMessage = ToastMessage(text: "Post data is missing. Pull to refresh and try again.", kind: .error)
+            return
+        }
+        isPostLikeLoading = true
+        let shouldLike = !isPostLiked
+
+        Task {
+            defer { isPostLikeLoading = false }
+            do {
+                let response: PostReactionResponse
+                if shouldLike {
+                    response = try await feedService.reactToPost(
+                        postId: postId,
+                        communityId: post.communityId,
+                        reaction: .like
+                    )
+                } else {
+                    response = try await feedService.unlikePost(
+                        postId: postId,
+                        communityId: post.communityId
+                    )
+                }
+                postIsLikedOverride = shouldLike
+                postLikeCountOverride = response.likesCount
+                let updated = post.updating(
+                    reactionCount: response.likesCount,
+                    userReaction: .some(shouldLike ? .like : nil),
+                    updatedAt: Date()
+                )
+                if let existing = feedViewModel.posts.first(where: { $0.backendId == postId }) {
+                    let merged = existing.updating(
+                        reactionCount: response.likesCount,
+                        userReaction: .some(shouldLike ? .like : nil),
+                        updatedAt: Date()
+                    )
+                    feedViewModel.updatePost(merged)
+                } else {
+                    feedViewModel.updatePost(updated)
+                }
+                if let current = commentsManager.currentPost, current.backendId == postId {
+                    commentsManager.currentPost = current.updating(
+                        reactionCount: response.likesCount,
+                        userReaction: .some(shouldLike ? .like : nil),
+                        updatedAt: Date()
+                    )
+                }
+            } catch {
+                if isNotFound(error) {
+                    commentsManager.toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
+                    return
+                }
+                commentsManager.toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+            }
+        }
+    }
+
+    func preparePostShareSheet() {
+        guard !isPreparingPostShareSheet else { return }
+        isPreparingPostShareSheet = true
+        Task { @MainActor in
+            defer { isPreparingPostShareSheet = false }
+            postShareItems = defaultPostShareItems
+            showPostShareSheet = true
+        }
+    }
+
+    func shouldTrackPostShare(completed: Bool, activityType: UIActivity.ActivityType?) -> Bool {
+        guard completed else { return false }
+        if activityType == .copyToPasteboard {
+            return false
+        }
+        return post.backendId != nil
+    }
+
+    func trackPostShare() {
+        guard let postId = post.backendId, !isPostShareTracking else { return }
+        isPostShareTracking = true
+        Task {
+            defer { isPostShareTracking = false }
+            do {
+                let response = try await feedService.sharePost(postId: postId)
+                postShareCountOverride = response.shareCount
+                let updated = post.updating(shareCount: response.shareCount, updatedAt: Date())
+                if let existing = feedViewModel.posts.first(where: { $0.backendId == postId }) {
+                    let merged = existing.updating(shareCount: response.shareCount, updatedAt: Date())
+                    feedViewModel.updatePost(merged)
+                } else {
+                    feedViewModel.updatePost(updated)
+                }
+                if let current = commentsManager.currentPost, current.backendId == postId {
+                    commentsManager.currentPost = current.updating(shareCount: response.shareCount, updatedAt: Date())
+                }
+            } catch {
+                if isNotFound(error) {
+                    commentsManager.toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
+                    return
+                }
+                commentsManager.toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
+            }
+        }
+    }
+
     func cleanupSelectedMedia() {
         for item in selectedMedia {
             TemporaryMediaFile.deleteIfOwned(item.videoURL)
@@ -864,6 +1095,20 @@ private extension CommentsView {
             return
         }
         openMention(cleanHandle)
+    }
+
+    func isNotFound(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let code):
+                return code == 404
+            case .apiError(let code, _, _):
+                return code == 404
+            default:
+                return false
+            }
+        }
+        return false
     }
 }
 
