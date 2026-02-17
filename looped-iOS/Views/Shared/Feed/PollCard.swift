@@ -209,7 +209,8 @@ struct PollCard: View {
         do {
             let updated = try await pollsService.vote(
                 pollId: currentPoll.id,
-                selectedOptionIds: [optionId]
+                selectedOptionIds: [optionId],
+                communityId: communityId
             )
             currentPoll = updated
             selectedOptionId = updated.viewer?.selectedOptionIds.first ?? optionId

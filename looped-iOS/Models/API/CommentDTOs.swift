@@ -9,7 +9,7 @@ struct CommentDTO: Codable {
     let id: Int
     let postId: Int
     let parentId: Int?
-    let author: CommentAuthorDTO
+    let author: CommentAuthorDTO?
     let isAnonymous: Bool?
     let authorIsAnonymous: Bool?
     let authorPrincipalId: Int?
@@ -25,7 +25,7 @@ struct CommentDTO: Codable {
 }
 
 struct CommentAuthorDTO: Codable {
-    let id: Int
+    let id: Int?
     let principalId: Int?
     let isAnonymous: Bool?
     let name: String?

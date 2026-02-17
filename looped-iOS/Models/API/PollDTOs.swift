@@ -35,5 +35,25 @@ struct CreatePostPollRequestDTO: Codable {
 
 struct PollVoteRequestDTO: Codable {
     let selectedOptionIds: [Int]
-}
+    let asAnon: Bool?
+    let anonProfileId: Int?
+    let anonCert: String?
+    let anonCertKid: String?
+    let anonSig: String?
 
+    init(
+        selectedOptionIds: [Int],
+        asAnon: Bool? = nil,
+        anonProfileId: Int? = nil,
+        anonCert: String? = nil,
+        anonCertKid: String? = nil,
+        anonSig: String? = nil
+    ) {
+        self.selectedOptionIds = selectedOptionIds
+        self.asAnon = asAnon
+        self.anonProfileId = anonProfileId
+        self.anonCert = anonCert
+        self.anonCertKid = anonCertKid
+        self.anonSig = anonSig
+    }
+}

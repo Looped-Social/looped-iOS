@@ -76,6 +76,26 @@ struct CommentsModalManagerTests {
     }
 
     @Test
+    func commentDecoding_handlesDeletedTombstoneWithSanitizedAuthor() {
+        let tombstone = looped_iOS.Comment(dto: makeCommentDTO(
+            id: 303,
+            parentId: nil,
+            authorId: nil,
+            principalId: nil,
+            name: nil,
+            displayName: nil,
+            username: nil,
+            handle: nil,
+            isAnonymous: false,
+            isDeleted: true
+        ))
+
+        #expect(tombstone.backendId == 303)
+        #expect(tombstone.isDeleted == true)
+        #expect(tombstone.authorBackendId == nil)
+    }
+
+    @Test
     func deleteComment_removesTopLevelWhenNoReplies() async {
         let commentsService = MockCommentsService()
         let manager = makeManager(commentsService: commentsService)
@@ -151,19 +171,22 @@ private func makeComment(
 private func makeCommentDTO(
     id: Int,
     parentId: Int?,
+    authorId: Int? = 42,
+    principalId: Int? = 42,
     name: String?,
     displayName: String?,
     username: String?,
     handle: String?,
-    isAnonymous: Bool
+    isAnonymous: Bool,
+    isDeleted: Bool = false
 ) -> CommentDTO {
     CommentDTO(
         id: id,
         postId: 1,
         parentId: parentId,
         author: CommentAuthorDTO(
-            id: 42,
-            principalId: 42,
+            id: authorId,
+            principalId: principalId,
             isAnonymous: isAnonymous,
             name: name,
             displayName: displayName,
@@ -174,14 +197,14 @@ private func makeCommentDTO(
         ),
         isAnonymous: isAnonymous,
         authorIsAnonymous: isAnonymous,
-        authorPrincipalId: 42,
+        authorPrincipalId: principalId,
         content: "Body",
         mediaAssetId: nil,
         likesCount: 0,
         replyCount: 0,
         userLiked: false,
         likedByCreator: false,
-        isDeleted: false,
+        isDeleted: isDeleted,
         isUnderReview: false,
         createdAt: Date(timeIntervalSince1970: 1_700_000_000)
     )

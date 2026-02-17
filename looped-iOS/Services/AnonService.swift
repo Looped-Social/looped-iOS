@@ -21,6 +21,7 @@ enum AnonAction {
     case unlike(postId: Int)
     case save(postId: Int)
     case unsave(postId: Int)
+    case pollVote(pollId: Int)
     case repost(postId: Int)
     case unrepost(postId: Int)
     case postDelete(postId: Int)
@@ -288,6 +289,8 @@ actor AnonService {
             canonical = "save|v1|\(postId)"
         case .unsave(let postId):
             canonical = "unsave|v1|\(postId)"
+        case .pollVote(let pollId):
+            canonical = "poll_vote|v1|\(pollId)"
         case .repost(let postId):
             canonical = "repost|v1|\(postId)"
         case .unrepost(let postId):

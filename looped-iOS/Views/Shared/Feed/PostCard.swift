@@ -1358,14 +1358,6 @@ struct PostCard: View {
             presentMissingPostIdError(action: "repost")
             return
         }
-        if isRepostLocked {
-            actionError = PostActionError(
-                title: reactionLockTitle,
-                message: reactionLockMessage(verb: "repost"),
-                primaryAction: joinPrimaryAction
-            )
-            return
-        }
         let previousValue = isReposted
         isReposted.toggle()
         isRepostLoading = true
@@ -1516,14 +1508,6 @@ struct PostCard: View {
         guard let communityPermissions else { return false }
         let requiresGate = communityPermissions.requiresVerification || communityPermissions.requiresJoin
         return requiresGate && !communityPermissions.canPost
-    }
-
-    private var isRepostLocked: Bool {
-        guard !isAnonymousMode else { return false }
-        if let viewerCapabilities {
-            return !viewerCapabilities.canInteract || !viewerCapabilities.canRepost
-        }
-        return isReactionLocked
     }
 
     private var isSaveLocked: Bool {

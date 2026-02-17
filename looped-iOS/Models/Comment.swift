@@ -130,17 +130,17 @@ struct Comment: Codable, Identifiable {
     }
 
     init(dto: CommentDTO) {
-        let resolvedIsAnonymous = dto.authorIsAnonymous ?? dto.author.isAnonymous ?? dto.isAnonymous ?? false
-        let trimmedDisplayName = dto.author.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedName = dto.author.name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedUsername = dto.author.username?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedHandle = dto.author.handle?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedDisplayName = [trimmedDisplayName, trimmedName, trimmedUsername, trimmedHandle]
+        let author = dto.author
+        let resolvedIsAnonymous = dto.authorIsAnonymous ?? author?.isAnonymous ?? dto.isAnonymous ?? false
+        let trimmedDisplayName = author?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = author?.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedDisplayName = [trimmedDisplayName, trimmedName]
             .compactMap { value -> String? in
                 guard let value, !value.isEmpty else { return nil }
                 return value
             }
             .first
+        let resolvedAuthorBackendId = author?.id ?? dto.authorPrincipalId ?? author?.principalId
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
@@ -149,11 +149,11 @@ struct Comment: Codable, Identifiable {
             content: dto.content,
             mediaAssetId: dto.mediaAssetId,
             attachments: nil,
-            authorId: UUID.fromBackendId(dto.author.id),
-            authorBackendId: dto.author.id,
+            authorId: resolvedAuthorBackendId.map(UUID.fromBackendId) ?? UUID(),
+            authorBackendId: resolvedAuthorBackendId,
             authorDisplayName: resolvedDisplayName,
-            authorHandle: dto.author.username ?? dto.author.handle,
-            authorProfileImageURL: dto.author.profileImageUrl,
+            authorHandle: author?.username ?? author?.handle,
+            authorProfileImageURL: author?.profileImageUrl,
             company: "",
             isAnonymous: resolvedIsAnonymous,
             isDeleted: dto.isDeleted ?? false,

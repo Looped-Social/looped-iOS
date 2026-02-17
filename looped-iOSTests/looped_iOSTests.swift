@@ -228,4 +228,28 @@ struct looped_iOSTests {
         #expect(request.httpBody == nil)
     }
 
+    @Test func apiClientBlocksRealNetworkByDefaultInUnitTests() async throws {
+        let apiClient = APIClient(
+            baseURL: "https://example.com",
+            session: .shared,
+            tokenStorage: TokenStorage(),
+            tokenProvider: nil
+        )
+
+        do {
+            let _: EmptyResponse = try await apiClient.get("/", requiresAuth: false)
+            Issue.record("Expected network guard to block unit-test outbound call")
+        } catch {
+            guard let apiError = error as? APIError else {
+                Issue.record("Expected APIError.networkError, got: \(error)")
+                return
+            }
+            guard case .networkError = apiError else {
+                Issue.record("Expected APIError.networkError, got: \(apiError)")
+                return
+            }
+            #expect(error.localizedDescription.contains("Blocked outbound network call in unit tests"))
+        }
+    }
+
 }

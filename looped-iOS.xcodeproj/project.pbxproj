@@ -45,13 +45,6 @@
 			remoteGlobalIDString = 4F5204822F23EA2400762196;
 			remoteInfo = "looped-iOS Staging";
 		};
-		4FA632A82F44C17200CF1006 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4F4C18862E6B3D150043DD49 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4F5204822F23EA2400762196;
-			remoteInfo = "looped-iOS Staging";
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -419,11 +412,6 @@
 			isa = PBXTargetDependency;
 			target = 4F5204822F23EA2400762196 /* looped-iOS Staging */;
 			targetProxy = 4FA632A62F44C16E00CF1006 /* PBXContainerItemProxy */;
-		};
-		4FA632A92F44C17200CF1006 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4F5204822F23EA2400762196 /* looped-iOS Staging */;
-			targetProxy = 4FA632A82F44C17200CF1006 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

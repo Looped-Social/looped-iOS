@@ -18,6 +18,12 @@ class APIClient {
     private let session: URLSession
     private let tokenStorage: TokenStorage
     private let tokenProvider: AuthTokenProvider?
+    private static let allowNetworkInTestsEnvKey = "LOOPED_ALLOW_NETWORK_IN_TESTS"
+    private static let isUnitTestProcess: Bool = {
+        Bundle.allBundles.contains { bundle in
+            bundle.bundlePath.hasSuffix(".xctest") && !bundle.bundlePath.contains("UITests")
+        }
+    }()
     
     init(
         baseURL: String? = nil,
@@ -353,6 +359,7 @@ class APIClient {
     
     private func performRequest<T: Decodable>(_ request: URLRequest) async throws -> T {
         do {
+            try enforceNoRealNetworkInUnitTests(for: request)
             let (data, response) = try await session.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -424,6 +431,7 @@ class APIClient {
 
     private func performRequestData(_ request: URLRequest) async throws -> Data {
         do {
+            try enforceNoRealNetworkInUnitTests(for: request)
             let (data, response) = try await session.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -521,6 +529,18 @@ class APIClient {
     private func publishAuthGatingIfNeeded(statusCode: Int, payload: ServerError) {
         guard let context = AuthGatingContext(statusCode: statusCode, payload: payload) else { return }
         NotificationCenter.default.post(name: .authGatingRequired, object: context)
+    }
+
+    private func enforceNoRealNetworkInUnitTests(for request: URLRequest) throws {
+        guard Self.isUnitTestProcess else { return }
+        let allowNetwork = ProcessInfo.processInfo.environment[Self.allowNetworkInTestsEnvKey] == "1"
+        guard !allowNetwork else { return }
+
+        // Allow sessions that explicitly inject a URLProtocol-based transport (test doubles).
+        let hasExplicitProtocolMock = !(session.configuration.protocolClasses ?? []).isEmpty
+        guard !hasExplicitProtocolMock else { return }
+
+        throw APIError.networkError(UnitTestNetworkBlockedError(url: request.url))
     }
 }
 
@@ -673,6 +693,15 @@ enum APIError: Error, LocalizedError {
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         }
+    }
+}
+
+private struct UnitTestNetworkBlockedError: LocalizedError {
+    let url: URL?
+
+    var errorDescription: String? {
+        let target = url?.absoluteString ?? "<unknown>"
+        return "Blocked outbound network call in unit tests: \(target)"
     }
 }
 

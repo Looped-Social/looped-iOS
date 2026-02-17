@@ -84,7 +84,7 @@ struct PostDeleteResponse {
 }
 
 protocol PollsServiceProtocol {
-    func vote(pollId: Int, selectedOptionIds: [Int]) async throws -> Poll
+    func vote(pollId: Int, selectedOptionIds: [Int], communityId: Int?) async throws -> Poll
 }
 
 protocol MessageServiceProtocol {
