@@ -70,10 +70,7 @@ struct CommentRow: View {
     }
     
     private var displayName: String {
-        if comment.isAnonymous {
-            return "Anonymous"
-        }
-        return comment.authorDisplayName ?? "User"
+        comment.resolvedAuthorName
     }
 
     private var formattedTimestamp: String {

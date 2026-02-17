@@ -463,10 +463,17 @@ class CommentsModalManager: ObservableObject {
                 limit: pageSize,
                 cursor: reset ? nil : nextCursor
             )
+            let normalized = Self.partitionCommentsForDisplay(page.comments)
             if reset {
-                currentComments = page.comments
+                currentComments = normalized.topLevelComments
             } else {
-                currentComments.append(contentsOf: page.comments)
+                currentComments = mergeDeduplicatedComments(
+                    existing: currentComments,
+                    incoming: normalized.topLevelComments
+                )
+            }
+            if !normalized.inlineRepliesByParentId.isEmpty {
+                mergeInlineReplies(normalized.inlineRepliesByParentId)
             }
             nextCursor = page.nextCursor
             if let parentId = focusParentId,
@@ -480,6 +487,64 @@ class CommentsModalManager: ObservableObject {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    static func partitionCommentsForDisplay(_ comments: [Comment]) -> (topLevelComments: [Comment], inlineRepliesByParentId: [Int: [Comment]]) {
+        var topLevelComments: [Comment] = []
+        var inlineRepliesByParentId: [Int: [Comment]] = [:]
+
+        for comment in comments {
+            if let parentId = comment.replyToBackendId {
+                inlineRepliesByParentId[parentId, default: []].append(comment)
+            } else {
+                topLevelComments.append(comment)
+            }
+        }
+
+        let dedupedTopLevel = deduplicatedCommentsForDisplay(topLevelComments)
+        let dedupedReplies = inlineRepliesByParentId.mapValues { deduplicatedCommentsForDisplay($0) }
+        return (dedupedTopLevel, dedupedReplies)
+    }
+
+    private func mergeInlineReplies(_ inlineRepliesByParentId: [Int: [Comment]]) {
+        guard !inlineRepliesByParentId.isEmpty else { return }
+
+        for (parentId, inlineReplies) in inlineRepliesByParentId {
+            var state = replyThreads[parentId] ?? ReplyThreadState()
+            state.replies = mergeDeduplicatedComments(existing: state.replies, incoming: inlineReplies)
+            replyThreads[parentId] = state
+
+            if let parentIndex = currentComments.firstIndex(where: { $0.backendId == parentId }) {
+                let parent = currentComments[parentIndex]
+                let resolvedReplyCount = max(parent.replyCount, state.replies.count)
+                if resolvedReplyCount != parent.replyCount {
+                    currentComments[parentIndex] = parent.updating(replyCount: resolvedReplyCount)
+                }
+            }
+        }
+    }
+
+    private func mergeDeduplicatedComments(existing: [Comment], incoming: [Comment]) -> [Comment] {
+        Self.deduplicatedCommentsForDisplay(existing + incoming)
+    }
+
+    static func deduplicatedCommentsForDisplay(_ comments: [Comment]) -> [Comment] {
+        var seenBackendIds = Set<Int>()
+        var seenLocalIds = Set<UUID>()
+        var unique: [Comment] = []
+
+        for comment in comments {
+            if let backendId = comment.backendId {
+                guard seenBackendIds.insert(backendId).inserted else { continue }
+                unique.append(comment)
+                continue
+            }
+
+            guard seenLocalIds.insert(comment.id).inserted else { continue }
+            unique.append(comment)
+        }
+
+        return unique
     }
 
     private func loadPermissions() async {

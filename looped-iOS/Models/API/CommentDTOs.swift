@@ -28,6 +28,7 @@ struct CommentAuthorDTO: Codable {
     let id: Int
     let principalId: Int?
     let isAnonymous: Bool?
+    let name: String?
     let displayName: String?
     let username: String?
     let handle: String?

@@ -748,10 +748,7 @@ private extension CommentsView {
     }
 
     func displayName(for comment: Comment) -> String {
-        if comment.isAnonymous {
-            return "Anonymous"
-        }
-        return comment.authorDisplayName ?? "User"
+        comment.resolvedAuthorName
     }
 
     func canManage(comment: Comment) -> Bool {

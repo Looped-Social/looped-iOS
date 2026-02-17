@@ -131,6 +131,16 @@ struct Comment: Codable, Identifiable {
 
     init(dto: CommentDTO) {
         let resolvedIsAnonymous = dto.authorIsAnonymous ?? dto.author.isAnonymous ?? dto.isAnonymous ?? false
+        let trimmedDisplayName = dto.author.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = dto.author.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUsername = dto.author.username?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedHandle = dto.author.handle?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedDisplayName = [trimmedDisplayName, trimmedName, trimmedUsername, trimmedHandle]
+            .compactMap { value -> String? in
+                guard let value, !value.isEmpty else { return nil }
+                return value
+            }
+            .first
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
@@ -141,7 +151,7 @@ struct Comment: Codable, Identifiable {
             attachments: nil,
             authorId: UUID.fromBackendId(dto.author.id),
             authorBackendId: dto.author.id,
-            authorDisplayName: dto.author.displayName,
+            authorDisplayName: resolvedDisplayName,
             authorHandle: dto.author.username ?? dto.author.handle,
             authorProfileImageURL: dto.author.profileImageUrl,
             company: "",
@@ -194,5 +204,28 @@ struct Comment: Codable, Identifiable {
             replyToCommentId: replyToCommentId,
             replyToBackendId: replyToBackendId
         )
+    }
+}
+
+extension Comment {
+    var resolvedAuthorName: String {
+        if isAnonymous {
+            return "Anonymous"
+        }
+        if let displayName = normalized(authorDisplayName) {
+            return displayName
+        }
+        if let handle = normalized(authorHandle) {
+            if handle.hasPrefix("@") {
+                return handle
+            }
+            return "@\(handle)"
+        }
+        return "User"
+    }
+
+    private func normalized(_ value: String?) -> String? {
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
