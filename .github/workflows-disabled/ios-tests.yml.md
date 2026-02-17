@@ -3,8 +3,14 @@ name: iOS Tests
 on:
   push:
     branches:
-      - '**'
+      - main
   pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-tests:
