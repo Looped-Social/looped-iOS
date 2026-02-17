@@ -6,6 +6,7 @@ struct FeedView: View {
     @Binding private var scrollToTopSignal: Int
     @Environment(\.floatingActionButtonState) private var fabState
     @EnvironmentObject var viewModel: FeedViewModel
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var headerVisible = true
     @State private var lastScrollOffset: CGFloat = 0
     @State private var isAtTop = true
@@ -237,6 +238,11 @@ struct FeedView: View {
                 isTabBarVisible = true
             }
             stopPolling()
+        }
+        .onChange(of: isAnonymousMode) { _, _ in
+            Task {
+                await viewModel.loadPosts(reset: true, clearExistingPosts: true, force: true)
+            }
         }
         .loopedHashtagNavigationHost()
         .loopedMentionNavigationHost()

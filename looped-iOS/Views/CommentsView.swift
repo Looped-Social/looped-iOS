@@ -36,8 +36,10 @@ struct CommentsView: View {
     @State private var selectedCommentForModeration: Comment?
     @State private var moderationAlertMessage: String?
     @State private var isPostLikeLoading = false
+    @State private var isPostRepostLoading = false
     @State private var postLikeCountOverride: Int?
     @State private var postIsLikedOverride: Bool?
+    @State private var postViewerHasRepostedOverride: Bool?
     @State private var isPreparingPostShareSheet = false
     @State private var showPostShareSheet = false
     @State private var postShareItems: [Any] = []
@@ -125,16 +127,16 @@ struct CommentsView: View {
         max(postLikeCountOverride ?? post.reactionCount, 0)
     }
 
-    private var displayedPostCommentsCount: Int {
-        max(commentsManager.currentPost?.commentsCount ?? post.commentsCount, 0)
-    }
-
     private var displayedPostShareCount: Int {
         max(postShareCountOverride ?? post.shareCount, 0)
     }
 
     private var isPostLiked: Bool {
         postIsLikedOverride ?? (post.userReaction == .like)
+    }
+
+    private var isPostReposted: Bool {
+        postViewerHasRepostedOverride ?? post.viewerHasReposted
     }
 
     private var canLikePost: Bool {
@@ -431,20 +433,19 @@ private extension CommentsView {
             .disabled(isPostLikeLoading || !canLikePost)
             .opacity((isPostLikeLoading || !canLikePost) ? 0.6 : 1.0)
 
-            Button(action: focusCommentComposer) {
+            Button(action: togglePostRepost) {
                 HStack(spacing: 4) {
-                    Image("comment-icon")
+                    Image(systemName: "arrow.2.squarepath")
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: 18, height: 18)
-                        .foregroundColor(.loopedTextSecondary)
-                    Text("\(displayedPostCommentsCount)")
-                        .font(.loopedSubheadlineScaled)
-                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 20, height: 20)
+                        .foregroundColor(isPostReposted ? .loopedPrimary : .loopedTextSecondary)
                 }
             }
             .buttonStyle(PlainButtonStyle())
+            .disabled(isPostRepostLoading)
+            .opacity(isPostRepostLoading ? 0.6 : 1.0)
 
             Button(action: preparePostShareSheet) {
                 HStack(spacing: 4) {
@@ -773,16 +774,6 @@ private extension CommentsView {
         return ["Check this out on Looped"]
     }
 
-    func focusCommentComposer() {
-        guard canComment else {
-            commentsManager.toastMessage = ToastMessage(text: restrictedInteractionMessage, kind: .info)
-            return
-        }
-        DispatchQueue.main.async {
-            isCommentFieldFocused = true
-        }
-    }
-
     func togglePostLike() {
         guard !isPostLikeLoading else { return }
         guard canLikePost else {
@@ -846,6 +837,54 @@ private extension CommentsView {
         }
     }
 
+    func togglePostRepost() {
+        guard !isPostRepostLoading else { return }
+        guard let postId = post.backendId else {
+            commentsManager.toastMessage = ToastMessage(text: "Post data is missing. Pull to refresh and try again.", kind: .error)
+            return
+        }
+        isPostRepostLoading = true
+        let previousValue = isPostReposted
+
+        Task {
+            defer { isPostRepostLoading = false }
+            do {
+                let response: PostRepostResponse
+                if previousValue {
+                    response = try await feedService.unrepostPost(postId: postId)
+                } else {
+                    response = try await feedService.repostPost(postId: postId)
+                }
+                postViewerHasRepostedOverride = response.viewerHasReposted
+                let updated = post.updating(
+                    viewerHasReposted: response.viewerHasReposted,
+                    updatedAt: Date()
+                )
+                if let existing = feedViewModel.posts.first(where: { $0.backendId == postId }) {
+                    let merged = existing.updating(
+                        viewerHasReposted: response.viewerHasReposted,
+                        updatedAt: Date()
+                    )
+                    feedViewModel.updatePost(merged)
+                } else {
+                    feedViewModel.updatePost(updated)
+                }
+                if let current = commentsManager.currentPost, current.backendId == postId {
+                    commentsManager.currentPost = current.updating(
+                        viewerHasReposted: response.viewerHasReposted,
+                        updatedAt: Date()
+                    )
+                }
+            } catch {
+                if isNotFound(error) {
+                    commentsManager.toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
+                    return
+                }
+                commentsManager.toastMessage = ToastMessage(text: repostErrorMessage(for: error), kind: .error)
+            }
+        }
+    }
+
     func preparePostShareSheet() {
         guard !isPreparingPostShareSheet else { return }
         isPreparingPostShareSheet = true
@@ -896,6 +935,32 @@ private extension CommentsView {
         for item in selectedMedia {
             TemporaryMediaFile.deleteIfOwned(item.videoURL)
         }
+    }
+
+    func repostErrorMessage(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .apiError(_, let error, let message):
+                if error == "community_banned" {
+                    return "You can’t repost in this community."
+                }
+                if error == "forbidden" {
+                    return "You can’t repost this post."
+                }
+                if error == "user_not_provisioned" {
+                    return "Finish setting up your account to repost."
+                }
+                if error == "self_repost_not_allowed" {
+                    return "You cannot repost your own post."
+                }
+                return message ?? "This action isn't available right now."
+            case .unauthorized:
+                return "Please sign in again and try reposting."
+            default:
+                return "This action isn't available right now."
+            }
+        }
+        return error.localizedDescription
     }
 }
 
