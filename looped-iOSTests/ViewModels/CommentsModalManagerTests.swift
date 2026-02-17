@@ -36,8 +36,23 @@ struct CommentsModalManagerTests {
     }
 
     @Test
+    func partitionCommentsForDisplay_hidesDeletedTopLevelWithoutReplies() {
+        let deleted = makeComment(
+            backendId: 601,
+            parentId: nil,
+            displayName: "Deleted",
+            replyCount: 0,
+            isDeleted: true
+        )
+
+        let partitioned = CommentsModalManager.partitionCommentsForDisplay([deleted])
+
+        #expect(partitioned.topLevelComments.isEmpty)
+    }
+
+    @Test
     func resolvedAuthorName_prefersNameThenHandleWhenDisplayNameMissing() {
-        let withName = Comment(dto: makeCommentDTO(
+        let withName = looped_iOS.Comment(dto: makeCommentDTO(
             id: 301,
             parentId: nil,
             name: "Taylor Rivera",
@@ -48,7 +63,7 @@ struct CommentsModalManagerTests {
         ))
         #expect(withName.resolvedAuthorName == "Taylor Rivera")
 
-        let withHandle = Comment(dto: makeCommentDTO(
+        let withHandle = looped_iOS.Comment(dto: makeCommentDTO(
             id: 302,
             parentId: nil,
             name: nil,
@@ -59,10 +74,62 @@ struct CommentsModalManagerTests {
         ))
         #expect(withHandle.resolvedAuthorName == "@taylorr")
     }
+
+    @Test
+    func deleteComment_removesTopLevelWhenNoReplies() async {
+        let commentsService = MockCommentsService()
+        let manager = makeManager(commentsService: commentsService)
+        await prepareManagerForPost(manager, postId: 99)
+
+        let comment = makeComment(backendId: 401, parentId: nil, displayName: "Root", replyCount: 0)
+        manager.currentComments = [comment]
+
+        await manager.deleteComment(comment)
+
+        #expect(manager.currentComments.isEmpty)
+    }
+
+    @Test
+    func deleteComment_keepsTopLevelTombstoneWhenRepliesExist() async {
+        let commentsService = MockCommentsService()
+        let manager = makeManager(commentsService: commentsService)
+        await prepareManagerForPost(manager, postId: 100)
+
+        let comment = makeComment(backendId: 402, parentId: nil, displayName: "Root", replyCount: 2)
+        manager.currentComments = [comment]
+
+        await manager.deleteComment(comment)
+
+        #expect(manager.currentComments.count == 1)
+        #expect(manager.currentComments[0].isDeleted)
+    }
+
+    @Test
+    func deleteComment_removesReplyWhenNoNestedRepliesAndUpdatesParentCount() async {
+        let commentsService = MockCommentsService()
+        let manager = makeManager(commentsService: commentsService)
+        await prepareManagerForPost(manager, postId: 101)
+
+        let parent = makeComment(backendId: 501, parentId: nil, displayName: "Parent", replyCount: 1)
+        let reply = makeComment(backendId: 502, parentId: 501, displayName: "Reply", replyCount: 0)
+        manager.currentComments = [parent]
+        manager.replyThreads[501] = ReplyThreadState(replies: [reply], isExpanded: true)
+
+        await manager.deleteComment(reply)
+
+        #expect(manager.replyThreads[501]?.replies.isEmpty == true)
+        #expect(manager.currentComments.first?.replyCount == 0)
+    }
 }
 
-private func makeComment(backendId: Int, parentId: Int?, displayName: String?) -> Comment {
-    Comment(
+private func makeComment(
+    backendId: Int,
+    parentId: Int?,
+    displayName: String?,
+    replyCount: Int = 0,
+    isDeleted: Bool = false
+) -> looped_iOS.Comment {
+    looped_iOS.Comment(
         id: UUID.fromBackendId(backendId),
         backendId: backendId,
         postId: UUID.fromBackendId(1),
@@ -74,6 +141,8 @@ private func makeComment(backendId: Int, parentId: Int?, displayName: String?) -
         authorHandle: "user\(backendId)",
         company: "Looped",
         isAnonymous: false,
+        isDeleted: isDeleted,
+        replyCount: replyCount,
         replyToCommentId: parentId.map(UUID.fromBackendId),
         replyToBackendId: parentId
     )
@@ -116,4 +185,52 @@ private func makeCommentDTO(
         isUnderReview: false,
         createdAt: Date(timeIntervalSince1970: 1_700_000_000)
     )
+}
+
+@MainActor
+private func makeManager(commentsService: MockCommentsService) -> CommentsModalManager {
+    CommentsModalManager(
+        commentsService: commentsService,
+        communityService: MockCommunityService(),
+        mediaService: MockMediaService()
+    )
+}
+
+@MainActor
+private func prepareManagerForPost(_ manager: CommentsModalManager, postId: Int) async {
+    manager.showComments(for: TestFixtures.post(backendId: postId))
+    try? await Task.sleep(nanoseconds: 20_000_000)
+}
+
+final class MockCommentsService: CommentsServiceProtocol {
+    var fetchCommentsResult = CommentPage(comments: [], nextCursor: nil)
+    var fetchRepliesResult = CommentPage(comments: [], nextCursor: nil)
+
+    func fetchComments(postId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
+        fetchCommentsResult
+    }
+
+    func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
+        fetchRepliesResult
+    }
+
+    func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?, mediaAssetId: Int?) async throws -> looped_iOS.Comment {
+        throw TestError.unimplemented(#function)
+    }
+
+    func editComment(commentId: Int, communityId: Int?, content: String, asAnon: Bool) async throws -> looped_iOS.Comment {
+        throw TestError.unimplemented(#function)
+    }
+
+    func deleteComment(commentId: Int, communityId: Int?, asAnon: Bool) async throws -> CommentDeleteResponse {
+        CommentDeleteResponse(commentId: commentId, deleted: true)
+    }
+
+    func likeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse {
+        throw TestError.unimplemented(#function)
+    }
+
+    func unlikeComment(commentId: Int, communityId: Int?) async throws -> CommentLikeResponse {
+        throw TestError.unimplemented(#function)
+    }
 }

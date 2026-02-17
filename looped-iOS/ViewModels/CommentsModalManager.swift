@@ -132,11 +132,13 @@ class CommentsModalManager: ObservableObject {
                 limit: pageSize,
                 cursor: reset ? nil : state.nextCursor
             )
+            let visibleReplies = page.comments.filter { !$0.isDeleted || $0.replyCount > 0 }
             var updated = replyThreads[commentId] ?? ReplyThreadState()
             if reset {
-                updated.replies = page.comments
+                updated.replies = visibleReplies
             } else {
-                updated.replies.append(contentsOf: page.comments)
+                updated.replies.append(contentsOf: visibleReplies)
+                updated.replies = Self.deduplicatedCommentsForDisplay(updated.replies)
             }
             updated.nextCursor = page.nextCursor
             updated.isExpanded = true
@@ -360,12 +362,31 @@ class CommentsModalManager: ObservableObject {
             )
             guard response.deleted else { return }
             if let index = currentComments.firstIndex(where: { $0.backendId == commentId }) {
-                currentComments[index] = currentComments[index].updating(content: "", isDeleted: true)
+                let existing = currentComments[index]
+                let loadedReplyCount = replyThreads[commentId]?.replies.count ?? 0
+                let effectiveReplyCount = max(existing.replyCount, loadedReplyCount)
+                if effectiveReplyCount == 0 {
+                    currentComments.remove(at: index)
+                    replyThreads[commentId] = nil
+                } else {
+                    currentComments[index] = existing.updating(content: "", isDeleted: true)
+                }
             }
             if let parentKey = replyThreads.first(where: { $0.value.replies.contains(where: { $0.backendId == commentId }) })?.key,
                var state = replyThreads[parentKey],
                let replyIndex = state.replies.firstIndex(where: { $0.backendId == commentId }) {
-                state.replies[replyIndex] = state.replies[replyIndex].updating(content: "", isDeleted: true)
+                let existingReply = state.replies[replyIndex]
+                let nestedReplyCount = existingReply.backendId.flatMap { replyThreads[$0]?.replies.count } ?? 0
+                let effectiveReplyCount = max(existingReply.replyCount, nestedReplyCount)
+                if effectiveReplyCount == 0 {
+                    state.replies.remove(at: replyIndex)
+                    if let parentIndex = currentComments.firstIndex(where: { $0.backendId == parentKey }) {
+                        let parent = currentComments[parentIndex]
+                        currentComments[parentIndex] = parent.updating(replyCount: max(parent.replyCount - 1, 0))
+                    }
+                } else {
+                    state.replies[replyIndex] = existingReply.updating(content: "", isDeleted: true)
+                }
                 replyThreads[parentKey] = state
             }
             if editTarget?.backendId == commentId {
@@ -501,7 +522,12 @@ class CommentsModalManager: ObservableObject {
             }
         }
 
-        let dedupedTopLevel = deduplicatedCommentsForDisplay(topLevelComments)
+        let dedupedTopLevel = deduplicatedCommentsForDisplay(topLevelComments).filter { comment in
+            guard comment.isDeleted, comment.replyCount == 0 else { return true }
+            guard let backendId = comment.backendId else { return true }
+            let inlineReplyCount = inlineRepliesByParentId[backendId]?.count ?? 0
+            return inlineReplyCount > 0
+        }
         let dedupedReplies = inlineRepliesByParentId.mapValues { deduplicatedCommentsForDisplay($0) }
         return (dedupedTopLevel, dedupedReplies)
     }

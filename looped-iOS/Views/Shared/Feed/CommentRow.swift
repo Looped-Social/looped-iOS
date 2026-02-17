@@ -228,7 +228,12 @@ struct CommentRow: View {
 	    var body: some View {
 	        VStack(alignment: .leading, spacing: 0) {
 	            HStack(alignment: .top, spacing: 12) {
-	                authorAvatar
+	                if comment.isDeleted {
+                        Color.loopedClear
+                            .frame(width: profileSize, height: profileSize)
+                    } else {
+                        authorAvatar
+                    }
 	
 	                VStack(alignment: .leading, spacing: 6) {
 	                    if comment.isDeleted {
@@ -282,24 +287,20 @@ struct CommentRow: View {
 		                        )
 		                    }
 
-                    HStack(alignment: .top, spacing: 8) {
-                        authorName
-                        Spacer()
-                        if canShowActionButton {
-                            Button(action: { showActionMenu = true }) {
-                                Image(systemName: "ellipsis")
-                                    .foregroundColor(.loopedTextSecondary)
+                    if !comment.isDeleted {
+                        HStack(alignment: .top, spacing: 8) {
+                            authorName
+                            Spacer()
+                            if canShowActionButton {
+                                Button(action: { showActionMenu = true }) {
+                                    Image(systemName: "ellipsis")
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .frame(width: 20, height: 16, alignment: .topTrailing)
+                                .padding(.top, 1)
                             }
-                            .frame(width: 20, height: 16, alignment: .topTrailing)
-                            .padding(.top, 1)
                         }
-                    }
 
-                    if comment.isDeleted {
-                        Text(formattedTimestamp)
-                            .font(metadataFont)
-                            .foregroundColor(.loopedTextSecondary)
-                    } else {
                         HStack(alignment: .bottom, spacing: 12) {
                             Text(formattedTimestamp)
                                 .font(metadataFont)
