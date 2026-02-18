@@ -465,11 +465,12 @@ class FeedViewModel: ObservableObject {
         ,
         onStatus: ((ToastMessage) -> Void)? = nil
     ) async -> CreatePostResult {
+        let createStartedAt = Date()
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
             if let poll, !poll.isValid {
                 errorMessage = "Your poll needs a question and at least 2 unique options."
                 return .failed
@@ -614,6 +615,17 @@ class FeedViewModel: ObservableObject {
                case let APIError.apiError(code, apiError, _) = error,
                code == 403,
                apiError == "content_under_review" {
+                if let recovered = await recoverQueuedAnonymousUnderReviewPost(
+                    postedContent: trimmedContent,
+                    communityId: communityId,
+                    createdAfter: createStartedAt
+                ) {
+                    posts.insert(recovered, at: 0)
+                    posts = deduplicatedPosts(posts)
+                    lastPostedCommunityId = communityId
+                    UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
+                    return .createdUnderReview
+                }
                 return .queuedForReview
             }
             if case let APIError.apiError(code, apiError, message) = error, code == 403 {
@@ -674,6 +686,47 @@ class FeedViewModel: ObservableObject {
             return .failed
         }
     }
+
+    private func recoverQueuedAnonymousUnderReviewPost(
+        postedContent: String,
+        communityId: Int,
+        createdAfter: Date
+    ) async -> Post? {
+        guard let anonProfileId = await AnonService.shared.currentIdentity()?.profileId else {
+            return nil
+        }
+
+        do {
+            let page = try await feedService.fetchAnonContent(
+                anonProfileId: anonProfileId,
+                limit: pageSize,
+                cursor: nil,
+                includePostPreview: true
+            )
+            let lowerBound = createdAfter.addingTimeInterval(-120)
+            let candidates = page.items.compactMap { item -> Post? in
+                guard case .post(let post) = item.payload else { return nil }
+                guard post.isUnderReview else { return nil }
+                guard post.isAnonymous else { return nil }
+                guard post.anonProfileId == anonProfileId else { return nil }
+                guard post.communityId == communityId else { return nil }
+                guard post.createdAt >= lowerBound else { return nil }
+                return post
+            }
+            guard !candidates.isEmpty else { return nil }
+
+            let normalizedPostedContent = FeedViewModel.normalizedContent(postedContent)
+            if !normalizedPostedContent.isEmpty,
+               let exactMatch = candidates.first(where: {
+                   FeedViewModel.normalizedContent($0.content) == normalizedPostedContent
+               }) {
+                return exactMatch
+            }
+            return candidates.max(by: { $0.createdAt < $1.createdAt })
+        } catch {
+            return nil
+        }
+    }
 }
 
 private extension FeedViewModel {
@@ -696,6 +749,12 @@ private extension FeedViewModel {
                 return "We couldn't read that image. Try another one."
             }
         }
+    }
+
+    static func normalizedContent(_ raw: String) -> String {
+        raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     func uploadImages(

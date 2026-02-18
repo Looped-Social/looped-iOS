@@ -7,6 +7,7 @@ private enum BlockedUsersDestination: Hashable {
 
 struct BlockedUsersView: View {
     @StateObject private var viewModel = BlockedUsersViewModel()
+    @State private var pendingUnblockUser: BlockedUser?
 
     var body: some View {
         List {
@@ -37,7 +38,7 @@ struct BlockedUsersView: View {
                             user: user,
                             isUnblocking: viewModel.unblockingPrincipalIds.contains(user.principalId)
                         ) {
-                            Task { await viewModel.unblock(user) }
+                            pendingUnblockUser = user
                         }
                         .onAppear {
                             Task { await viewModel.loadMoreIfNeeded(current: user) }
@@ -69,6 +70,27 @@ struct BlockedUsersView: View {
         }
         .task {
             await viewModel.loadBlockedUsers()
+        }
+        .confirmationDialog(
+            "Unblock User?",
+            isPresented: Binding(
+                get: { pendingUnblockUser != nil },
+                set: { if !$0 { pendingUnblockUser = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let user = pendingUnblockUser {
+                Button("Unblock", role: .destructive) {
+                    pendingUnblockUser = nil
+                    Task { await viewModel.unblock(user) }
+                }
+                .disabled(viewModel.unblockingPrincipalIds.contains(user.principalId))
+            }
+            Button("Cancel", role: .cancel) {
+                pendingUnblockUser = nil
+            }
+        } message: {
+            Text("Are you sure you want to unblock this user?")
         }
         .alert(
             "Unable to Unblock",
@@ -126,6 +148,15 @@ private struct BlockedUserRow: View {
             .buttonStyle(PlainButtonStyle())
 
             Spacer()
+
+            NavigationLink(value: destination) {
+                Image(systemName: "chevron.right")
+                    .font(.loopedSymbol(.semibold, size: 12))
+                    .foregroundColor(.loopedTextSecondary)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .accessibilityLabel("View profile")
 
             Button(action: onUnblock) {
                 ZStack {

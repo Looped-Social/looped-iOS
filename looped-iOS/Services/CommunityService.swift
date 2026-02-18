@@ -105,7 +105,8 @@ class CommunityService: CommunityServiceProtocol {
                         name: item.name,
                         shortName: item.shortName,
                         kind: .specialization,
-                        specializationType: CommunitySpecializationType(rawValue: item.specializationType ?? "") ?? .unknown
+                        specializationType: CommunitySpecializationType(rawValue: item.specializationType ?? "") ?? .unknown,
+                        icon: item.icon?.normalizedOrNil()
                     )
                 }
             )

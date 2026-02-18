@@ -44,6 +44,7 @@ final class BlockService: BlockServiceProtocol {
                 requiresAuth: false,
                 headers: ["X-Actor": "anon"]
             )
+            notifyBlockListChanged()
             return BlockActionResult(userId: response.userId, blocked: response.blocked)
         }
 
@@ -51,6 +52,7 @@ final class BlockService: BlockServiceProtocol {
             "/v1/users/\(userId)/block",
             body: EmptyBody()
         )
+        notifyBlockListChanged()
         return BlockActionResult(userId: response.userId, blocked: response.blocked)
     }
 
@@ -70,6 +72,7 @@ final class BlockService: BlockServiceProtocol {
                 requiresAuth: false,
                 headers: ["X-Actor": "anon"]
             )
+            notifyBlockListChanged()
             return BlockActionResult(userId: response.userId, blocked: response.blocked)
         }
 
@@ -77,6 +80,7 @@ final class BlockService: BlockServiceProtocol {
             "/v1/users/\(userId)/block",
             expecting: BlockActionResponseDTO.self
         )
+        notifyBlockListChanged()
         return BlockActionResult(userId: response.userId, blocked: response.blocked)
     }
 
@@ -96,6 +100,7 @@ final class BlockService: BlockServiceProtocol {
                 requiresAuth: false,
                 headers: ["X-Actor": "anon"]
             )
+            notifyBlockListChanged()
             return PrincipalBlockActionResult(principalId: response.principalId, blocked: response.blocked)
         }
 
@@ -103,6 +108,7 @@ final class BlockService: BlockServiceProtocol {
             "/v1/principals/\(principalId)/block",
             body: EmptyBody()
         )
+        notifyBlockListChanged()
         return PrincipalBlockActionResult(principalId: response.principalId, blocked: response.blocked)
     }
 
@@ -122,6 +128,7 @@ final class BlockService: BlockServiceProtocol {
                 requiresAuth: false,
                 headers: ["X-Actor": "anon"]
             )
+            notifyBlockListChanged()
             return PrincipalBlockActionResult(principalId: response.principalId, blocked: response.blocked)
         }
 
@@ -129,7 +136,12 @@ final class BlockService: BlockServiceProtocol {
             "/v1/principals/\(principalId)/block",
             expecting: PrincipalBlockActionResponseDTO.self
         )
+        notifyBlockListChanged()
         return PrincipalBlockActionResult(principalId: response.principalId, blocked: response.blocked)
+    }
+
+    private func notifyBlockListChanged() {
+        NotificationCenter.default.post(name: .userBlockListChanged, object: nil)
     }
 }
 

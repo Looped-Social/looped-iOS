@@ -28,6 +28,7 @@ struct UserProfileView: View {
     @State private var showBlockConfirm = false
     @State private var blockErrorMessage: String?
     @State private var isBlocking = false
+    @State private var isUserBlocked = false
     @State private var showChat = false
     @State private var isStartingConversation = false
 	    @State private var startedConversation: Conversation?
@@ -95,8 +96,12 @@ struct UserProfileView: View {
             .modifier(profileActionsModifier)
             .onPreferenceChange(UserProfileHeaderHeightKey.self, perform: handleHeaderHeightChange)
             .onAppear { syncFloatingActionButtonVisibility() }
+            .onReceive(NotificationCenter.default.publisher(for: .userBlockListChanged)) { _ in
+                Task { await refreshBlockState() }
+            }
             .onChange(of: viewModel.profile?.backendId) { _, _ in
                 syncFloatingActionButtonVisibility()
+                Task { await refreshBlockState() }
             }
             .onChange(of: viewModel.profile?.isCurrentUser) { _, _ in
                 syncFloatingActionButtonVisibility()
@@ -193,6 +198,8 @@ struct UserProfileView: View {
     private var messageConfig: ProfileActionButtons.MessageConfig? {
         guard viewModel.profile?.backendId != nil else { return nil }
         guard !viewModel.isAnonymousProfile else { return nil }
+        guard isUserBlocked == false else { return nil }
+        guard viewModel.viewerBlockedBy != true else { return nil }
         return ProfileActionButtons.MessageConfig(
             isInFlight: isStartingConversation,
             onTap: { Task { await startConversationIfPossible() } }
@@ -204,8 +211,9 @@ struct UserProfileView: View {
             showBlockConfirm: $showBlockConfirm,
             blockErrorMessage: $blockErrorMessage,
             isBlocking: isBlocking,
+            isBlocked: isUserBlocked,
             blockTargetLabel: blockTargetLabel,
-            onConfirmBlock: { Task { await blockProfileUser() } }
+            onConfirmBlock: { Task { await toggleProfileBlock() } }
         )
     }
 
@@ -228,10 +236,10 @@ struct UserProfileView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     if canBlockUser {
-                        Button(role: .destructive) {
+                        Button(role: isUserBlocked ? nil : .destructive) {
                             showBlockConfirm = true
                         } label: {
-                            Label("Block User", systemImage: "hand.raised")
+                            Label(isUserBlocked ? "Unblock User" : "Block User", systemImage: "hand.raised")
                         }
                         .disabled(isBlocking)
                     }
@@ -411,6 +419,7 @@ struct UserProfileView: View {
 
     private func reload() async {
         await viewModel.loadProfile()
+        await refreshBlockState()
         if let backendId = viewModel.profile?.backendId {
             if viewModel.isAnonymousProfile {
                 commentsViewModel.setAnonProfile(id: backendId)
@@ -462,21 +471,75 @@ struct UserProfileView: View {
     }
 
 	    @MainActor
-	    private func blockProfileUser() async {
-	        guard let profileId = viewModel.profile?.backendId else { return }
-	        guard !isBlocking else { return }
-	        isBlocking = true
-	        defer { isBlocking = false }
+    private func toggleProfileBlock() async {
+        guard let profileId = viewModel.profile?.backendId else { return }
+        guard !isBlocking else { return }
+        isBlocking = true
+        defer { isBlocking = false }
 
-	        do {
-	            guard canBlockUser else { return }
-	            _ = try await blockService.blockUser(userId: profileId, asAnonymousActor: isAnonymousMode, communityId: nil)
-	            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
-	            dismiss()
-	        } catch {
-	            blockErrorMessage = error.localizedDescription
-	        }
-	    }
+        do {
+            guard canBlockUser else { return }
+            if isUserBlocked {
+                let result = try await blockService.unblockUser(
+                    userId: profileId,
+                    asAnonymousActor: isAnonymousMode,
+                    communityId: nil
+                )
+                isUserBlocked = result.blocked
+                viewModel.viewerHasBlocked = result.blocked
+            } else {
+                let result = try await blockService.blockUser(
+                    userId: profileId,
+                    asAnonymousActor: isAnonymousMode,
+                    communityId: nil
+                )
+                isUserBlocked = result.blocked
+                viewModel.viewerHasBlocked = result.blocked
+            }
+            NotificationCenter.default.post(name: .contentPreferencesChanged, object: nil)
+        } catch {
+            blockErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func refreshBlockState() async {
+        guard canBlockUser, let profileId = viewModel.profile?.backendId else {
+            isUserBlocked = false
+            return
+        }
+
+        if let viewerHasBlocked = viewModel.viewerHasBlocked {
+            isUserBlocked = viewerHasBlocked
+            return
+        }
+
+        do {
+            isUserBlocked = try await isUserInBlockedList(profileId: profileId)
+        } catch {
+            // Keep existing state if lookup fails.
+        }
+    }
+
+    private func isUserInBlockedList(profileId: Int) async throws -> Bool {
+        var cursor: String?
+        var visitedCursors = Set<String>()
+
+        while true {
+            let page = try await blockService.fetchBlockedUsers(limit: 100, cursor: cursor)
+            if page.users.contains(where: { $0.backendId == profileId }) {
+                return true
+            }
+
+            guard let nextCursor = page.nextCursor, !nextCursor.isEmpty else {
+                return false
+            }
+            guard visitedCursors.contains(nextCursor) == false else {
+                return false
+            }
+            visitedCursors.insert(nextCursor)
+            cursor = nextCursor
+        }
+    }
 
 	    @MainActor
 	    private func startConversationIfPossible() async {
@@ -490,12 +553,16 @@ struct UserProfileView: View {
 	        isStartingConversation = true
 	        defer { isStartingConversation = false }
 
-	        do {
+        do {
 	            let conversation = try await messageService.startConversation(with: targetUserId)
 	            startedConversation = conversation
 	            showChat = true
 	        } catch {
-	            messageErrorMessage = error.localizedDescription
+            if case let APIError.apiError(_, apiError, _) = error, apiError == "blocked_relationship" {
+                messageErrorMessage = "You can’t message this user while one of you has the other blocked."
+            } else {
+                messageErrorMessage = error.localizedDescription
+            }
 	        }
 	    }
 	}
@@ -504,22 +571,23 @@ private struct ProfileActionsModifier: ViewModifier {
     @Binding var showBlockConfirm: Bool
     @Binding var blockErrorMessage: String?
     let isBlocking: Bool
+    let isBlocked: Bool
     let blockTargetLabel: String
     let onConfirmBlock: () -> Void
 
     func body(content: Content) -> some View {
         content
-            .confirmationDialog("Block user?", isPresented: $showBlockConfirm, titleVisibility: .visible) {
-                Button("Block User", role: .destructive) {
+            .confirmationDialog(dialogTitle, isPresented: $showBlockConfirm, titleVisibility: .visible) {
+                Button(actionButtonTitle, role: isBlocked ? nil : .destructive) {
                     onConfirmBlock()
                 }
                 .disabled(isBlocking)
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("You won't see posts from \(blockTargetLabel) anymore.")
+                Text(dialogMessage)
             }
             .alert(
-                "Couldn't block user",
+                alertTitle,
                 isPresented: Binding(
                     get: { blockErrorMessage != nil },
                     set: { if !$0 { blockErrorMessage = nil } }
@@ -529,6 +597,25 @@ private struct ProfileActionsModifier: ViewModifier {
             } message: {
                 Text(blockErrorMessage ?? "")
             }
+    }
+
+    private var dialogTitle: String {
+        isBlocked ? "Unblock user?" : "Block user?"
+    }
+
+    private var actionButtonTitle: String {
+        isBlocked ? "Unblock User" : "Block User"
+    }
+
+    private var dialogMessage: String {
+        if isBlocked {
+            return "You'll be able to see posts from \(blockTargetLabel) again."
+        }
+        return "You won't see posts from \(blockTargetLabel) anymore."
+    }
+
+    private var alertTitle: String {
+        isBlocked ? "Couldn't unblock user" : "Couldn't block user"
     }
 }
 

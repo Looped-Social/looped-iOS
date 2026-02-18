@@ -11,7 +11,7 @@ struct JoinedSpecializationDTO: Decodable {
     let name: String
     let shortName: String?
     let specializationType: String?
+    let icon: CommunityIcon?
     let memberCount: Int?
     let joinedAt: Date?
 }
-

@@ -4,6 +4,7 @@ struct UnderReviewView: View {
     @StateObject private var viewModel = UnderReviewViewModel()
     @StateObject private var commentsManager = CommentsModalManager()
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @AppStorage("anonymousMode") private var isAnonymousMode = false
     @State private var isAtTop = true
 
     var body: some View {
@@ -82,10 +83,13 @@ struct UnderReviewView: View {
         .navigationBarTitleDisplayMode(.inline)
         .environmentObject(commentsManager)
         .task {
-            await viewModel.loadInitial(fallbackUserId: authViewModel.currentUser?.backendId)
+            await reloadUnderReview()
+        }
+        .onChange(of: isAnonymousMode) { _, _ in
+            Task { await reloadUnderReview() }
         }
         .loopedPullToRefresh(isAtTop: isAtTop) {
-            await viewModel.refresh()
+            await reloadUnderReview()
         }
         .loopedHashtagNavigationHost()
         .loopedMentionNavigationHost()
@@ -93,6 +97,21 @@ struct UnderReviewView: View {
 }
 
 private extension UnderReviewView {
+    @MainActor
+    func reloadUnderReview() async {
+        let resolvedAnonProfileId: Int?
+        if isAnonymousMode {
+            resolvedAnonProfileId = await AnonService.shared.currentIdentity()?.profileId
+        } else {
+            resolvedAnonProfileId = nil
+        }
+        await viewModel.loadInitial(
+            fallbackUserId: authViewModel.currentUser?.backendId,
+            isAnonymousMode: isAnonymousMode,
+            anonProfileId: resolvedAnonProfileId
+        )
+    }
+
     var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "hourglass")

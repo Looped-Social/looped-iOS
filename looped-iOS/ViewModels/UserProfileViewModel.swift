@@ -13,6 +13,8 @@ final class UserProfileViewModel: ObservableObject {
     @Published var isFollowing = false
     @Published var isFollowActionInFlight = false
     @Published var followErrorMessage: String?
+    @Published var viewerHasBlocked: Bool?
+    @Published var viewerBlockedBy: Bool?
 
     private let source: UserProfileSource
     private let currentUserId: Int?
@@ -59,10 +61,14 @@ final class UserProfileViewModel: ObservableObject {
             switch source {
             case .user(let userId):
                 let user = try await userService.getUser(by: userId)
+                viewerHasBlocked = user.viewerHasBlocked
+                viewerBlockedBy = user.viewerBlockedBy
                 profile = UserProfile.from(user: user, isCurrentUser: user.backendId == currentUserId)
                 isFollowing = followStateStore.isFollowing(userId: userId)
                 await syncFollowStateFromBackend(for: .user(id: userId))
             case .anon(let anonProfileId):
+                viewerHasBlocked = nil
+                viewerBlockedBy = nil
                 let anonProfile = try await anonService.fetchProfile(id: anonProfileId)
                 let currentIdentity = await anonService.currentIdentity()
                 let isCurrentUser = currentIdentity?.profileId == anonProfileId

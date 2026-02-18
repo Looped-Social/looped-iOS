@@ -145,6 +145,34 @@ struct UserProfileViewModelTests {
         #expect(followStore.isFollowing(userId: 42) == false)
         #expect(userService.unfollowUserCalls.count == 1)
     }
+
+    @Test
+    func loadProfile_surfacesViewerBlockFlagsFromBackend() async {
+        let userService = MockUserService()
+        userService.getUserHandler = { id in
+            TestFixtures.user(
+                backendId: id,
+                followerCount: 4,
+                viewerHasBlocked: true,
+                viewerBlockedBy: false
+            )
+        }
+        userService.fetchUserFollowingHandler = { _, _, _, _ in
+            UserFollowListPage(items: [], nextCursor: nil)
+        }
+
+        let viewModel = UserProfileViewModel(
+            source: .user(id: 42),
+            currentUserId: 7,
+            userService: userService,
+            followStateStore: FollowStateStore(defaults: makeDefaults(prefix: "profile.viewer.block"))
+        )
+
+        await viewModel.loadProfile()
+
+        #expect(viewModel.viewerHasBlocked == true)
+        #expect(viewModel.viewerBlockedBy == false)
+    }
 }
 
 private func makeDefaults(prefix: String) -> UserDefaults {

@@ -189,6 +189,114 @@ struct MessagesViewModelTests {
         try? await Task.sleep(nanoseconds: 500_000_000)
         #expect(viewModel.searchResults.map(\.id) == ["new"])
     }
+
+    @Test
+    func loadInbox_filtersBlockedUsersFromConversationsAndRequests() async {
+        let service = MockMessageService()
+        service.listConversationsHandler = { _ in
+            ConversationPage(conversations: [
+                TestFixtures.conversation(backendId: 1, userName: "Blocked"),
+                TestFixtures.conversation(backendId: 2, userName: "Visible")
+            ], nextCursor: nil)
+        }
+        service.fetchMessageRequestsHandler = { _ in
+            MessageRequestPage(requests: [
+                TestFixtures.messageRequest(backendId: 11, senderBackendId: 1001, status: .pending),
+                TestFixtures.messageRequest(backendId: 12, senderBackendId: 1002, status: .pending)
+            ], nextCursor: nil)
+        }
+        service.getChannelsHandler = { _ in
+            ChannelPage(channels: [TestFixtures.channel(backendId: 8, name: "General")], nextCursor: nil)
+        }
+
+        let blockService = MockBlockService()
+        blockService.fetchBlockedUsersHandler = { _, _ in
+            BlockedUsersPage(users: [TestFixtures.blockedUser(principalId: 501, backendId: 1001)], nextCursor: nil)
+        }
+        let userService = MockUserService()
+        userService.getUserHandler = { backendId in
+            TestFixtures.user(backendId: backendId)
+        }
+
+        let viewModel = MessagesViewModel(
+            messageService: service,
+            userService: userService,
+            blockService: blockService
+        )
+
+        await viewModel.loadInbox()
+
+        #expect(viewModel.conversations.map(\.backendId) == [2])
+        #expect(viewModel.messageRequests.compactMap(\.senderBackendId) == [1002])
+    }
+
+    @Test
+    func searchMessages_filtersBlockedConversationHits() async {
+        let blockedConversation = Conversation(
+            id: UUID.fromBackendId(201),
+            backendId: 201,
+            userId: UUID.fromBackendId(1001),
+            backendUserId: 1001,
+            userName: "Blocked User",
+            userProfileImageUrl: nil,
+            lastMessage: "blocked",
+            lastMessageTimestamp: Date(),
+            unreadCount: 0,
+            isMuted: false,
+            hasTypingIndicator: false,
+            hasSpecialStatus: false,
+            isOnline: false,
+            isGroup: false,
+            memberIds: nil
+        )
+        let visibleConversation = Conversation(
+            id: UUID.fromBackendId(202),
+            backendId: 202,
+            userId: UUID.fromBackendId(1002),
+            backendUserId: 1002,
+            userName: "Visible User",
+            userProfileImageUrl: nil,
+            lastMessage: "visible",
+            lastMessageTimestamp: Date(),
+            unreadCount: 0,
+            isMuted: false,
+            hasTypingIndicator: false,
+            hasSpecialStatus: false,
+            isOnline: false,
+            isGroup: false,
+            memberIds: nil
+        )
+
+        let service = MockMessageService()
+        service.searchMessagesHandler = { _, _, _ in
+            MessageSearchPage(items: [
+                TestFixtures.messageSearchConversationHit(id: "blocked", conversation: blockedConversation),
+                TestFixtures.messageSearchConversationHit(id: "visible", conversation: visibleConversation),
+                TestFixtures.messageSearchChannelHit(id: "channel", channel: TestFixtures.channel(backendId: 9))
+            ], nextCursor: nil)
+        }
+
+        let blockService = MockBlockService()
+        blockService.fetchBlockedUsersHandler = { _, _ in
+            BlockedUsersPage(users: [TestFixtures.blockedUser(principalId: 777, backendId: 1001)], nextCursor: nil)
+        }
+        let userService = MockUserService()
+
+        let viewModel = MessagesViewModel(
+            messageService: service,
+            userService: userService,
+            blockService: blockService
+        )
+
+        viewModel.searchMessages(query: "hello")
+        await waitFor {
+            viewModel.isSearching == false && viewModel.searchResults.count == 2
+        }
+
+        #expect(viewModel.searchResults.map(\.id).contains("blocked") == false)
+        #expect(viewModel.searchResults.map(\.id).contains("visible"))
+        #expect(viewModel.searchResults.map(\.id).contains("channel"))
+    }
 }
 
 @MainActor

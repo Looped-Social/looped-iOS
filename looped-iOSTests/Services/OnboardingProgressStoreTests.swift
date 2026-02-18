@@ -18,6 +18,10 @@ struct OnboardingProgressStoreTests {
         )
 
         store.saveProgress(.profileSetup)
+        #expect(store.loadProgress() == .profileSetup)
+
+        store.saveProgress(.verificationInfo)
+        #expect(store.loadProgress() == .verificationInfo)
 
         store.setActiveUserId("userA")
         store.saveProgress(.selectCompany)
@@ -32,7 +36,7 @@ struct OnboardingProgressStoreTests {
         #expect(store.loadProgress() == .selectSchool)
 
         store.setActiveUserId(nil)
-        #expect(store.loadProgress() == .profileSetup)
+        #expect(store.loadProgress() == .verificationInfo)
 
         defaults.removePersistentDomain(forName: suite)
     }

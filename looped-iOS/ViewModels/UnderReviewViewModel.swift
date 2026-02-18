@@ -11,6 +11,8 @@ final class UnderReviewViewModel: ObservableObject {
     private let pageSize = 20
     private var nextCursor: String?
     private var fallbackUserId: Int?
+    private var isAnonymousMode = false
+    private var anonProfileId: Int?
 
     var hasMore: Bool {
         nextCursor != nil
@@ -20,8 +22,10 @@ final class UnderReviewViewModel: ObservableObject {
         self.feedService = feedService
     }
 
-    func loadInitial(fallbackUserId: Int?) async {
+    func loadInitial(fallbackUserId: Int?, isAnonymousMode: Bool, anonProfileId: Int?) async {
         self.fallbackUserId = fallbackUserId
+        self.isAnonymousMode = isAnonymousMode
+        self.anonProfileId = anonProfileId
         nextCursor = nil
         posts = []
         await load(reset: true)
@@ -40,7 +44,11 @@ final class UnderReviewViewModel: ObservableObject {
     }
 
     func refresh() async {
-        await loadInitial(fallbackUserId: fallbackUserId)
+        await loadInitial(
+            fallbackUserId: fallbackUserId,
+            isAnonymousMode: isAnonymousMode,
+            anonProfileId: anonProfileId
+        )
     }
 
     func updatePost(_ updated: Post) {
@@ -77,20 +85,34 @@ private extension UnderReviewViewModel {
 
         do {
             let page: UserContentPage
-            do {
-                page = try await feedService.fetchMyContent(
+            if isAnonymousMode {
+                guard let anonProfileId else {
+                    posts = []
+                    nextCursor = nil
+                    return
+                }
+                page = try await feedService.fetchAnonContent(
+                    anonProfileId: anonProfileId,
                     limit: pageSize,
                     cursor: reset ? nil : nextCursor,
                     includePostPreview: true
                 )
-            } catch {
-                guard isNotFound(error), let fallbackUserId else { throw error }
-                page = try await feedService.fetchUserContent(
-                    userId: fallbackUserId,
-                    limit: pageSize,
-                    cursor: reset ? nil : nextCursor,
-                    includePostPreview: true
-                )
+            } else {
+                do {
+                    page = try await feedService.fetchMyContent(
+                        limit: pageSize,
+                        cursor: reset ? nil : nextCursor,
+                        includePostPreview: true
+                    )
+                } catch {
+                    guard isNotFound(error), let fallbackUserId else { throw error }
+                    page = try await feedService.fetchUserContent(
+                        userId: fallbackUserId,
+                        limit: pageSize,
+                        cursor: reset ? nil : nextCursor,
+                        includePostPreview: true
+                    )
+                }
             }
 
             let underReview = page.items.compactMap { item -> Post? in

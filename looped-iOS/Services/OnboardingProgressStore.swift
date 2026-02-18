@@ -5,6 +5,7 @@ import FirebaseAuth
 
 enum OnboardingStep: String {
     case profileSetup
+    case verificationInfo
     case selectCompany
     case selectSchool
     case departmentSelection

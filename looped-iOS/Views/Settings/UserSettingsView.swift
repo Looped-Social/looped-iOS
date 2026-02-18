@@ -61,6 +61,8 @@ struct UserSettingsView: View {
     @State private var profilePhotoPayload: ImageUploadPayload?
     @State private var pendingCropImage: UIImage?
     @State private var isShowingImageCropper = false
+    @State private var isShowingDisplaySpecializationPicker = false
+    @State private var isShowingAnonDisplaySpecializationPicker = false
     @State private var profileShareSheetPayload: ProfileShareSheetPayload?
     @State private var initialUsername: String = ""
     @State private var initialFirstName: String = ""
@@ -259,6 +261,20 @@ struct UserSettingsView: View {
                                     .font(.loopedSmallText)
                                     .foregroundColor(.loopedError)
                             }
+
+                            Button {
+                                isShowingAnonDisplaySpecializationPicker = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.loopedCustom(size: 14))
+                                    Text("Browse majors and fields")
+                                        .font(.loopedSubBodyMedium)
+                                }
+                                .foregroundColor(.loopedPrimary)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isSaving)
                         }
                         .padding(.horizontal, 20)
                     } else {
@@ -539,6 +555,20 @@ struct UserSettingsView: View {
                                     .font(.loopedSmallText)
                                     .foregroundColor(.loopedError)
                             }
+
+                            Button {
+                                isShowingDisplaySpecializationPicker = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.loopedCustom(size: 14))
+                                    Text("Browse majors and fields")
+                                        .font(.loopedSubBodyMedium)
+                                }
+                                .foregroundColor(.loopedPrimary)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isSaving)
                         }
                         .padding(.horizontal, 20)
 
@@ -683,6 +713,26 @@ struct UserSettingsView: View {
             } else {
                 EmptyView()
             }
+        }
+        .sheet(
+            isPresented: $isShowingDisplaySpecializationPicker,
+            onDismiss: { Task { await loadJoinedSpecializations() } }
+        ) {
+            DisplaySpecializationPickerView(
+                selectedSpecialization: $displaySpecialization,
+                title: "Display Specialization",
+                communityService: communityService
+            )
+        }
+        .sheet(
+            isPresented: $isShowingAnonDisplaySpecializationPicker,
+            onDismiss: { Task { await loadJoinedSpecializations() } }
+        ) {
+            DisplaySpecializationPickerView(
+                selectedSpecialization: $anonDisplaySpecialization,
+                title: "Display Specialization",
+                communityService: communityService
+            )
         }
         .sheet(item: $profileShareSheetPayload) { payload in
             ShareSheet(items: payload.items)

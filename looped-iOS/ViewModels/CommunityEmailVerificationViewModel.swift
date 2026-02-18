@@ -23,18 +23,21 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
 
     private let communityService: CommunityServiceProtocol
     private let verificationService: CommunityVerificationServiceProtocol
+    private let ensureOnboardingVerificationStep: (() async -> Void)?
     private var pendingEmail: String?
 
     init(
         communityId: Int?,
         communityName: String,
         communityService: CommunityServiceProtocol = CommunityService(),
-        verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+        verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService(),
+        ensureOnboardingVerificationStep: (() async -> Void)? = nil
     ) {
         self.communityId = communityId
         self.communityName = communityName
         self.communityService = communityService
         self.verificationService = verificationService
+        self.ensureOnboardingVerificationStep = ensureOnboardingVerificationStep
     }
 
     var canSendCode: Bool {
@@ -59,6 +62,9 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         isFetchingDomains = true
         errorMessage = nil
         do {
+            if let ensureOnboardingVerificationStep {
+                await ensureOnboardingVerificationStep()
+            }
             let items = try await communityService.fetchCommunityDomains(communityId: communityId)
             let normalized = items
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
@@ -91,6 +97,9 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         errorMessage = nil
         statusMessage = nil
         do {
+            if let ensureOnboardingVerificationStep {
+                await ensureOnboardingVerificationStep()
+            }
             _ = try await verificationService.startVerification(
                 communityId: communityId,
                 method: .email,
@@ -129,6 +138,9 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         statusMessage = nil
         let email = pendingEmail ?? composedEmail
         do {
+            if let ensureOnboardingVerificationStep {
+                await ensureOnboardingVerificationStep()
+            }
             _ = try await verificationService.finishVerification(
                 communityId: communityId,
                 request: CommunityVerificationFinishRequest(
@@ -170,6 +182,8 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
                 return "That community no longer exists."
             case "user_not_provisioned":
                 return "Finish setting up your account before verifying."
+            case "onboarding_incomplete", "invalid_onboarding_step":
+                return "Your onboarding progress is still syncing. Try again in a moment."
             case "email_send_failed":
                 return "We couldn't send the email. Try again in a moment."
             case "email_required":

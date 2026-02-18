@@ -173,6 +173,117 @@ struct FeedViewModelTests {
         await viewModel.checkForNewPosts(minCount: 2, cooldown: 60, isAtTop: false)
         #expect(viewModel.newPostsToastCount == nil)
     }
+
+    @Test
+    func createPost_anonymousQueuedForReview_recoversFromAnonContentWhenAvailable() async {
+        clearFeedDefaults()
+        let anonStore = AnonIdentityStore()
+        anonStore.clearAll()
+        anonStore.saveIdentity(
+            AnonIdentity(
+                profileId: 9001,
+                handle: "anon9001",
+                memberships: [
+                    1: AnonCommunityMembership(
+                        cert: "cert",
+                        certKid: "kid",
+                        certExpiresAt: Date().addingTimeInterval(3600)
+                    )
+                ]
+            )
+        )
+        defer { anonStore.clearAll() }
+
+        let service = MockFeedService()
+        service.createPostHandler = { _, isAnonymous, _, _, _, _ in
+            #expect(isAnonymous == true)
+            throw APIError.apiError(code: 403, error: "content_under_review", message: nil)
+        }
+        service.fetchAnonContentHandler = { anonProfileId, _, _, _ in
+            #expect(anonProfileId == 9001)
+            let recovered = Post(
+                id: UUID.fromBackendId(42),
+                backendId: 42,
+                authorBackendId: nil,
+                authorPrincipalId: 9001,
+                anonProfileId: 9001,
+                content: "Hello from anon",
+                authorId: UUID.fromBackendId(9001),
+                authorDisplayName: nil,
+                authorHandle: "anonymous",
+                company: "Looped",
+                communityId: 1,
+                communityName: "Looped",
+                communityShortName: "LP",
+                communityKind: .company,
+                isAnonymous: true,
+                isUnderReview: true,
+                reactionCount: 0,
+                commentsCount: 0,
+                shareCount: 0,
+                userReaction: nil,
+                attachments: nil,
+                isSaved: false,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            return UserContentPage(
+                items: [UserContentItem(id: "post-42", createdAt: Date(), payload: .post(recovered))],
+                nextCursor: nil
+            )
+        }
+
+        let viewModel = makeViewModel(feedService: service)
+        let result = await viewModel.createPost(
+            content: "  Hello from anon  ",
+            isAnonymous: true,
+            communityId: 1
+        )
+
+        #expect(result == .createdUnderReview)
+        #expect(viewModel.posts.first?.backendId == 42)
+        #expect(service.fetchAnonContentCalls.count == 1)
+    }
+
+    @Test
+    func createPost_anonymousQueuedForReview_keepsQueuedWhenAnonContentMissing() async {
+        clearFeedDefaults()
+        let anonStore = AnonIdentityStore()
+        anonStore.clearAll()
+        anonStore.saveIdentity(
+            AnonIdentity(
+                profileId: 9002,
+                handle: "anon9002",
+                memberships: [
+                    1: AnonCommunityMembership(
+                        cert: "cert",
+                        certKid: "kid",
+                        certExpiresAt: Date().addingTimeInterval(3600)
+                    )
+                ]
+            )
+        )
+        defer { anonStore.clearAll() }
+
+        let service = MockFeedService()
+        service.createPostHandler = { _, _, _, _, _, _ in
+            throw APIError.apiError(code: 403, error: "content_under_review", message: nil)
+        }
+        service.fetchAnonContentHandler = { _, _, _, _ in
+            UserContentPage(items: [], nextCursor: nil)
+        }
+
+        let viewModel = makeViewModel(feedService: service)
+        let result = await viewModel.createPost(
+            content: "Anon pending",
+            isAnonymous: true,
+            communityId: 1
+        )
+
+        #expect(result == .queuedForReview)
+        #expect(viewModel.posts.isEmpty)
+        #expect(service.fetchAnonContentCalls.count == 1)
+    }
 }
 
 @MainActor

@@ -34,7 +34,9 @@ enum TestFixtures {
         backendId: Int,
         handle: String? = nil,
         displayName: String? = nil,
-        followerCount: Int? = nil
+        followerCount: Int? = nil,
+        viewerHasBlocked: Bool? = nil,
+        viewerBlockedBy: Bool? = nil
     ) -> User {
         User(
             id: UUID.fromBackendId(backendId),
@@ -61,6 +63,8 @@ enum TestFixtures {
             showFollowerCount: true,
             hideAnonymousPosts: false,
             messagePermission: .all,
+            viewerHasBlocked: viewerHasBlocked,
+            viewerBlockedBy: viewerBlockedBy,
             displayCommunity: nil,
             displaySpecialization: nil
         )

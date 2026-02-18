@@ -811,6 +811,7 @@ struct PostCard: View {
                 Task { await loadCommunityPermissionsIfNeeded() }
             }
             .onChange(of: isAnonymousMode) { _, _ in
+                Task { await syncViewerAnonProfileId() }
                 hasRequestedCommunityPermissions = false
                 Task { await loadCommunityPermissionsIfNeeded() }
             }

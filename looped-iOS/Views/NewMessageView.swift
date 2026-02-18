@@ -227,8 +227,11 @@ struct NewMessageView: View {
     }
 
     private func presentStartConversationError(_ error: Error) {
-        if case let APIError.apiError(code, apiError, _) = error,
-           code == 403 || apiError == "forbidden" {
+        if case let APIError.apiError(_, apiError, _) = error,
+           apiError == "blocked_relationship" {
+            errorMessage = "You can’t message this user while one of you has the other blocked."
+        } else if case let APIError.apiError(code, apiError, _) = error,
+                  code == 403 || apiError == "forbidden" {
             errorMessage = "This person isn't accepting new message requests."
         } else {
             errorMessage = error.localizedDescription
@@ -316,9 +319,16 @@ final class NewMessageSearchViewModel: ObservableObject {
     @Published var results: [User] = []
     @Published var isSearching = false
     private let userService: UserServiceProtocol
+    private let blockService: BlockServiceProtocol
+    private var blockedUserIds: Set<Int> = []
+    private var blockedUsersLastSyncedAt: Date?
     
-    init(userService: UserServiceProtocol = UserService()) {
+    init(
+        userService: UserServiceProtocol = UserService(),
+        blockService: BlockServiceProtocol = BlockService()
+    ) {
         self.userService = userService
+        self.blockService = blockService
     }
     
     func search(query: String) async {
@@ -330,12 +340,49 @@ final class NewMessageSearchViewModel: ObservableObject {
         }
         isSearching = true
         do {
+            await refreshBlockedUsersIfNeeded(force: false)
             let page = try await userService.searchUsers(query: trimmed, limit: 20, cursor: nil)
-            results = page.users
+            results = page.users.filter { user in
+                blockedUserIds.contains(user.backendId) == false
+            }
         } catch {
             results = []
         }
         isSearching = false
+    }
+
+    private func refreshBlockedUsersIfNeeded(force: Bool) async {
+        let cacheDuration: TimeInterval = 30
+        if !force,
+           let lastSync = blockedUsersLastSyncedAt,
+           Date().timeIntervalSince(lastSync) < cacheDuration {
+            return
+        }
+
+        do {
+            var blockedUsers: [BlockedUser] = []
+            var cursor: String?
+            var visitedCursors = Set<String>()
+
+            while true {
+                let page = try await blockService.fetchBlockedUsers(limit: 100, cursor: cursor)
+                blockedUsers.append(contentsOf: page.users)
+
+                guard let nextCursor = page.nextCursor, !nextCursor.isEmpty else {
+                    break
+                }
+                guard visitedCursors.contains(nextCursor) == false else {
+                    break
+                }
+                visitedCursors.insert(nextCursor)
+                cursor = nextCursor
+            }
+
+            blockedUserIds = Set(blockedUsers.map(\.backendId))
+            blockedUsersLastSyncedAt = Date()
+        } catch {
+            // Keep stale cache on failure.
+        }
     }
 }
 

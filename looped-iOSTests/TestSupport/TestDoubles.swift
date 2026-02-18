@@ -22,6 +22,14 @@ final class MockFeedService: FeedServiceProtocol {
 
     var searchPostsCalls: [(query: String, limit: Int, cursor: String?)] = []
     var searchPostsHandler: ((String, Int, String?) async throws -> FeedPage)?
+    var fetchMyContentCalls: [(limit: Int, cursor: String?, includePostPreview: Bool)] = []
+    var fetchMyContentHandler: ((Int, String?, Bool) async throws -> UserContentPage)?
+    var fetchUserContentCalls: [(userId: Int, limit: Int, cursor: String?, includePostPreview: Bool)] = []
+    var fetchUserContentHandler: ((Int, Int, String?, Bool) async throws -> UserContentPage)?
+    var fetchAnonContentCalls: [(anonProfileId: Int, limit: Int, cursor: String?, includePostPreview: Bool)] = []
+    var fetchAnonContentHandler: ((Int, Int, String?, Bool) async throws -> UserContentPage)?
+    var createPostCalls: [(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, mediaAssetIds: [Int]?, poll: PollDraft?)] = []
+    var createPostHandler: ((String, Bool, Int, Int?, [Int]?, PollDraft?) async throws -> Post)?
 
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage {
         fetchFeedCalls.append((limit, cursor, communityId, mode))
@@ -48,7 +56,11 @@ final class MockFeedService: FeedServiceProtocol {
     }
 
     func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, mediaAssetIds: [Int]?, poll: PollDraft?) async throws -> Post {
-        try unimplemented(#function)
+        createPostCalls.append((content, isAnonymous, communityId, mediaAssetId, mediaAssetIds, poll))
+        if let handler = createPostHandler {
+            return try await handler(content, isAnonymous, communityId, mediaAssetId, mediaAssetIds, poll)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post {
@@ -112,15 +124,27 @@ final class MockFeedService: FeedServiceProtocol {
     }
 
     func fetchMyContent(limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
-        try unimplemented(#function)
+        fetchMyContentCalls.append((limit, cursor, includePostPreview))
+        if let handler = fetchMyContentHandler {
+            return try await handler(limit, cursor, includePostPreview)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func fetchUserContent(userId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
-        try unimplemented(#function)
+        fetchUserContentCalls.append((userId, limit, cursor, includePostPreview))
+        if let handler = fetchUserContentHandler {
+            return try await handler(userId, limit, cursor, includePostPreview)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func fetchAnonContent(anonProfileId: Int, limit: Int, cursor: String?, includePostPreview: Bool) async throws -> UserContentPage {
-        try unimplemented(#function)
+        fetchAnonContentCalls.append((anonProfileId, limit, cursor, includePostPreview))
+        if let handler = fetchAnonContentHandler {
+            return try await handler(anonProfileId, limit, cursor, includePostPreview)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func fetchAnonPosts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
@@ -147,6 +171,9 @@ final class MockCommunityService: CommunityServiceProtocol {
     var searchCommunitiesCalls: [(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?)] = []
     var searchCommunitiesHandler: ((String, Int, String?, CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult>)?
 
+    var fetchCommunityDomainsCalls: [Int] = []
+    var fetchCommunityDomainsHandler: ((Int) async throws -> [String])?
+
     func fetchFollowedCommunities(limit: Int, cursor: String?, order: CommunityFollowOrder) async throws -> CommunityPage {
         try unimplemented(#function)
     }
@@ -168,7 +195,11 @@ final class MockCommunityService: CommunityServiceProtocol {
     }
 
     func fetchCommunityDomains(communityId: Int) async throws -> [String] {
-        try unimplemented(#function)
+        fetchCommunityDomainsCalls.append(communityId)
+        if let handler = fetchCommunityDomainsHandler {
+            return try await handler(communityId)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func fetchPostableCommunities() async throws -> [CommunitySummary] {
@@ -217,6 +248,127 @@ final class MockCommunityService: CommunityServiceProtocol {
 
     func fetchCommunityPermissions(communityId: Int) async throws -> CommunityPermissions {
         try unimplemented(#function)
+    }
+}
+
+final class MockDiscoveryService: DiscoveryServiceProtocol {
+    var searchLoopsCalls: [(query: String, limit: Int, cursor: String?)] = []
+    var searchLoopsHandler: ((String, Int, String?) async throws -> SearchResultPage<LoopDTO>)?
+
+    var searchHashtagsCalls: [(query: String, limit: Int, cursor: String?)] = []
+    var searchHashtagsHandler: ((String, Int, String?) async throws -> SearchResultPage<HashtagDTO>)?
+
+    var fetchRecommendedSpecializationsCalls: [Int] = []
+    var fetchRecommendedSpecializationsHandler: ((Int) async throws -> RecommendedSpecializations)?
+
+    var browseSpecializationsCalls: [(type: CommunitySpecializationType, limit: Int, cursor: String?)] = []
+    var browseSpecializationsHandler: ((CommunitySpecializationType, Int, String?) async throws -> SearchResultPage<CommunitySearchResult>)?
+
+    var fetchMajorsIndexCallCount = 0
+    var fetchMajorsIndexHandler: (() async throws -> [SpecializationIndexItem])?
+
+    var fetchFieldsIndexCallCount = 0
+    var fetchFieldsIndexHandler: (() async throws -> [SpecializationIndexItem])?
+
+    func searchLoops(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<LoopDTO> {
+        searchLoopsCalls.append((query, limit, cursor))
+        if let handler = searchLoopsHandler {
+            return try await handler(query, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func searchHashtags(query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<HashtagDTO> {
+        searchHashtagsCalls.append((query, limit, cursor))
+        if let handler = searchHashtagsHandler {
+            return try await handler(query, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchRecommendedSpecializations(limit: Int) async throws -> RecommendedSpecializations {
+        fetchRecommendedSpecializationsCalls.append(limit)
+        if let handler = fetchRecommendedSpecializationsHandler {
+            return try await handler(limit)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func browseSpecializations(type: CommunitySpecializationType, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult> {
+        browseSpecializationsCalls.append((type, limit, cursor))
+        if let handler = browseSpecializationsHandler {
+            return try await handler(type, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchMajorsIndex() async throws -> [SpecializationIndexItem] {
+        fetchMajorsIndexCallCount += 1
+        if let handler = fetchMajorsIndexHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchFieldsIndex() async throws -> [SpecializationIndexItem] {
+        fetchFieldsIndexCallCount += 1
+        if let handler = fetchFieldsIndexHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+}
+
+final class MockCommunityVerificationService: CommunityVerificationServiceProtocol {
+    var fetchCommunityVerificationsCallCount = 0
+    var fetchCommunityVerificationsHandler: (() async throws -> [CommunityVerification])?
+
+    var startVerificationCalls: [(communityId: Int, method: CommunityVerificationMethod, email: String?)] = []
+    var startVerificationHandler: ((Int, CommunityVerificationMethod, String?) async throws -> CommunityVerificationStartResponse)?
+
+    var finishVerificationCalls: [(communityId: Int, request: CommunityVerificationFinishRequest)] = []
+    var finishVerificationHandler: ((Int, CommunityVerificationFinishRequest) async throws -> CommunityVerificationFinishResponse)?
+
+    var unverifyCommunityCalls: [Int] = []
+    var unverifyCommunityHandler: ((Int) async throws -> CommunityVerificationUnverifyResponse)?
+
+    func fetchCommunityVerifications() async throws -> [CommunityVerification] {
+        fetchCommunityVerificationsCallCount += 1
+        if let handler = fetchCommunityVerificationsHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func startVerification(
+        communityId: Int,
+        method: CommunityVerificationMethod,
+        email: String?
+    ) async throws -> CommunityVerificationStartResponse {
+        startVerificationCalls.append((communityId, method, email))
+        if let handler = startVerificationHandler {
+            return try await handler(communityId, method, email)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func finishVerification(
+        communityId: Int,
+        request: CommunityVerificationFinishRequest
+    ) async throws -> CommunityVerificationFinishResponse {
+        finishVerificationCalls.append((communityId, request))
+        if let handler = finishVerificationHandler {
+            return try await handler(communityId, request)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func unverifyCommunity(communityId: Int) async throws -> CommunityVerificationUnverifyResponse {
+        unverifyCommunityCalls.append(communityId)
+        if let handler = unverifyCommunityHandler {
+            return try await handler(communityId)
+        }
+        throw TestError.unimplemented(#function)
     }
 }
 
@@ -592,6 +744,8 @@ final class MockUserService: UserServiceProtocol {
 
     var fetchUserFollowingCalls: [(userId: Int, limit: Int, cursor: String?, query: String?)] = []
     var fetchUserFollowingHandler: ((Int, Int, String?, String?) async throws -> UserFollowListPage)?
+    var searchUsersCalls: [(query: String, limit: Int, cursor: String?)] = []
+    var searchUsersHandler: ((String, Int, String?) async throws -> UserSearchPage)?
 
     var updateOnboardingStepCalls: [RemoteOnboardingStep] = []
     var updateOnboardingStepHandler: ((RemoteOnboardingStep) async throws -> OnboardingStateDTO)?
@@ -683,7 +837,13 @@ final class MockUserService: UserServiceProtocol {
     func updateDisplaySpecialization(specializationId: Int?) async throws -> AppUser { throw TestError.unimplemented(#function) }
     func verifyEmployment(verification: EmploymentVerification) async throws { throw TestError.unimplemented(#function) }
     func deleteAccount(mode: DeleteAccountMode) async throws -> DeleteAccountResult { throw TestError.unimplemented(#function) }
-    func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage { throw TestError.unimplemented(#function) }
+    func searchUsers(query: String, limit: Int, cursor: String?) async throws -> UserSearchPage {
+        searchUsersCalls.append((query, limit, cursor))
+        if let handler = searchUsersHandler {
+            return try await handler(query, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage { throw TestError.unimplemented(#function) }
     func fetchUserReplies(userId: Int, limit: Int, cursor: String?) async throws -> UserRepliesPage { throw TestError.unimplemented(#function) }
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO { throw TestError.unimplemented(#function) }

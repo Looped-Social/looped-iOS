@@ -28,9 +28,32 @@ private struct HashtagNavigationHostModifier: ViewModifier {
                 guard !cleanHashtag.isEmpty else { return }
                 activeHashtag = HashtagRoute(hashtag: cleanHashtag)
             }
-            .navigationDestination(item: $activeHashtag) { route in
-                HashtagFeedView(hashtag: route.hashtag)
-            }
+            .background(
+                NavigationLink(
+                    isActive: Binding(
+                        get: { activeHashtag != nil },
+                        set: { isActive in
+                            if !isActive {
+                                activeHashtag = nil
+                            }
+                        }
+                    )
+                ) {
+                    hashtagDestination
+                } label: {
+                    EmptyView()
+                }
+                .hidden()
+            )
+    }
+
+    @ViewBuilder
+    private var hashtagDestination: some View {
+        if let route = activeHashtag {
+            HashtagFeedView(hashtag: route.hashtag)
+        } else {
+            EmptyView()
+        }
     }
 }
 

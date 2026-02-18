@@ -86,4 +86,5 @@ struct DisplayCommunityDTO: Codable {
     let shortName: String?
     let kind: String?
     let specializationType: String?
+    let icon: CommunityIcon?
 }

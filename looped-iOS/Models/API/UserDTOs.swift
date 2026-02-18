@@ -30,6 +30,8 @@ struct UserDTO: Codable {
     let showFollowerCount: Bool?
     let hideAnonymousPosts: Bool?
     let messagePermission: MessagePermission?
+    var viewerHasBlocked: Bool? = nil
+    var viewerBlockedBy: Bool? = nil
     let createdAt: Date?
     let updatedAt: Date?
 }

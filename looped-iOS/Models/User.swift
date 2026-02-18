@@ -25,6 +25,8 @@ struct User: Codable, Identifiable {
     let showFollowerCount: Bool?
     let hideAnonymousPosts: Bool?
     let messagePermission: MessagePermission?
+    let viewerHasBlocked: Bool?
+    let viewerBlockedBy: Bool?
     let displayCommunity: DisplayCommunity?
     let displaySpecialization: DisplayCommunity?
     
@@ -53,6 +55,8 @@ struct User: Codable, Identifiable {
         showFollowerCount: Bool? = nil,
         hideAnonymousPosts: Bool? = nil,
         messagePermission: MessagePermission? = nil,
+        viewerHasBlocked: Bool? = nil,
+        viewerBlockedBy: Bool? = nil,
         displayCommunity: DisplayCommunity? = nil,
         displaySpecialization: DisplayCommunity? = nil
     ) {
@@ -80,6 +84,8 @@ struct User: Codable, Identifiable {
         self.showFollowerCount = showFollowerCount
         self.hideAnonymousPosts = hideAnonymousPosts
         self.messagePermission = messagePermission
+        self.viewerHasBlocked = viewerHasBlocked
+        self.viewerBlockedBy = viewerBlockedBy
         self.displayCommunity = displayCommunity
         self.displaySpecialization = displaySpecialization
     }
@@ -118,6 +124,8 @@ extension User {
         self.showFollowerCount = profile?.showFollowerCount ?? dto.showFollowerCount
         self.hideAnonymousPosts = dto.hideAnonymousPosts
         self.messagePermission = dto.messagePermission ?? profile?.messagePermission
+        self.viewerHasBlocked = dto.viewerHasBlocked
+        self.viewerBlockedBy = dto.viewerBlockedBy
         self.displayCommunity = dto.displayCommunity.map(DisplayCommunity.init(dto:))
         self.displaySpecialization = dto.displaySpecialization.map(DisplayCommunity.init(dto:))
     }
@@ -145,6 +153,8 @@ extension User {
         showFollowerCount: Bool? = nil,
         hideAnonymousPosts: Bool? = nil,
         messagePermission: MessagePermission? = nil,
+        viewerHasBlocked: Bool? = nil,
+        viewerBlockedBy: Bool? = nil,
         displayCommunity: DisplayCommunity? = nil,
         displaySpecialization: DisplayCommunity? = nil
     ) {
@@ -173,6 +183,8 @@ extension User {
             showFollowerCount: showFollowerCount,
             hideAnonymousPosts: hideAnonymousPosts,
             messagePermission: messagePermission,
+            viewerHasBlocked: viewerHasBlocked,
+            viewerBlockedBy: viewerBlockedBy,
             displayCommunity: displayCommunity,
             displaySpecialization: displaySpecialization
         )
@@ -210,6 +222,8 @@ extension User {
             showFollowerCount: showFollowerCount,
             hideAnonymousPosts: hideAnonymousPosts,
             messagePermission: messagePermission,
+            viewerHasBlocked: viewerHasBlocked,
+            viewerBlockedBy: viewerBlockedBy,
             displayCommunity: displayCommunity,
             displaySpecialization: displaySpecialization
         )

@@ -49,21 +49,36 @@ class SearchResultsViewModel: ObservableObject {
     private let discoveryService: DiscoveryServiceProtocol
     private let communityService: CommunityServiceProtocol
     private let feedService: FeedServiceProtocol
+    private let blockService: BlockServiceProtocol
     private let recentSearchesKey = "recentSearches"
     private let recentSearchesLimit = 5
+    private var blockedUserIds: Set<Int> = []
+    private var blockedPrincipalIds: Set<Int> = []
+    private var blockedUsersLastSyncedAt: Date?
 
     init(
         userService: UserServiceProtocol = UserService(),
         discoveryService: DiscoveryServiceProtocol = DiscoveryService(),
         communityService: CommunityServiceProtocol = CommunityService(),
-        feedService: FeedServiceProtocol = FeedService()
+        feedService: FeedServiceProtocol = FeedService(),
+        blockService: BlockServiceProtocol = BlockService()
     ) {
         self.userService = userService
         self.discoveryService = discoveryService
         self.communityService = communityService
         self.feedService = feedService
+        self.blockService = blockService
         loadRecentSearches()
         setupSearchDebouncing()
+        NotificationCenter.default.publisher(for: .userBlockListChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task {
+                    await self.refreshBlockedUsersIfNeeded(force: true)
+                    self.searchResults = self.applyingBlockFilters(to: self.searchResults)
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Search Debouncing
@@ -99,6 +114,7 @@ class SearchResultsViewModel: ObservableObject {
 
         isSearching = true
         errorMessage = nil
+        await refreshBlockedUsersIfNeeded(force: false)
         do {
             var results = SearchResults()
             let isHashtagQuery = trimmedQuery.hasPrefix("#")
@@ -116,14 +132,14 @@ class SearchResultsViewModel: ObservableObject {
                         avatarURL: user.profileImageURL
                     )
                 }
-                searchResults = results
+                searchResults = applyingBlockFilters(to: results)
                 hashtagSuggestions = []
             case .posts:
                 let page = try await feedService.searchPosts(query: trimmedQuery, limit: 20, cursor: nil)
                 results.posts = page.posts.map { post in
                     SearchResultPost(post: post)
                 }
-                searchResults = results
+                searchResults = applyingBlockFilters(to: results)
                 hashtagSuggestions = []
             case .communities:
                 let loopResults = try await communityService.searchCommunities(
@@ -146,7 +162,7 @@ class SearchResultsViewModel: ObservableObject {
                         icon: loop.icon
                     )
                 }
-                searchResults = results
+                searchResults = applyingBlockFilters(to: results)
                 hashtagSuggestions = []
             case .companies, .schools, .majors, .fields:
                 let loopResults = try await communityService.searchCommunities(
@@ -169,7 +185,7 @@ class SearchResultsViewModel: ObservableObject {
                         icon: loop.icon
                     )
                 }
-                searchResults = results
+                searchResults = applyingBlockFilters(to: results)
                 hashtagSuggestions = []
             case .all, .none:
                 let hashtagQuery = isHashtagQuery ? String(trimmedQuery.dropFirst()) : trimmedQuery
@@ -183,7 +199,7 @@ class SearchResultsViewModel: ObservableObject {
                         )
                     }
                     hashtagSuggestions = results.hashtags.map { $0.name }
-                    searchResults = results
+                    searchResults = applyingBlockFilters(to: results)
                     break
                 }
 
@@ -258,7 +274,7 @@ class SearchResultsViewModel: ObservableObject {
                 }
 
                 hashtagSuggestions = results.hashtags.map { $0.name }
-                searchResults = results
+                searchResults = applyingBlockFilters(to: results)
 
                 if results.isEmpty, let firstError = errors.first {
                     errorMessage = firstError.localizedDescription
@@ -307,6 +323,60 @@ class SearchResultsViewModel: ObservableObject {
 
     private func saveRecentSearches() {
         UserDefaults.standard.set(recentSearches, forKey: recentSearchesKey)
+    }
+
+    private func refreshBlockedUsersIfNeeded(force: Bool) async {
+        let cacheDuration: TimeInterval = 30
+        if !force,
+           let lastSync = blockedUsersLastSyncedAt,
+           Date().timeIntervalSince(lastSync) < cacheDuration {
+            return
+        }
+
+        do {
+            var blockedUsers: [BlockedUser] = []
+            var cursor: String?
+            var visitedCursors = Set<String>()
+
+            while true {
+                let page = try await blockService.fetchBlockedUsers(limit: 100, cursor: cursor)
+                blockedUsers.append(contentsOf: page.users)
+
+                guard let nextCursor = page.nextCursor, !nextCursor.isEmpty else {
+                    break
+                }
+                guard visitedCursors.contains(nextCursor) == false else {
+                    break
+                }
+                visitedCursors.insert(nextCursor)
+                cursor = nextCursor
+            }
+
+            blockedUserIds = Set(blockedUsers.map(\.backendId))
+            blockedPrincipalIds = Set(blockedUsers.map(\.principalId))
+            blockedUsersLastSyncedAt = Date()
+        } catch {
+            // Keep stale block cache when fetch fails.
+        }
+    }
+
+    private func applyingBlockFilters(to results: SearchResults) -> SearchResults {
+        var filtered = results
+        filtered.people = results.people.filter { person in
+            guard let backendId = person.backendId else { return true }
+            return blockedUserIds.contains(backendId) == false
+        }
+        filtered.posts = results.posts.filter { item in
+            let post = item.post
+            if let authorBackendId = post.authorBackendId, blockedUserIds.contains(authorBackendId) {
+                return false
+            }
+            if let authorPrincipalId = post.authorPrincipalId, blockedPrincipalIds.contains(authorPrincipalId) {
+                return false
+            }
+            return true
+        }
+        return filtered
     }
 }
 

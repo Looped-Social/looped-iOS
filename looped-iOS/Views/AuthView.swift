@@ -101,17 +101,23 @@ private extension AuthView {
                 authViewModel: authViewModel,
                 onContinue: {
                     guard authViewModel.selectedOrganization != nil else {
-                        navigate(to: .selectCompany)
+                        onboardingStore.saveProgress(.verificationInfo)
+                        navigate(to: .verificationInfo)
                         return
                     }
                     if authViewModel.onboardingStep == .verification
                         || authViewModel.onboardingStep == .verificationNotifications {
                         restoreOnboardingScreen()
                     } else {
-                        navigate(to: .selectCompany)
+                        onboardingStore.saveProgress(.verificationInfo)
+                        navigate(to: .verificationInfo)
                     }
                 }
             )
+        case .verificationInfo:
+            VerificationInfoOnboardingView {
+                navigate(to: .selectCompany)
+            }
         case .selectCompany:
             OrganizationSelectionView(
                 title: "Search for your school or\nplace of work",
@@ -308,7 +314,10 @@ private extension AuthView {
                         }
 	                    pushIfNeeded(.verificationConfirmation)
 	                },
-	                showsHeader: false
+	                showsHeader: false,
+                    ensureOnboardingVerificationStep: {
+                        await authViewModel.reportOnboardingStep(.verification)
+                    }
 	            )
         case .verificationConfirmation:
             let confirmationKind: VerificationConfirmationView.ConfirmationKind = {
@@ -448,6 +457,7 @@ private extension AuthView {
 enum AuthScreen: Hashable {
     case onboarding
     case profileSetup
+    case verificationInfo
     case selectCompany
     case selectSchool
     case departmentSelection
@@ -489,18 +499,20 @@ private extension AuthView {
             return []
         case .profileSetup:
             return [.profileSetup]
+        case .verificationInfo:
+            return [.profileSetup, .verificationInfo]
         case .selectCompany:
-            return [.profileSetup, .selectCompany]
+            return [.profileSetup, .verificationInfo, .selectCompany]
         case .selectSchool:
-            return [.profileSetup, .selectSchool]
+            return [.profileSetup, .verificationInfo, .selectSchool]
         case .departmentSelection:
-            return [.profileSetup, .selectCompany, .departmentSelection]
+            return [.profileSetup, .verificationInfo, .selectCompany, .departmentSelection]
         case .degreeSelection:
-            return [.profileSetup, .selectCompany, .degreeSelection]
+            return [.profileSetup, .verificationInfo, .selectCompany, .degreeSelection]
         case .verificationIntro(let isStudent):
             let base: [AuthScreen] = isStudent
-                ? [.profileSetup, .selectCompany, .degreeSelection]
-                : [.profileSetup, .selectCompany, .departmentSelection]
+                ? [.profileSetup, .verificationInfo, .selectCompany, .degreeSelection]
+                : [.profileSetup, .verificationInfo, .selectCompany, .departmentSelection]
             return base + [.verificationIntro(isStudent: isStudent)]
         case .waysToVerifyCompany:
             return navigationStack(for: .verificationIntro(isStudent: false)) + [.waysToVerifyCompany]
@@ -590,7 +602,7 @@ private extension AuthView {
 
     func remoteStep(for screen: AuthScreen) -> RemoteOnboardingStep? {
         switch screen {
-        case .profileSetup:
+        case .profileSetup, .verificationInfo:
             return .profileSetup
         case .selectCompany, .selectSchool, .departmentSelection, .degreeSelection:
             return .selectCompany
@@ -639,6 +651,15 @@ struct OnboardingRoutingResolver {
         isStudent: Bool,
         shouldEnterOnboardingFlow: Bool
     ) -> AuthScreen? {
+        if remoteStep == .selectCompany {
+            switch localStep {
+            case .none, .profileSetup?, .verificationInfo?:
+                return .verificationInfo
+            default:
+                break
+            }
+        }
+
         if let remoteStep,
            let remote = AuthScreen.fromRemoteOnboardingStep(remoteStep, isStudent: isStudent) {
             return remote
@@ -676,6 +697,8 @@ private extension AuthScreen {
         switch self {
         case .profileSetup:
             return .profileSetup
+        case .verificationInfo:
+            return .verificationInfo
         case .selectCompany:
             return .selectCompany
         case .selectSchool:
@@ -705,6 +728,8 @@ private extension AuthScreen {
         switch step {
         case .profileSetup:
             return .profileSetup
+        case .verificationInfo:
+            return .verificationInfo
         case .selectCompany:
             return .selectCompany
         case .selectSchool:

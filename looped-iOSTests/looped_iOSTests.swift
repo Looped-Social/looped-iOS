@@ -152,6 +152,25 @@ struct looped_iOSTests {
         #expect(user.principalId == 77)
     }
 
+    @Test func userMapsViewerBlockFlagsFromProfileResponse() async throws {
+        let payload = """
+        {
+          "id": 42,
+          "handle": "someone",
+          "company_id": 1,
+          "viewer_has_blocked": true,
+          "viewer_blocked_by": false
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let dto = try decoder.decode(UserDTO.self, from: Data(payload.utf8))
+        let user = User(dto: dto, profile: nil)
+
+        #expect(user.viewerHasBlocked == true)
+        #expect(user.viewerBlockedBy == false)
+    }
+
     @Test func blockPrincipalUsesAuthorizationInJwtMode() async throws {
         let requestBox = RequestBox()
         RequestCaptureURLProtocol.requestHandler = { request in

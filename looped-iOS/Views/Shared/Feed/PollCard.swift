@@ -334,6 +334,12 @@ struct PollCard: View {
             case .unauthorized:
                 return "Please sign in again and try voting."
             case .apiError(_, let apiError, let message):
+                if apiError == "invalid_anon_proof" {
+                    return "Anonymous session expired. Turn anonymous mode off and back on, then try again."
+                }
+                if apiError == "issue_token_required" || apiError == "issue_token_invalid" {
+                    return "Anonymous session expired. Turn anonymous mode off and back on, then try again."
+                }
                 return message ?? apiError
             default:
                 return apiError.localizedDescription

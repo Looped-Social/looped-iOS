@@ -44,16 +44,21 @@ class MessagesViewModel: ObservableObject {
 
     private let messageService: MessageServiceProtocol
     private let userService: UserServiceProtocol
+    private let blockService: BlockServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var senderCache: [Int: RequestSenderProfile] = [:]
     private var searchTask: Task<Void, Never>?
+    private var blockedUserIds: Set<Int> = []
+    private var blockedUsersLastSyncedAt: Date?
 
     init(
         messageService: MessageServiceProtocol = MessageService(),
-        userService: UserServiceProtocol = UserService()
+        userService: UserServiceProtocol = UserService(),
+        blockService: BlockServiceProtocol = BlockService()
     ) {
         self.messageService = messageService
         self.userService = userService
+        self.blockService = blockService
 
         NotificationCenter.default.publisher(for: ChatConversationPreviewUpdate.name)
             .compactMap { notification -> (Int, String, Date)? in
@@ -124,6 +129,16 @@ class MessagesViewModel: ObservableObject {
             .sink { [weak self] backendId in
                 Task { @MainActor in
                     self?.channels.removeAll { $0.backendId == backendId }
+                }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .userBlockListChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in
+                    await self.refreshBlockedUsersIfNeeded(force: true)
+                    self.applyBlockedUserFilters()
                 }
             }
             .store(in: &cancellables)
@@ -217,8 +232,9 @@ class MessagesViewModel: ObservableObject {
         errorMessage = nil
 
         do {
+            await refreshBlockedUsersIfNeeded(force: false)
             let page = try await messageService.listConversations(cursor: nil)
-            conversations = page.conversations
+            conversations = filterConversations(page.conversations)
             syncMutedConversationStore(with: conversations)
         } catch {
             errorMessage = error.localizedDescription
@@ -239,8 +255,9 @@ class MessagesViewModel: ObservableObject {
         }
 
         do {
+            await refreshBlockedUsersIfNeeded(force: false)
             let page = try await messageService.listConversations(cursor: nil)
-            conversations = page.conversations
+            conversations = filterConversations(page.conversations)
             syncMutedConversationStore(with: conversations)
         } catch {
             errorMessage = error.localizedDescription
@@ -248,7 +265,7 @@ class MessagesViewModel: ObservableObject {
 
         do {
             let page = try await messageService.fetchMessageRequests(cursor: nil)
-            messageRequests = page.requests.filter { $0.status == .pending }
+            messageRequests = filterMessageRequests(page.requests.filter { $0.status == .pending })
             await hydrateSenderProfiles(for: messageRequests)
         } catch {
             if errorMessage == nil || errorMessage?.isEmpty == true {
@@ -275,8 +292,9 @@ class MessagesViewModel: ObservableObject {
         errorMessage = nil
 
         do {
+            await refreshBlockedUsersIfNeeded(force: false)
             let page = try await messageService.fetchMessageRequests(cursor: nil)
-            messageRequests = page.requests.filter { $0.status == .pending }
+            messageRequests = filterMessageRequests(page.requests.filter { $0.status == .pending })
             await hydrateSenderProfiles(for: messageRequests)
         } catch {
             errorMessage = error.localizedDescription
@@ -361,9 +379,10 @@ class MessagesViewModel: ObservableObject {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
             do {
+                await self.refreshBlockedUsersIfNeeded(force: false)
                 let page = try await messageService.searchMessages(query: trimmed, limit: 20, cursor: nil)
                 await MainActor.run {
-                    self.searchResults = page.items
+                    self.searchResults = self.filterMessageSearchHits(page.items)
                     self.isSearching = false
                     self.searchErrorMessage = nil
                 }
@@ -378,6 +397,9 @@ class MessagesViewModel: ObservableObject {
     }
 
     private func upsertConversationToTop(_ conversation: Conversation) {
+        if let userId = conversation.backendUserId, blockedUserIds.contains(userId) {
+            return
+        }
         conversations.removeAll { $0.backendId == conversation.backendId }
         conversations.insert(conversation, at: 0)
     }
@@ -391,7 +413,7 @@ class MessagesViewModel: ObservableObject {
 
             do {
                 let page = try await messageService.listConversations(cursor: nil)
-                conversations = page.conversations
+                conversations = filterConversations(page.conversations)
                 syncMutedConversationStore(with: conversations)
                 if let resolved = conversations.first(where: { $0.backendId == conversationBackendId }) {
                     upsertConversationToTop(resolved)
@@ -453,6 +475,68 @@ class MessagesViewModel: ObservableObject {
             }
             return request.updatingSender(name: profile.name, profileImageUrl: profile.profileImageUrl)
         }
+    }
+
+    private func refreshBlockedUsersIfNeeded(force: Bool) async {
+        let cacheDuration: TimeInterval = 30
+        if !force,
+           let lastSync = blockedUsersLastSyncedAt,
+           Date().timeIntervalSince(lastSync) < cacheDuration {
+            return
+        }
+
+        do {
+            var blockedUsers: [BlockedUser] = []
+            var cursor: String?
+            var visitedCursors = Set<String>()
+
+            while true {
+                let page = try await blockService.fetchBlockedUsers(limit: 100, cursor: cursor)
+                blockedUsers.append(contentsOf: page.users)
+
+                guard let nextCursor = page.nextCursor, !nextCursor.isEmpty else {
+                    break
+                }
+                guard visitedCursors.contains(nextCursor) == false else {
+                    break
+                }
+                visitedCursors.insert(nextCursor)
+                cursor = nextCursor
+            }
+
+            blockedUserIds = Set(blockedUsers.map(\.backendId))
+            blockedUsersLastSyncedAt = Date()
+        } catch {
+            // Keep stale cache on failure.
+        }
+    }
+
+    private func filterConversations(_ items: [Conversation]) -> [Conversation] {
+        items.filter { conversation in
+            guard let backendUserId = conversation.backendUserId else { return true }
+            return blockedUserIds.contains(backendUserId) == false
+        }
+    }
+
+    private func filterMessageRequests(_ items: [MessageRequest]) -> [MessageRequest] {
+        items.filter { request in
+            guard let senderBackendId = request.senderBackendId else { return true }
+            return blockedUserIds.contains(senderBackendId) == false
+        }
+    }
+
+    private func filterMessageSearchHits(_ items: [MessageSearchHit]) -> [MessageSearchHit] {
+        items.filter { hit in
+            guard hit.type == .conversation else { return true }
+            guard let backendUserId = hit.conversation?.backendUserId else { return true }
+            return blockedUserIds.contains(backendUserId) == false
+        }
+    }
+
+    private func applyBlockedUserFilters() {
+        conversations = filterConversations(conversations)
+        messageRequests = filterMessageRequests(messageRequests)
+        searchResults = filterMessageSearchHits(searchResults)
     }
 }
 
@@ -733,6 +817,9 @@ class ChatViewModel: ObservableObject {
                 if code == "invalid_attachments" {
                     return "We couldn’t attach that media. Please try again."
                 }
+                if code == "blocked_relationship" {
+                    return "You can’t message this user while one of you has the other blocked."
+                }
                 return message ?? code
             default:
                 return apiError.localizedDescription
@@ -885,6 +972,11 @@ class ChatViewModel: ObservableObject {
                     return
                 }
                 messageRequestState = code == "message_request_pending" ? .pending : .rejected
+                stopPolling()
+                return
+            }
+            if case let APIError.apiError(_, code, _) = error, code == "blocked_relationship" {
+                errorMessage = userFacingErrorMessage(for: error)
                 stopPolling()
                 return
             }

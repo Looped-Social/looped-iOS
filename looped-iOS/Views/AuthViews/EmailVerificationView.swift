@@ -20,7 +20,8 @@ struct EmailVerificationView: View {
         onBack: @escaping () -> Void,
         onSkip: (() -> Void)? = nil,
         onComplete: @escaping () -> Void,
-        showsHeader: Bool = true
+        showsHeader: Bool = true,
+        ensureOnboardingVerificationStep: (() async -> Void)? = nil
     ) {
         self.communityId = communityId
         self.communityName = communityName
@@ -33,7 +34,8 @@ struct EmailVerificationView: View {
         _viewModel = StateObject(
             wrappedValue: CommunityEmailVerificationViewModel(
                 communityId: communityId,
-                communityName: communityName
+                communityName: communityName,
+                ensureOnboardingVerificationStep: ensureOnboardingVerificationStep
             )
         )
     }

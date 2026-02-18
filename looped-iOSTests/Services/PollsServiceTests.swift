@@ -32,6 +32,15 @@ private final class PollsRequestBox {
     var request: URLRequest?
 }
 
+private final class PollsRequestSequenceBox {
+    var requests: [URLRequest] = []
+    var voteRequestCount = 0
+}
+
+private final class PollsCounterBox {
+    var value = 0
+}
+
 private struct PollsStaticTokenProvider: AuthTokenProvider {
     let token: String
 
@@ -146,6 +155,87 @@ struct PollsServiceTests {
         #expect(body.anonCertKid == "kid-77")
         #expect((body.anonSig ?? "").isEmpty == false)
     }
+
+    @Test
+    func vote_retriesOnceAfterInvalidAnonProofInAnonymousMode() async throws {
+        let requestSequence = PollsRequestSequenceBox()
+        PollsRequestCaptureURLProtocol.requestHandler = { request in
+            requestSequence.requests.append(request)
+            guard request.url?.path == "/v1/polls/55/vote" else {
+                return makeSuccessResponse(for: request, selectedOptionId: 4)
+            }
+
+            requestSequence.voteRequestCount += 1
+            if requestSequence.voteRequestCount == 1 {
+                return makeErrorResponse(
+                    for: request,
+                    statusCode: 403,
+                    error: "invalid_anon_proof",
+                    message: "Proof expired"
+                )
+            }
+            return makeSuccessResponse(for: request, selectedOptionId: 4)
+        }
+        defer { PollsRequestCaptureURLProtocol.requestHandler = nil }
+
+        UserDefaults.standard.set(true, forKey: anonymousModeKey)
+        UserDefaults.standard.set(77, forKey: lastSelectedCommunityKey)
+
+        let store = AnonIdentityStore()
+        let membership = AnonCommunityMembership(
+            cert: "cert-77",
+            certKid: "kid-77",
+            certExpiresAt: Date().addingTimeInterval(3600)
+        )
+        store.saveIdentity(
+            AnonIdentity(
+                profileId: 9001,
+                handle: "anon9001",
+                memberships: [77: membership]
+            )
+        )
+        store.savePrivateKey(Curve25519.Signing.PrivateKey())
+        defer {
+            store.clearAll()
+            UserDefaults.standard.removeObject(forKey: anonymousModeKey)
+            UserDefaults.standard.removeObject(forKey: lastSelectedCommunityKey)
+        }
+
+        let session = makeSession()
+        let apiClient = APIClient(
+            baseURL: "https://example.com",
+            session: session,
+            tokenStorage: TokenStorage(),
+            tokenProvider: PollsStaticTokenProvider(token: "jwt-token")
+        )
+        let anonService = AnonService(apiClient: apiClient, store: store)
+        let recoveryCalls = PollsCounterBox()
+        let service = PollsService(
+            apiClient: apiClient,
+            anonService: anonService,
+            recoverAnonIdentity: { _ in
+                recoveryCalls.value += 1
+            }
+        )
+
+        let updated = try await service.vote(pollId: 55, selectedOptionIds: [4], communityId: 77)
+
+        #expect(requestSequence.voteRequestCount == 2)
+        #expect(recoveryCalls.value == 1)
+        #expect(updated.viewer?.hasVoted == true)
+        #expect(requestSequence.requests.count == 2)
+        #expect(requestSequence.requests[0].value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(requestSequence.requests[0].value(forHTTPHeaderField: "X-Actor") == "anon")
+        #expect(requestSequence.requests[1].value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(requestSequence.requests[1].value(forHTTPHeaderField: "X-Actor") == "anon")
+
+        let firstBody = try decodeBody(PollVoteRequestDTO.self, from: requestSequence.requests[0])
+        let secondBody = try decodeBody(PollVoteRequestDTO.self, from: requestSequence.requests[1])
+        #expect(firstBody.selectedOptionIds == [4])
+        #expect(firstBody.asAnon == true)
+        #expect(secondBody.selectedOptionIds == [4])
+        #expect(secondBody.asAnon == true)
+    }
 }
 
 private func makeSession() -> URLSession {
@@ -186,6 +276,22 @@ private func makeSuccessResponse(for request: URLRequest, selectedOptionId: Int)
         }
         """.utf8
     )
+    return (response, data)
+}
+
+private func makeErrorResponse(
+    for request: URLRequest,
+    statusCode: Int,
+    error: String,
+    message: String
+) -> (HTTPURLResponse, Data) {
+    let response = HTTPURLResponse(
+        url: request.url!,
+        statusCode: statusCode,
+        httpVersion: nil,
+        headerFields: ["Content-Type": "application/json"]
+    )!
+    let data = Data(#"{"error":"\#(error)","message":"\#(message)"}"#.utf8)
     return (response, data)
 }
 
