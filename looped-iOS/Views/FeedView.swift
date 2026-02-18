@@ -14,6 +14,8 @@ struct FeedView: View {
     @State private var measuredHeaderHeight: CGFloat = 140
     @State private var activeImpressions: [String: ActiveFeedImpression] = [:]
     @State private var lockedActionSheetRequest: LockedActionSheetRequest?
+    @State private var lockedActionCachedTabBarVisible: Bool?
+    @State private var lockedActionCachedFabHidden: Bool?
 
     private var headerHeight: CGFloat { max(0, measuredHeaderHeight) }
     private let pollInterval: TimeInterval = 90
@@ -86,6 +88,7 @@ struct FeedView: View {
                                     },
                                     onPresentLockedActionSheet: { request in
                                         lockedActionSheetRequest = request
+                                        prepareForLockedActionPresentation()
                                     }
                                 )
                                     .onAppear {
@@ -219,6 +222,31 @@ struct FeedView: View {
         }
         .background(Color.loopedBackground)
         .navigationBarHidden(true)
+        .overlay {
+            LoopedBottomDrawer(
+                isPresented: lockedActionSheetRequest != nil,
+                onDismiss: { dismissLockedActionSheet(triggerSecondary: true) }
+            ) {
+                if let request = lockedActionSheetRequest {
+                    LockedActionSheet(
+                        reason: request.reason,
+                        actionType: request.actionType,
+                        isPrimaryLoading: false,
+                        onPrimary: {
+                            dismissLockedActionSheet(triggerSecondary: false)
+                            request.onPrimary()
+                        },
+                        onSecondary: {
+                            dismissLockedActionSheet(triggerSecondary: true)
+                        },
+                        onHowItWorks: {
+                            dismissLockedActionSheet(triggerSecondary: false)
+                            request.onHowItWorks?()
+                        }
+                    )
+                }
+            }
+        }
         .onPreferenceChange(FeedHeaderHeightPreferenceKey.self) { newValue in
             guard newValue > 0 else { return }
             if abs(newValue - measuredHeaderHeight) > 0.5 {
@@ -241,6 +269,13 @@ struct FeedView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 isTabBarVisible = true
             }
+            // If the view disappears while the locked drawer is up, restore global UI state.
+            if lockedActionSheetRequest != nil, let cachedFabHidden = lockedActionCachedFabHidden {
+                fabState.isHidden = cachedFabHidden
+                lockedActionCachedTabBarVisible = nil
+                lockedActionCachedFabHidden = nil
+                lockedActionSheetRequest = nil
+            }
             stopPolling()
         }
         .onChange(of: isAnonymousMode) { _, _ in
@@ -250,41 +285,45 @@ struct FeedView: View {
         }
         .loopedHashtagNavigationHost()
         .loopedMentionNavigationHost()
-        .sheet(item: $lockedActionSheetRequest) { request in
-            LockedActionSheet(
-                reason: request.reason,
-                actionType: request.actionType,
-                isPrimaryLoading: false,
-                onPrimary: {
-                    lockedActionSheetRequest = nil
-                    request.onPrimary()
-                },
-                onSecondary: {
-                    lockedActionSheetRequest = nil
-                    request.onSecondary()
-                },
-                onHowItWorks: {
-                    lockedActionSheetRequest = nil
-                    request.onHowItWorks?()
-                }
-            )
-            .background(
-                SheetPresentationConfigurator { sheet in
-                    if #available(iOS 17.0, *) {
-                        sheet.prefersPageSizing = true
-                    }
-                }
-            )
-            .presentationDetents([.height(320)])
-            .applyLockedActionSheetPageSizingIfAvailable()
-            .presentationDragIndicator(.visible)
-            .presentationBackground(Color.loopedBackground)
-        }
         .accessibilityIdentifier("feed.screen")
     }
 
+    private func prepareForLockedActionPresentation() {
+        if lockedActionCachedTabBarVisible == nil {
+            lockedActionCachedTabBarVisible = isTabBarVisible
+            lockedActionCachedFabHidden = fabState.isHidden
+        }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isTabBarVisible = false
+        }
+        fabState.isHidden = true
+    }
+
+    private func restoreAfterLockedActionPresentation() {
+        if let cached = lockedActionCachedTabBarVisible {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isTabBarVisible = cached
+            }
+        }
+        if let cachedFabHidden = lockedActionCachedFabHidden {
+            fabState.isHidden = cachedFabHidden
+        }
+        lockedActionCachedTabBarVisible = nil
+        lockedActionCachedFabHidden = nil
+    }
+
+    private func dismissLockedActionSheet(triggerSecondary: Bool) {
+        guard let request = lockedActionSheetRequest else { return }
+        lockedActionSheetRequest = nil
+        restoreAfterLockedActionPresentation()
+        if triggerSecondary {
+            request.onSecondary()
+        }
+    }
 
     private func handleScroll(_ offset: CGFloat) {
+        guard lockedActionSheetRequest == nil else { return }
+
         if viewModel.isCommunitySearchActive {
             if !headerVisible || !isTabBarVisible {
                 withAnimation(.easeInOut(duration: 0.2)) {

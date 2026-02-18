@@ -15,6 +15,9 @@ class AuthViewModel: ObservableObject {
     @Published var onboardingComplete = false
     @Published var shouldEnterOnboardingFlow = false
     @Published var onboardingStep: RemoteOnboardingStep?
+    @Published var onboardingStageV2: String?
+    @Published var onboardingContextV2: OnboardingContextV2DTO?
+    @Published var onboardingAllowedNextStagesV2: [String] = []
     @Published private(set) var didLoadIdentity = false
     @Published private(set) var isProvisioned = false
     @Published var selectedOrganization: Organization?
@@ -61,6 +64,9 @@ class AuthViewModel: ObservableObject {
                     self.currentUser = nil
                     self.onboardingComplete = false
                     self.onboardingStep = nil
+                    self.onboardingStageV2 = nil
+                    self.onboardingContextV2 = nil
+                    self.onboardingAllowedNextStagesV2 = []
                     self.isProvisioned = false
                     self.selectedOrganization = nil
                     self.shouldEnterOnboardingFlow = true
@@ -258,6 +264,9 @@ class AuthViewModel: ObservableObject {
         currentUser = nil
         onboardingComplete = false
         onboardingStep = nil
+        onboardingStageV2 = nil
+        onboardingContextV2 = nil
+        onboardingAllowedNextStagesV2 = []
         isProvisioned = false
         shouldEnterOnboardingFlow = true
         Task { await AnonService.shared.clearIdentity() }
@@ -278,6 +287,9 @@ class AuthViewModel: ObservableObject {
             onboardingComplete = identity.onboardingComplete ?? (identity.provisioned && identity.user != nil)
             isProvisioned = identity.provisioned || onboardingComplete
             onboardingStep = onboardingComplete ? nil : (identity.onboardingStep ?? .profileSetup)
+            onboardingStageV2 = identity.onboardingStageV2
+            onboardingContextV2 = identity.onboardingContext
+            onboardingAllowedNextStagesV2 = []
             shouldEnterOnboardingFlow = !onboardingComplete
 
             if let userDTO = identity.user {
@@ -296,6 +308,9 @@ class AuthViewModel: ObservableObject {
             shouldEnterOnboardingFlow = true
             onboardingComplete = false
             onboardingStep = .profileSetup
+            onboardingStageV2 = nil
+            onboardingContextV2 = nil
+            onboardingAllowedNextStagesV2 = []
             isProvisioned = false
             currentUser = nil
             selectedOrganization = nil
@@ -364,6 +379,54 @@ class AuthViewModel: ObservableObject {
             // Ignore: centralized gating handler updates auth routing.
         } catch {
             // Ignore: onboarding step reporting shouldn't block the UI.
+        }
+    }
+
+    func markOnboardingInfoScreenViewed() async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.markOnboardingInfoScreenViewed()
+        }
+    }
+
+    func setOnboardingV2Organization(orgId: Int) async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.setOnboardingV2Organization(orgId: orgId)
+        }
+    }
+
+    func setOnboardingV2VerificationChoice(path: String) async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.setOnboardingV2VerificationChoice(path: path)
+        }
+    }
+
+    func markOnboardingV2EmailVerificationSuccess() async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.markOnboardingV2EmailVerificationSuccess()
+        }
+    }
+
+    func submitOnboardingV2Specialization(specializationId: Int) async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.submitOnboardingV2Specialization(specializationId: specializationId)
+        }
+    }
+
+    func acknowledgeOnboardingV2SkipExplainer() async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.acknowledgeOnboardingV2SkipExplainer()
+        }
+    }
+
+    func acknowledgeOnboardingV2PhotoPendingExplainer() async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.acknowledgeOnboardingV2PhotoPendingExplainer()
+        }
+    }
+
+    func finalizeOnboardingV2() async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.finalizeOnboardingV2()
         }
     }
 
@@ -449,6 +512,40 @@ class AuthViewModel: ObservableObject {
         return nil
         #endif
     }
+
+    private func performOnboardingV2Update(
+        _ operation: () async throws -> OnboardingStateV2DTO
+    ) async -> Bool {
+        guard isAuthenticated else { return false }
+        do {
+            let state = try await operation()
+            await applyOnboardingV2State(state)
+            return true
+        } catch {
+            if let apiError = error as? APIError, apiError.isAuthGatingError {
+                return false
+            }
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    private func applyOnboardingV2State(_ state: OnboardingStateV2DTO) async {
+        onboardingComplete = state.onboardingComplete
+        if let step = state.onboardingStep {
+            onboardingStep = step
+        } else if state.onboardingComplete {
+            onboardingStep = nil
+        }
+        onboardingStageV2 = state.onboardingStageV2
+        onboardingContextV2 = state.onboardingContext
+        onboardingAllowedNextStagesV2 = []
+        shouldEnterOnboardingFlow = !state.onboardingComplete
+
+        if state.onboardingComplete {
+            await loadCurrentUser()
+        }
+    }
 }
 
 // MARK: - Nonce helpers for Apple
@@ -462,6 +559,9 @@ private extension AuthViewModel {
             onboardingComplete = false
             shouldEnterOnboardingFlow = true
             onboardingStep = .profileSetup
+            onboardingStageV2 = nil
+            onboardingContextV2 = nil
+            onboardingAllowedNextStagesV2 = []
             isProvisioned = false
             currentUser = nil
             selectedOrganization = nil
@@ -471,12 +571,16 @@ private extension AuthViewModel {
             onboardingComplete = false
             shouldEnterOnboardingFlow = true
             onboardingStep = context.onboardingStep ?? context.currentStep ?? .profileSetup
+            onboardingStageV2 = context.currentStageV2
+            onboardingAllowedNextStagesV2 = context.allowedNextStagesV2 ?? []
             isProvisioned = true
             errorMessage = nil
-        case .invalidOnboardingStep:
+        case .invalidOnboardingStep, .invalidOnboardingStage:
             onboardingComplete = false
             shouldEnterOnboardingFlow = true
             onboardingStep = context.currentStep ?? context.onboardingStep ?? .profileSetup
+            onboardingStageV2 = context.currentStageV2
+            onboardingAllowedNextStagesV2 = context.allowedNextStagesV2 ?? []
             isProvisioned = true
             errorMessage = nil
         case .accountDeleted:

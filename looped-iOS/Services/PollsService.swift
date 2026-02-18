@@ -4,15 +4,20 @@ final class PollsService: PollsServiceProtocol {
     private let apiClient: APIClient
     private let anonService: AnonService
     private let anonHeaders = ["X-Actor": "anon"]
+    private let isAnonymousModeEnabled: () -> Bool
     private let recoverAnonIdentity: (_ communityId: Int?) async throws -> Void
 
     init(
         apiClient: APIClient = APIClient(),
         anonService: AnonService = .shared,
+        isAnonymousModeEnabled: (() -> Bool)? = nil,
         recoverAnonIdentity: ((_ communityId: Int?) async throws -> Void)? = nil
     ) {
         self.apiClient = apiClient
         self.anonService = anonService
+        self.isAnonymousModeEnabled = isAnonymousModeEnabled ?? { [anonService] in
+            anonService.isAnonymousEnabled
+        }
         self.recoverAnonIdentity = recoverAnonIdentity ?? { [anonService] communityId in
             await anonService.clearIdentity()
             _ = try await anonService.ensureIdentity(communityId: communityId)
@@ -20,7 +25,7 @@ final class PollsService: PollsServiceProtocol {
     }
 
     func vote(pollId: Int, selectedOptionIds: [Int], communityId: Int?) async throws -> Poll {
-        if anonService.isAnonymousEnabled {
+        if isAnonymousModeEnabled() {
             return try await voteAsAnonymous(
                 pollId: pollId,
                 selectedOptionIds: selectedOptionIds,

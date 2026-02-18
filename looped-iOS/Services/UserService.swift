@@ -393,6 +393,56 @@ class UserService: UserServiceProtocol {
         return try await apiClient.put("/v1/users/me/onboarding", body: request)
     }
 
+    func markOnboardingInfoScreenViewed() async throws -> OnboardingStateV2DTO {
+        try await apiClient.post(
+            "/v1/users/me/onboarding-v2/info-screen/viewed",
+            body: EmptyBody()
+        )
+    }
+
+    func setOnboardingV2Organization(orgId: Int) async throws -> OnboardingStateV2DTO {
+        let request = OnboardingV2OrgRequestDTO(orgId: orgId)
+        return try await apiClient.put("/v1/users/me/onboarding-v2/org", body: request)
+    }
+
+    func setOnboardingV2VerificationChoice(path: String) async throws -> OnboardingStateV2DTO {
+        let request = OnboardingV2VerificationChoiceRequestDTO(verificationPath: path)
+        return try await apiClient.put("/v1/users/me/onboarding-v2/verification-choice", body: request)
+    }
+
+    func markOnboardingV2EmailVerificationSuccess() async throws -> OnboardingStateV2DTO {
+        try await apiClient.post(
+            "/v1/users/me/onboarding-v2/email-verification/success",
+            body: EmptyBody()
+        )
+    }
+
+    func submitOnboardingV2Specialization(specializationId: Int) async throws -> OnboardingStateV2DTO {
+        let request = OnboardingV2SpecializationRequestDTO(specializationId: specializationId)
+        return try await apiClient.post("/v1/users/me/onboarding-v2/specialization", body: request)
+    }
+
+    func acknowledgeOnboardingV2SkipExplainer() async throws -> OnboardingStateV2DTO {
+        try await apiClient.post(
+            "/v1/users/me/onboarding-v2/skip-explainer/ack",
+            body: EmptyBody()
+        )
+    }
+
+    func acknowledgeOnboardingV2PhotoPendingExplainer() async throws -> OnboardingStateV2DTO {
+        try await apiClient.post(
+            "/v1/users/me/onboarding-v2/photo-pending-explainer/ack",
+            body: EmptyBody()
+        )
+    }
+
+    func finalizeOnboardingV2() async throws -> OnboardingStateV2DTO {
+        try await apiClient.post(
+            "/v1/users/me/onboarding-v2/finalize",
+            body: EmptyBody()
+        )
+    }
+
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage {
         var endpoint = "/v1/users/\(userId)/comments?limit=\(limit)"
         if let cursor = cursor, !cursor.isEmpty {

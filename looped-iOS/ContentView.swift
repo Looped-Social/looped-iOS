@@ -161,11 +161,11 @@ struct ContentView: View {
         #if canImport(UserNotifications)
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         switch settings.authorizationStatus {
-        case .notDetermined:
+        case .notDetermined, .denied:
             await MainActor.run {
                 showNotificationPermissionPrompt = true
             }
-        case .authorized, .provisional, .ephemeral, .denied:
+        case .authorized, .provisional, .ephemeral:
             await MainActor.run {
                 didShowNotificationPermissionPrompt = true
             }

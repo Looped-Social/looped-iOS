@@ -680,6 +680,8 @@ fileprivate struct ServerError: Decodable {
     let onboardingStep: RemoteOnboardingStep?
     let currentStep: RemoteOnboardingStep?
     let allowedNextSteps: [RemoteOnboardingStep]?
+    let currentStageV2: String?
+    let allowedNextStagesV2: [String]?
     let retryAfterSeconds: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -693,6 +695,10 @@ fileprivate struct ServerError: Decodable {
         case currentStepCamel = "currentStep"
         case allowedNextSteps = "allowed_next_steps"
         case allowedNextStepsCamel = "allowedNextSteps"
+        case currentStageV2 = "current_stage_v2"
+        case currentStageV2Camel = "currentStageV2"
+        case allowedNextStagesV2 = "allowed_next_stages_v2"
+        case allowedNextStagesV2Camel = "allowedNextStagesV2"
         case retryAfterSeconds = "retry_after_seconds"
         case retryAfterSecondsCamel = "retryAfterSeconds"
     }
@@ -704,6 +710,8 @@ fileprivate struct ServerError: Decodable {
         onboardingStep: RemoteOnboardingStep?,
         currentStep: RemoteOnboardingStep? = nil,
         allowedNextSteps: [RemoteOnboardingStep]? = nil,
+        currentStageV2: String? = nil,
+        allowedNextStagesV2: [String]? = nil,
         retryAfterSeconds: Int? = nil
     ) {
         self.error = error
@@ -712,6 +720,8 @@ fileprivate struct ServerError: Decodable {
         self.onboardingStep = onboardingStep
         self.currentStep = currentStep
         self.allowedNextSteps = allowedNextSteps
+        self.currentStageV2 = currentStageV2
+        self.allowedNextStagesV2 = allowedNextStagesV2
         self.retryAfterSeconds = retryAfterSeconds
     }
 
@@ -731,6 +741,12 @@ fileprivate struct ServerError: Decodable {
             snakeKey: .allowedNextSteps,
             camelKey: .allowedNextStepsCamel
         )
+        currentStageV2 =
+            (try? container.decodeIfPresent(String.self, forKey: .currentStageV2))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .currentStageV2Camel))
+        allowedNextStagesV2 =
+            (try? container.decodeIfPresent([String].self, forKey: .allowedNextStagesV2))
+            ?? (try? container.decodeIfPresent([String].self, forKey: .allowedNextStagesV2Camel))
         retryAfterSeconds = try ServerError.decodeRetryAfterSeconds(
             from: container,
             snakeKey: .retryAfterSeconds,
@@ -801,6 +817,7 @@ enum AuthGatingErrorCode: String, Codable {
     case userNotProvisioned = "user_not_provisioned"
     case onboardingIncomplete = "onboarding_incomplete"
     case invalidOnboardingStep = "invalid_onboarding_step"
+    case invalidOnboardingStage = "invalid_onboarding_stage"
     case accountDeleted = "account_deleted"
 }
 
@@ -809,6 +826,8 @@ struct AuthGatingContext: Equatable {
     let onboardingStep: RemoteOnboardingStep?
     let currentStep: RemoteOnboardingStep?
     let allowedNextSteps: [RemoteOnboardingStep]?
+    let currentStageV2: String?
+    let allowedNextStagesV2: [String]?
     let message: String?
 
     fileprivate init?(statusCode: Int, payload: ServerError) {
@@ -816,13 +835,15 @@ struct AuthGatingContext: Equatable {
         switch code {
         case .userNotProvisioned, .onboardingIncomplete, .accountDeleted:
             guard statusCode == 409 else { return nil }
-        case .invalidOnboardingStep:
+        case .invalidOnboardingStep, .invalidOnboardingStage:
             guard statusCode == 422 else { return nil }
         }
         self.code = code
         self.onboardingStep = payload.onboardingStep
         self.currentStep = payload.currentStep
         self.allowedNextSteps = payload.allowedNextSteps
+        self.currentStageV2 = payload.currentStageV2
+        self.allowedNextStagesV2 = payload.allowedNextStagesV2
         self.message = payload.message
     }
 }

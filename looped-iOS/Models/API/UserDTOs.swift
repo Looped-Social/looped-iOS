@@ -9,6 +9,8 @@ struct IdentityResponseDTO: Codable {
     let user: UserDTO?
     let onboardingComplete: Bool?
     let onboardingStep: RemoteOnboardingStep?
+    let onboardingStageV2: String?
+    let onboardingContext: OnboardingContextV2DTO?
 }
 
 struct UserDTO: Codable {

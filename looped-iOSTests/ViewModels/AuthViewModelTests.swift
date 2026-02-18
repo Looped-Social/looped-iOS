@@ -46,6 +46,71 @@ struct AuthViewModelTests {
     }
 
     @Test
+    func loadCurrentUser_populatesOnboardingV2Metadata() async {
+        let authService = MockAuthService()
+        let userService = MockUserService()
+        let context = makeOnboardingContext(
+            selectedOrgKind: "school",
+            verificationPath: "email",
+            verificationStatus: "approved"
+        )
+        userService.getIdentityHandler = {
+            TestFixtures.identityDTO(
+                provisioned: true,
+                onboardingComplete: false,
+                onboardingStep: .verification,
+                user: TestFixtures.userDTO(id: 4),
+                onboardingStageV2: "email_verification",
+                onboardingContext: context
+            )
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        await viewModel.loadCurrentUser()
+
+        #expect(viewModel.onboardingStageV2 == "email_verification")
+        #expect(viewModel.onboardingContextV2 == context)
+        #expect(viewModel.shouldEnterOnboardingFlow == true)
+    }
+
+    @Test
+    func setOnboardingV2VerificationChoice_success_updatesOnboardingState() async {
+        let authService = MockAuthService()
+        authService.isAuthenticated = true
+        let userService = MockUserService()
+        userService.setOnboardingV2VerificationChoiceHandler = { path in
+            #expect(path == "email")
+            return OnboardingStateV2DTO(
+                onboardingComplete: false,
+                onboardingStep: .verification,
+                onboardingStageV2: "email_verification",
+                onboardingContext: makeOnboardingContext(verificationPath: "email")
+            )
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        let success = await viewModel.setOnboardingV2VerificationChoice(path: "email")
+
+        #expect(success == true)
+        #expect(userService.setOnboardingV2VerificationChoiceCalls == ["email"])
+        #expect(viewModel.onboardingStep == .verification)
+        #expect(viewModel.onboardingStageV2 == "email_verification")
+        #expect(viewModel.onboardingContextV2?.verificationPath == "email")
+    }
+
+    @Test
     func loadCurrentUser_userNotProvisioned_setsOnboardingFallbackState() async {
         let authService = MockAuthService()
         let userService = MockUserService()
@@ -233,6 +298,24 @@ struct AuthViewModelTests {
         #expect(viewModel.isProvisioned == false)
         #expect(viewModel.shouldEnterOnboardingFlow == true)
     }
+}
+
+private func makeOnboardingContext(
+    selectedOrgKind: String? = nil,
+    verificationPath: String? = nil,
+    verificationStatus: String? = nil
+) -> OnboardingContextV2DTO {
+    OnboardingContextV2DTO(
+        selectedOrgId: nil,
+        selectedOrgName: nil,
+        selectedOrgKind: selectedOrgKind,
+        verificationPath: verificationPath,
+        verificationStatus: verificationStatus,
+        specializationRequired: nil,
+        specializationId: nil,
+        specializationName: nil,
+        completionReason: nil
+    )
 }
 
 private func makeDefaults(prefix: String) -> UserDefaults {

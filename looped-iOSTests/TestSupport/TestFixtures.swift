@@ -103,7 +103,9 @@ enum TestFixtures {
         provisioned: Bool,
         onboardingComplete: Bool?,
         onboardingStep: RemoteOnboardingStep?,
-        user: UserDTO?
+        user: UserDTO?,
+        onboardingStageV2: String? = nil,
+        onboardingContext: OnboardingContextV2DTO? = nil
     ) -> IdentityResponseDTO {
         IdentityResponseDTO(
             sub: "sub-1",
@@ -113,7 +115,9 @@ enum TestFixtures {
             provisioned: provisioned,
             user: user,
             onboardingComplete: onboardingComplete,
-            onboardingStep: onboardingStep
+            onboardingStep: onboardingStep,
+            onboardingStageV2: onboardingStageV2,
+            onboardingContext: onboardingContext
         )
     }
 

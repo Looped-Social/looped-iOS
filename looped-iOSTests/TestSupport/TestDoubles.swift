@@ -749,6 +749,22 @@ final class MockUserService: UserServiceProtocol {
 
     var updateOnboardingStepCalls: [RemoteOnboardingStep] = []
     var updateOnboardingStepHandler: ((RemoteOnboardingStep) async throws -> OnboardingStateDTO)?
+    var markOnboardingInfoScreenViewedCallCount = 0
+    var markOnboardingInfoScreenViewedHandler: (() async throws -> OnboardingStateV2DTO)?
+    var setOnboardingV2OrganizationCalls: [Int] = []
+    var setOnboardingV2OrganizationHandler: ((Int) async throws -> OnboardingStateV2DTO)?
+    var setOnboardingV2VerificationChoiceCalls: [String] = []
+    var setOnboardingV2VerificationChoiceHandler: ((String) async throws -> OnboardingStateV2DTO)?
+    var markOnboardingV2EmailVerificationSuccessCallCount = 0
+    var markOnboardingV2EmailVerificationSuccessHandler: (() async throws -> OnboardingStateV2DTO)?
+    var submitOnboardingV2SpecializationCalls: [Int] = []
+    var submitOnboardingV2SpecializationHandler: ((Int) async throws -> OnboardingStateV2DTO)?
+    var acknowledgeOnboardingV2SkipExplainerCallCount = 0
+    var acknowledgeOnboardingV2SkipExplainerHandler: (() async throws -> OnboardingStateV2DTO)?
+    var acknowledgeOnboardingV2PhotoPendingExplainerCallCount = 0
+    var acknowledgeOnboardingV2PhotoPendingExplainerHandler: (() async throws -> OnboardingStateV2DTO)?
+    var finalizeOnboardingV2CallCount = 0
+    var finalizeOnboardingV2Handler: (() async throws -> OnboardingStateV2DTO)?
 
     func getIdentity() async throws -> IdentityResponseDTO {
         getIdentityCallCount += 1
@@ -853,6 +869,70 @@ final class MockUserService: UserServiceProtocol {
         updateOnboardingStepCalls.append(step)
         if let handler = updateOnboardingStepHandler {
             return try await handler(step)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func markOnboardingInfoScreenViewed() async throws -> OnboardingStateV2DTO {
+        markOnboardingInfoScreenViewedCallCount += 1
+        if let handler = markOnboardingInfoScreenViewedHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func setOnboardingV2Organization(orgId: Int) async throws -> OnboardingStateV2DTO {
+        setOnboardingV2OrganizationCalls.append(orgId)
+        if let handler = setOnboardingV2OrganizationHandler {
+            return try await handler(orgId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func setOnboardingV2VerificationChoice(path: String) async throws -> OnboardingStateV2DTO {
+        setOnboardingV2VerificationChoiceCalls.append(path)
+        if let handler = setOnboardingV2VerificationChoiceHandler {
+            return try await handler(path)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func markOnboardingV2EmailVerificationSuccess() async throws -> OnboardingStateV2DTO {
+        markOnboardingV2EmailVerificationSuccessCallCount += 1
+        if let handler = markOnboardingV2EmailVerificationSuccessHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func submitOnboardingV2Specialization(specializationId: Int) async throws -> OnboardingStateV2DTO {
+        submitOnboardingV2SpecializationCalls.append(specializationId)
+        if let handler = submitOnboardingV2SpecializationHandler {
+            return try await handler(specializationId)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func acknowledgeOnboardingV2SkipExplainer() async throws -> OnboardingStateV2DTO {
+        acknowledgeOnboardingV2SkipExplainerCallCount += 1
+        if let handler = acknowledgeOnboardingV2SkipExplainerHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func acknowledgeOnboardingV2PhotoPendingExplainer() async throws -> OnboardingStateV2DTO {
+        acknowledgeOnboardingV2PhotoPendingExplainerCallCount += 1
+        if let handler = acknowledgeOnboardingV2PhotoPendingExplainerHandler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func finalizeOnboardingV2() async throws -> OnboardingStateV2DTO {
+        finalizeOnboardingV2CallCount += 1
+        if let handler = finalizeOnboardingV2Handler {
+            return try await handler()
         }
         throw TestError.unimplemented(#function)
     }

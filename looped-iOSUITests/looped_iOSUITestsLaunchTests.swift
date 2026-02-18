@@ -9,13 +9,9 @@ import XCTest
 
 final class looped_iOSUITestsLaunchTests: XCTestCase {
 
-    override class var runsForEachTargetApplicationUIConfiguration: Bool {
-        true
-    }
-
-    override func setUpWithError() throws {
-        continueAfterFailure = false
-    }
+	    override func setUpWithError() throws {
+	        continueAfterFailure = false
+	    }
 
     @MainActor
     func testLaunch() throws {

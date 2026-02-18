@@ -1,17 +1,6 @@
 import SwiftUI
 import UIKit
 
-extension View {
-    @ViewBuilder
-    func applyLockedActionSheetPageSizingIfAvailable() -> some View {
-        if #available(iOS 18.0, *) {
-            presentationSizing(.page)
-        } else {
-            self
-        }
-    }
-}
-
 struct SheetPresentationConfigurator: UIViewControllerRepresentable {
     let configure: (UISheetPresentationController) -> Void
 

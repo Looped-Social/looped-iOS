@@ -51,9 +51,6 @@ private struct PollsStaticTokenProvider: AuthTokenProvider {
 
 @Suite(.serialized)
 struct PollsServiceTests {
-    private let anonymousModeKey = "anonymousMode"
-    private let lastSelectedCommunityKey = "lastSelectedCommunityId"
-
     @Test
     func vote_usesJwtAuthInRegularMode() async throws {
         let requestBox = PollsRequestBox()
@@ -62,8 +59,6 @@ struct PollsServiceTests {
             return makeSuccessResponse(for: request, selectedOptionId: 3)
         }
         defer { PollsRequestCaptureURLProtocol.requestHandler = nil }
-        UserDefaults.standard.set(false, forKey: anonymousModeKey)
-        defer { UserDefaults.standard.removeObject(forKey: anonymousModeKey) }
 
         let session = makeSession()
         let apiClient = APIClient(
@@ -72,7 +67,12 @@ struct PollsServiceTests {
             tokenStorage: TokenStorage(),
             tokenProvider: PollsStaticTokenProvider(token: "jwt-token")
         )
-        let service = PollsService(apiClient: apiClient)
+        let anonService = AnonService(apiClient: apiClient, store: AnonIdentityStore())
+        let service = PollsService(
+            apiClient: apiClient,
+            anonService: anonService,
+            isAnonymousModeEnabled: { false }
+        )
 
         _ = try await service.vote(pollId: 55, selectedOptionIds: [3], communityId: 77)
 
@@ -103,9 +103,6 @@ struct PollsServiceTests {
         }
         defer { PollsRequestCaptureURLProtocol.requestHandler = nil }
 
-        UserDefaults.standard.set(true, forKey: anonymousModeKey)
-        UserDefaults.standard.set(77, forKey: lastSelectedCommunityKey)
-
         let store = AnonIdentityStore()
         let membership = AnonCommunityMembership(
             cert: "cert-77",
@@ -122,8 +119,6 @@ struct PollsServiceTests {
         store.savePrivateKey(Curve25519.Signing.PrivateKey())
         defer {
             store.clearAll()
-            UserDefaults.standard.removeObject(forKey: anonymousModeKey)
-            UserDefaults.standard.removeObject(forKey: lastSelectedCommunityKey)
         }
 
         let session = makeSession()
@@ -134,7 +129,11 @@ struct PollsServiceTests {
             tokenProvider: PollsStaticTokenProvider(token: "jwt-token")
         )
         let anonService = AnonService(apiClient: apiClient, store: store)
-        let service = PollsService(apiClient: apiClient, anonService: anonService)
+        let service = PollsService(
+            apiClient: apiClient,
+            anonService: anonService,
+            isAnonymousModeEnabled: { true }
+        )
 
         _ = try await service.vote(pollId: 55, selectedOptionIds: [4], communityId: 77)
 
@@ -178,9 +177,6 @@ struct PollsServiceTests {
         }
         defer { PollsRequestCaptureURLProtocol.requestHandler = nil }
 
-        UserDefaults.standard.set(true, forKey: anonymousModeKey)
-        UserDefaults.standard.set(77, forKey: lastSelectedCommunityKey)
-
         let store = AnonIdentityStore()
         let membership = AnonCommunityMembership(
             cert: "cert-77",
@@ -197,8 +193,6 @@ struct PollsServiceTests {
         store.savePrivateKey(Curve25519.Signing.PrivateKey())
         defer {
             store.clearAll()
-            UserDefaults.standard.removeObject(forKey: anonymousModeKey)
-            UserDefaults.standard.removeObject(forKey: lastSelectedCommunityKey)
         }
 
         let session = makeSession()
@@ -213,6 +207,7 @@ struct PollsServiceTests {
         let service = PollsService(
             apiClient: apiClient,
             anonService: anonService,
+            isAnonymousModeEnabled: { true },
             recoverAnonIdentity: { _ in
                 recoveryCalls.value += 1
             }

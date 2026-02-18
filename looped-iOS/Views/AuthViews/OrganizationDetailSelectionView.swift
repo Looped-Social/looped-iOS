@@ -4,26 +4,30 @@ struct OrganizationDetailSelectionView: View {
     let title: String
     let kind: CommunitySearchKind
     @Binding var searchText: String
-    @Binding var selectedItem: CommunitySearchResult?
-    let onSelect: (CommunitySearchResult) -> Void
-    let onContinue: (CommunitySearchResult) -> Void
+    @Binding var selectedItems: [CommunitySearchResult]
+    let maxSelections: Int
+    let onSelect: ([CommunitySearchResult]) -> Void
+    let onContinue: ([CommunitySearchResult]) -> Void
 
     @StateObject private var viewModel: OnboardingSpecializationSelectionViewModel
     @State private var isInfoPresented = false
+    @State private var selectionErrorMessage: String?
     @FocusState private var isSearchFieldFocused: Bool
 
     init(
         title: String,
         kind: CommunitySearchKind,
         searchText: Binding<String>,
-        selectedItem: Binding<CommunitySearchResult?>,
-        onSelect: @escaping (CommunitySearchResult) -> Void,
-        onContinue: @escaping (CommunitySearchResult) -> Void
+        selectedItems: Binding<[CommunitySearchResult]>,
+        maxSelections: Int = 2,
+        onSelect: @escaping ([CommunitySearchResult]) -> Void,
+        onContinue: @escaping ([CommunitySearchResult]) -> Void
     ) {
         self.title = title
         self.kind = kind
         _searchText = searchText
-        _selectedItem = selectedItem
+        _selectedItems = selectedItems
+        self.maxSelections = max(1, maxSelections)
         self.onSelect = onSelect
         self.onContinue = onContinue
         _viewModel = StateObject(wrappedValue: OnboardingSpecializationSelectionViewModel(kind: kind))
@@ -117,17 +121,26 @@ struct OrganizationDetailSelectionView: View {
                                     name: result.name,
                                     shortName: result.shortName
                                 ) ?? result.name,
-                                isSelected: result.id == selectedItem?.id
+                                isSelected: isSelected(result.id),
+                                selectionOrder: selectionOrder(for: result.id)
                             ) {
                                 isSearchFieldFocused = false
-                                selectedItem = result
-                                onSelect(result)
+                                toggleSelection(result)
                             }
                         }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
-                    .padding(.bottom, (selectedItem == nil || isSearchFieldFocused) ? 20 : 100)
+                    .padding(.bottom, (selectedItems.isEmpty || isSearchFieldFocused) ? 20 : 100)
+                }
+
+                if let selectionErrorMessage, !isSearchFieldFocused {
+                    Text(selectionErrorMessage)
+                        .font(.loopedSmallText)
+                        .foregroundColor(.loopedError)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
                 }
 
                 Spacer()
@@ -136,8 +149,13 @@ struct OrganizationDetailSelectionView: View {
             .background(Color.loopedBackground.ignoresSafeArea())
         }
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .background(
+            NavigationPopGestureDisabler(isEnabled: false)
+                .frame(width: 0, height: 0)
+        )
         .onAppear {
             viewModel.query = searchText
             viewModel.refresh()
@@ -146,9 +164,9 @@ struct OrganizationDetailSelectionView: View {
             viewModel.query = newValue
         }
         .safeAreaInset(edge: .bottom) {
-            if let selectedItem, !isSearchFieldFocused {
+            if !selectedItems.isEmpty, !isSearchFieldFocused {
                 PrimaryButton(title: "Continue") {
-                    onContinue(selectedItem)
+                    onContinue(selectedItems)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 8)
@@ -168,22 +186,49 @@ private extension OrganizationDetailSelectionView {
     var inlineHelperText: String {
         switch kind {
         case .field:
-            return "Looped has field specializations. You must join one to post in it."
+            return "Select up to 2 fields to join now."
         case .major:
-            return "Looped has major specializations. You must join one to post in it."
+            return "Select up to 2 majors to join now."
         default:
-            return "You must join a specialization to post in it."
+            return "Select up to 2 specializations to join now."
         }
     }
 
     var infoText: String {
-        "Workplace verification lets you join up to 2 fields. School verification lets you join up to 2 majors. During onboarding we only follow this specialization to tailor content; you can join after onboarding."
+        "Workplace verification lets you join up to 2 fields. School verification lets you join up to 2 majors."
+    }
+
+    func isSelected(_ specializationId: Int) -> Bool {
+        selectedItems.contains(where: { $0.id == specializationId })
+    }
+
+    func selectionOrder(for specializationId: Int) -> Int? {
+        selectedItems.firstIndex(where: { $0.id == specializationId }).map { $0 + 1 }
+    }
+
+    func toggleSelection(_ result: CommunitySearchResult) {
+        if let existingIndex = selectedItems.firstIndex(where: { $0.id == result.id }) {
+            selectedItems.remove(at: existingIndex)
+            selectionErrorMessage = nil
+            onSelect(selectedItems)
+            return
+        }
+
+        guard selectedItems.count < maxSelections else {
+            selectionErrorMessage = "You can select up to \(maxSelections)."
+            return
+        }
+
+        selectedItems.append(result)
+        selectionErrorMessage = nil
+        onSelect(selectedItems)
     }
 }
 
 private struct OrganizationDetailRow: View {
     let title: String
     let isSelected: Bool
+    let selectionOrder: Int?
     let onSelect: () -> Void
 
     var body: some View {
@@ -196,9 +241,20 @@ private struct OrganizationDetailRow: View {
                 Spacer()
 
                 if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.loopedCustom(.semibold, size: 18))
-                        .foregroundColor(.loopedPrimary)
+                    if let selectionOrder {
+                        ZStack {
+                            Circle()
+                                .fill(Color.loopedPrimary)
+                                .frame(width: 22, height: 22)
+                            Text("\(selectionOrder)")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedBackground)
+                        }
+                    } else {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.loopedCustom(.semibold, size: 18))
+                            .foregroundColor(.loopedPrimary)
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -223,7 +279,7 @@ private struct OrganizationDetailRow: View {
             title: "Field",
             kind: .field,
             searchText: .constant(""),
-            selectedItem: .constant(nil as CommunitySearchResult?),
+            selectedItems: .constant([]),
             onSelect: { _ in },
             onContinue: { _ in }
         )

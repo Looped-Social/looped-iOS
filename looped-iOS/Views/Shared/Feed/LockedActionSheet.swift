@@ -9,76 +9,65 @@ struct LockedActionSheet: View {
     let onHowItWorks: (() -> Void)?
 
     var body: some View {
-        ZStack {
-            Color.loopedBackground
-                .ignoresSafeArea()
+        VStack(spacing: 12) {
+            Image("lock-icon")
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: 36, height: 36)
+                .foregroundColor(.loopedContrast)
 
-            VStack(spacing: 12) {
+            Text(reason.title(for: actionType))
+                .font(.loopedHeadlineScaled)
+                .foregroundColor(.loopedTextPrimary)
+                .multilineTextAlignment(.center)
+
+            Text(reason.body(for: actionType))
+                .font(.loopedSubheadlineScaled)
+                .foregroundColor(.loopedTextSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+
+            Button(action: onPrimary) {
                 ZStack {
-                    Circle()
-                        .fill(Color.loopedMutedBackground)
-                        .frame(width: 40, height: 40)
-                    Image("lock-icon")
-                        .resizable()
-                        .renderingMode(.template)
-                        .scaledToFit()
-                        .frame(width: 16, height: 16)
-                        .foregroundColor(.loopedSecondary)
-                }
-                .padding(.top, 4)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.loopedPrimary)
 
-                Text(reason.title(for: actionType))
-                    .font(.loopedHeadlineScaled)
-                    .foregroundColor(.loopedTextPrimary)
-                    .multilineTextAlignment(.center)
-
-                Text(reason.body(for: actionType))
-                    .font(.loopedSubheadlineScaled)
-                    .foregroundColor(.loopedTextSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 4)
-
-                Button(action: onPrimary) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.loopedPrimary)
-
-                        if isPrimaryLoading {
-                            ProgressView()
-                                .tint(.loopedWhite)
-                        } else {
-                            Text(reason.primaryButtonTitle)
-                                .font(.loopedSubBodyMedium)
-                                .foregroundColor(.loopedWhite)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                        }
+                    if isPrimaryLoading {
+                        ProgressView()
+                            .tint(.loopedWhite)
+                    } else {
+                        Text(reason.primaryButtonTitle)
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedWhite)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
-                    .frame(height: 44)
                 }
-                .buttonStyle(.plain)
-                .disabled(isPrimaryLoading)
-                .opacity(isPrimaryLoading ? 0.8 : 1)
-
-                Button(reason.secondaryButtonTitle, action: onSecondary)
-                    .buttonStyle(.plain)
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-
-                if let onHowItWorks {
-                    Button("How it works", action: onHowItWorks)
-                        .buttonStyle(.plain)
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedPrimary)
-                        .padding(.top, 2)
-                }
+                .frame(height: 44)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 14)
-            .frame(maxWidth: .infinity, alignment: .top)
+            .buttonStyle(.plain)
+            .disabled(isPrimaryLoading)
+            .opacity(isPrimaryLoading ? 0.8 : 1)
+
+            Button(reason.secondaryButtonTitle, action: onSecondary)
+                .buttonStyle(.plain)
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+
+            if let onHowItWorks {
+                Button("How it works", action: onHowItWorks)
+                    .buttonStyle(.plain)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedPrimary)
+                    .padding(.top, 2)
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 }
 

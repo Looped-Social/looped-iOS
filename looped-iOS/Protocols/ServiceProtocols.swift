@@ -175,6 +175,14 @@ protocol UserServiceProtocol {
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO
     func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
     func updateOnboardingStep(_ step: RemoteOnboardingStep) async throws -> OnboardingStateDTO
+    func markOnboardingInfoScreenViewed() async throws -> OnboardingStateV2DTO
+    func setOnboardingV2Organization(orgId: Int) async throws -> OnboardingStateV2DTO
+    func setOnboardingV2VerificationChoice(path: String) async throws -> OnboardingStateV2DTO
+    func markOnboardingV2EmailVerificationSuccess() async throws -> OnboardingStateV2DTO
+    func submitOnboardingV2Specialization(specializationId: Int) async throws -> OnboardingStateV2DTO
+    func acknowledgeOnboardingV2SkipExplainer() async throws -> OnboardingStateV2DTO
+    func acknowledgeOnboardingV2PhotoPendingExplainer() async throws -> OnboardingStateV2DTO
+    func finalizeOnboardingV2() async throws -> OnboardingStateV2DTO
 }
 
 struct UserFollowActionResult {

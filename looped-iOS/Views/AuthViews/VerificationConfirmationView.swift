@@ -13,6 +13,7 @@ struct VerificationConfirmationView: View {
     enum ConfirmationKind: Equatable {
         case photoIdPending
         case emailVerified(loopName: String)
+        case emailVerifiedAndJoined(loopName: String)
     }
 
     init(
@@ -128,7 +129,7 @@ private extension VerificationConfirmationView {
         switch confirmationKind {
         case .photoIdPending:
             return "Thanks for submitting!"
-        case .emailVerified:
+        case .emailVerified, .emailVerifiedAndJoined:
             return "You’re verified!"
         }
     }
@@ -137,7 +138,7 @@ private extension VerificationConfirmationView {
         switch confirmationKind {
         case .photoIdPending:
             return "confirm-verify"
-        case .emailVerified:
+        case .emailVerified, .emailVerifiedAndJoined:
             return "confirmed-verified"
         }
     }
@@ -148,6 +149,8 @@ private extension VerificationConfirmationView {
             return "Give us 24 Hours to process your verification,\nyou're on your way to your first loop!"
         case .emailVerified(let loopName):
             return "You’re verified for \(loopName).\nFollow the rules and have fun."
+        case .emailVerifiedAndJoined(let loopName):
+            return "You’re verified for \(loopName).\nYour major or field is joined. Start posting."
         }
     }
 }

@@ -75,6 +75,9 @@ struct PostCard: View {
     @State private var showLockedActionHowItWorks = false
     @State private var pendingLockedActionRetry: LockedFeedActionType?
     @State private var pendingJoinAfterVerificationCommunityId: Int?
+    @State private var lockedActionSheetDetent: PresentationDetent = PostCard.lockedActionDefaultDetent
+
+    private static let lockedActionDefaultDetent: PresentationDetent = .height(320)
 
 		    private let moderationService: ModerationServiceProtocol = ModerationService()
 		    private let blockService: BlockServiceProtocol = BlockService()
@@ -974,14 +977,15 @@ struct PostCard: View {
                 }
                 .background(
                     SheetPresentationConfigurator { sheet in
-                        if #available(iOS 17.0, *) {
-                            sheet.prefersPageSizing = true
-                        }
+                        sheet.prefersEdgeAttachedInCompactHeight = true
+                        sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = false
                     }
                 )
-                .presentationDetents([.height(320)])
-                .applyLockedActionSheetPageSizingIfAvailable()
-                .presentationDragIndicator(.visible)
+                .presentationDetents(
+                    [PostCard.lockedActionDefaultDetent, .large],
+                    selection: $lockedActionSheetDetent
+                )
+                .presentationDragIndicator(.hidden)
                 .presentationBackground(Color.loopedBackground)
             }
             .sheet(
@@ -1796,6 +1800,7 @@ struct PostCard: View {
 
     private func presentLockedAction(reason: LockReason, actionType: LockedFeedActionType) {
         pendingLockedActionRetry = actionType
+        lockedActionSheetDetent = PostCard.lockedActionDefaultDetent
         _ = LockedActionSessionTracker.shouldShowSheet(
             for: reason,
             communityId: reason.communityId ?? post.communityId
