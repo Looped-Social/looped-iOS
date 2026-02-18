@@ -39,10 +39,22 @@ struct OnboardingRoutingResolverTests {
     }
 
     @Test
-    func resolveScreen_remoteVerification_keepsVerificationRoute() {
+    func resolveScreen_remoteVerification_routesToVerificationInfoUntilAcknowledged() {
         let resolved = OnboardingRoutingResolver.resolveScreen(
             remoteStep: .verification,
             localStep: .verificationInfo,
+            isStudent: true,
+            shouldEnterOnboardingFlow: true
+        )
+
+        #expect(resolved == .verificationInfo)
+    }
+
+    @Test
+    func resolveScreen_remoteVerification_keepsVerificationRouteAfterInfoStep() {
+        let resolved = OnboardingRoutingResolver.resolveScreen(
+            remoteStep: .verification,
+            localStep: .selectCompany,
             isStudent: true,
             shouldEnterOnboardingFlow: true
         )

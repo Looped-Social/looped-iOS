@@ -651,13 +651,8 @@ struct OnboardingRoutingResolver {
         isStudent: Bool,
         shouldEnterOnboardingFlow: Bool
     ) -> AuthScreen? {
-        if remoteStep == .selectCompany {
-            switch localStep {
-            case .none, .profileSetup?, .verificationInfo?:
-                return .verificationInfo
-            default:
-                break
-            }
+        if shouldShowVerificationInfoStep(remoteStep: remoteStep, localStep: localStep) {
+            return .verificationInfo
         }
 
         if let remoteStep,
@@ -688,6 +683,27 @@ struct OnboardingRoutingResolver {
             return .selectCompany
         default:
             return raw
+        }
+    }
+
+    private static func shouldShowVerificationInfoStep(
+        remoteStep: RemoteOnboardingStep?,
+        localStep: OnboardingStep?
+    ) -> Bool {
+        let shouldGateOnVerificationInfo: Bool
+        switch remoteStep {
+        case .selectCompany?, .verification?:
+            shouldGateOnVerificationInfo = true
+        default:
+            shouldGateOnVerificationInfo = false
+        }
+
+        guard shouldGateOnVerificationInfo else { return false }
+        switch localStep {
+        case .none, .profileSetup?, .verificationInfo?:
+            return true
+        default:
+            return false
         }
     }
 }
