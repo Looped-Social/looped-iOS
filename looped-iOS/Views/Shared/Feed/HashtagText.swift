@@ -2,6 +2,9 @@ import SwiftUI
 
 struct HashtagText: View {
     let text: String
+    let prefix: String?
+    let prefixFont: Font?
+    let prefixColor: Color?
     let font: Font
     let textColor: Color
     let hashtagColor: Color
@@ -12,6 +15,9 @@ struct HashtagText: View {
 
     init(
         text: String,
+        prefix: String? = nil,
+        prefixFont: Font? = nil,
+        prefixColor: Color? = nil,
         font: Font = .loopedBodyScaled,
         textColor: Color = .loopedTextPrimary,
         hashtagColor: Color = .loopedPrimary,
@@ -21,6 +27,9 @@ struct HashtagText: View {
         onMentionTap: ((String) -> Void)? = nil
     ) {
         self.text = text
+        self.prefix = prefix
+        self.prefixFont = prefixFont
+        self.prefixColor = prefixColor
         self.font = font
         self.textColor = textColor
         self.hashtagColor = hashtagColor
@@ -59,6 +68,15 @@ struct HashtagText: View {
             detectLinks: true
         )
         var result = AttributedString()
+
+        if let prefix, !prefix.isEmpty {
+            var prefixText = AttributedString(prefix)
+            prefixText.foregroundColor = prefixColor ?? textColor
+            if let prefixFont {
+                prefixText.font = prefixFont
+            }
+            result.append(prefixText)
+        }
 
         for component in components {
             switch component {

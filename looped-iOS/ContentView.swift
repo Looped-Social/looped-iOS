@@ -1153,6 +1153,8 @@ struct MainTabView: View {
                 return .networkError
             }
             return .unavailable
+        case .rateLimited:
+            return .networkError
         case .serverError(let code):
             return code >= 500 ? .networkError : .unavailable
         case .invalidResponse, .decodingError:

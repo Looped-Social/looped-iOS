@@ -213,6 +213,14 @@ private extension APIError {
     }
 
     var humanReadableMessage: String {
+        if case .rateLimited(_, _, let message, let retryAfterSeconds) = self {
+            if let message { return message }
+            if let retryAfterSeconds {
+                return "Too many verification attempts. Try again in \(retryAfterSeconds)s."
+            }
+            return "Too many verification attempts. Try again later."
+        }
+
         if case .apiError(_, let error, let message) = self {
             if let message { return message }
             switch error {

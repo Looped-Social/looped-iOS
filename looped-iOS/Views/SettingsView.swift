@@ -21,6 +21,7 @@ struct SettingsView: View {
     private let contentPreferencesService: ContentPreferencesServiceProtocol = ContentPreferencesService()
     private let anonService = AnonService.shared
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+    @StateObject private var appIconViewModel = AppIconSettingsViewModel()
 
     // Toggle states
     @State private var showFollowerCount = true
@@ -69,64 +70,33 @@ struct SettingsView: View {
     @AppStorage("providerDisconnectStatusMessage") private var providerDisconnectStatusMessage = ""
 
     var body: some View {
-        let onOpenFeedback = { showFeedback = true }
-        let onOpenContentPolicy = { showContentPolicy = true }
-        let onOpenPrivacyPolicy = { showPrivacyPolicy = true }
-        let onOpenUserAgreement = { showUserAgreement = true }
-        let onOpenAttributions = { showAttributions = true }
-        let onRequestCommunity = { showCommunityRequest = true }
-        let onSelectContent: (MenuDestination) -> Void = { destination in contentDestination = destination }
-        let onConfirmLogout = {
-            let impact = UIImpactFeedbackGenerator(style: .light)
-            impact.impactOccurred()
-            showLogoutAlert = true
-        }
-        let onTapGoogle = {
-            if authViewModel.isGoogleLinked {
-                guard canDisconnect(provider: .google) else {
-                    presentOnlySignInMethodError(provider: .google)
-                    return
-                }
-                pendingDisconnectProvider = .google
-            } else {
-                connectGoogle()
-            }
-        }
-        let onTapApple = {
-            if authViewModel.isAppleLinked {
-                guard canDisconnect(provider: .apple) else {
-                    presentOnlySignInMethodError(provider: .apple)
-                    return
-                }
-                pendingDisconnectProvider = .apple
-            } else {
-                connectApple()
-            }
-        }
-        let onTapEmail = {
-            showEmailSignInSettings = true
-        }
+        settingsViewWithAlerts
+    }
 
-        return AnyView(
-            SettingsListContent(
-                appearanceMode: $appearanceMode,
-                preferCommunityShortNames: $preferCommunityShortNames,
-                hideAnonymousPosts: $hideAnonymousPosts,
-                showFollowerCount: $showFollowerCount,
-                anonymousMode: $anonymousMode,
-                onOpenFeedback: onOpenFeedback,
-                onOpenContentPolicy: onOpenContentPolicy,
-                onOpenPrivacyPolicy: onOpenPrivacyPolicy,
-                onOpenUserAgreement: onOpenUserAgreement,
-                onOpenAttributions: onOpenAttributions,
-                onRequestCommunity: onRequestCommunity,
-                onSelectContent: onSelectContent,
-                onConfirmLogout: onConfirmLogout,
-                onTapGoogle: onTapGoogle,
-                onTapApple: onTapApple,
-                onTapEmail: onTapEmail
-            )
+    private var settingsList: some View {
+        SettingsListContent(
+            appearanceMode: $appearanceMode,
+            preferCommunityShortNames: $preferCommunityShortNames,
+            hideAnonymousPosts: $hideAnonymousPosts,
+            showFollowerCount: $showFollowerCount,
+            anonymousMode: $anonymousMode,
+            appIconViewModel: appIconViewModel,
+            onOpenFeedback: openFeedback,
+            onOpenContentPolicy: openContentPolicy,
+            onOpenPrivacyPolicy: openPrivacyPolicy,
+            onOpenUserAgreement: openUserAgreement,
+            onOpenAttributions: openAttributions,
+            onRequestCommunity: requestCommunity,
+            onSelectContent: selectContentDestination,
+            onConfirmLogout: presentLogoutConfirmation,
+            onTapGoogle: handleGoogleTap,
+            onTapApple: handleAppleTap,
+            onTapEmail: openEmailSignInSettings
         )
+    }
+
+    private var settingsViewWithPresentations: some View {
+        settingsList
         .fullScreenCover(isPresented: $showCommunityRequest) {
             CommunityRequestFlowView()
         }
@@ -155,26 +125,16 @@ struct SettingsView: View {
                 MenuDestinationView(destination: destination)
             }
         }
+    }
+
+    private var settingsViewWithObservers: some View {
+        settingsViewWithPresentations
         .onChange(of: anonymousMode) { _, newValue in
             Task { await handleAnonToggle(isOn: newValue) }
         }
-        .onReceive(authViewModel.$currentUser) { user in
-            guard let user else { return }
-            let resolvedValue = user.showFollowerCount ?? true
-            if showFollowerCount != resolvedValue {
-                skipFollowerToggleUpdate = true
-                showFollowerCount = resolvedValue
-            } else {
-                skipFollowerToggleUpdate = false
-            }
-
-            let resolvedHideAnonymousPosts = user.hideAnonymousPosts ?? false
-            if hideAnonymousPosts != resolvedHideAnonymousPosts {
-                skipContentPreferencesToggleUpdate = true
-                hideAnonymousPosts = resolvedHideAnonymousPosts
-            } else {
-                skipContentPreferencesToggleUpdate = false
-            }
+        .onReceive(authViewModel.$currentUser, perform: syncSettingsToggles)
+        .task {
+            await appIconViewModel.loadIfNeeded()
         }
         .onChange(of: showFollowerCount) { oldValue, newValue in
             if skipFollowerToggleUpdate {
@@ -190,6 +150,10 @@ struct SettingsView: View {
             }
             Task { await updateHideAnonymousPosts(oldValue: oldValue, newValue: newValue) }
         }
+    }
+
+    private var settingsViewWithAlerts: some View {
+        settingsViewWithObservers
         .alert("Log out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Log out", role: .destructive) {
@@ -235,6 +199,57 @@ struct SettingsView: View {
         }
     }
 
+    func openFeedback() {
+        showFeedback = true
+    }
+
+    func openContentPolicy() {
+        showContentPolicy = true
+    }
+
+    func openPrivacyPolicy() {
+        showPrivacyPolicy = true
+    }
+
+    func openUserAgreement() {
+        showUserAgreement = true
+    }
+
+    func openAttributions() {
+        showAttributions = true
+    }
+
+    func requestCommunity() {
+        showCommunityRequest = true
+    }
+
+    func selectContentDestination(_ destination: MenuDestination) {
+        contentDestination = destination
+    }
+
+    func openEmailSignInSettings() {
+        showEmailSignInSettings = true
+    }
+
+    func syncSettingsToggles(_ user: User?) {
+        guard let user else { return }
+        let resolvedFollowerCount = user.showFollowerCount ?? true
+        if showFollowerCount != resolvedFollowerCount {
+            skipFollowerToggleUpdate = true
+            showFollowerCount = resolvedFollowerCount
+        } else {
+            skipFollowerToggleUpdate = false
+        }
+
+        let resolvedHideAnonymousPosts = user.hideAnonymousPosts ?? false
+        if hideAnonymousPosts != resolvedHideAnonymousPosts {
+            skipContentPreferencesToggleUpdate = true
+            hideAnonymousPosts = resolvedHideAnonymousPosts
+        } else {
+            skipContentPreferencesToggleUpdate = false
+        }
+    }
+
 }
 
 private struct SettingsListContent: View {
@@ -245,6 +260,7 @@ private struct SettingsListContent: View {
     @Binding var hideAnonymousPosts: Bool
     @Binding var showFollowerCount: Bool
     @Binding var anonymousMode: Bool
+    @ObservedObject var appIconViewModel: AppIconSettingsViewModel
 
     let onOpenFeedback: () -> Void
     let onOpenContentPolicy: () -> Void
@@ -302,6 +318,15 @@ private struct SettingsListContent: View {
     private var appearanceSection: some View {
         Section("Appearance") {
             themePickerRow
+            if appIconViewModel.supportsAlternateIcons {
+                NavigationLink(destination: AppIconSettingsView(viewModel: appIconViewModel)) {
+                    SettingsRowLabel(
+                        icon: .system("app.badge"),
+                        title: "App Icon",
+                        subtitle: appIconViewModel.selectedIcon.displayName
+                    )
+                }
+            }
 
             Toggle(isOn: $preferCommunityShortNames) {
                 SettingsRowLabel(icon: .system("textformat.size.smaller"), title: "Prefer Community Short Names")
@@ -462,6 +487,36 @@ private struct SettingsListContent: View {
 }
 
 private extension SettingsView {
+    func presentLogoutConfirmation() {
+        let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.impactOccurred()
+        showLogoutAlert = true
+    }
+
+    func handleGoogleTap() {
+        if authViewModel.isGoogleLinked {
+            guard canDisconnect(provider: .google) else {
+                presentOnlySignInMethodError(provider: .google)
+                return
+            }
+            pendingDisconnectProvider = .google
+        } else {
+            connectGoogle()
+        }
+    }
+
+    func handleAppleTap() {
+        if authViewModel.isAppleLinked {
+            guard canDisconnect(provider: .apple) else {
+                presentOnlySignInMethodError(provider: .apple)
+                return
+            }
+            pendingDisconnectProvider = .apple
+        } else {
+            connectApple()
+        }
+    }
+
     func handleAnonToggle(isOn: Bool) async {
         guard isOn, !isEnrollingAnon else { return }
         isEnrollingAnon = true

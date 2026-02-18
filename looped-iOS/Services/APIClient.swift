@@ -13,6 +13,13 @@ class APIClient {
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
     }()
+    private static let retryAfterDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
+        return formatter
+    }()
 
     private let baseURL: URL
     private let session: URLSession
@@ -375,7 +382,31 @@ class APIClient {
                 // Try to parse structured error
                 if let errorPayload = try? await decodeOnBackground(ServerError.self, from: data, configure: { _ in }) {
                     publishAuthGatingIfNeeded(statusCode: httpResponse.statusCode, payload: errorPayload)
-                    throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
+                    let retryAfterSeconds = resolveRetryAfterSeconds(
+                        from: httpResponse,
+                        payloadRetryAfterSeconds: errorPayload.retryAfterSeconds
+                    )
+                    if httpResponse.statusCode == 429 {
+                        throw APIError.rateLimited(
+                            code: httpResponse.statusCode,
+                            error: errorPayload.error,
+                            message: errorPayload.message,
+                            retryAfterSeconds: retryAfterSeconds
+                        )
+                    }
+                    throw APIError.apiError(
+                        code: httpResponse.statusCode,
+                        error: errorPayload.error,
+                        message: errorPayload.message
+                    )
+                }
+                if httpResponse.statusCode == 429 {
+                    throw APIError.rateLimited(
+                        code: httpResponse.statusCode,
+                        error: "rate_limited",
+                        message: nil,
+                        retryAfterSeconds: resolveRetryAfterSeconds(from: httpResponse, payloadRetryAfterSeconds: nil)
+                    )
                 }
                 throw APIError.serverError(httpResponse.statusCode)
             }
@@ -446,7 +477,31 @@ class APIClient {
                 }
                 if let errorPayload = try? await decodeOnBackground(ServerError.self, from: data, configure: { _ in }) {
                     publishAuthGatingIfNeeded(statusCode: httpResponse.statusCode, payload: errorPayload)
-                    throw APIError.apiError(code: httpResponse.statusCode, error: errorPayload.error, message: errorPayload.message)
+                    let retryAfterSeconds = resolveRetryAfterSeconds(
+                        from: httpResponse,
+                        payloadRetryAfterSeconds: errorPayload.retryAfterSeconds
+                    )
+                    if httpResponse.statusCode == 429 {
+                        throw APIError.rateLimited(
+                            code: httpResponse.statusCode,
+                            error: errorPayload.error,
+                            message: errorPayload.message,
+                            retryAfterSeconds: retryAfterSeconds
+                        )
+                    }
+                    throw APIError.apiError(
+                        code: httpResponse.statusCode,
+                        error: errorPayload.error,
+                        message: errorPayload.message
+                    )
+                }
+                if httpResponse.statusCode == 429 {
+                    throw APIError.rateLimited(
+                        code: httpResponse.statusCode,
+                        error: "rate_limited",
+                        message: nil,
+                        retryAfterSeconds: resolveRetryAfterSeconds(from: httpResponse, payloadRetryAfterSeconds: nil)
+                    )
                 }
                 throw APIError.serverError(httpResponse.statusCode)
             }
@@ -569,6 +624,31 @@ class APIClient {
         guard let value = getenv(key) else { return nil }
         return String(cString: value)
     }
+
+    private func resolveRetryAfterSeconds(
+        from response: HTTPURLResponse,
+        payloadRetryAfterSeconds: Int?
+    ) -> Int? {
+        if let payloadRetryAfterSeconds, payloadRetryAfterSeconds > 0 {
+            return payloadRetryAfterSeconds
+        }
+        guard let rawHeader = response.value(forHTTPHeaderField: "Retry-After")?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawHeader.isEmpty else {
+            return nil
+        }
+
+        if let seconds = Int(rawHeader), seconds > 0 {
+            return seconds
+        }
+
+        if let retryDate = APIClient.retryAfterDateFormatter.date(from: rawHeader) {
+            let remaining = Int(ceil(retryDate.timeIntervalSinceNow))
+            return remaining > 0 ? remaining : nil
+        }
+
+        return nil
+    }
 }
 
 extension APIClient {
@@ -599,6 +679,7 @@ fileprivate struct ServerError: Decodable {
     let onboardingStep: RemoteOnboardingStep?
     let currentStep: RemoteOnboardingStep?
     let allowedNextSteps: [RemoteOnboardingStep]?
+    let retryAfterSeconds: Int?
 
     enum CodingKeys: String, CodingKey {
         case error
@@ -609,6 +690,8 @@ fileprivate struct ServerError: Decodable {
         case currentStepCamel = "currentStep"
         case allowedNextSteps = "allowed_next_steps"
         case allowedNextStepsCamel = "allowedNextSteps"
+        case retryAfterSeconds = "retry_after_seconds"
+        case retryAfterSecondsCamel = "retryAfterSeconds"
     }
 
     init(
@@ -616,13 +699,15 @@ fileprivate struct ServerError: Decodable {
         message: String?,
         onboardingStep: RemoteOnboardingStep?,
         currentStep: RemoteOnboardingStep? = nil,
-        allowedNextSteps: [RemoteOnboardingStep]? = nil
+        allowedNextSteps: [RemoteOnboardingStep]? = nil,
+        retryAfterSeconds: Int? = nil
     ) {
         self.error = error
         self.message = message
         self.onboardingStep = onboardingStep
         self.currentStep = currentStep
         self.allowedNextSteps = allowedNextSteps
+        self.retryAfterSeconds = retryAfterSeconds
     }
 
     init(from decoder: Decoder) throws {
@@ -635,6 +720,11 @@ fileprivate struct ServerError: Decodable {
             from: container,
             snakeKey: .allowedNextSteps,
             camelKey: .allowedNextStepsCamel
+        )
+        retryAfterSeconds = try ServerError.decodeRetryAfterSeconds(
+            from: container,
+            snakeKey: .retryAfterSeconds,
+            camelKey: .retryAfterSecondsCamel
         )
     }
 
@@ -662,6 +752,28 @@ fileprivate struct ServerError: Decodable {
         }
         if let camelValues = try container.decodeIfPresent([String].self, forKey: camelKey) {
             return camelValues.compactMap(RemoteOnboardingStep.init(rawValue:))
+        }
+        return nil
+    }
+
+    private static func decodeRetryAfterSeconds(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        snakeKey: CodingKeys,
+        camelKey: CodingKeys
+    ) throws -> Int? {
+        if let value = try? container.decode(Int.self, forKey: snakeKey) {
+            return value
+        }
+        if let value = try? container.decode(Int.self, forKey: camelKey) {
+            return value
+        }
+        if let stringValue = try? container.decode(String.self, forKey: snakeKey),
+           let value = Int(stringValue) {
+            return value
+        }
+        if let stringValue = try? container.decode(String.self, forKey: camelKey),
+           let value = Int(stringValue) {
+            return value
         }
         return nil
     }
@@ -702,6 +814,7 @@ enum APIError: Error, LocalizedError {
     case unauthorized
     case serverError(Int)
     case apiError(code: Int, error: String, message: String?)
+    case rateLimited(code: Int, error: String, message: String?, retryAfterSeconds: Int?)
     case decodingError(Error)
     case networkError(Error)
     
@@ -714,6 +827,8 @@ enum APIError: Error, LocalizedError {
         case .serverError(let code):
             return "Server error: \(code)"
         case .apiError(_, let error, let message):
+            return message ?? error
+        case .rateLimited(_, let error, let message, _):
             return message ?? error
         case .decodingError(let error):
             return "Data decoding error: \(error.localizedDescription)"
@@ -738,6 +853,8 @@ extension APIError {
         case .apiError(let code, let error, let message):
             let payload = ServerError(error: error, message: message, onboardingStep: nil)
             return AuthGatingContext(statusCode: code, payload: payload)
+        case .rateLimited:
+            return nil
         default:
             return nil
         }
@@ -745,5 +862,25 @@ extension APIError {
 
     var isAuthGatingError: Bool {
         authGatingContext != nil
+    }
+
+    var apiErrorCode: String? {
+        switch self {
+        case .apiError(_, let error, _):
+            return error
+        case .rateLimited(_, let error, _, _):
+            return error
+        default:
+            return nil
+        }
+    }
+
+    var retryAfterSeconds: Int? {
+        switch self {
+        case .rateLimited(_, _, _, let retryAfterSeconds):
+            return retryAfterSeconds
+        default:
+            return nil
+        }
     }
 }

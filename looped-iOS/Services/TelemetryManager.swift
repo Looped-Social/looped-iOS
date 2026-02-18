@@ -344,6 +344,8 @@ private extension TelemetryManager {
                     return .dropBatch
                 }
                 return .dropBatch
+            case .rateLimited:
+                return .retry(.rateLimited)
             case .decodingError:
                 return .retry(.retryable)
             case .invalidResponse:

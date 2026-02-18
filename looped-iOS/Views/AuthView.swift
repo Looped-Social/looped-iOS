@@ -294,8 +294,8 @@ private extension AuthView {
 	                },
 	                showsHeader: false
 	            )
-	        case .emailVerification(let isStudent):
-	            EmailVerificationView(
+        case .emailVerification(let isStudent):
+            EmailVerificationView(
                 communityId: selectedCommunityId,
                 communityName: selectedLoopName,
                 currentStep: verificationStep(for: .emailVerification(isStudent: isStudent)),
@@ -304,21 +304,21 @@ private extension AuthView {
                 onSkip: {
                     skipToNotifications()
                 },
-	                onComplete: {
-	                    if verificationContext == nil {
-	                        verificationContext = VerificationContext(isStudent: isStudent, method: .email)
-	                        onboardingStore.saveVerificationMethod("email")
-	                    }
-                        Task {
-                            await feedViewModel.loadFollowedCommunities(reset: true)
-                        }
-	                    pushIfNeeded(.verificationConfirmation)
-	                },
-	                showsHeader: false,
-                    ensureOnboardingVerificationStep: {
-                        await authViewModel.reportOnboardingStep(.verification)
+                onComplete: {
+                    if verificationContext == nil {
+                        verificationContext = VerificationContext(isStudent: isStudent, method: .email)
+                        onboardingStore.saveVerificationMethod("email")
                     }
-	            )
+                    Task {
+                        await feedViewModel.loadFollowedCommunities(reset: true)
+                    }
+                    pushIfNeeded(.verificationConfirmation)
+                },
+                showsHeader: false,
+                ensureOnboardingVerificationStep: {
+                    await ensureOnboardingVerificationStepForCommunityEndpoints()
+                }
+            )
         case .verificationConfirmation:
             let confirmationKind: VerificationConfirmationView.ConfirmationKind = {
 	                guard let verificationContext else { return .photoIdPending }
@@ -587,6 +587,24 @@ private extension AuthView {
         Task {
             await authViewModel.reportOnboardingStep(remote)
         }
+    }
+
+    func ensureOnboardingVerificationStepForCommunityEndpoints() async {
+        let highestKnown = [lastReportedRemoteStep, authViewModel.onboardingStep]
+            .compactMap { $0 }
+            .max { lhs, rhs in
+                lhs.progressOrder < rhs.progressOrder
+            }
+
+        if let highestKnown, highestKnown.progressOrder >= RemoteOnboardingStep.verification.progressOrder {
+            return
+        }
+
+        if highestKnown == nil || highestKnown == .profileSetup {
+            await authViewModel.reportOnboardingStep(.selectCompany)
+        }
+
+        await authViewModel.reportOnboardingStep(.verification)
     }
 
     func shouldReportRemoteStep(_ candidate: RemoteOnboardingStep) -> Bool {

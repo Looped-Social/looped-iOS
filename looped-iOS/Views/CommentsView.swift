@@ -300,6 +300,13 @@ private struct CommentsPresentationModifier: ViewModifier {
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text(title)
+                            .font(.loopedCommentsScreenTitle)
+                            .foregroundColor(.loopedTextPrimary)
+                    }
+                }
         }
     }
 }
@@ -332,16 +339,17 @@ private struct CommentsKeyboardDismissalModifier: ViewModifier {
 // MARK: - Subviews
 private extension CommentsView {
     var headerBar: some View {
-        HStack(alignment: .center, spacing: 12) {
-            LoopedBackButton(action: onDismiss)
-
+        ZStack {
             Text(titleText)
-                .font(.loopedSubheadMedium)
+                .font(.loopedCommentsScreenTitle)
                 .foregroundColor(.loopedTextPrimary)
 
-            Spacer()
+            HStack {
+                LoopedBackButton(action: onDismiss)
+                Spacer()
+            }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 10)
         .background(Color.loopedBackground)
@@ -351,13 +359,13 @@ private extension CommentsView {
         HStack(alignment: .top, spacing: 12) {
             threadAuthorAvatar
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedContent.isEmpty {
                     if trimmedContent.contains("#") || trimmedContent.contains("@") {
                         HashtagText(
                             text: trimmedContent,
-                            font: .loopedHeadingMedium,
+                            font: .loopedCommentsPostBody,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary,
                             onHashtagTap: handleHashtagTap,
@@ -366,7 +374,7 @@ private extension CommentsView {
                         .multilineTextAlignment(.leading)
                     } else {
                         Text(trimmedContent)
-                            .font(.loopedHeadingMedium)
+                            .font(.loopedCommentsPostBody)
                             .foregroundColor(.loopedTextPrimary)
                             .multilineTextAlignment(.leading)
                     }
@@ -375,7 +383,7 @@ private extension CommentsView {
                 threadAuthorName
 
                 Text(formattedTimestamp(for: post.createdAt))
-                    .font(.loopedSmallText)
+                    .font(.loopedCommentsPostMeta)
                     .foregroundColor(.loopedTextSecondary)
 
 	                    if let attachments = post.attachments, !attachments.isEmpty {
@@ -418,20 +426,31 @@ private extension CommentsView {
         HStack(spacing: 14) {
             Button(action: togglePostLike) {
                 HStack(spacing: 4) {
-                    Image(systemName: isPostLiked ? "heart.fill" : "heart")
-                        .resizable()
-                        .renderingMode(.template)
-                        .scaledToFit()
-                        .frame(width: 18, height: 18)
-                        .foregroundColor(isPostLiked ? .loopedError : .loopedTextSecondary)
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: isPostLiked ? "heart.fill" : "heart")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: 18, height: 18)
+                            .foregroundColor(isPostLiked ? .loopedError : .loopedTextSecondary)
+
+                        if !canLikePost {
+                            Image(systemName: "lock.fill")
+                                .font(.loopedSymbol(.bold, size: 10))
+                                .foregroundColor(.loopedTextSecondary)
+                                .padding(3)
+                                .background(Circle().fill(Color.loopedBackground))
+                                .offset(x: 7, y: -7)
+                        }
+                    }
                     Text("\(displayedPostLikeCount)")
-                        .font(.loopedSubheadlineScaled)
+                        .font(.loopedCommentsMeta)
                         .foregroundColor(.loopedTextSecondary)
                 }
             }
             .buttonStyle(PlainButtonStyle())
-            .disabled(isPostLikeLoading || !canLikePost)
-            .opacity((isPostLikeLoading || !canLikePost) ? 0.6 : 1.0)
+            .disabled(isPostLikeLoading)
+            .opacity(isPostLikeLoading ? 0.6 : 1.0)
 
             Button(action: togglePostRepost) {
                 HStack(spacing: 4) {
@@ -456,7 +475,7 @@ private extension CommentsView {
                         .frame(width: 18, height: 18)
                         .foregroundColor(.loopedTextSecondary)
                     Text("\(displayedPostShareCount)")
-                        .font(.loopedSubheadlineScaled)
+                        .font(.loopedCommentsMeta)
                         .foregroundColor(.loopedTextSecondary)
                 }
             }
@@ -475,7 +494,7 @@ private extension CommentsView {
             NavigationLink(destination: postAuthorProfileDestination(profileId: postAuthorProfileId)) {
                 ProfileAvatarView(
                     imageURL: post.authorProfileImageURL,
-                    size: 40,
+                    size: 44,
                     variant: post.isAnonymous ? .anonymous : .standard
                 )
             }
@@ -483,7 +502,7 @@ private extension CommentsView {
         } else {
             ProfileAvatarView(
                 imageURL: post.authorProfileImageURL,
-                size: 40,
+                size: 44,
                 variant: post.isAnonymous ? .anonymous : .standard
             )
         }
@@ -494,13 +513,13 @@ private extension CommentsView {
         if let postAuthorProfileId {
             NavigationLink(destination: postAuthorProfileDestination(profileId: postAuthorProfileId)) {
                 Text(postAuthorName)
-                    .font(.loopedSubBodyRegular)
+                    .font(.loopedCommentsPostAuthor)
                     .foregroundColor(.loopedTextSecondary)
             }
             .buttonStyle(PlainButtonStyle())
         } else {
             Text(postAuthorName)
-                .font(.loopedSubBodyRegular)
+                .font(.loopedCommentsPostAuthor)
                 .foregroundColor(.loopedTextSecondary)
         }
     }
@@ -539,7 +558,7 @@ private extension CommentsView {
                 }
                 .frame(maxWidth: .infinity, minHeight: 140)
             } else {
-                LazyVStack(spacing: 20) {
+                LazyVStack(spacing: 0) {
                     if let error = commentsManager.errorMessage {
                         Text(error)
                             .font(.loopedSmallText)
@@ -579,7 +598,8 @@ private extension CommentsView {
                                 activeModerationSheet = .reportComment
                             },
                             onHashtagTap: handleHashtagTap,
-                            onMentionTap: handleMentionTap
+                            onMentionTap: handleMentionTap,
+                            threadStateProvider: { commentsManager.threadState(for: $0) }
                         )
                         .id(comment.backendId ?? comment.id.hashValue)
                         .onAppear {
@@ -607,7 +627,7 @@ private extension CommentsView {
                         selectedMedia.removeAll { $0.id == item.id }
                     }
                 )
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
             }
 
             if let replyTarget = commentsManager.replyTarget {
@@ -660,7 +680,7 @@ private extension CommentsView {
 
                 HStack(spacing: 6) {
                     TextField(inputPlaceholder, text: $commentText, axis: .vertical)
-                        .font(.loopedSubBodyRegular)
+                        .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .lineLimit(1...4)
@@ -685,7 +705,7 @@ private extension CommentsView {
                         .shadow(color: .loopedBlack.opacity(0.10), radius: 1, x: 0, y: 1)
                 )
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, max(12, keyboardHeight > 0 ? 8 : 12))
             .background(Color.loopedBackground)

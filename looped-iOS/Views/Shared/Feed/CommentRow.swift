@@ -21,6 +21,7 @@ struct CommentRow: View {
     let onReport: ((Comment) -> Void)?
     let onHashtagTap: ((String) -> Void)?
     let onMentionTap: ((String) -> Void)?
+    let threadStateProvider: ((Comment) -> ReplyThreadState)?
 
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
@@ -46,7 +47,8 @@ struct CommentRow: View {
         canReport: ((Comment) -> Bool)? = nil,
         onReport: ((Comment) -> Void)? = nil,
         onHashtagTap: ((String) -> Void)? = nil,
-        onMentionTap: ((String) -> Void)? = nil
+        onMentionTap: ((String) -> Void)? = nil,
+        threadStateProvider: ((Comment) -> ReplyThreadState)? = nil
     ) {
         self.comment = comment
         self.nestingLevel = nestingLevel
@@ -67,6 +69,7 @@ struct CommentRow: View {
         self.onReport = onReport
         self.onHashtagTap = onHashtagTap
         self.onMentionTap = onMentionTap
+        self.threadStateProvider = threadStateProvider
     }
     
     private var displayName: String {
@@ -93,19 +96,53 @@ struct CommentRow: View {
     }
     
     private var profileSize: CGFloat {
-        nestingLevel == 0 ? 36 : 30
+        nestingLevel == 0 ? 40 : 32
     }
 
     private var contentFont: Font {
-        nestingLevel == 0 ? .loopedBody : .loopedSubBodyRegular
+        nestingLevel == 0 ? .loopedCommentsBody : .loopedCommentsReplyBody
     }
 
     private var authorFont: Font {
-        nestingLevel == 0 ? .loopedSubBodyRegular : .loopedSmallText
+        nestingLevel == 0 ? .loopedCommentsAuthor : .loopedCommentsReplyAuthor
     }
 
     private var metadataFont: Font {
-        .loopedSmallText
+        nestingLevel == 0 ? .loopedCommentsMeta : .loopedCommentsReplyMeta
+    }
+
+    private var actionFont: Font {
+        nestingLevel == 0 ? .loopedCommentsAction : .loopedCommentsReplyAction
+    }
+
+    private var likeIconSize: CGFloat {
+        nestingLevel == 0 ? 20 : 16
+    }
+
+    private var resolvedThreadState: ReplyThreadState {
+        if let threadStateProvider {
+            return threadStateProvider(comment)
+        }
+        return ReplyThreadState(
+            replies: replies,
+            nextCursor: hasMoreReplies ? "has_more" : nil,
+            isLoading: isLoadingReplies,
+            isLoadingMore: isLoadingMoreReplies,
+            isExpanded: isExpanded
+        )
+    }
+
+    private var likesLabel: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        let countText = formatter.string(from: NSNumber(value: comment.likeCount)) ?? "\(comment.likeCount)"
+        return "\(countText) like\(comment.likeCount == 1 ? "" : "s")"
+    }
+
+    private var totalKnownReplyCount: Int {
+        var visited = Set<Int>()
+        let loaded = loadedDescendantCount(for: comment, visited: &visited)
+        return max(comment.replyCount, loaded)
     }
 
     private var avatarView: some View {
@@ -157,23 +194,17 @@ struct CommentRow: View {
         }
     }
 
-    private var collapsedRepliesLabel: String? {
-        guard comment.replyCount > 0 else { return nil }
-        if comment.replyCount == 1 {
-            return "1 more reply"
-        }
-        return "\(comment.replyCount) more replies"
+    private var viewRepliesLabel: String? {
+        guard totalKnownReplyCount > 0 else { return nil }
+        return "View replies (\(totalKnownReplyCount))"
     }
 
     private var remainingRepliesLabel: String {
-        let remaining = max(comment.replyCount - replies.count, 0)
-        if remaining == 1 {
-            return "1 more reply"
+        let remaining = max(totalKnownReplyCount - resolvedThreadState.replies.count, 0)
+        if remaining > 0 {
+            return "View replies (\(remaining))"
         }
-        if remaining > 1 {
-            return "\(remaining) more replies"
-        }
-        return "See more replies"
+        return "View more replies"
     }
 
     private var imageUrls: [String] {
@@ -188,6 +219,28 @@ struct CommentRow: View {
         onLike(comment)
     }
 
+    private func loadedDescendantCount(for root: Comment, visited: inout Set<Int>) -> Int {
+        guard let rootId = root.backendId else { return 0 }
+        guard visited.insert(rootId).inserted else { return 0 }
+
+        let state: ReplyThreadState
+        if rootId == comment.backendId {
+            state = resolvedThreadState
+        } else if let threadStateProvider {
+            state = threadStateProvider(root)
+        } else {
+            state = ReplyThreadState()
+        }
+
+        guard !state.replies.isEmpty else { return 0 }
+
+        var total = state.replies.count
+        for child in state.replies {
+            total += loadedDescendantCount(for: child, visited: &visited)
+        }
+        return total
+    }
+
     private var canTapLike: Bool {
         onLike != nil && !isLikeLocked
     }
@@ -195,16 +248,16 @@ struct CommentRow: View {
     private var likeIcon: some View {
         ZStack(alignment: .topTrailing) {
             Image(systemName: comment.userLiked ? "heart.fill" : "heart")
-                .font(.loopedCustom(size: 12))
+                .font(.loopedSymbol(.regular, size: likeIconSize))
                 .foregroundColor(comment.userLiked ? .loopedError : .loopedTextSecondary)
 
             if isLikeLocked {
                 Image(systemName: "lock.fill")
-                    .font(.loopedCustom(.bold, size: 8))
+                    .font(.loopedSymbol(.bold, size: 8))
                     .foregroundColor(.loopedTextSecondary)
                     .padding(2)
                     .background(Circle().fill(Color.loopedBackground))
-                    .offset(x: 5, y: -5)
+                    .offset(x: likeIconSize >= 20 ? 6 : 5, y: likeIconSize >= 20 ? -6 : -5)
             }
         }
     }
@@ -225,84 +278,191 @@ struct CommentRow: View {
         canShowManageActions || canShowReportAction
     }
 
-	    var body: some View {
-	        VStack(alignment: .leading, spacing: 0) {
-	            HStack(alignment: .top, spacing: 12) {
-	                if comment.isDeleted {
-                        Color.loopedClear
-                            .frame(width: profileSize, height: profileSize)
-                    } else {
-                        authorAvatar
+    private var likedByCreatorBadge: some View {
+        Text("Liked by creator")
+            .font(actionFont)
+            .foregroundColor(.loopedPrimary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.loopedMutedBackground)
+            )
+    }
+
+    @ViewBuilder
+    private var likeControl: some View {
+        let likeStack = HStack(spacing: 0) {
+            likeIcon
+        }
+        .frame(width: 20, height: 20)
+
+        if canTapLike, let onLike {
+            Button(action: { onLike(comment) }) {
+                likeStack
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            likeStack
+        }
+    }
+
+    @ViewBuilder
+    private var expandedRepliesView: some View {
+        let shouldInsetThread = nestingLevel == 0
+
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(resolvedThreadState.replies) { reply in
+                CommentRow(
+                    comment: reply,
+                    nestingLevel: min(nestingLevel + 1, 1),
+                    replies: [],
+                    isExpanded: false,
+                    isLoadingReplies: false,
+                    isLoadingMoreReplies: resolvedThreadState.isLoadingMore,
+                    hasMoreReplies: resolvedThreadState.nextCursor != nil,
+                    isLikeLocked: isLikeLocked,
+                    onReply: onReply,
+                    onToggleReplies: onToggleReplies,
+                    onLoadMoreReplies: onLoadMoreReplies,
+                    onLike: onLike,
+                    canManage: canManage,
+                    onEdit: onEdit,
+                    onDelete: onDelete,
+                    canReport: canReport,
+                    onReport: onReport,
+                    onHashtagTap: onHashtagTap,
+                    onMentionTap: onMentionTap,
+                    threadStateProvider: threadStateProvider
+                )
+                .id(reply.backendId ?? reply.id.hashValue)
+            }
+
+            if resolvedThreadState.isLoadingMore {
+                ProgressView()
+                    .padding(.vertical, 4)
+            } else if resolvedThreadState.nextCursor != nil {
+                Button(action: { onLoadMoreReplies?(comment) }) {
+                    Text(remainingRepliesLabel)
+                        .font(actionFont)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.top, 2)
+            }
+        }
+        .padding(.leading, shouldInsetThread ? 16 : 0)
+        .padding(.top, 2)
+        .overlay(alignment: .leading) {
+            if shouldInsetThread {
+                Rectangle()
+                    .fill(Color.loopedTextSecondary.opacity(0.18))
+                    .frame(width: 1)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var repliesToggleRow: some View {
+        if let onToggleReplies, let viewRepliesLabel {
+            Button(action: { onToggleReplies(comment) }) {
+                HStack(alignment: .center, spacing: 10) {
+                    Rectangle()
+                        .fill(Color.loopedTextSecondary.opacity(0.55))
+                        .frame(width: nestingLevel == 0 ? 34 : 22, height: 1)
+
+                    Text(resolvedThreadState.isExpanded ? "Hide replies" : viewRepliesLabel)
+                        .font(actionFont)
+                        .foregroundColor(.loopedTextSecondary)
+
+                    if resolvedThreadState.isLoading && !resolvedThreadState.isExpanded {
+                        ProgressView()
+                            .scaleEffect(0.65)
                     }
-	
-	                VStack(alignment: .leading, spacing: 6) {
-	                    if comment.isDeleted {
-	                        Text("Comment deleted")
-	                            .font(contentFont)
-	                            .foregroundColor(.loopedTextSecondary)
-	                            .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.top, 6)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                if comment.isDeleted {
+                    Color.loopedClear
+                        .frame(width: profileSize, height: profileSize)
+                } else {
+                    authorAvatar
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    if comment.isDeleted {
+                        Text("Comment deleted")
+                            .font(contentFont)
+                            .foregroundColor(.loopedTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         HashtagText(
                             text: comment.content,
+                            prefix: "\(displayName) ",
+                            prefixFont: authorFont,
+                            prefixColor: .loopedTextSecondary,
                             font: contentFont,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary
-	                        ) { hashtag in
-	                            onHashtagTap?(hashtag)
-	                        } onMentionTap: { handle in
-                                onMentionTap?(handle)
-                            }
-	                        .multilineTextAlignment(.leading)
-	                        .fixedSize(horizontal: false, vertical: true)
-	                        .frame(maxWidth: .infinity, alignment: .leading)
-	                    }
+                        ) { hashtag in
+                            onHashtagTap?(hashtag)
+                        } onMentionTap: { handle in
+                            onMentionTap?(handle)
+                        }
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-	                    if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
-		                        PostedMediaGrid(
-		                            attachments: attachments,
-		                            maxHeight: 240,
-	                            onImageTap: { url in
-	                                guard !url.isEmpty, URL(string: url) != nil else { return }
-	                                if let index = imageUrls.firstIndex(of: url) {
-	                                    selectedImageIndex = index
-	                                }
-	                                DispatchQueue.main.async {
-	                                    showImageViewer = true
-	                                }
-	                            },
-	                            onVideoTap: { selection in
-	                                let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
-	                                guard !trimmed.isEmpty else { return }
-	                                selectedVideo = VideoSelection(
-	                                    url: trimmed,
-	                                    thumbnailUrl: selection.thumbnailUrl,
-	                                    authorName: displayName,
-	                                    authorImageUrl: comment.authorProfileImageURL,
-	                                    communityName: nil,
-	                                    caption: comment.content,
-	                                    inlineId: selection.inlineId,
-	                                    inlineViewModel: selection.inlineViewModel
-	                                )
+                        if comment.isLikedByCreator {
+                            likedByCreatorBadge
+                                .padding(.top, 2)
+                        }
+                    }
+
+                    if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
+                        PostedMediaGrid(
+                            attachments: attachments,
+                            maxHeight: 240,
+                            onImageTap: { url in
+                                guard !url.isEmpty, URL(string: url) != nil else { return }
+                                if let index = imageUrls.firstIndex(of: url) {
+                                    selectedImageIndex = index
+                                }
+                                DispatchQueue.main.async {
+                                    showImageViewer = true
+                                }
+                            },
+                            onVideoTap: { selection in
+                                let trimmed = selection.url.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !trimmed.isEmpty else { return }
+                                selectedVideo = VideoSelection(
+                                    url: trimmed,
+                                    thumbnailUrl: selection.thumbnailUrl,
+                                    authorName: displayName,
+                                    authorImageUrl: comment.authorProfileImageURL,
+                                    communityName: nil,
+                                    caption: comment.content,
+                                    inlineId: selection.inlineId,
+                                    inlineViewModel: selection.inlineViewModel
+                                )
                             }
-		                        )
-		                    }
+                        )
+                    }
 
                     if !comment.isDeleted {
-                        HStack(alignment: .top, spacing: 8) {
-                            authorName
-                            Spacer()
-                            if canShowActionButton {
-                                Button(action: { showActionMenu = true }) {
-                                    Image(systemName: "ellipsis")
-                                        .foregroundColor(.loopedTextSecondary)
-                                }
-                                .frame(width: 20, height: 16, alignment: .topTrailing)
-                                .padding(.top, 1)
-                            }
-                        }
-
-                        HStack(alignment: .bottom, spacing: 12) {
+                        HStack(alignment: .center, spacing: 10) {
                             Text(formattedTimestamp)
+                                .font(metadataFont)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            Text(likesLabel)
                                 .font(metadataFont)
                                 .foregroundColor(.loopedTextSecondary)
 
@@ -315,152 +475,51 @@ struct CommentRow: View {
                             if let onReply {
                                 Button(action: { onReply(comment) }) {
                                     Text("Reply")
-                                        .font(metadataFont)
+                                        .font(actionFont)
                                         .foregroundColor(.loopedTextSecondary)
                                 }
-                            }
-
-                            Spacer()
-
-                            if canTapLike, let onLike {
-                                Button(action: { onLike(comment) }) {
-                                    HStack(spacing: 4) {
-                                        likeIcon
-
-                                        if comment.likeCount > 0 {
-                                            Text("\(comment.likeCount)")
-                                                .font(metadataFont)
-                                                .foregroundColor(.loopedTextSecondary)
-                                        }
-                                    }
-                                }
-                                .padding(.bottom, 1)
-                            } else {
-                                HStack(spacing: 4) {
-                                    likeIcon
-
-                                    if comment.likeCount > 0 {
-                                        Text("\(comment.likeCount)")
-                                            .font(metadataFont)
-                                            .foregroundColor(.loopedTextSecondary)
-                                    }
-                                }
-                                .padding(.bottom, 1)
+                                .buttonStyle(PlainButtonStyle())
                             }
                         }
+
+                        repliesToggleRow
                     }
 
-                    if comment.isLikedByCreator, !comment.isDeleted {
-                        Text("Liked by creator")
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
+                    if resolvedThreadState.isExpanded {
+                        expandedRepliesView
+                            .padding(.top, 6)
                     }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-	                    if let onToggleReplies, let label = collapsedRepliesLabel {
-	                        if isExpanded {
-	                            Button(action: { onToggleReplies(comment) }) {
-	                                HStack(spacing: 8) {
-                                    Text("Hide replies")
-                                        .font(metadataFont)
-                                        .foregroundColor(.loopedTextSecondary)
-                                    Spacer(minLength: 8)
-                                    Image(systemName: "chevron.up")
-                                        .font(.loopedCustom(size: 12))
-                                        .foregroundColor(.loopedTextSecondary.opacity(0.9))
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 10)
-                                .padding(.horizontal, 12)
-                                .background(Color.loopedMutedBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                if !comment.isDeleted {
+                    HStack(alignment: .center, spacing: 4) {
+                        likeControl
+
+                        if canShowActionButton {
+                            Button(action: { showActionMenu = true }) {
+                                Image(systemName: "ellipsis")
+                                    .font(.loopedSymbol(.regular, size: 16))
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .frame(width: 20, height: 20)
                             }
-                            .padding(.top, 4)
-                        } else {
-                            Button(action: { onToggleReplies(comment) }) {
-                                HStack(spacing: 8) {
-                                    Text(label)
-                                        .font(metadataFont)
-                                        .foregroundColor(.loopedTextSecondary)
-                                    if isLoadingReplies {
-                                        ProgressView()
-                                            .scaleEffect(0.6)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 10)
-                                .padding(.horizontal, 12)
-                                .background(Color.loopedMutedBackground)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            }
-	                            .padding(.top, 4)
-	                        }
-	                    }
-	                }
-	            }
-	            .frame(maxWidth: .infinity, alignment: .leading)
-	            .loopedDoubleTapToLike {
-	                handleDoubleTapLike()
-	            }
-	            .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
-	            .padding(.vertical, 4)
-	
-		            if isExpanded {
-		                HStack(alignment: .top, spacing: 12) {
-		                    Color.loopedClear
-		                        .frame(width: profileSize)
-	
-	                    VStack(alignment: .leading, spacing: 12) {
-	                        ForEach(replies) { reply in
-	                            CommentRow(
-	                                comment: reply,
-	                                nestingLevel: nestingLevel + 1,
-	                                replies: [],
-                                isExpanded: false,
-                                isLoadingReplies: false,
-                                isLoadingMoreReplies: false,
-                                hasMoreReplies: false,
-                                isLikeLocked: isLikeLocked,
-                                onReply: onReply,
-                                onToggleReplies: nil,
-                                onLoadMoreReplies: nil,
-	                                onLike: onLike,
-	                                canManage: canManage,
-	                                onEdit: onEdit,
-	                                onDelete: onDelete,
-                                    canReport: canReport,
-                                    onReport: onReport,
-	                                onHashtagTap: onHashtagTap,
-                                    onMentionTap: onMentionTap
-	                            )
-	                            .id(reply.backendId ?? reply.id.hashValue)
-	                        }
-	
-	                        if isLoadingMoreReplies {
-	                            ProgressView()
-	                                .padding(.vertical, 8)
-	                        } else if hasMoreReplies {
-	                            Button(action: { onLoadMoreReplies?(comment) }) {
-	                                Text(remainingRepliesLabel)
-	                                    .font(metadataFont)
-	                                    .foregroundColor(.loopedTextSecondary)
-	                                    .frame(maxWidth: .infinity, alignment: .leading)
-	                                    .padding(.vertical, 10)
-	                                    .padding(.horizontal, 12)
-	                                    .background(Color.loopedMutedBackground)
-	                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-	                            }
-	                        }
-	                    }
-	                    .padding(.top, 6)
-	                }
-	                .padding(.leading, nestingLevel > 0 ? CGFloat(nestingLevel * 16) : 0)
-	                .padding(.bottom, 4)
-	            }
-	        }
-	        .fullScreenCover(isPresented: $showImageViewer) {
-	            if !imageUrls.isEmpty {
-	                FullScreenImageViewer(
-	                    imageUrls: imageUrls,
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.top, nestingLevel == 0 ? 2 : 1)
+                    .frame(width: canShowActionButton ? 44 : 20, alignment: .trailing)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .loopedDoubleTapToLike {
+                handleDoubleTapLike()
+            }
+            .padding(.vertical, nestingLevel == 0 ? 14 : 10)
+        }
+        .fullScreenCover(isPresented: $showImageViewer) {
+            if !imageUrls.isEmpty {
+                FullScreenImageViewer(
+                    imageUrls: imageUrls,
                     initialIndex: selectedImageIndex,
                     isPresented: $showImageViewer
                 )

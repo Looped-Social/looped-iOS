@@ -102,12 +102,21 @@ struct EmailVerificationView: View {
                 .opacity(primaryActionEnabled ? 1 : 0.4)
                 .padding(.horizontal, 32)
 
+                if shouldShowRetryDomainsAction {
+                    SecondaryButton(title: "Retry") {
+                        Task { await viewModel.loadDomains() }
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.top, 10)
+                }
+
                 if viewModel.stage == .enterCode {
                     Button(action: { Task { await viewModel.resendCode() } }) {
-                        Text("Resend code")
+                        Text(resendCodeTitle)
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedSecondary)
                     }
+                    .disabled(viewModel.retryAfterSecondsRemaining > 0 || viewModel.isSendingCode)
                     .padding(.top, 14)
 
                     Button(action: viewModel.resetToEmailEntry) {
@@ -266,6 +275,20 @@ private extension EmailVerificationView {
         case .enterCode:
             return viewModel.canSubmitCode && !viewModel.isVerifyingCode
         }
+    }
+
+    var shouldShowRetryDomainsAction: Bool {
+        viewModel.stage == .enterEmail
+            && viewModel.domains.isEmpty
+            && !viewModel.isFetchingDomains
+            && viewModel.errorMessage != nil
+    }
+
+    var resendCodeTitle: String {
+        if viewModel.retryAfterSecondsRemaining > 0 {
+            return "Resend in \(viewModel.retryAfterSecondsRemaining)s"
+        }
+        return "Resend code"
     }
 
     func handlePrimaryAction() {

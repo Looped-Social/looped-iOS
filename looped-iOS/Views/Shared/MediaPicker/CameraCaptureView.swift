@@ -266,7 +266,7 @@ private extension CameraCaptureView {
             Button(action: handleConfirm) {
                 Text("Use Photo")
                     .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedBackground)
+                    .foregroundColor(.loopedBlack)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
                     .background(Color.loopedWhite)
