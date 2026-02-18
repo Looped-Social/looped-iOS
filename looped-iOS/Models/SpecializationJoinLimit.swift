@@ -1,6 +1,6 @@
 import Foundation
 
-enum SpecializationJoinBlockedReason: String {
+enum SpecializationJoinBlockedReason: String, Codable {
     case limit
     case cooldown
     case verifyCompany = "verify_company"
@@ -8,7 +8,7 @@ enum SpecializationJoinBlockedReason: String {
     case verificationRequired = "verification_required"
 }
 
-enum SpecializationJoinRequiresVerificationKind: String {
+enum SpecializationJoinRequiresVerificationKind: String, Codable {
     case company
     case school
 

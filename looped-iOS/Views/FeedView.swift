@@ -13,6 +13,7 @@ struct FeedView: View {
     @State private var pollingTask: Task<Void, Never>?
     @State private var measuredHeaderHeight: CGFloat = 140
     @State private var activeImpressions: [String: ActiveFeedImpression] = [:]
+    @State private var lockedActionSheetRequest: LockedActionSheetRequest?
 
     private var headerHeight: CGFloat { max(0, measuredHeaderHeight) }
     private let pollInterval: TimeInterval = 90
@@ -82,6 +83,9 @@ struct FeedView: View {
                                     },
                                     onBlockPrincipal: { principalId in
                                         viewModel.removePosts(authorPrincipalId: principalId)
+                                    },
+                                    onPresentLockedActionSheet: { request in
+                                        lockedActionSheetRequest = request
                                     }
                                 )
                                     .onAppear {
@@ -246,6 +250,36 @@ struct FeedView: View {
         }
         .loopedHashtagNavigationHost()
         .loopedMentionNavigationHost()
+        .sheet(item: $lockedActionSheetRequest) { request in
+            LockedActionSheet(
+                reason: request.reason,
+                actionType: request.actionType,
+                isPrimaryLoading: false,
+                onPrimary: {
+                    lockedActionSheetRequest = nil
+                    request.onPrimary()
+                },
+                onSecondary: {
+                    lockedActionSheetRequest = nil
+                    request.onSecondary()
+                },
+                onHowItWorks: {
+                    lockedActionSheetRequest = nil
+                    request.onHowItWorks?()
+                }
+            )
+            .background(
+                SheetPresentationConfigurator { sheet in
+                    if #available(iOS 17.0, *) {
+                        sheet.prefersPageSizing = true
+                    }
+                }
+            )
+            .presentationDetents([.height(320)])
+            .applyLockedActionSheetPageSizingIfAvailable()
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Color.loopedBackground)
+        }
         .accessibilityIdentifier("feed.screen")
     }
 

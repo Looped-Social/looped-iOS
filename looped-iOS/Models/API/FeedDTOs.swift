@@ -96,6 +96,32 @@ struct PostViewerCapabilitiesDTO: Codable {
     let lockReason: String?
     let requiresVerification: Bool?
     let requiresJoin: Bool?
+    let lockContext: PostViewerLockContextDTO?
+    let primaryUnlockAction: PostViewerPrimaryUnlockActionDTO?
+}
+
+struct PostViewerLockContextDTO: Codable {
+    let communityId: Int?
+    let communityName: String?
+    let communityKind: String?
+    let specializationId: Int?
+    let specializationName: String?
+    let specializationType: String?
+    let joinCreditsRemaining: Int?
+    let joinCreditsLimit: Int?
+    let joinCooldownActive: Bool?
+    let joinCooldownEndsAt: Date?
+    let requiredVerificationKind: String?
+    let verifyTargetCommunityId: Int?
+    let verifyTargetCommunityName: String?
+    let alreadyVerifiedElsewhere: Bool?
+}
+
+struct PostViewerPrimaryUnlockActionDTO: Codable {
+    let type: String?
+    let communityId: Int?
+    let specializationId: Int?
+    let label: String?
 }
 
 struct RepostedByUserDTO: Codable {

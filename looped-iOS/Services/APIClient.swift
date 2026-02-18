@@ -389,14 +389,14 @@ class APIClient {
                     if httpResponse.statusCode == 429 {
                         throw APIError.rateLimited(
                             code: httpResponse.statusCode,
-                            error: errorPayload.error,
+                            error: errorPayload.resolvedErrorCode,
                             message: errorPayload.message,
                             retryAfterSeconds: retryAfterSeconds
                         )
                     }
                     throw APIError.apiError(
                         code: httpResponse.statusCode,
-                        error: errorPayload.error,
+                        error: errorPayload.resolvedErrorCode,
                         message: errorPayload.message
                     )
                 }
@@ -484,14 +484,14 @@ class APIClient {
                     if httpResponse.statusCode == 429 {
                         throw APIError.rateLimited(
                             code: httpResponse.statusCode,
-                            error: errorPayload.error,
+                            error: errorPayload.resolvedErrorCode,
                             message: errorPayload.message,
                             retryAfterSeconds: retryAfterSeconds
                         )
                     }
                     throw APIError.apiError(
                         code: httpResponse.statusCode,
-                        error: errorPayload.error,
+                        error: errorPayload.resolvedErrorCode,
                         message: errorPayload.message
                     )
                 }
@@ -675,6 +675,7 @@ struct EmptyResponse: Codable {}
 
 fileprivate struct ServerError: Decodable {
     let error: String
+    let errorCode: String?
     let message: String?
     let onboardingStep: RemoteOnboardingStep?
     let currentStep: RemoteOnboardingStep?
@@ -683,6 +684,8 @@ fileprivate struct ServerError: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case error
+        case errorCode = "error_code"
+        case errorCodeCamel = "errorCode"
         case message
         case onboardingStep = "onboarding_step"
         case onboardingStepCamel = "onboardingStep"
@@ -696,6 +699,7 @@ fileprivate struct ServerError: Decodable {
 
     init(
         error: String,
+        errorCode: String? = nil,
         message: String?,
         onboardingStep: RemoteOnboardingStep?,
         currentStep: RemoteOnboardingStep? = nil,
@@ -703,6 +707,7 @@ fileprivate struct ServerError: Decodable {
         retryAfterSeconds: Int? = nil
     ) {
         self.error = error
+        self.errorCode = errorCode
         self.message = message
         self.onboardingStep = onboardingStep
         self.currentStep = currentStep
@@ -712,7 +717,12 @@ fileprivate struct ServerError: Decodable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        error = try container.decode(String.self, forKey: .error)
+        let decodedError = try container.decodeIfPresent(String.self, forKey: .error)
+        let decodedErrorCode =
+            (try? container.decodeIfPresent(String.self, forKey: .errorCode))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .errorCodeCamel))
+        error = decodedError ?? decodedErrorCode ?? "unknown_error"
+        errorCode = decodedErrorCode
         message = try container.decodeIfPresent(String.self, forKey: .message)
         onboardingStep = try ServerError.decodeStep(from: container, snakeKey: .onboardingStep, camelKey: .onboardingStepCamel)
         currentStep = try ServerError.decodeStep(from: container, snakeKey: .currentStep, camelKey: .currentStepCamel)
@@ -726,6 +736,14 @@ fileprivate struct ServerError: Decodable {
             snakeKey: .retryAfterSeconds,
             camelKey: .retryAfterSecondsCamel
         )
+    }
+
+    var resolvedErrorCode: String {
+        let trimmed = (errorCode ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+        return error
     }
 
     private static func decodeStep(

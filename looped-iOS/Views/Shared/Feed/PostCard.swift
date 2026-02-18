@@ -13,7 +13,9 @@ struct PostCard: View {
     let onDelete: ((Post) -> Void)?
     let onBlockUser: ((Int) -> Void)?
     let onBlockPrincipal: ((Int) -> Void)?
+    let onPresentLockedActionSheet: ((LockedActionSheetRequest) -> Void)?
     private let feedService: FeedServiceProtocol
+    private let communityService: CommunityServiceProtocol
     @State private var isLiked = false
     @State private var isReposted = false
     @State private var isBookmarked = false
@@ -63,8 +65,16 @@ struct PostCard: View {
 		    @State private var repostErrorMessage: String?
 		    @State private var actionError: PostActionError?
 	        @State private var isJoiningSpecialization = false
-	        @State private var isRefreshingReactionPermissions = false
 	    @State private var showRepostersSheet = false
+    @State private var lockedActionSheetState: LockedActionSheetState?
+    @State private var lockedActionToastState: LockedActionToastState?
+    @State private var lockedActionToastTask: Task<Void, Never>?
+    @State private var lockCommunityDetails: CommunityProfileData?
+    @State private var verificationTargetCommunity: CommunityProfileData?
+    @State private var showVerificationCommunityPicker = false
+    @State private var showLockedActionHowItWorks = false
+    @State private var pendingLockedActionRetry: LockedFeedActionType?
+    @State private var pendingJoinAfterVerificationCommunityId: Int?
 
 		    private let moderationService: ModerationServiceProtocol = ModerationService()
 		    private let blockService: BlockServiceProtocol = BlockService()
@@ -72,6 +82,7 @@ struct PostCard: View {
     init(
         post: Post,
         feedService: FeedServiceProtocol = FeedService(),
+        communityService: CommunityServiceProtocol = CommunityService(),
         showsCommunityLabel: Bool = false,
         showsAppealPostRemoval: Bool = false,
         showsRepostBanner: Bool = false,
@@ -81,10 +92,12 @@ struct PostCard: View {
         onUpdate: ((Post) -> Void)? = nil,
         onDelete: ((Post) -> Void)? = nil,
         onBlockUser: ((Int) -> Void)? = nil,
-        onBlockPrincipal: ((Int) -> Void)? = nil
+        onBlockPrincipal: ((Int) -> Void)? = nil,
+        onPresentLockedActionSheet: ((LockedActionSheetRequest) -> Void)? = nil
     ) {
         self.post = post
         self.feedService = feedService
+        self.communityService = communityService
         self.showsCommunityLabel = showsCommunityLabel
         self.showsAppealPostRemoval = showsAppealPostRemoval
         self.showsRepostBanner = showsRepostBanner
@@ -95,6 +108,7 @@ struct PostCard: View {
         self.onDelete = onDelete
         self.onBlockUser = onBlockUser
         self.onBlockPrincipal = onBlockPrincipal
+        self.onPresentLockedActionSheet = onPresentLockedActionSheet
     }
 
     private var repostBannerText: String? {
@@ -359,7 +373,7 @@ struct PostCard: View {
     }
 
 	    private var commentButton: some View {
-	        Button(action: openCommentsIfPossible) {
+	        Button(action: { openCommentsIfPossible() }) {
 	            HStack(spacing: actionLabelSpacing) {
 	                Image("comment-icon")
 	                    .resizable()
@@ -615,8 +629,8 @@ struct PostCard: View {
     private var postActionBarConfig: PostActionBarConfig {
         PostActionBarConfig(
             state: postActionState,
-            onLike: handleLikeToggle,
-            onComment: openCommentsIfPossible,
+            onLike: { handleLikeToggle() },
+            onComment: { openCommentsIfPossible() },
             onRepost: toggleRepost,
             onShare: prepareShareSheet,
             onSave: toggleBookmark
@@ -875,6 +889,9 @@ struct PostCard: View {
             .onChange(of: isReactionLocked) { _, _ in
                 syncActionBarState()
             }
+            .onDisappear {
+                lockedActionToastTask?.cancel()
+            }
     }
 
     @MainActor
@@ -886,9 +903,9 @@ struct PostCard: View {
         hasRequestedCommunityPermissions = true
     }
 
-	    private var postCardPresentation: some View {
-	        postCardLifecycle
-	            .sheet(isPresented: $showShareSheet, onDismiss: {
+    private var postCardPresentation: some View {
+        postCardLifecycle
+            .sheet(isPresented: $showShareSheet, onDismiss: {
                     shareItems = []
                 }) {
 	                shareSheetContent
@@ -938,7 +955,68 @@ struct PostCard: View {
             .sheet(isPresented: $showEditSheet) {
                 editSheetContent
             }
-    }
+            .sheet(item: $lockedActionSheetState) { state in
+                GeometryReader { _ in
+                    LockedActionSheet(
+                        reason: state.reason,
+                        actionType: state.actionType,
+                        isPrimaryLoading: isJoiningSpecialization,
+                        onPrimary: { handleLockedActionPrimary(reason: state.reason, actionType: state.actionType) },
+                        onSecondary: {
+                            pendingLockedActionRetry = nil
+                            lockedActionSheetState = nil
+                        },
+                        onHowItWorks: {
+                            showLockedActionHowItWorks = true
+                        }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+                .background(
+                    SheetPresentationConfigurator { sheet in
+                        if #available(iOS 17.0, *) {
+                            sheet.prefersPageSizing = true
+                        }
+                    }
+                )
+                .presentationDetents([.height(320)])
+                .applyLockedActionSheetPageSizingIfAvailable()
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color.loopedBackground)
+            }
+            .sheet(
+                item: $verificationTargetCommunity,
+                onDismiss: {
+                    Task { await handleVerificationCompleted() }
+                }
+            ) { community in
+                CommunityVerificationFlowView(
+                    community: community,
+                    onComplete: {
+                        Task { await handleVerificationCompleted() }
+                    }
+                )
+                .environmentObject(authViewModel)
+            }
+            .sheet(
+                isPresented: $showVerificationCommunityPicker,
+                onDismiss: {
+                    Task { await handleVerificationPickerDismissed() }
+                }
+            ) {
+                NavigationStack {
+                    CommunityVerificationsView()
+                        .environmentObject(authViewModel)
+                }
+            }
+            .sheet(isPresented: $showLockedActionHowItWorks) {
+                NavigationStack {
+                    VerificationInfoOnboardingView {
+                        showLockedActionHowItWorks = false
+                    }
+                }
+            }
+	    }
 
 	    private var postCardAlerts: some View {
 	        postCardSheets
@@ -1209,12 +1287,16 @@ struct PostCard: View {
         return String(first).uppercased()
     }
 
-    private func handleLikeToggle() {
-        if isReactionLocked {
+    private func handleLikeToggle(allowRetryBypass: Bool = false) {
+        if isReactionLocked && !allowRetryBypass {
             trackBlockedInteraction(.like)
-            refreshPermissionsAndRetryReactionIfNeeded(verb: "like")
+            Task { await resolveLockedAction(.like) }
             return
         }
+        performLikeToggle()
+    }
+
+    private func performLikeToggle() {
         guard !isLikeLoading else { return }
         guard let postId = post.backendId else {
             presentMissingPostIdError(action: "like this post")
@@ -1273,48 +1355,6 @@ struct PostCard: View {
                 }
                 presentLikeErrorIfNeeded(verb: "like", title: "Couldn't like post", error: error)
             }
-        }
-    }
-
-    private func refreshPermissionsAndRetryReactionIfNeeded(verb: String) {
-        if viewerCapabilities != nil {
-            actionError = PostActionError(
-                title: reactionLockTitle,
-                message: reactionLockMessage(verb: verb),
-                primaryAction: joinPrimaryAction
-            )
-            return
-        }
-        guard !isRefreshingReactionPermissions else {
-            actionError = PostActionError(
-                title: reactionLockTitle,
-                message: reactionLockMessage(verb: verb),
-                primaryAction: joinPrimaryAction
-            )
-            return
-        }
-        guard shouldLoadCommunityPermissions else {
-            actionError = PostActionError(
-                title: reactionLockTitle,
-                message: reactionLockMessage(verb: verb),
-                primaryAction: joinPrimaryAction
-            )
-            return
-        }
-
-        isRefreshingReactionPermissions = true
-        Task { @MainActor in
-            defer { isRefreshingReactionPermissions = false }
-            await refreshCommunityPermissions()
-            if isReactionLocked {
-                actionError = PostActionError(
-                    title: reactionLockTitle,
-                    message: reactionLockMessage(verb: verb),
-                    primaryAction: joinPrimaryAction
-                )
-                return
-            }
-            handleLikeToggle()
         }
     }
 
@@ -1428,6 +1468,9 @@ struct PostCard: View {
                     if error == "specialization_not_joined" {
                         return "Join this major or field to \(verb)."
                     }
+                    if error == "specialization_verification_required" {
+                        return "Verify first, then join this major or field to \(verb)."
+                    }
 	                return message ?? error
 	            default:
 	                return apiError.localizedDescription
@@ -1440,15 +1483,9 @@ struct PostCard: View {
         if let apiError = error as? APIError {
             switch apiError {
             case .unauthorized, .apiError, .serverError:
-                if case .apiError(_, let code, let message) = apiError,
-                   code == "specialization_not_joined",
-                   let communityId = post.communityId,
-                   communityId > 0 {
-                    actionError = PostActionError(
-                        title: "Join required",
-                        message: message ?? "Join this major or field to \(verb).",
-                        primaryAction: PostActionError.PrimaryAction.joinSpecialization(communityId: communityId)
-                    )
+                if case .apiError(_, let code, _) = apiError,
+                   code == "specialization_not_joined" || code == "specialization_verification_required" || code == "community_not_verified" {
+                    Task { await resolveLockedAction(.like) }
                     return
                 }
                 actionError = PostActionError(
@@ -1496,16 +1533,6 @@ struct PostCard: View {
             return !viewerCapabilities.canInteract || !viewerCapabilities.canLike
         }
         guard shouldLoadCommunityPermissions else { return false }
-        guard let communityPermissions else { return false }
-        let requiresGate = communityPermissions.requiresVerification || communityPermissions.requiresJoin
-        return requiresGate && !communityPermissions.canPost
-    }
-
-    private var isCommentLocked: Bool {
-        guard !isAnonymousMode else { return false }
-        if let viewerCapabilities {
-            return !viewerCapabilities.canInteract || !viewerCapabilities.canComment
-        }
         guard let communityPermissions else { return false }
         let requiresGate = communityPermissions.requiresVerification || communityPermissions.requiresJoin
         return requiresGate && !communityPermissions.canPost
@@ -1589,6 +1616,388 @@ struct PostCard: View {
         }
     }
 
+    private func resolveLockedAction(_ actionType: LockedFeedActionType) async {
+        let reason = await buildLockReason(for: actionType)
+        await MainActor.run {
+            presentLockedAction(reason: reason, actionType: actionType)
+        }
+    }
+
+    private func buildLockReason(for _: LockedFeedActionType) async -> LockReason {
+        let resolvedCommunityName = resolvedPostCommunityName()
+        let lockContext = viewerCapabilities?.lockContext
+        let primaryUnlockAction = viewerCapabilities?.primaryUnlockAction
+        let resolvedLockCommunityName = normalizedOptional(lockContext?.communityName) ?? resolvedCommunityName
+        let resolvedSpecializationName = normalizedOptional(lockContext?.specializationName)
+        let resolvedSpecializationType = lockContext?.specializationType ?? .unknown
+        let fieldNameFromContext = resolvedSpecializationType == .field ? (resolvedSpecializationName ?? resolvedLockCommunityName) : nil
+        let majorNameFromContext = resolvedSpecializationType == .major ? (resolvedSpecializationName ?? resolvedLockCommunityName) : nil
+        let resolvedJoinCreditsRemaining = lockContext?.joinCreditsRemaining
+        let resolvedAlreadyVerifiedElsewhere = lockContext?.alreadyVerifiedElsewhere ?? false
+        let resolvedVerifyTargetCommunityId = primaryUnlockAction?.communityId ?? lockContext?.verifyTargetCommunityId
+        let resolvedVerifyTargetCommunityName = normalizedOptional(lockContext?.verifyTargetCommunityName)
+        let resolvedSpecializationId = primaryUnlockAction?.specializationId ?? lockContext?.specializationId ?? post.communityId
+
+        let fallbackVerificationReason = LockReason.communityVerificationRequired(
+            communityId: resolvedVerifyTargetCommunityId ?? lockContext?.communityId ?? post.communityId,
+            communityName: resolvedVerifyTargetCommunityName ?? resolvedLockCommunityName,
+            fieldName: nil,
+            majorName: nil,
+            joinCreditsRemaining: nil,
+            alreadyVerifiedElsewhere: resolvedAlreadyVerifiedElsewhere
+        )
+
+        if let primaryUnlockAction {
+            switch primaryUnlockAction.type {
+            case .verifyCommunity:
+                return fallbackVerificationReason
+            case .joinSpecialization:
+                return .specializationJoinRequired(
+                    communityId: resolvedSpecializationId ?? -1,
+                    communityName: resolvedLockCommunityName,
+                    fieldName: fieldNameFromContext,
+                    majorName: majorNameFromContext,
+                    joinCreditsRemaining: resolvedJoinCreditsRemaining,
+                    alreadyVerifiedElsewhere: resolvedAlreadyVerifiedElsewhere
+                )
+            case .verifyParentThenJoin:
+                return .joinRequiresVerificationFirst(
+                    communityId: resolvedSpecializationId,
+                    communityName: resolvedLockCommunityName,
+                    fieldName: fieldNameFromContext,
+                    majorName: majorNameFromContext,
+                    joinCreditsRemaining: resolvedJoinCreditsRemaining,
+                    alreadyVerifiedElsewhere: resolvedAlreadyVerifiedElsewhere,
+                    requiredVerificationKind: lockContext?.requiredVerificationKind,
+                    verifyTargetCommunityId: resolvedVerifyTargetCommunityId,
+                    verifyTargetCommunityName: resolvedVerifyTargetCommunityName
+                )
+            case .none, .unknown:
+                break
+            }
+        }
+
+        let lockReason = viewerCapabilities?.lockReason ?? inferredFallbackLockReason
+        guard let lockReason else {
+            return fallbackVerificationReason
+        }
+
+        switch lockReason {
+        case .communityNotVerified, .verificationExpired:
+            return fallbackVerificationReason
+
+        case .specializationNotJoined:
+            if let resolvedSpecializationId, resolvedSpecializationId > 0 {
+                return .specializationJoinRequired(
+                    communityId: resolvedSpecializationId,
+                    communityName: resolvedLockCommunityName,
+                    fieldName: fieldNameFromContext,
+                    majorName: majorNameFromContext,
+                    joinCreditsRemaining: resolvedJoinCreditsRemaining,
+                    alreadyVerifiedElsewhere: resolvedAlreadyVerifiedElsewhere
+                )
+            }
+
+            let details = await fetchLockCommunityDetails()
+            let resolvedName = details?.name ?? resolvedCommunityName
+            let specializationType = details?.specializationType ?? .unknown
+            let fieldName = specializationType == .field ? resolvedName : nil
+            let majorName = specializationType == .major ? resolvedName : nil
+            let joinRemaining = details?.joinLimit?.remaining
+            let requiresVerification = details?.joinLimit?.requiresVerificationForJoin ?? false
+            let requiredKind = details?.joinLimit?.requiredVerificationKind
+
+            if requiresVerification {
+                return .joinRequiresVerificationFirst(
+                    communityId: post.communityId,
+                    communityName: resolvedCommunityName,
+                    fieldName: fieldName,
+                    majorName: majorName,
+                    joinCreditsRemaining: joinRemaining,
+                    alreadyVerifiedElsewhere: false,
+                    requiredVerificationKind: requiredKind,
+                    verifyTargetCommunityId: nil,
+                    verifyTargetCommunityName: nil
+                )
+            }
+
+            return .specializationJoinRequired(
+                communityId: post.communityId ?? details?.id ?? -1,
+                communityName: resolvedCommunityName,
+                fieldName: fieldName,
+                majorName: majorName,
+                joinCreditsRemaining: joinRemaining,
+                alreadyVerifiedElsewhere: true
+            )
+
+        case .specializationVerificationRequired:
+            return .joinRequiresVerificationFirst(
+                communityId: resolvedSpecializationId ?? post.communityId,
+                communityName: resolvedLockCommunityName,
+                fieldName: fieldNameFromContext,
+                majorName: majorNameFromContext,
+                joinCreditsRemaining: resolvedJoinCreditsRemaining,
+                alreadyVerifiedElsewhere: resolvedAlreadyVerifiedElsewhere,
+                requiredVerificationKind: lockContext?.requiredVerificationKind,
+                verifyTargetCommunityId: resolvedVerifyTargetCommunityId,
+                verifyTargetCommunityName: resolvedVerifyTargetCommunityName
+            )
+
+        case .communityBanned, .unknownRestriction:
+            return fallbackVerificationReason
+        }
+    }
+
+    private var inferredFallbackLockReason: PostViewerLockReason? {
+        if let communityPermissions {
+            if communityPermissions.requiresJoin && !communityPermissions.canPost {
+                return .specializationNotJoined
+            }
+            if communityPermissions.requiresVerification && !communityPermissions.canPost {
+                return .communityNotVerified
+            }
+        }
+        return nil
+    }
+
+    private func resolvedPostCommunityName() -> String {
+        if let preferred = post.communityDisplayName(preferShortNames: preferCommunityShortNames) {
+            return preferred
+        }
+        if let communityName = post.communityName?.trimmingCharacters(in: .whitespacesAndNewlines), !communityName.isEmpty {
+            return communityName
+        }
+        if let kind = post.communityKind, kind != .unknown {
+            return kind.rawValue.capitalized
+        }
+        return "this community"
+    }
+
+    private func normalizedOptional(_ value: String?) -> String? {
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func fetchLockCommunityDetails() async -> CommunityProfileData? {
+        guard let communityId = post.communityId, communityId > 0 else { return nil }
+        if let lockCommunityDetails, lockCommunityDetails.id == communityId {
+            return lockCommunityDetails
+        }
+        do {
+            let details = try await communityService.fetchCommunityDetails(communityId: communityId)
+            await MainActor.run {
+                lockCommunityDetails = details
+            }
+            return details
+        } catch {
+            return nil
+        }
+    }
+
+    private func presentLockedAction(reason: LockReason, actionType: LockedFeedActionType) {
+        pendingLockedActionRetry = actionType
+        _ = LockedActionSessionTracker.shouldShowSheet(
+            for: reason,
+            communityId: reason.communityId ?? post.communityId
+        )
+        track("locked_action_sheet_shown", props: lockedActionAnalyticsProps(reason: reason, actionType: actionType))
+        if let onPresentLockedActionSheet {
+            let request = LockedActionSheetRequest(
+                reason: reason,
+                actionType: actionType,
+                onPrimary: { handleLockedActionPrimary(reason: reason, actionType: actionType) },
+                onSecondary: {
+                    pendingLockedActionRetry = nil
+                    lockedActionSheetState = nil
+                },
+                onHowItWorks: {
+                    showLockedActionHowItWorks = true
+                }
+            )
+            onPresentLockedActionSheet(request)
+            return
+        }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            lockedActionToastState = nil
+            lockedActionSheetState = LockedActionSheetState(reason: reason, actionType: actionType)
+        }
+    }
+
+    private func showLockedActionToast(reason: LockReason, actionType: LockedFeedActionType) {
+        lockedActionToastTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            lockedActionToastState = LockedActionToastState(reason: reason, actionType: actionType)
+        }
+        lockedActionToastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                lockedActionToastState = nil
+            }
+        }
+    }
+
+    private func handleLockedActionPrimary(reason: LockReason, actionType: LockedFeedActionType) {
+        pendingLockedActionRetry = actionType
+        withAnimation(.easeInOut(duration: 0.2)) {
+            lockedActionSheetState = nil
+            lockedActionToastState = nil
+        }
+        track("locked_action_primary_tapped", props: lockedActionAnalyticsProps(reason: reason, actionType: actionType))
+
+        switch reason {
+        case .communityVerificationRequired(let communityId, _, _, _, _, _):
+            pendingJoinAfterVerificationCommunityId = nil
+            onVerifyCommunity(communityId: communityId)
+        case .specializationJoinRequired(let communityId, _, _, _, _, _):
+            pendingJoinAfterVerificationCommunityId = nil
+            let type: CommunitySpecializationType = reason.majorName != nil ? .major : (reason.fieldName != nil ? .field : .unknown)
+            onJoinSpecialization(type: type, id: communityId)
+        case .joinRequiresVerificationFirst(
+            let communityId,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            let verifyTargetCommunityId,
+            _
+        ):
+            pendingJoinAfterVerificationCommunityId = communityId
+            onVerifyCommunity(communityId: verifyTargetCommunityId)
+        }
+    }
+
+    private func onVerifyCommunity(communityId: Int?) {
+        let postId = post.backendId
+        let defaultCommunityId = post.communityId
+        if let trackingCommunityId = communityId ?? defaultCommunityId, trackingCommunityId > 0 {
+            Task {
+                await TelemetryManager.shared.trackCommunityVerifyIntent(
+                    communityId: trackingCommunityId,
+                    postId: postId,
+                    feed: telemetryFeedContext
+                )
+            }
+        }
+
+        guard let communityId, communityId > 0 else {
+            showVerificationCommunityPicker = true
+            return
+        }
+
+        Task { @MainActor in
+            let target = await verificationTarget(communityId: communityId)
+            if let target {
+                verificationTargetCommunity = target
+            } else {
+                showVerificationCommunityPicker = true
+            }
+        }
+    }
+
+    private func verificationTarget(communityId: Int) async -> CommunityProfileData? {
+        if let lockCommunityDetails, lockCommunityDetails.id == communityId, lockCommunityDetails.kind != .specialization {
+            return lockCommunityDetails
+        }
+        do {
+            let details = try await communityService.fetchCommunityDetails(communityId: communityId)
+            guard details.kind != .specialization else { return nil }
+            await MainActor.run {
+                lockCommunityDetails = details
+            }
+            return details
+        } catch {
+            return nil
+        }
+    }
+
+    private func onJoinSpecialization(type: CommunitySpecializationType, id: Int) {
+        guard id > 0 else {
+            actionError = PostActionError(
+                title: "Couldn't join",
+                message: "This specialization is missing required data."
+            )
+            return
+        }
+        track(
+            "locked_action_join_attempted",
+            props: lockedActionAnalyticsProps(
+                reason: .specializationJoinRequired(
+                    communityId: id,
+                    communityName: resolvedPostCommunityName(),
+                    fieldName: type == .field ? resolvedPostCommunityName() : nil,
+                    majorName: type == .major ? resolvedPostCommunityName() : nil,
+                    joinCreditsRemaining: nil,
+                    alreadyVerifiedElsewhere: true
+                ),
+                actionType: pendingLockedActionRetry ?? .like
+            )
+        )
+        joinSpecialization(communityId: id) {
+            Task { @MainActor in
+                await retryPendingLockedActionIfPossible()
+            }
+        }
+    }
+
+    @MainActor
+    private func handleVerificationCompleted() async {
+        await refreshCommunityPermissions()
+        await attemptJoinAfterVerificationIfPossible()
+        await retryPendingLockedActionIfPossible()
+    }
+
+    @MainActor
+    private func handleVerificationPickerDismissed() async {
+        await refreshCommunityPermissions()
+        await attemptJoinAfterVerificationIfPossible()
+        await retryPendingLockedActionIfPossible()
+    }
+
+    @MainActor
+    private func attemptJoinAfterVerificationIfPossible() async {
+        guard let communityId = pendingJoinAfterVerificationCommunityId, communityId > 0 else { return }
+        let details = await fetchLockCommunityDetails()
+        if details?.joinLimit?.requiresVerificationForJoin == true {
+            return
+        }
+        pendingJoinAfterVerificationCommunityId = nil
+        let action = pendingLockedActionRetry ?? .like
+        let type: CommunitySpecializationType = details?.specializationType ?? .unknown
+        onJoinSpecialization(type: type, id: communityId)
+        pendingLockedActionRetry = action
+    }
+
+    @MainActor
+    private func retryPendingLockedActionIfPossible() async {
+        guard let action = pendingLockedActionRetry else { return }
+        pendingLockedActionRetry = nil
+        switch action {
+        case .like:
+            handleLikeToggle(allowRetryBypass: true)
+        case .comment:
+            openCommentsIfPossible()
+        case .post:
+            break
+        }
+    }
+
+    private func lockedActionAnalyticsProps(reason: LockReason, actionType: LockedFeedActionType) -> [String: String] {
+        [
+            "action_type": actionType.rawValue,
+            "reason_type": reason.sessionPresentationTypeKey,
+            "community_id": String(reason.communityId ?? post.communityId ?? -1),
+            "community_name": reason.communityName
+        ]
+    }
+
+    private func track(_ event: String, props: [String: String]) {
+        _ = (event, props)
+        // Analytics hook stub. Wire this into the shared analytics pipeline.
+    }
+
     private var joinPrimaryAction: PostActionError.PrimaryAction? {
         if viewerCapabilities?.lockReason == .specializationNotJoined,
            let communityId = post.communityId,
@@ -1613,9 +2022,6 @@ struct PostCard: View {
             presentMissingPostIdError(action: "open comments")
             return
         }
-        if isCommentLocked {
-            trackBlockedInteraction(.comment)
-        }
         commentsManager.showComments(
             for: post,
             telemetryFeedContext: telemetryFeedContext,
@@ -1637,7 +2043,7 @@ struct PostCard: View {
         )
     }
 
-    private func joinSpecialization(communityId: Int) {
+    private func joinSpecialization(communityId: Int, onSuccess: (() -> Void)? = nil) {
         guard communityId > 0 else { return }
         guard !isJoiningSpecialization else { return }
         let postId = post.backendId
@@ -1657,6 +2063,7 @@ struct PostCard: View {
                 await CommunityPermissionsCache.shared.invalidate(communityId: communityId)
                 communityPermissions = await CommunityPermissionsCache.shared.permissions(communityId: communityId)
                 await feedViewModel.loadFollowedCommunities(reset: true)
+                onSuccess?()
             } catch {
                 actionError = PostActionError(
                     title: "Couldn't join",
@@ -1761,6 +2168,17 @@ private struct PostActionError: Identifiable {
         self.message = message
         self.primaryAction = primaryAction
     }
+}
+
+private struct LockedActionSheetState: Identifiable {
+    let id = UUID()
+    let reason: LockReason
+    let actionType: LockedFeedActionType
+}
+
+private struct LockedActionToastState: Equatable {
+    let reason: LockReason
+    let actionType: LockedFeedActionType
 }
 
 private extension PostCard {

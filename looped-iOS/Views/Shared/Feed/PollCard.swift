@@ -247,6 +247,8 @@ struct PollCard: View {
         switch viewerCapabilities.lockReason {
         case .specializationNotJoined:
             return .specializationNotJoined
+        case .specializationVerificationRequired:
+            return .specializationNotJoined
         case .communityNotVerified:
             return .communityNotVerified
         case .verificationExpired:
@@ -316,6 +318,8 @@ struct PollCard: View {
         guard code == 403 else { return nil }
         switch apiError {
         case "specialization_not_joined":
+            return .specializationNotJoined
+        case "specialization_verification_required":
             return .specializationNotJoined
         case "community_not_verified":
             return .communityNotVerified
