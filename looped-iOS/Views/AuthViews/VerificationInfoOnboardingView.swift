@@ -9,16 +9,16 @@ struct VerificationInfoOnboardingView: View {
                 Image("verification-intro")
                     .resizable()
                     .scaledToFit()
-                    .frame(maxWidth: 240, maxHeight: 150)
+                    .frame(maxWidth: 258, maxHeight: 162)
                     .padding(.top, 12)
 
                 VStack(spacing: 10) {
                     Text("Posting is per community")
-                        .font(.loopedCustom(.semibold, size: 24, relativeTo: .title2))
+                        .font(.loopedCustom(.regular, size: 24, relativeTo: .title2))
                         .foregroundColor(.loopedContrast)
                         .multilineTextAlignment(.center)
 
-                    Text(.init("Every **post** belongs to a community. **Post, like, and comment** are available only where you're **verified**."))
+                    Text("Every post belongs to a community. Post, like, and comment are available only where you're verified.")
                         .font(.loopedCustom(.regular, size: 14, relativeTo: .subheadline))
                         .foregroundColor(.loopedTextSecondary)
                         .multilineTextAlignment(.center)
@@ -53,21 +53,43 @@ struct VerificationInfoOnboardingView: View {
 }
 
 private struct PostingRulesCardView: View {
+    private let matrixRows: [PostingPermissionsMatrixRow] = [
+        .init(action: "Browse", verified: .allowed, notVerified: .allowed),
+        .init(action: "Post", verified: .allowed, notVerified: .restricted),
+        .init(action: "Like", verified: .allowed, notVerified: .restricted),
+        .init(action: "Comment", verified: .allowed, notVerified: .restricted),
+        .init(action: "Repost", verified: .allowed, notVerified: .allowed)
+    ]
+
+    private let gridColumns: [GridItem] = [
+        GridItem(.flexible(minimum: 120), spacing: 0, alignment: .leading),
+        GridItem(.flexible(minimum: 82), spacing: 0, alignment: .center),
+        GridItem(.flexible(minimum: 112), spacing: 0, alignment: .center)
+    ]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Access by verification status")
-                .font(.loopedCustom(.medium, size: 13, relativeTo: .footnote))
+            Text("Access in a community")
+                .font(.loopedCustom(.regular, size: 13, relativeTo: .footnote))
                 .foregroundColor(.loopedTextSecondary)
                 .padding(.horizontal, 2)
 
-            PostingRulesStateCardView(
-                rowLabel: "Verified in this community",
-                statuses: [.allowed, .allowed, .allowed, .allowed, .allowed]
-            )
+            LazyVGrid(columns: gridColumns, spacing: 0) {
+                PostingRulesHeaderCell(title: "Action", isLeading: true)
+                PostingRulesHeaderCell(title: "Verified", isLeading: false)
+                PostingRulesHeaderCell(title: "Not verified", isLeading: false)
 
-            PostingRulesStateCardView(
-                rowLabel: "Not verified in this community",
-                statuses: [.allowed, .locked, .locked, .locked, .allowed]
+                ForEach(matrixRows) { row in
+                    PostingRulesActionCell(title: row.action)
+                    PostingRulesStatusCell(status: row.verified)
+                    PostingRulesStatusCell(status: row.notVerified)
+                }
+            }
+            .background(Color.loopedBackground.opacity(0.92))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 1)
             )
         }
         .padding(14)
@@ -78,128 +100,105 @@ private struct PostingRulesCardView: View {
     }
 }
 
-private struct PostingRulesStateCardView: View {
-    let rowLabel: String
-    let statuses: [PostingPermissionStatus]
+private struct PostingPermissionsMatrixRow: Identifiable {
+    let action: String
+    let verified: PostingPermissionStatus
+    let notVerified: PostingPermissionStatus
 
-    private let actions = ["Browse", "Post", "Like", "Comment", "Repost"]
+    var id: String { action }
+}
+
+private struct PostingRulesHeaderCell: View {
+    let title: String
+    let isLeading: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(rowLabel)
-                .font(.loopedCustom(.medium, size: 14, relativeTo: .headline))
-                .foregroundColor(.loopedTextPrimary)
-
-            VStack(spacing: 8) {
-                ForEach(Array(zip(actions.indices, actions)), id: \.0) { index, action in
-                    PostingRuleRowView(action: action, status: statuses[index])
-                }
-            }
-        }
-        .padding(12)
-        .background(Color.loopedBackground.opacity(0.92))
-        .cornerRadius(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        Text(title)
+            .font(.loopedCustom(.regular, size: 12, relativeTo: .caption))
+            .foregroundColor(.loopedTextSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.9)
+            .padding(.horizontal, isLeading ? 10 : 6)
+            .frame(maxWidth: .infinity, minHeight: 40, alignment: isLeading ? .leading : .center)
+            .background(Color.loopedMutedBackground.opacity(0.35))
+            .overlay(
+                Rectangle()
+                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 0.5)
+            )
     }
 }
 
-private struct PostingRuleRowView: View {
-    let action: String
+private struct PostingRulesActionCell: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.loopedCustom(.regular, size: 13, relativeTo: .body))
+            .foregroundColor(.loopedTextPrimary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.9)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .background(Color.loopedBackground.opacity(0.94))
+            .overlay(
+                Rectangle()
+                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 0.5)
+            )
+    }
+}
+
+private struct PostingRulesStatusCell: View {
     let status: PostingPermissionStatus
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: status.iconName)
-                .font(.loopedSymbol(.semibold, size: 16))
-                .foregroundColor(status.iconColor)
-
-            Text(action)
-                .font(.loopedCustom(.medium, size: 13, relativeTo: .body))
-                .foregroundColor(status.textColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.9)
-
-            Spacer(minLength: 8)
-
-            Text(status.badgeText)
-                .font(.loopedCustom(.regular, size: 12, relativeTo: .caption))
-                .foregroundColor(status.badgeColor)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(status.backgroundColor)
-        .cornerRadius(10)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(action), \(status.voiceOverText)")
+        status.icon
+            .frame(width: 20, height: 20)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(status.backgroundColor)
+            .overlay(
+                Rectangle()
+                    .stroke(Color.loopedTextSecondary.opacity(0.2), lineWidth: 0.5)
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(status.voiceOverText)
     }
 }
 
 private enum PostingPermissionStatus {
     case allowed
-    case locked
+    case restricted
 
-    var iconName: String {
+    @ViewBuilder
+    var icon: some View {
         switch self {
         case .allowed:
-            return "checkmark.circle.fill"
-        case .locked:
-            return "lock.fill"
-        }
-    }
-
-    var iconColor: Color {
-        switch self {
-        case .allowed:
-            return .loopedSuccess
-        case .locked:
-            return .loopedTextSecondary
-        }
-    }
-
-    var textColor: Color {
-        switch self {
-        case .allowed:
-            return .loopedTextPrimary
-        case .locked:
-            return .loopedTextSecondary
+            Image(systemName: "checkmark")
+                .font(.loopedSymbol(.semibold, size: 18))
+                .foregroundColor(.loopedSuccess)
+        case .restricted:
+            Image("error-toast")
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .foregroundColor(.loopedError)
         }
     }
 
     var backgroundColor: Color {
         switch self {
         case .allowed:
-            return .loopedBackground.opacity(0.95)
-        case .locked:
-            return .loopedMutedBackground.opacity(0.62)
-        }
-    }
-
-    var badgeText: String {
-        switch self {
-        case .allowed:
-            return "Available"
-        case .locked:
-            return "Locked"
-        }
-    }
-
-    var badgeColor: Color {
-        switch self {
-        case .allowed:
-            return .loopedTextSecondary
-        case .locked:
-            return .loopedTextSecondary
+            return .loopedSuccess.opacity(0.1)
+        case .restricted:
+            return .loopedError.opacity(0.1)
         }
     }
 
     var voiceOverText: String {
         switch self {
         case .allowed:
-            return "allowed"
-        case .locked:
-            return "locked"
+            return "Allowed"
+        case .restricted:
+            return "Not allowed"
         }
     }
 }
