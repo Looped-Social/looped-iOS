@@ -362,25 +362,19 @@ private extension CommentsView {
             VStack(alignment: .leading, spacing: 6) {
                 let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedContent.isEmpty {
-                    if trimmedContent.contains("#") || trimmedContent.contains("@") {
-                        HashtagText(
-                            text: trimmedContent,
-                            font: .loopedCommentsPostBody,
-                            textColor: .loopedTextPrimary,
-                            hashtagColor: .loopedPrimary,
-                            onHashtagTap: handleHashtagTap,
-                            onMentionTap: handleMentionTap
-                        )
-                        .multilineTextAlignment(.leading)
-                    } else {
-                        Text(trimmedContent)
-                            .font(.loopedCommentsPostBody)
-                            .foregroundColor(.loopedTextPrimary)
-                            .multilineTextAlignment(.leading)
-                    }
+                    HashtagText(
+                        text: trimmedContent,
+                        prefix: "\(postAuthorName) ",
+                        prefixFont: .loopedCommentsPostAuthor,
+                        prefixColor: .loopedTextStrong,
+                        font: .loopedCommentsPostBody,
+                        textColor: .loopedTextPrimary,
+                        hashtagColor: .loopedPrimary,
+                        onHashtagTap: handleHashtagTap,
+                        onMentionTap: handleMentionTap
+                    )
+                    .multilineTextAlignment(.leading)
                 }
-
-                threadAuthorName
 
                 Text(formattedTimestamp(for: post.createdAt))
                     .font(.loopedCommentsPostMeta)
@@ -431,7 +425,7 @@ private extension CommentsView {
                             .resizable()
                             .renderingMode(.template)
                             .scaledToFit()
-                            .frame(width: 18, height: 18)
+                            .frame(width: 24, height: 24)
                             .foregroundColor(isPostLiked ? .loopedError : .loopedTextSecondary)
 
                         if !canLikePost {
@@ -440,11 +434,11 @@ private extension CommentsView {
                                 .foregroundColor(.loopedTextSecondary)
                                 .padding(3)
                                 .background(Circle().fill(Color.loopedBackground))
-                                .offset(x: 7, y: -7)
+                                .offset(x: 8, y: -8)
                         }
                     }
                     Text("\(displayedPostLikeCount)")
-                        .font(.loopedCommentsMeta)
+                        .font(.loopedCommentsPostMeta)
                         .foregroundColor(.loopedTextSecondary)
                 }
             }
@@ -458,7 +452,7 @@ private extension CommentsView {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: 20, height: 20)
+                        .frame(width: 26, height: 26)
                         .foregroundColor(isPostReposted ? .loopedPrimary : .loopedTextSecondary)
                 }
             }
@@ -472,10 +466,10 @@ private extension CommentsView {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: 18, height: 18)
+                        .frame(width: 24, height: 24)
                         .foregroundColor(.loopedTextSecondary)
                     Text("\(displayedPostShareCount)")
-                        .font(.loopedCommentsMeta)
+                        .font(.loopedCommentsPostMeta)
                         .foregroundColor(.loopedTextSecondary)
                 }
             }
@@ -505,22 +499,6 @@ private extension CommentsView {
                 size: 44,
                 variant: post.isAnonymous ? .anonymous : .standard
             )
-        }
-    }
-
-    @ViewBuilder
-    private var threadAuthorName: some View {
-        if let postAuthorProfileId {
-            NavigationLink(destination: postAuthorProfileDestination(profileId: postAuthorProfileId)) {
-                Text(postAuthorName)
-                    .font(.loopedCommentsPostAuthor)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .buttonStyle(PlainButtonStyle())
-        } else {
-            Text(postAuthorName)
-                .font(.loopedCommentsPostAuthor)
-                .foregroundColor(.loopedTextSecondary)
         }
     }
 

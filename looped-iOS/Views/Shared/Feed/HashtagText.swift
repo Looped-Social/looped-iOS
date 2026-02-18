@@ -41,7 +41,6 @@ struct HashtagText: View {
 
     var body: some View {
         Text(attributedText)
-            .font(font)
             .environment(\.openURL, OpenURLAction { url in
                 // Handle hashtag taps via URL scheme
                 if url.scheme == "hashtag", let hashtag = url.host {
@@ -72,9 +71,7 @@ struct HashtagText: View {
         if let prefix, !prefix.isEmpty {
             var prefixText = AttributedString(prefix)
             prefixText.foregroundColor = prefixColor ?? textColor
-            if let prefixFont {
-                prefixText.font = prefixFont
-            }
+            prefixText.font = prefixFont ?? font
             result.append(prefixText)
         }
 
@@ -83,12 +80,14 @@ struct HashtagText: View {
             case .regular(let string):
                 var regularText = AttributedString(string)
                 regularText.foregroundColor = textColor
+                regularText.font = font
                 result.append(regularText)
             case .hashtag(let string):
                 // Remove # from hashtag for URL
                 let cleanHashtag = string.hasPrefix("#") ? String(string.dropFirst()) : string
                 var hashtagText = AttributedString(string)
                 hashtagText.foregroundColor = hashtagColor
+                hashtagText.font = font
                 hashtagText.link = URL(string: "hashtag://\(cleanHashtag)")
                 result.append(hashtagText)
             case .mention(let string):
@@ -96,11 +95,13 @@ struct HashtagText: View {
                 guard !cleanHandle.isEmpty else {
                     var regularText = AttributedString(string)
                     regularText.foregroundColor = textColor
+                    regularText.font = font
                     result.append(regularText)
                     continue
                 }
                 var mentionText = AttributedString(string)
                 mentionText.foregroundColor = mentionColor
+                mentionText.font = font
                 if let encodedHandle = cleanHandle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
                     mentionText.link = URL(string: "mention://profile?handle=\(encodedHandle)")
                 }
@@ -108,6 +109,7 @@ struct HashtagText: View {
             case .url(let string, let url):
                 var linkText = AttributedString(string)
                 linkText.foregroundColor = linkColor
+                linkText.font = font
                 linkText.link = url
                 result.append(linkText)
             }

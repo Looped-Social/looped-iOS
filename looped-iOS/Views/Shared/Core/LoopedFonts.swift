@@ -57,16 +57,18 @@ extension Font {
 
     // MARK: - Comments Typography
     static let loopedCommentsScreenTitle = Font.custom("Poppins-SemiBold", size: 24)
-    static let loopedCommentsPostBody = Font.custom("Poppins-SemiBold", size: 20)
-    static let loopedCommentsPostAuthor = Font.custom("Poppins-Regular", size: 18)
+    static let loopedCommentsPostBody = Font.custom("Poppins-Regular", size: 18)
+    static let loopedCommentsPostAuthor = Font.custom("Poppins-Medium", size: 20)
     static let loopedCommentsPostMeta = Font.custom("Poppins-Regular", size: 15)
     static let loopedCommentsBody = Font.custom("Poppins-Regular", size: 16)
     static let loopedCommentsAuthor = Font.custom("Poppins-Medium", size: 16)
     static let loopedCommentsMeta = Font.custom("Poppins-Regular", size: 13)
+    static let loopedCommentsMetaStrong = Font.custom("Poppins-Medium", size: 13)
     static let loopedCommentsAction = Font.custom("Poppins-Medium", size: 13)
     static let loopedCommentsReplyBody = Font.custom("Poppins-Regular", size: 15)
     static let loopedCommentsReplyAuthor = Font.custom("Poppins-Medium", size: 15)
     static let loopedCommentsReplyMeta = Font.custom("Poppins-Regular", size: 12)
+    static let loopedCommentsReplyMetaStrong = Font.custom("Poppins-Medium", size: 12)
     static let loopedCommentsReplyAction = Font.custom("Poppins-Medium", size: 12)
 
     

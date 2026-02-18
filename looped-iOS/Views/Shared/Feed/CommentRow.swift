@@ -115,8 +115,16 @@ struct CommentRow: View {
         nestingLevel == 0 ? .loopedCommentsAction : .loopedCommentsReplyAction
     }
 
+    private var likesFont: Font {
+        nestingLevel == 0 ? .loopedCommentsMetaStrong : .loopedCommentsReplyMetaStrong
+    }
+
     private var likeIconSize: CGFloat {
         nestingLevel == 0 ? 20 : 16
+    }
+
+    private var repliesContainerLeadingInset: CGFloat {
+        nestingLevel == 0 ? profileSize + 12 : 0
     }
 
     private var resolvedThreadState: ReplyThreadState {
@@ -281,13 +289,7 @@ struct CommentRow: View {
     private var likedByCreatorBadge: some View {
         Text("Liked by creator")
             .font(actionFont)
-            .foregroundColor(.loopedPrimary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.loopedMutedBackground)
-            )
+            .foregroundColor(.loopedTextSecondary)
     }
 
     @ViewBuilder
@@ -407,7 +409,7 @@ struct CommentRow: View {
                             text: comment.content,
                             prefix: "\(displayName) ",
                             prefixFont: authorFont,
-                            prefixColor: .loopedTextSecondary,
+                            prefixColor: .loopedTextStrong,
                             font: contentFont,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary
@@ -420,10 +422,6 @@ struct CommentRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        if comment.isLikedByCreator {
-                            likedByCreatorBadge
-                                .padding(.top, 2)
-                        }
                     }
 
                     if let attachments = comment.attachments, !attachments.isEmpty, !comment.isDeleted {
@@ -463,7 +461,7 @@ struct CommentRow: View {
                                 .foregroundColor(.loopedTextSecondary)
 
                             Text(likesLabel)
-                                .font(metadataFont)
+                                .font(likesFont)
                                 .foregroundColor(.loopedTextSecondary)
 
                             if comment.isUnderReview {
@@ -482,13 +480,13 @@ struct CommentRow: View {
                             }
                         }
 
+                        if comment.isLikedByCreator {
+                            likedByCreatorBadge
+                        }
+
                         repliesToggleRow
                     }
 
-                    if resolvedThreadState.isExpanded {
-                        expandedRepliesView
-                            .padding(.top, 6)
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -515,6 +513,12 @@ struct CommentRow: View {
                 handleDoubleTapLike()
             }
             .padding(.vertical, nestingLevel == 0 ? 14 : 10)
+
+            if resolvedThreadState.isExpanded {
+                expandedRepliesView
+                    .padding(.leading, repliesContainerLeadingInset)
+                    .padding(.top, 6)
+            }
         }
         .fullScreenCover(isPresented: $showImageViewer) {
             if !imageUrls.isEmpty {
