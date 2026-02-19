@@ -18,14 +18,16 @@ struct VerificationInfoScreen: View {
             .toolbar {
                 if closeButtonStyle == .xmark {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(action: { dismiss() }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.loopedSymbol(.semibold, size: 22))
-                                .foregroundColor(.loopedTextSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Close")
+                        LoopedCloseButton(
+                            action: { dismiss() },
+                            foregroundColor: .loopedTextSecondary,
+                            iconSize: 16,
+                            iconWeight: .semibold,
+                            hitArea: 36,
+                            showsBackground: true,
+                            backgroundColor: .loopedMutedBackground,
+                            backgroundOpacity: 1
+                        )
                     }
                 }
             }

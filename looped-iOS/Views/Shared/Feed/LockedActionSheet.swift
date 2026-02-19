@@ -55,7 +55,7 @@ struct LockedActionSheet: View {
                         Text(helpLinkTitle)
                             .font(.loopedSmallTextMedium)
                     }
-                    .foregroundColor(.loopedPrimary)
+                    .foregroundColor(.loopedTextSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .buttonStyle(.plain)
