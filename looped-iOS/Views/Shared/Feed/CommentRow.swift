@@ -298,7 +298,7 @@ struct CommentRow: View {
 
     @ViewBuilder
     private var expandedRepliesView: some View {
-        let shouldInsetThread = nestingLevel == 0
+        let shouldInsetThread = true
 
         VStack(alignment: .leading, spacing: 10) {
             ForEach(resolvedThreadState.replies) { reply in
@@ -355,11 +355,7 @@ struct CommentRow: View {
     private var repliesToggleRow: some View {
         if let onToggleReplies, let viewRepliesLabel {
             Button(action: { onToggleReplies(comment) }) {
-                HStack(alignment: .center, spacing: 10) {
-                    Rectangle()
-                        .fill(Color.loopedTextSecondary.opacity(0.55))
-                        .frame(width: nestingLevel == 0 ? 34 : 22, height: 1)
-
+                HStack(alignment: .center, spacing: 8) {
                     Text(resolvedThreadState.isExpanded ? "Hide replies" : viewRepliesLabel)
                         .font(actionFont)
                         .foregroundColor(.loopedTextSecondary)
