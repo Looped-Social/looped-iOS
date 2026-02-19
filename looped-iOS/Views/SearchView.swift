@@ -91,12 +91,20 @@ struct SearchView: View {
                                     .frame(height: 290)
 
                                     if viewModel.trendingPosts.count > 1 {
+                                        let totalPages = viewModel.trendingPosts.count
+                                        let start = trendingPageIndicatorStartIndex(
+                                            totalPages: totalPages,
+                                            selectedPage: viewModel.selectedTrendingIndex
+                                        )
+
                                         // Custom page indicator dots positioned lower
                                         HStack(spacing: 8) {
-                                            ForEach(0..<viewModel.trendingPosts.count, id: \.self) { index in
-                                                Circle()
-                                                    .fill(index == viewModel.selectedTrendingIndex ? Color.loopedTextSecondary : Color.loopedTextSecondary.opacity(0.3))
-                                                    .frame(width: 8, height: 8)
+                                            ForEach(0..<trendingPageIndicatorDots, id: \.self) { offset in
+                                                trendingPageIndicatorDot(
+                                                    pageIndex: start + offset,
+                                                    totalPages: totalPages,
+                                                    selectedPage: viewModel.selectedTrendingIndex
+                                                )
                                             }
                                         }
                                         .frame(maxWidth: .infinity)
@@ -261,6 +269,36 @@ struct SearchView: View {
         let preview = post.contentPreview?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !preview.isEmpty { return preview }
         return post.title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trendingPageIndicatorDots: Int { 5 }
+
+    private func trendingPageIndicatorStartIndex(totalPages: Int, selectedPage: Int) -> Int {
+        let halfWindow = trendingPageIndicatorDots / 2
+        var start = max(selectedPage - halfWindow, 0)
+        start = min(start, max(totalPages - trendingPageIndicatorDots, 0))
+        return start
+    }
+
+    @ViewBuilder
+    private func trendingPageIndicatorDot(pageIndex: Int, totalPages: Int, selectedPage: Int) -> some View {
+        let dotSize: CGFloat = 8
+        let isActive = pageIndex == selectedPage
+        let isLoadedPage = pageIndex >= 0 && pageIndex < totalPages
+
+        if isActive {
+            Circle()
+                .fill(Color.loopedTextSecondary)
+                .frame(width: dotSize, height: dotSize)
+        } else if isLoadedPage {
+            Circle()
+                .fill(Color.loopedTextSecondary.opacity(0.3))
+                .frame(width: dotSize, height: dotSize)
+        } else {
+            Circle()
+                .stroke(Color.loopedTextSecondary.opacity(0.22), lineWidth: 1)
+                .frame(width: dotSize, height: dotSize)
+        }
     }
 
     private func openTrendingPost(postId: Int) {

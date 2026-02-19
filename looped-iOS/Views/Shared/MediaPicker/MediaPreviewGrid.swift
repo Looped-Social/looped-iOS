@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import UIKit
 
 // MARK: - Media Preview Grid (for selection before posting)
 struct MediaPreviewGrid: View {
@@ -261,6 +262,7 @@ struct SinglePostedMedia: View {
     @State private var scheduledRetry = false
     @State private var retryCount = 0
     @State private var reloadToken = UUID()
+    @State private var containerWidth: CGFloat = 0
 
     private var resolvedAspectRatio: CGFloat {
         PostedMediaLayoutMetrics.singleAspectRatio(for: attachment)
@@ -268,6 +270,19 @@ struct SinglePostedMedia: View {
 
     private var minimumHeight: CGFloat {
         PostedMediaLayoutMetrics.singleMinimumHeight(maxHeight: maxHeight)
+    }
+
+    private var resolvedWidth: CGFloat {
+        if containerWidth > 0 {
+            return containerWidth
+        }
+        return UIScreen.main.bounds.width
+    }
+
+    private var targetHeight: CGFloat {
+        let ratio = max(resolvedAspectRatio, 0.01)
+        let ideal = resolvedWidth / ratio
+        return min(maxHeight, max(minimumHeight, ideal))
     }
 
     var body: some View {
@@ -296,36 +311,36 @@ struct SinglePostedMedia: View {
             )
         } else {
             // Image
-            AsyncImage(url: URL(string: attachment.url)) { phase in
-                Group {
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .onAppear {
-                                isShimmering = false
-                                loadCompleted = true
-                            }
-                    case .failure:
-                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
-                            .onAppear { isShimmering = false }
-                            .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
-                    case .empty:
-                        MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
-                            .task { await scheduleRetryIfNeeded(afterNanoseconds: 4_000_000_000) }
-                    @unknown default:
-                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
-                            .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
+            ZStack {
+                AsyncImage(url: URL(string: attachment.url)) { phase in
+                    Group {
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .onAppear {
+                                    isShimmering = false
+                                    loadCompleted = true
+                                }
+                        case .failure:
+                            MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                                .onAppear { isShimmering = false }
+                                .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
+                        case .empty:
+                            MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
+                                .task { await scheduleRetryIfNeeded(afterNanoseconds: 4_000_000_000) }
+                        @unknown default:
+                            MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                                .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .id(reloadToken)
             }
-            .id(reloadToken)
-            .aspectRatio(resolvedAspectRatio, contentMode: .fit)
             .frame(maxWidth: .infinity)
-            .frame(maxHeight: maxHeight)
-            .frame(minHeight: minimumHeight)
+            .frame(height: targetHeight)
             .background(Color.loopedMutedBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .task {
@@ -334,6 +349,11 @@ struct SinglePostedMedia: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 onImageTap(attachment.url)
+            }
+            .readWidth { newWidth in
+                if abs(newWidth - containerWidth) > 0.5 {
+                    containerWidth = newWidth
+                }
             }
             .onChange(of: attachment.url) { _, _ in
                 resetLoadState()
@@ -373,6 +393,27 @@ struct SinglePostedMedia: View {
         scheduledRetry = false
         retryCount = 0
         reloadToken = UUID()
+    }
+}
+
+private struct PostedMediaWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private extension View {
+    func readWidth(_ onChange: @escaping (CGFloat) -> Void) -> some View {
+        background(
+            GeometryReader { geometry in
+                Color.clear.preference(key: PostedMediaWidthKey.self, value: geometry.size.width)
+            }
+        )
+        .onPreferenceChange(PostedMediaWidthKey.self) { newValue in
+            onChange(newValue)
+        }
     }
 }
 

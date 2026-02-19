@@ -27,23 +27,9 @@ private struct MentionNavigationHostModifier: ViewModifier {
                 guard !cleanHandle.isEmpty else { return }
                 activeMention = MentionRoute(handle: cleanHandle)
             }
-            .background(
-                NavigationLink(
-                    isActive: Binding(
-                        get: { activeMention != nil },
-                        set: { isActive in
-                            if !isActive {
-                                activeMention = nil
-                            }
-                        }
-                    )
-                ) {
-                    mentionDestination
-                } label: {
-                    EmptyView()
-                }
-                .hidden()
-            )
+            .navigationDestination(item: $activeMention) { route in
+                MentionProfileDestinationView(handle: route.handle)
+            }
     }
 
     private func normalizeMentionHandle(_ rawValue: String) -> String {
@@ -52,14 +38,6 @@ private struct MentionNavigationHostModifier: ViewModifier {
         return unprefixed.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
-    @ViewBuilder
-    private var mentionDestination: some View {
-        if let route = activeMention {
-            MentionProfileDestinationView(handle: route.handle)
-        } else {
-            EmptyView()
-        }
-    }
 }
 
 extension View {

@@ -24,6 +24,7 @@ class SearchViewModel: ObservableObject {
     private let initialSpecializationsLimit = 24
     private let loadMoreSpecializationsLimit = 40
     private let recommendedCommunitiesLimit = 8
+    private let trendingPostsLimit = 20
     private var specializationIconsById: [Int: CommunityIcon] = [:]
     private var specializationIconsTask: Task<[Int: CommunityIcon], Never>?
 
@@ -149,7 +150,7 @@ class SearchViewModel: ObservableObject {
 
     func loadTrendingPosts() async {
         do {
-            trendingPosts = try await feedService.fetchTrendingPosts(limit: 3, communityId: nil)
+            trendingPosts = try await feedService.fetchTrendingPosts(limit: trendingPostsLimit, communityId: nil)
             selectedTrendingIndex = 0
         } catch {
             trendingPosts = []
