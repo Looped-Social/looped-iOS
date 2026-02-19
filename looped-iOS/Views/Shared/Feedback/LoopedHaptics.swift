@@ -1,19 +1,22 @@
 import UIKit
 
 enum LoopedHaptics {
+    @MainActor
+    private static func impact(style: UIImpactFeedbackGenerator.FeedbackStyle, intensity: CGFloat) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.prepare()
+        generator.impactOccurred(intensity: intensity)
+    }
+
     static func lightImpact() {
         Task { @MainActor in
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.prepare()
-            generator.impactOccurred()
+            impact(style: .soft, intensity: 0.45)
         }
     }
 
     static func success() {
         Task { @MainActor in
-            let generator = UINotificationFeedbackGenerator()
-            generator.prepare()
-            generator.notificationOccurred(.success)
+            impact(style: .soft, intensity: 0.65)
         }
     }
 }

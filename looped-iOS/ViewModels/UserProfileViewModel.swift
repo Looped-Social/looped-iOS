@@ -85,7 +85,6 @@ final class UserProfileViewModel: ObservableObject {
 
     func toggleFollow(asAnonymousActor: Bool) async {
         guard !isFollowActionInFlight else { return }
-        LoopedHaptics.lightImpact()
         isFollowActionInFlight = true
         followErrorMessage = nil
 

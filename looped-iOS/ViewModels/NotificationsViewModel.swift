@@ -275,7 +275,6 @@ class NotificationsViewModel: ObservableObject {
     // MARK: - Action Helpers
     private func toggleFollow(_ userId: UUID) async {
         guard let backendUserId = userId.backendInt else { return }
-        LoopedHaptics.lightImpact()
         if followedActorIds.contains(backendUserId) {
             do {
                 let result = try await userService.unfollowUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
