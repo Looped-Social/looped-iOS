@@ -275,6 +275,7 @@ class NotificationsViewModel: ObservableObject {
     // MARK: - Action Helpers
     private func toggleFollow(_ userId: UUID) async {
         guard let backendUserId = userId.backendInt else { return }
+        LoopedHaptics.lightImpact()
         if followedActorIds.contains(backendUserId) {
             do {
                 let result = try await userService.unfollowUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
@@ -291,6 +292,7 @@ class NotificationsViewModel: ObservableObject {
             let result = try await userService.followUser(userId: backendUserId, asAnonymousActor: false, communityId: nil)
             if result.following {
                 followStateStore.setFollowing(true, userId: backendUserId)
+                LoopedHaptics.success()
             }
         } catch {
             toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)

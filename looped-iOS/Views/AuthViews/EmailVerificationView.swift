@@ -318,6 +318,7 @@ private extension EmailVerificationView {
                 _ = await viewModel.sendCode()
             }
         case .enterCode:
+            LoopedHaptics.lightImpact()
             Task {
                 let success = await viewModel.submitCode()
                 if success {

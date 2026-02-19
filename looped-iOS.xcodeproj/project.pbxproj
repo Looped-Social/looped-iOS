@@ -10,6 +10,9 @@
 		4F0E15DD2EF865B500A2341F /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15DC2EF865B500A2341F /* BigInt */; };
 		4F0E15E82EF86D1B00A2341F /* Clibsodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15E72EF86D1B00A2341F /* Clibsodium */; };
 		4F0E15EA2EF86D1B00A2341F /* Sodium in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0E15E92EF86D1B00A2341F /* Sodium */; };
+		4F27D0352F47672400769FAD /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F27D0342F47672400769FAD /* WidgetKit.framework */; };
+		4F27D0372F47672400769FAD /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F27D0362F47672400769FAD /* SwiftUI.framework */; };
+		4F27D0442F47672500769FAD /* widgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F27D0322F47672400769FAD /* widgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4F5204902F23EA2400762196 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204892F23EA2400762196 /* BigInt */; };
 		4F5204912F23EA2400762196 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204832F23EA2400762196 /* FirebaseCore */; };
 		4F5204922F23EA2400762196 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204852F23EA2400762196 /* FirebaseAuth */; };
@@ -24,6 +27,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		4F27D0422F47672500769FAD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4F4C18862E6B3D150043DD49 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F27D0312F47672400769FAD;
+			remoteInfo = widgetsExtension;
+		};
 		4F4C189C2E6B3D160043DD49 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4F4C18862E6B3D150043DD49 /* Project object */;
@@ -54,6 +64,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				4F27D0442F47672500769FAD /* widgetsExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -61,6 +72,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4F27D0322F47672400769FAD /* widgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = widgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F27D0342F47672400769FAD /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		4F27D0362F47672400769FAD /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		4F4C188E2E6B3D150043DD49 /* looped-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "looped-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F4C189B2E6B3D160043DD49 /* looped-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "looped-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F4C18A52E6B3D160043DD49 /* looped-iOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "looped-iOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -68,6 +82,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4F27D0482F47672500769FAD /* Exceptions for "widgets" folder in "widgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4F27D0312F47672400769FAD /* widgetsExtension */;
+		};
 		4F52049C2F23EA2500762196 /* Exceptions for "looped-iOS" folder in "looped-iOS Staging" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -87,6 +108,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		4F27D0382F47672400769FAD /* widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4F27D0482F47672500769FAD /* Exceptions for "widgets" folder in "widgetsExtension" target */,
+			);
+			path = widgets;
+			sourceTree = "<group>";
+		};
 		4F4C18902E6B3D150043DD49 /* looped-iOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -109,6 +138,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		4F27D02F2F47672400769FAD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4F27D0372F47672400769FAD /* SwiftUI.framework in Frameworks */,
+				4F27D0352F47672400769FAD /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4F4C188B2E6B3D150043DD49 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -154,12 +192,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4F27D0332F47672400769FAD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4F27D0342F47672400769FAD /* WidgetKit.framework */,
+				4F27D0362F47672400769FAD /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		4F4C18852E6B3D150043DD49 = {
 			isa = PBXGroup;
 			children = (
 				4F4C18902E6B3D150043DD49 /* looped-iOS */,
 				4F4C189E2E6B3D160043DD49 /* looped-iOSTests */,
 				4F4C18A82E6B3D160043DD49 /* looped-iOSUITests */,
+				4F27D0382F47672400769FAD /* widgets */,
+				4F27D0332F47672400769FAD /* Frameworks */,
 				4F4C188F2E6B3D150043DD49 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -171,6 +220,7 @@
 				4F4C189B2E6B3D160043DD49 /* looped-iOSTests.xctest */,
 				4F4C18A52E6B3D160043DD49 /* looped-iOSUITests.xctest */,
 				4F52049B2F23EA2400762196 /* looped-iOS Staging.app */,
+				4F27D0322F47672400769FAD /* widgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -178,6 +228,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		4F27D0312F47672400769FAD /* widgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4F27D0452F47672500769FAD /* Build configuration list for PBXNativeTarget "widgetsExtension" */;
+			buildPhases = (
+				4F27D02E2F47672400769FAD /* Sources */,
+				4F27D02F2F47672400769FAD /* Frameworks */,
+				4F27D0302F47672400769FAD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4F27D0382F47672400769FAD /* widgets */,
+			);
+			name = widgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = widgetsExtension;
+			productReference = 4F27D0322F47672400769FAD /* widgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		4F4C188D2E6B3D150043DD49 /* looped-iOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4F4C18AF2E6B3D160043DD49 /* Build configuration list for PBXNativeTarget "looped-iOS" */;
@@ -190,6 +262,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				4F27D0432F47672500769FAD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4F4C18902E6B3D150043DD49 /* looped-iOS */,
@@ -294,6 +367,9 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					4F27D0312F47672400769FAD = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					4F4C188D2E6B3D150043DD49 = {
 						CreatedOnToolsVersion = 16.4;
 					};
@@ -331,11 +407,19 @@
 				4F4C189A2E6B3D160043DD49 /* looped-iOSTests */,
 				4F4C18A42E6B3D160043DD49 /* looped-iOSUITests */,
 				4F5204822F23EA2400762196 /* looped-iOS Staging */,
+				4F27D0312F47672400769FAD /* widgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		4F27D0302F47672400769FAD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4F4C188C2E6B3D150043DD49 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -367,6 +451,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		4F27D02E2F47672400769FAD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4F4C188A2E6B3D150043DD49 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -398,6 +489,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		4F27D0432F47672500769FAD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F27D0312F47672400769FAD /* widgetsExtension */;
+			targetProxy = 4F27D0422F47672500769FAD /* PBXContainerItemProxy */;
+		};
 		4F4C189D2E6B3D160043DD49 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4F4C188D2E6B3D150043DD49 /* looped-iOS */;
@@ -416,6 +512,70 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		4F27D0462F47672500769FAD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RAB89P8X48;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = widgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = widgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mylooped.looped.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4F27D0472F47672500769FAD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RAB89P8X48;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = widgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = widgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mylooped.looped.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		4F4C18AD2E6B3D160043DD49 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -552,7 +712,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "looped-iOS/looped-iOSDebug.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -568,7 +728,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mylooped.looped;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -587,7 +747,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "looped-iOS/looped-iOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -603,7 +763,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mylooped.looped;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -758,6 +918,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		4F27D0452F47672500769FAD /* Build configuration list for PBXNativeTarget "widgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F27D0462F47672500769FAD /* Debug */,
+				4F27D0472F47672500769FAD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		4F4C18892E6B3D150043DD49 /* Build configuration list for PBXProject "looped-iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

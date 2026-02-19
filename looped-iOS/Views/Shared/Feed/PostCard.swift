@@ -1121,6 +1121,7 @@ struct PostCard: View {
     }
 
         private func prepareShareSheet() {
+            LoopedHaptics.lightImpact()
             guard !isPreparingShareSheet else { return }
             isPreparingShareSheet = true
 
@@ -1148,6 +1149,7 @@ struct PostCard: View {
 	            do {
 	                let response = try await feedService.sharePost(postId: postId)
 	                shareCountOverride = response.shareCount
+                    LoopedHaptics.success()
 	            } catch {
                     if isNotFound(error) {
                         handleContentUnavailable()
@@ -1327,6 +1329,9 @@ struct PostCard: View {
     }
 
     private func handleLikeToggle(allowRetryBypass: Bool = false) {
+        if !allowRetryBypass {
+            LoopedHaptics.lightImpact()
+        }
         if isReactionLocked && !allowRetryBypass {
             trackBlockedInteraction(.like)
             Task { await resolveLockedAction(.like) }
@@ -1386,6 +1391,7 @@ struct PostCard: View {
                     updatedAt: Date()
                 )
                 onUpdate?(updated)
+                LoopedHaptics.success()
             } catch {
                 isLiked = false
                 if isNotFound(error) {
@@ -2103,6 +2109,7 @@ struct PostCard: View {
     }
 
     private func openCommentsIfPossible() {
+        LoopedHaptics.lightImpact()
         guard post.backendId != nil else {
             presentMissingPostIdError(action: "open comments")
             return

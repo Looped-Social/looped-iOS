@@ -308,6 +308,7 @@ class CommentsModalManager: ObservableObject {
                 currentPost = post.updating(commentsCount: post.commentsCount + 1)
             }
             replyTarget = nil
+            LoopedHaptics.success()
         } catch {
             if isContentUnderReview(error), AnonService.shared.isAnonymousEnabled {
                 toastMessage = ToastMessage(text: "Under review", kind: .info)
@@ -469,6 +470,9 @@ class CommentsModalManager: ObservableObject {
                     isLikedByCreator: response.likedByCreator
                 )
                 replyThreads[parentKey] = state
+            }
+            if !comment.userLiked {
+                LoopedHaptics.success()
             }
         } catch {
             if isNotFound(error) {

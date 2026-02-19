@@ -85,6 +85,7 @@ final class UserProfileViewModel: ObservableObject {
 
     func toggleFollow(asAnonymousActor: Bool) async {
         guard !isFollowActionInFlight else { return }
+        LoopedHaptics.lightImpact()
         isFollowActionInFlight = true
         followErrorMessage = nil
 
@@ -135,6 +136,9 @@ final class UserProfileViewModel: ObservableObject {
                 followStateStore.setFollowing(result.following, anonProfileId: anonProfileId)
             }
             isFollowing = resolvedFollowing
+            if !wasFollowing, resolvedFollowing {
+                LoopedHaptics.success()
+            }
             if let previousProfile {
                 let delta = (resolvedFollowing ? 1 : 0) - (wasFollowing ? 1 : 0)
                 let corrected = max(0, previousProfile.followersCount + delta)

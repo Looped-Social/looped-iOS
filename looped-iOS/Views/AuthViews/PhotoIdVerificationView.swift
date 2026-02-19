@@ -309,6 +309,7 @@ private extension PhotoIdVerificationView {
 
     func handleSubmit() {
         guard let selfieImage, let idFrontImage else { return }
+        LoopedHaptics.lightImpact()
         Task {
             let success = await viewModel.submit(selfie: selfieImage, idFront: idFrontImage, idBack: idBackImage)
             if success {

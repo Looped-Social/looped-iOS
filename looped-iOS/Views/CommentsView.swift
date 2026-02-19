@@ -576,6 +576,7 @@ private extension CommentsView {
                                 Task { await commentsManager.loadMoreRepliesIfNeeded(for: tapped) }
                             },
                             onLike: canLikeComments ? { tappedComment in
+                                LoopedHaptics.lightImpact()
                                 Task { await commentsManager.toggleLike(for: tappedComment) }
                             } : nil,
                             canManage: { canManage(comment: $0) },
@@ -759,6 +760,7 @@ private extension CommentsView {
     }
 
     func sendComment() {
+        LoopedHaptics.lightImpact()
         Task {
             let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
             if commentsManager.editTarget != nil {
@@ -788,6 +790,7 @@ private extension CommentsView {
     }
 
     func togglePostLike() {
+        LoopedHaptics.lightImpact()
         guard !isPostLikeLoading else { return }
         guard canLikePost else {
             commentsManager.toastMessage = ToastMessage(text: restrictedInteractionMessage, kind: .info)
@@ -839,6 +842,9 @@ private extension CommentsView {
                         userReaction: .some(shouldLike ? .like : nil),
                         updatedAt: Date()
                     )
+                }
+                if shouldLike {
+                    LoopedHaptics.success()
                 }
             } catch {
                 if isNotFound(error) {
@@ -899,6 +905,7 @@ private extension CommentsView {
     }
 
     func preparePostShareSheet() {
+        LoopedHaptics.lightImpact()
         guard !isPreparingPostShareSheet else { return }
         isPreparingPostShareSheet = true
         Task { @MainActor in
@@ -934,6 +941,7 @@ private extension CommentsView {
                 if let current = commentsManager.currentPost, current.backendId == postId {
                     commentsManager.currentPost = current.updating(shareCount: response.shareCount, updatedAt: Date())
                 }
+                LoopedHaptics.success()
             } catch {
                 if isNotFound(error) {
                     commentsManager.toastMessage = ToastMessage(text: "Content unavailable", kind: .info)

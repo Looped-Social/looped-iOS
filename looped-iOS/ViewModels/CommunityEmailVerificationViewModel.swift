@@ -203,6 +203,7 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
                 userInfo: [LoopedNotificationUserInfoKey.communityId: communityId]
             )
             clearRateLimitIfNeeded()
+            LoopedHaptics.success()
             return true
         } catch {
             applyRateLimitIfNeeded(error)

@@ -74,6 +74,7 @@ final class CommunityProfileViewModel: ObservableObject {
     func toggleFollow() async {
         guard !isFollowActionInFlight else { return }
         guard !isJoinActionInFlight else { return }
+        LoopedHaptics.lightImpact()
         isFollowActionInFlight = true
         followErrorMessage = nil
         let isSpecialization = community.kind == .specialization
@@ -100,6 +101,9 @@ final class CommunityProfileViewModel: ObservableObject {
                 object: nil,
                 userInfo: [LoopedNotificationUserInfoKey.communityId: community.id]
             )
+            if !wasFollowing {
+                LoopedHaptics.success()
+            }
         } catch {
             updateCommunity { community in
                 community.isFollowing = wasFollowing
