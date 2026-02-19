@@ -121,7 +121,21 @@ struct CommentsView: View {
     }
 
     private var titleText: String {
-        "\(comments.count) comment\(comments.count == 1 ? "" : "s")"
+        let count = displayedThreadCommentCount
+        return "\(count) comment\(count == 1 ? "" : "s")"
+    }
+
+    private var displayedThreadCommentCount: Int {
+        let backendTotal = commentsManager.currentPost?.commentsCount ?? post.commentsCount
+        let loadedTopLevel = comments.count
+        let loadedReplies = comments.reduce(0) { partial, comment in
+            partial + max(comment.totalReplyCount ?? comment.replyCount, 0)
+        }
+        let loadedThreadTotal = loadedTopLevel + loadedReplies
+        if backendTotal > 0 {
+            return max(backendTotal, loadedThreadTotal)
+        }
+        return loadedThreadTotal
     }
 
     private var displayedPostLikeCount: Int {

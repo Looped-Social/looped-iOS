@@ -884,7 +884,7 @@ struct CommunityProfileBanner: View {
             }
 
             Text(name)
-                .font(hasBannerImage ? .loopedBody24 : .loopedHeaderStrong)
+                .font(hasBannerImage ? .loopedHeaderProfile : .loopedHeaderStrong)
                 .foregroundColor(bannerTextColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)

@@ -29,6 +29,7 @@ private final class CommentsRequestCaptureURLProtocol: URLProtocol {
 
 private final class CommentsRequestBox {
     var request: URLRequest?
+    var requests: [URLRequest] = []
 }
 
 private struct CommentsStaticTokenProvider: AuthTokenProvider {
@@ -71,6 +72,7 @@ struct CommentsServiceTests {
         let requestBox = CommentsRequestBox()
         CommentsRequestCaptureURLProtocol.requestHandler = { request in
             requestBox.request = request
+            requestBox.requests.append(request)
             return makeCommentsResponse(for: request)
         }
         defer { CommentsRequestCaptureURLProtocol.requestHandler = nil }
@@ -117,6 +119,7 @@ struct CommentsServiceTests {
         let requestBox = CommentsRequestBox()
         CommentsRequestCaptureURLProtocol.requestHandler = { request in
             requestBox.request = request
+            requestBox.requests.append(request)
             return makeCommentsResponse(for: request)
         }
         defer { CommentsRequestCaptureURLProtocol.requestHandler = nil }
@@ -156,6 +159,49 @@ struct CommentsServiceTests {
         #expect(request.url?.query?.contains("anonCert=") == false)
         #expect(request.url?.query?.contains("anonCertKid=") == false)
         #expect(request.url?.query?.contains("anonSig=") == false)
+    }
+
+    @Test
+    func fetchReplies_fallsBackToPublicEndpointWhenAuthEndpointReturnsEmptyFirstPage() async throws {
+        let requestBox = CommentsRequestBox()
+        CommentsRequestCaptureURLProtocol.requestHandler = { request in
+            requestBox.request = request
+            requestBox.requests.append(request)
+            if request.url?.path == "/v1/comments/987/replies" {
+                return makeEmptyCommentsResponse(for: request)
+            }
+            if request.url?.path == "/v1/public/comments/987/replies" {
+                return makeCommentsResponse(for: request)
+            }
+            return makeEmptyCommentsResponse(for: request)
+        }
+        defer { CommentsRequestCaptureURLProtocol.requestHandler = nil }
+
+        let session = makeCommentsSession()
+        let apiClient = APIClient(
+            baseURL: "https://example.com",
+            session: session,
+            tokenStorage: TokenStorage(),
+            tokenProvider: CommentsStaticTokenProvider(token: "jwt-token")
+        )
+        let service = CommentsService(
+            apiClient: apiClient,
+            anonService: AnonService(apiClient: apiClient, store: AnonIdentityStore()),
+            mediaService: CommentsNoopMediaService()
+        )
+
+        let page = try await service.fetchReplies(commentId: 987, communityId: 77, limit: 20, cursor: nil)
+
+        #expect(page.comments.count == 1)
+        #expect(requestBox.requests.count == 2)
+        guard requestBox.requests.count == 2 else {
+            Issue.record("Expected private + public requests for replies fallback")
+            return
+        }
+        #expect(requestBox.requests[0].url?.path == "/v1/comments/987/replies")
+        #expect(requestBox.requests[1].url?.path == "/v1/public/comments/987/replies")
+        #expect(requestBox.requests[0].value(forHTTPHeaderField: "Authorization") == "Bearer jwt-token")
+        #expect(requestBox.requests[1].value(forHTTPHeaderField: "Authorization") == nil)
     }
 }
 
@@ -204,6 +250,24 @@ private func makeCommentsResponse(for request: URLRequest) -> (HTTPURLResponse, 
               "created_at": "2026-02-17T19:19:23Z"
             }
           ],
+          "next_cursor": null
+        }
+        """.utf8
+    )
+    return (response, data)
+}
+
+private func makeEmptyCommentsResponse(for request: URLRequest) -> (HTTPURLResponse, Data) {
+    let response = HTTPURLResponse(
+        url: request.url!,
+        statusCode: 200,
+        httpVersion: nil,
+        headerFields: ["Content-Type": "application/json"]
+    )!
+    let data = Data(
+        """
+        {
+          "items": [],
           "next_cursor": null
         }
         """.utf8

@@ -20,8 +20,9 @@ class CommentsService: CommentsServiceProtocol {
     }
 
     func fetchComments(postId: Int, communityId _: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
-        let page = try await fetchComments(
-            from: "/v1/posts/\(postId)/comments",
+        let page = try await fetchCommentsWithPublicFallback(
+            privatePath: "/v1/posts/\(postId)/comments",
+            publicPath: "/v1/public/posts/\(postId)/comments",
             limit: limit,
             cursor: cursor
         )
@@ -29,8 +30,9 @@ class CommentsService: CommentsServiceProtocol {
     }
 
     func fetchReplies(commentId: Int, communityId _: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
-        let page = try await fetchComments(
-            from: "/v1/comments/\(commentId)/replies",
+        let page = try await fetchCommentsWithPublicFallback(
+            privatePath: "/v1/comments/\(commentId)/replies",
+            publicPath: "/v1/public/comments/\(commentId)/replies",
             limit: limit,
             cursor: cursor
         )
@@ -140,10 +142,50 @@ class CommentsService: CommentsServiceProtocol {
         )
     }
 
+    private func fetchCommentsWithPublicFallback(
+        privatePath: String,
+        publicPath: String,
+        limit: Int,
+        cursor: String?
+    ) async throws -> CommentPage {
+        do {
+            let privatePage = try await fetchComments(
+                from: privatePath,
+                limit: limit,
+                cursor: cursor,
+                requiresAuth: true
+            )
+            // Some restricted auth contexts can return empty reply sets even when
+            // public read access is available. Try public read once on empty first page.
+            if cursor == nil, privatePage.comments.isEmpty {
+                if let publicPage = try? await fetchComments(
+                    from: publicPath,
+                    limit: limit,
+                    cursor: cursor,
+                    requiresAuth: false
+                ), !publicPage.comments.isEmpty {
+                    return publicPage
+                }
+            }
+            return privatePage
+        } catch {
+            guard shouldFallbackToPublicCommentsRead(error) else {
+                throw error
+            }
+            return try await fetchComments(
+                from: publicPath,
+                limit: limit,
+                cursor: cursor,
+                requiresAuth: false
+            )
+        }
+    }
+
     private func fetchComments(
         from basePath: String,
         limit: Int,
-        cursor: String?
+        cursor: String?,
+        requiresAuth: Bool
     ) async throws -> CommentPage {
         var endpoint = "\(basePath)?limit=\(limit > 0 ? limit : defaultLimit)"
         if let cursor = cursor, !cursor.isEmpty {
@@ -152,10 +194,25 @@ class CommentsService: CommentsServiceProtocol {
         }
         let response: CommentListResponseDTO = try await apiClient.get(
             endpoint,
-            requiresAuth: true
+            requiresAuth: requiresAuth
         )
         let comments = response.items.map(Comment.init(dto:))
         return CommentPage(comments: comments, nextCursor: response.nextCursor)
+    }
+
+    private func shouldFallbackToPublicCommentsRead(_ error: Error) -> Bool {
+        guard let apiError = error as? APIError else { return false }
+        switch apiError {
+        case .unauthorized:
+            return true
+        case .serverError(let code):
+            return code == 403
+        case .apiError(let code, let errorCode, _):
+            guard code == 403 else { return false }
+            return errorCode != "community_banned"
+        default:
+            return false
+        }
     }
 
     private func makeCommentRequest(
