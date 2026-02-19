@@ -5,18 +5,10 @@ struct LockedActionSheet: View {
     let actionType: LockedFeedActionType
     let isPrimaryLoading: Bool
     let onPrimary: () -> Void
-    let onSecondary: () -> Void
     let onHowItWorks: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image("lock-icon")
-                .resizable()
-                .renderingMode(.template)
-                .scaledToFit()
-                .frame(width: 36, height: 36)
-                .foregroundColor(.loopedContrast)
-
+        VStack(spacing: 8) {
             Text(reason.title(for: actionType))
                 .font(.loopedHeadlineScaled)
                 .foregroundColor(.loopedTextPrimary)
@@ -41,33 +33,50 @@ struct LockedActionSheet: View {
                         Text(reason.primaryButtonTitle)
                             .font(.loopedSubBodyMedium)
                             .foregroundColor(.loopedWhite)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.9)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
                     }
                 }
-                .frame(height: 44)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(minHeight: 44, maxHeight: 54)
             }
             .buttonStyle(.plain)
             .disabled(isPrimaryLoading)
             .opacity(isPrimaryLoading ? 0.8 : 1)
 
-            Button(reason.secondaryButtonTitle, action: onSecondary)
-                .buttonStyle(.plain)
-                .font(.loopedSubBodyMedium)
-                .foregroundColor(.loopedTextSecondary)
-
             if let onHowItWorks {
-                Button("How it works", action: onHowItWorks)
-                    .buttonStyle(.plain)
-                    .font(.loopedSmallText)
+                Button(action: onHowItWorks) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "questionmark.circle")
+                            .font(.loopedSymbol(.medium, size: 14))
+                        Text(helpLinkTitle)
+                            .font(.loopedSmallTextMedium)
+                    }
                     .foregroundColor(.loopedPrimary)
-                    .padding(.top, 2)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 1)
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 2)
         .padding(.bottom, 6)
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private var helpLinkTitle: String {
+        switch actionType {
+        case .like:
+            return "Why can't I like this post?"
+        case .comment:
+            return "Why can't I comment?"
+        case .post:
+            return "Why can't I post here?"
+        }
     }
 }
 

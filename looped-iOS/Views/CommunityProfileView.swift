@@ -91,7 +91,7 @@ struct CommunityProfileView: View {
             }
         )
         .sheet(item: $verificationTargetCommunity) { community in
-            CommunityVerificationFlowView(community: community) {
+            CommunityVerificationFlowView(community: community) { _ in
                 Task { await viewModel.loadVerification() }
             }
         }

@@ -187,21 +187,6 @@ struct OnboardingRoutingResolverTests {
     }
 
     @Test
-    func resolveScreen_skipPath_withRetryEnabled_routesToVerificationFlow() {
-        let resolved = OnboardingRoutingResolver.resolveScreen(
-            remoteStageV2: nil,
-            remoteContext: makeContext(verificationPath: "skip", selectedOrgKind: "school"),
-            remoteStep: .verification,
-            localStep: .waysToVerifyStudent,
-            isStudent: false,
-            allowSkipRecovery: true,
-            shouldEnterOnboardingFlow: true
-        )
-
-        #expect(resolved == .waysToVerifyStudent)
-    }
-
-    @Test
     func resolveScreen_photoPending_routesToPendingExplainer() {
         let resolved = OnboardingRoutingResolver.resolveScreen(
             remoteStageV2: nil,

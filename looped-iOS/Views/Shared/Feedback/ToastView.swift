@@ -236,6 +236,18 @@ extension View {
     }
 }
 
+private struct LoopedPresentToastEnvironmentKey: EnvironmentKey {
+    static let defaultValue: (ToastMessage?) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    /// Allows child views to present a global toast without threading bindings everywhere.
+    var loopedPresentToast: (ToastMessage?) -> Void {
+        get { self[LoopedPresentToastEnvironmentKey.self] }
+        set { self[LoopedPresentToastEnvironmentKey.self] = newValue }
+    }
+}
+
 #Preview("Toasts") {
     ZStack {
         Color.loopedBackground.ignoresSafeArea()

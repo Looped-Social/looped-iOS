@@ -236,10 +236,7 @@ struct FeedView: View {
                             dismissLockedActionSheet(triggerSecondary: false)
                             request.onPrimary()
                         },
-                        onSecondary: {
-                            dismissLockedActionSheet(triggerSecondary: true)
-                        },
-                        onHowItWorks: {
+                        onHowItWorks: request.onHowItWorks == nil ? nil : {
                             dismissLockedActionSheet(triggerSecondary: false)
                             request.onHowItWorks?()
                         }

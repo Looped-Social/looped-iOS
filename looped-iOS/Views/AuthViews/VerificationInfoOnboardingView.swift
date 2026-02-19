@@ -1,7 +1,16 @@
 import SwiftUI
 
 struct VerificationInfoOnboardingView: View {
+    let showsContinue: Bool
     let onContinue: () -> Void
+
+    init(
+        showsContinue: Bool = true,
+        onContinue: @escaping () -> Void
+    ) {
+        self.showsContinue = showsContinue
+        self.onContinue = onContinue
+    }
 
     var body: some View {
         ScrollView {
@@ -38,9 +47,11 @@ struct VerificationInfoOnboardingView: View {
                     .multilineTextAlignment(.center)
                     .tint(.loopedSecondary)
 
-                PrimaryButton(title: "Continue", action: onContinue)
-                    .accessibilityIdentifier("auth.verificationInfo.continueButton")
-                    .padding(.top, 4)
+                if showsContinue {
+                    PrimaryButton(title: "Continue", action: onContinue)
+                        .accessibilityIdentifier("auth.verificationInfo.continueButton")
+                        .padding(.top, 4)
+                }
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 28)

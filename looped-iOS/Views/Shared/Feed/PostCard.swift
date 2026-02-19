@@ -47,6 +47,7 @@ struct PostCard: View {
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @Environment(\.loopedOpenHashtag) private var openHashtag
     @Environment(\.loopedOpenMention) private var openMention
+    @Environment(\.loopedPresentToast) private var presentToast
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var showActionMenu = false
@@ -71,13 +72,21 @@ struct PostCard: View {
     @State private var lockedActionToastTask: Task<Void, Never>?
     @State private var lockCommunityDetails: CommunityProfileData?
     @State private var verificationTargetCommunity: CommunityProfileData?
+    @State private var verificationFlowDidComplete = false
     @State private var showVerificationCommunityPicker = false
     @State private var showLockedActionHowItWorks = false
     @State private var pendingLockedActionRetry: LockedFeedActionType?
     @State private var pendingJoinAfterVerificationCommunityId: Int?
     @State private var lockedActionSheetDetent: PresentationDetent = PostCard.lockedActionDefaultDetent
+    @State private var lockedActionSheetDismissalIntent: LockedActionSheetDismissalIntent = .none
 
-    private static let lockedActionDefaultDetent: PresentationDetent = .height(320)
+    private static let lockedActionDefaultDetent: PresentationDetent = .height(292)
+
+    private enum LockedActionSheetDismissalIntent {
+        case none
+        case unlockFlow
+        case showHowItWorks
+    }
 
 		    private let moderationService: ModerationServiceProtocol = ModerationService()
 		    private let blockService: BlockServiceProtocol = BlockService()
@@ -958,19 +967,36 @@ struct PostCard: View {
             .sheet(isPresented: $showEditSheet) {
                 editSheetContent
             }
-            .sheet(item: $lockedActionSheetState) { state in
+            .sheet(
+                item: $lockedActionSheetState,
+                onDismiss: {
+                    switch lockedActionSheetDismissalIntent {
+                    case .unlockFlow:
+                        lockedActionSheetDismissalIntent = .none
+                        return
+                    case .showHowItWorks:
+                        lockedActionSheetDismissalIntent = .none
+                        showLockedActionHowItWorks = true
+                        return
+                    case .none:
+                        pendingLockedActionRetry = nil
+                        lockedActionSheetState = nil
+                    }
+                }
+            ) { state in
                 GeometryReader { _ in
                     LockedActionSheet(
                         reason: state.reason,
                         actionType: state.actionType,
                         isPrimaryLoading: isJoiningSpecialization,
-                        onPrimary: { handleLockedActionPrimary(reason: state.reason, actionType: state.actionType) },
-                        onSecondary: {
-                            pendingLockedActionRetry = nil
-                            lockedActionSheetState = nil
+                        onPrimary: {
+                            lockedActionSheetDismissalIntent = .unlockFlow
+                            handleLockedActionPrimary(reason: state.reason, actionType: state.actionType)
                         },
                         onHowItWorks: {
-                            showLockedActionHowItWorks = true
+                            lockedActionSheetDismissalIntent = .showHowItWorks
+                            pendingLockedActionRetry = nil
+                            lockedActionSheetState = nil
                         }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -991,13 +1017,22 @@ struct PostCard: View {
             .sheet(
                 item: $verificationTargetCommunity,
                 onDismiss: {
-                    Task { await handleVerificationCompleted() }
+                    Task { @MainActor in
+                        guard verificationFlowDidComplete == false else {
+                            verificationFlowDidComplete = false
+                            return
+                        }
+                        await handleVerificationFlowDismissed()
+                    }
                 }
             ) { community in
                 CommunityVerificationFlowView(
                     community: community,
-                    onComplete: {
-                        Task { await handleVerificationCompleted() }
+                    onComplete: { completion in
+                        verificationFlowDidComplete = true
+                        Task { @MainActor in
+                            await handleVerificationFlowCompleted(community: community, completion: completion)
+                        }
                     }
                 )
                 .environmentObject(authViewModel)
@@ -1005,7 +1040,9 @@ struct PostCard: View {
             .sheet(
                 isPresented: $showVerificationCommunityPicker,
                 onDismiss: {
-                    Task { await handleVerificationPickerDismissed() }
+                    Task { @MainActor in
+                        await handleVerificationPickerDismissed()
+                    }
                 }
             ) {
                 NavigationStack {
@@ -1015,9 +1052,7 @@ struct PostCard: View {
             }
             .sheet(isPresented: $showLockedActionHowItWorks) {
                 NavigationStack {
-                    VerificationInfoOnboardingView {
-                        showLockedActionHowItWorks = false
-                    }
+                    VerificationInfoScreen(closeButtonStyle: .xmark)
                 }
             }
 	    }
@@ -1852,6 +1887,8 @@ struct PostCard: View {
 
         switch reason {
         case .communityVerificationRequired(let communityId, _, _, _, _, _):
+            // Verification completion should not auto-retry the original action (like/comment).
+            pendingLockedActionRetry = nil
             pendingJoinAfterVerificationCommunityId = nil
             onVerifyCommunity(communityId: communityId)
         case .specializationJoinRequired(let communityId, _, _, _, _, _):
@@ -1918,10 +1955,10 @@ struct PostCard: View {
         }
     }
 
-    private func onJoinSpecialization(type: CommunitySpecializationType, id: Int) {
-        guard id > 0 else {
-            actionError = PostActionError(
-                title: "Couldn't join",
+	    private func onJoinSpecialization(type: CommunitySpecializationType, id: Int) {
+	        guard id > 0 else {
+	            actionError = PostActionError(
+	                title: "Couldn't join",
                 message: "This specialization is missing required data."
             )
             return
@@ -1945,35 +1982,67 @@ struct PostCard: View {
                 await retryPendingLockedActionIfPossible()
             }
         }
-    }
+	    }
 
-    @MainActor
-    private func handleVerificationCompleted() async {
-        await refreshCommunityPermissions()
-        await attemptJoinAfterVerificationIfPossible()
-        await retryPendingLockedActionIfPossible()
-    }
+	    @MainActor
+	    private func handleVerificationFlowCompleted(
+	        community: CommunityProfileData,
+	        completion: CommunityVerificationCompletion
+	    ) async {
+	        await refreshCommunityPermissions()
 
-    @MainActor
-    private func handleVerificationPickerDismissed() async {
-        await refreshCommunityPermissions()
-        await attemptJoinAfterVerificationIfPossible()
-        await retryPendingLockedActionIfPossible()
-    }
+	        switch completion {
+	        case .verified:
+	            let didStartJoin = await attemptJoinAfterVerificationIfPossible()
+	            if didStartJoin {
+	                // Join flow will handle retrying the original intent after the join completes.
+	                return
+	            }
 
-    @MainActor
-    private func attemptJoinAfterVerificationIfPossible() async {
-        guard let communityId = pendingJoinAfterVerificationCommunityId, communityId > 0 else { return }
-        let details = await fetchLockCommunityDetails()
-        if details?.joinLimit?.requiresVerificationForJoin == true {
-            return
-        }
-        pendingJoinAfterVerificationCommunityId = nil
-        let action = pendingLockedActionRetry ?? .like
-        let type: CommunitySpecializationType = details?.specializationType ?? .unknown
-        onJoinSpecialization(type: type, id: communityId)
-        pendingLockedActionRetry = action
-    }
+	            // Verification is complete, but we intentionally do not auto-like/comment.
+	            pendingLockedActionRetry = nil
+	            pendingJoinAfterVerificationCommunityId = nil
+	            presentToast(ToastMessage(text: "Verified in \(community.name).", kind: .success))
+
+	        case .submitted:
+	            // Photo ID / badge verifications may be reviewed async. Don't retry any locked actions.
+	            pendingLockedActionRetry = nil
+	            pendingJoinAfterVerificationCommunityId = nil
+	            presentToast(ToastMessage(text: "Verification submitted for \(community.name).", kind: .info))
+	        }
+	    }
+
+	    @MainActor
+	    private func handleVerificationFlowDismissed() async {
+	        // User closed the verification flow without finishing; clear any pending intent.
+	        pendingLockedActionRetry = nil
+	        pendingJoinAfterVerificationCommunityId = nil
+	    }
+
+	    @MainActor
+	    private func handleVerificationPickerDismissed() async {
+	        // The picker can be dismissed without verifying. Don't retry any locked actions here.
+	        await refreshCommunityPermissions()
+	        pendingLockedActionRetry = nil
+	        pendingJoinAfterVerificationCommunityId = nil
+	    }
+
+	    @MainActor
+	    private func attemptJoinAfterVerificationIfPossible() async -> Bool {
+	        guard let communityId = pendingJoinAfterVerificationCommunityId, communityId > 0 else { return false }
+	        // Force-refresh details after verification so joinLimit reflects the updated state.
+	        lockCommunityDetails = nil
+	        let details = await fetchLockCommunityDetails()
+	        if details?.joinLimit?.requiresVerificationForJoin == true {
+	            return false
+	        }
+	        pendingJoinAfterVerificationCommunityId = nil
+	        let action = pendingLockedActionRetry ?? .like
+	        let type: CommunitySpecializationType = details?.specializationType ?? .unknown
+	        onJoinSpecialization(type: type, id: communityId)
+	        pendingLockedActionRetry = action
+	        return true
+	    }
 
     @MainActor
     private func retryPendingLockedActionIfPossible() async {

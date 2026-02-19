@@ -44,7 +44,7 @@ struct OrganizationSelectionView: View {
                         .foregroundColor(.loopedContrast)
                         .multilineTextAlignment(.center)
 
-                    Text("On Looped, you can post only in communities where you're verified.")
+                    Text("If you're in multiple schools or workplaces, choose one for now. You can verify others later.")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                         .multilineTextAlignment(.center)
@@ -172,7 +172,7 @@ struct OrganizationSelectionView: View {
         .alert("About your choice", isPresented: $isInfoPresented) {
             Button("Got it", role: .cancel) { }
         } message: {
-            Text("If you're in multiple schools or workplaces, choose one for now. You can verify others later.")
+            Text("You can only post in communities where you're verified. We'll ask you to verify next, so choose one where you can verify with a work/school email or ID/badge.")
         }
     }
 

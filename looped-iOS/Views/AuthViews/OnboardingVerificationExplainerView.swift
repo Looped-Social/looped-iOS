@@ -7,6 +7,8 @@ struct OnboardingVerificationExplainerView: View {
     let illustrationAssetName: String
     let illustrationMaxWidth: CGFloat
     let illustrationMaxHeight: CGFloat
+    let titleFont: Font
+    let messageFont: Font
     let onBack: (() -> Void)?
     let onContinue: () -> Void
 
@@ -17,6 +19,8 @@ struct OnboardingVerificationExplainerView: View {
         illustrationAssetName: String = "verification-info",
         illustrationMaxWidth: CGFloat = 220,
         illustrationMaxHeight: CGFloat = 160,
+        titleFont: Font = .loopedSubheadMedium,
+        messageFont: Font = .loopedSubBodyRegular,
         onBack: (() -> Void)? = nil,
         onContinue: @escaping () -> Void
     ) {
@@ -26,6 +30,8 @@ struct OnboardingVerificationExplainerView: View {
         self.illustrationAssetName = illustrationAssetName
         self.illustrationMaxWidth = illustrationMaxWidth
         self.illustrationMaxHeight = illustrationMaxHeight
+        self.titleFont = titleFont
+        self.messageFont = messageFont
         self.onBack = onBack
         self.onContinue = onContinue
     }
@@ -42,12 +48,12 @@ struct OnboardingVerificationExplainerView: View {
 
             VStack(spacing: 12) {
                 Text(title)
-                    .font(.loopedSubheadMedium)
+                    .font(titleFont)
                     .foregroundColor(.loopedTextPrimary)
                     .multilineTextAlignment(.center)
 
                 Text(message)
-                    .font(.loopedSubBodyRegular)
+                    .font(messageFont)
                     .foregroundColor(.loopedTextSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -63,9 +69,13 @@ struct OnboardingVerificationExplainerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(onBack != nil)
+        .navigationBarBackButtonHidden(true)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .background(
+            NavigationPopGestureDisabler(isEnabled: onBack != nil)
+                .frame(width: 0, height: 0)
+        )
         .toolbar {
             if let onBack {
                 ToolbarItem(placement: .topBarLeading) {

@@ -122,7 +122,7 @@ struct CommunityVerificationsView: View {
         ) { community in
             CommunityVerificationFlowView(
                 community: community,
-                onComplete: {
+                onComplete: { _ in
                     Task {
                         await viewModel.load()
                         await authViewModel.loadCurrentUser()

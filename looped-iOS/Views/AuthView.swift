@@ -17,7 +17,6 @@ struct AuthView: View {
     @State private var companyVerificationOptionId: String?
     @State private var studentVerificationOptionId: String?
     @State private var verificationContext: VerificationContext?
-    @State private var allowVerificationRetryFromSkip = false
     private let onboardingStore = OnboardingProgressStore()
     @State private var verificationFlowMode: VerificationFlowMode = .full
     private let communityService: CommunityServiceProtocol = CommunityService()
@@ -279,7 +278,6 @@ private extension AuthView {
                             restoreOnboardingScreen()
                             return
                         }
-                        allowVerificationRetryFromSkip = false
                         restoreOnboardingScreen()
                     }
                 },
@@ -309,7 +307,6 @@ private extension AuthView {
                             restoreOnboardingScreen()
                             return
                         }
-                        allowVerificationRetryFromSkip = false
                         restoreOnboardingScreen()
                     }
                 },
@@ -387,13 +384,11 @@ private extension AuthView {
                 illustrationMaxWidth: 246,
                 illustrationMaxHeight: 184,
                 onBack: {
-                    allowVerificationRetryFromSkip = true
                     let isStudent = isStudentOnboardingFlow
                     setNavigationStack(for: .verificationIntro(isStudent: isStudent))
                 },
                 onContinue: {
                     Task {
-                        allowVerificationRetryFromSkip = false
                         let acknowledged = await authViewModel.acknowledgeOnboardingV2SkipExplainer()
                         guard acknowledged else { return }
                         _ = await authViewModel.finalizeOnboardingV2()
@@ -405,6 +400,10 @@ private extension AuthView {
                 title: "Verification is in review",
                 message: "While we review your \(isStudentOnboardingFlow ? "school" : "company") verification, you can browse. Once approved, search and join majors or fields.",
                 buttonTitle: "Continue",
+                illustrationMaxWidth: 330,
+                illustrationMaxHeight: 240,
+                titleFont: .loopedHeaderProfile,
+                messageFont: .loopedBody,
                 onContinue: {
                     Task {
                         let acknowledged = await authViewModel.acknowledgeOnboardingV2PhotoPendingExplainer()
@@ -489,7 +488,6 @@ private extension AuthView {
     func startSkipVerificationFlow() async {
         verificationContext = nil
         onboardingStore.clearVerificationMethod()
-        allowVerificationRetryFromSkip = false
         let choiceSet = await authViewModel.setOnboardingV2VerificationChoice(path: "skip")
         guard choiceSet else {
             restoreOnboardingScreen()
@@ -551,7 +549,16 @@ private extension AuthView {
         if uniqueSelections.count > 1 {
             await feedViewModel.loadFollowedCommunities(reset: true)
         }
-        restoreOnboardingScreen()
+
+        if authViewModel.onboardingComplete {
+            restoreOnboardingScreen()
+            return
+        }
+
+        // A successful onboarding-v2 specialization submit should allow finalization.
+        // Some backend responses can remain at specialization_selection transiently,
+        // so advance directly to confirmation to avoid trapping users on this screen.
+        setNavigationStack(for: .verificationConfirmation)
     }
 
     func deduplicatedSpecializations(_ selections: [CommunitySearchResult]) -> [CommunitySearchResult] {
@@ -628,7 +635,6 @@ private extension AuthView {
             remoteStep: authViewModel.onboardingStep,
             localStep: onboardingStore.loadProgress(),
             isStudent: isStudentOnboardingFlow,
-            allowSkipRecovery: allowVerificationRetryFromSkip,
             shouldEnterOnboardingFlow: authViewModel.shouldEnterOnboardingFlow
         )
         guard let target else { return }
@@ -805,7 +811,6 @@ struct OnboardingRoutingResolver {
         remoteStep: RemoteOnboardingStep?,
         localStep: OnboardingStep?,
         isStudent: Bool,
-        allowSkipRecovery: Bool = false,
         shouldEnterOnboardingFlow: Bool
     ) -> AuthScreen? {
         let resolvedIsStudent = remoteContext?.selectedOrgKind?.lowercased() == "school" || isStudent
@@ -874,10 +879,6 @@ struct OnboardingRoutingResolver {
         }
 
         if verificationPath == "skip" {
-            if allowSkipRecovery,
-               let skipRecoveryScreen = skipRecoveryScreen(from: localStep, isStudent: resolvedIsStudent) {
-                return skipRecoveryScreen
-            }
             return .skipVerificationExplainer
         }
         if verificationPath == "photo_id" {
@@ -980,35 +981,6 @@ struct OnboardingRoutingResolver {
         return nil
     }
 
-    private static func skipRecoveryScreen(
-        from localStep: OnboardingStep?,
-        isStudent: Bool
-    ) -> AuthScreen? {
-        guard let localStep else {
-            return .verificationIntro(isStudent: isStudent)
-        }
-
-        switch localStep {
-        case .verificationIntroStudent, .communitySelectionStudent:
-            return .verificationIntro(isStudent: true)
-        case .verificationIntroCompany, .communitySelectionCompany:
-            return .verificationIntro(isStudent: false)
-        case .waysToVerifyStudent:
-            return .waysToVerifyStudent
-        case .waysToVerifyCompany:
-            return .waysToVerifyCompany
-        case .photoIdVerificationStudent:
-            return .photoIdVerification(isStudent: true)
-        case .photoIdVerificationCompany:
-            return .photoIdVerification(isStudent: false)
-        case .emailVerificationStudent:
-            return .emailVerification(isStudent: true)
-        case .emailVerificationCompany:
-            return .emailVerification(isStudent: false)
-        default:
-            return .verificationIntro(isStudent: isStudent)
-        }
-    }
 }
 
 private extension AuthScreen {

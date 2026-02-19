@@ -274,18 +274,17 @@ private struct SettingsListContent: View {
     let onTapApple: () -> Void
     let onTapEmail: () -> Void
 
-    var body: some View {
-        List {
-            accountSection
-            appearanceSection
-            verificationSection
-            supportSection
-            communitySection
-            connectedAccountsSection
-            safetySection
-            actionsSection
-            contentSection
-        }
+	    var body: some View {
+	        List {
+	            accountSection
+	            appearanceSection
+	            accessSection
+	            supportSection
+	            connectedAccountsSection
+	            safetySection
+	            actionsSection
+	            contentSection
+	        }
         .buttonStyle(.plain)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
@@ -350,16 +349,24 @@ private struct SettingsListContent: View {
             .pickerStyle(.segmented)
             .frame(maxWidth: 220)
         }
-    }
+	    }
 
-    @ViewBuilder
-    private var verificationSection: some View {
-        Section("Verification") {
-            NavigationLink(destination: CommunityVerificationsView()) {
-                SettingsRowLabel(icon: .system("checkmark.seal"), title: "Community verifications")
-            }
-        }
-    }
+	    @ViewBuilder
+	    private var accessSection: some View {
+	        Section("Communities & Access") {
+	            NavigationLink(destination: CommunityVerificationsView()) {
+	                SettingsRowLabel(icon: .system("checkmark.seal"), title: "Community verifications")
+	            }
+
+	            NavigationLink(destination: VerificationInfoScreen()) {
+	                SettingsRowLabel(icon: .system("info.circle"), title: "How posting access works")
+	            }
+
+	            Button(action: onRequestCommunity) {
+	                SettingsRowLabel(icon: .system("person.3"), title: "Request new community")
+	            }
+	        }
+	    }
 
     @ViewBuilder
     private var supportSection: some View {
@@ -382,19 +389,10 @@ private struct SettingsListContent: View {
         }
     }
 
-    @ViewBuilder
-    private var communitySection: some View {
-        Section("Community") {
-            Button(action: onRequestCommunity) {
-                SettingsRowLabel(icon: .system("person.3"), title: "Request new community")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var connectedAccountsSection: some View {
-        Section("Connected Accounts") {
-            EmailSignInRow(
+	    @ViewBuilder
+	    private var connectedAccountsSection: some View {
+	        Section("Connected Accounts") {
+	            EmailSignInRow(
                 email: authViewModel.emailForEmailPasswordLogin,
                 isEnabled: authViewModel.isEmailPasswordLinked,
                 action: onTapEmail

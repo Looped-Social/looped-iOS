@@ -1,17 +1,22 @@
 import SwiftUI
 
+enum CommunityVerificationCompletion: Equatable {
+    case verified
+    case submitted
+}
+
 struct CommunityVerificationFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var authViewModel: AuthViewModel
     let community: CommunityProfileData
-    let onComplete: () -> Void
+    let onComplete: (CommunityVerificationCompletion) -> Void
 
     @State private var path: [VerificationStep] = []
     @State private var selectedOptionId: String?
     private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
 
-    init(community: CommunityProfileData, onComplete: @escaping () -> Void) {
+    init(community: CommunityProfileData, onComplete: @escaping (CommunityVerificationCompletion) -> Void) {
         self.community = community
         self.onComplete = onComplete
     }
@@ -128,7 +133,8 @@ struct CommunityVerificationFlowView: View {
     }
 
     private func handleComplete() {
-        onComplete()
+        let completion: CommunityVerificationCompletion = selectedOptionId == "email" ? .verified : .submitted
+        onComplete(completion)
         dismiss()
     }
 
@@ -155,7 +161,7 @@ struct CommunityVerificationFlowView: View {
             isFollowing: false,
             isJoined: false
         ),
-        onComplete: {}
+        onComplete: { _ in }
     )
     .environmentObject(AuthViewModel())
 }

@@ -441,10 +441,11 @@ struct MainTabView: View {
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
+        .environment(\.loopedPresentToast) { toastMessage = $0 }
         .toast($toastMessage)
-	        .overlay(
-	            Group {
-	                if commentsManager.isPresented, let post = commentsManager.currentPost {
+		        .overlay(
+		            Group {
+		                if commentsManager.isPresented, let post = commentsManager.currentPost {
 	                    CommentsNavigationHost(post: post) {
 	                        commentsManager.dismissComments()
 	                    }
