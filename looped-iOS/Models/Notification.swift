@@ -24,6 +24,7 @@ struct Notification: Codable, Identifiable {
     let verificationExpiresAt: Date?
     let verificationDaysRemaining: Int?
     let verificationEventKey: String?
+    let verificationRejectReason: String?
     let announcementKind: NotificationAnnouncementKind?
     let announcementYears: Int?
     let deeplink: String?
@@ -55,6 +56,7 @@ struct Notification: Codable, Identifiable {
         verificationExpiresAt: Date? = nil,
         verificationDaysRemaining: Int? = nil,
         verificationEventKey: String? = nil,
+        verificationRejectReason: String? = nil,
         announcementKind: NotificationAnnouncementKind? = nil,
         announcementYears: Int? = nil,
         deeplink: String? = nil,
@@ -85,6 +87,7 @@ struct Notification: Codable, Identifiable {
         self.verificationExpiresAt = verificationExpiresAt
         self.verificationDaysRemaining = verificationDaysRemaining
         self.verificationEventKey = verificationEventKey
+        self.verificationRejectReason = verificationRejectReason
         self.announcementKind = announcementKind
         self.announcementYears = announcementYears
         self.deeplink = deeplink
@@ -321,6 +324,7 @@ extension Notification {
             verificationExpiresAt: verificationExpiresAt,
             verificationDaysRemaining: verificationDaysRemaining,
             verificationEventKey: verificationEventKey,
+            verificationRejectReason: verificationRejectReason,
             announcementKind: announcementKind,
             announcementYears: announcementYears,
             deeplink: deeplink,
@@ -355,6 +359,7 @@ extension Notification {
             verificationExpiresAt: verificationExpiresAt,
             verificationDaysRemaining: verificationDaysRemaining,
             verificationEventKey: verificationEventKey,
+            verificationRejectReason: verificationRejectReason,
             announcementKind: announcementKind,
             announcementYears: announcementYears,
             deeplink: deeplink,
@@ -373,10 +378,6 @@ extension Notification {
         body?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var normalizedCategory: String? {
-        category?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
-
     private var normalizedVerificationKind: String? {
         verificationKind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
@@ -390,10 +391,17 @@ extension Notification {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    private var verificationRejectReasonLabel: String? {
+        let trimmed = verificationRejectReason?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     private var isVerificationNotification: Bool {
-        normalizedCategory == "verification"
-            || normalizedVerificationKind == "community_verification"
-            || normalizedVerificationKind == "user_verification"
+        guard type == .announcement else { return false }
+        guard let kind = normalizedVerificationKind else { return false }
+        guard kind == "community_verification" || kind == "user_verification" else { return false }
+        guard let status = normalizedVerificationStatus else { return false }
+        return Self.verificationStatuses.contains(status)
     }
 
     private var resolvedVerificationTitle: String {
@@ -430,6 +438,9 @@ extension Notification {
             }
             return "Your verification is approved."
         case "rejected":
+            if let reason = verificationRejectReasonLabel {
+                return "Your verification wasn't approved: \(reason)"
+            }
             return "Your verification wasn't approved."
         case "expiring":
             if let community = verificationCommunityLabel, let days = verificationDaysRemaining, days > 0 {
@@ -450,4 +461,11 @@ extension Notification {
             return nil
         }
     }
+
+    private static let verificationStatuses: Set<String> = [
+        "approved",
+        "rejected",
+        "expiring",
+        "expired"
+    ]
 }

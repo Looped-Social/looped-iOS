@@ -124,16 +124,7 @@ struct CommentRow: View {
     }
 
     private var repliesContainerLeadingInset: CGFloat {
-        nestingLevel == 0 ? profileSize + 12 : 0
-    }
-
-    private var threadConnectorColor: Color {
-        Color.loopedTextSecondary.opacity(0.22)
-    }
-
-    private var branchConnectorYOffset: CGFloat {
-        // Align elbow to avatar midline so the stem feels continuous.
-        max(0, (profileSize * 0.5) - 6)
+        nestingLevel == 0 ? max(0, profileSize - 8) : 0
     }
 
     private var resolvedThreadState: ReplyThreadState {
@@ -310,31 +301,34 @@ struct CommentRow: View {
         let shouldInsetThread = true
 
         VStack(alignment: .leading, spacing: 10) {
-            ForEach(resolvedThreadState.replies) { reply in
-                CommentRow(
-                    comment: reply,
-                    nestingLevel: min(nestingLevel + 1, 1),
-                    replies: [],
-                    isExpanded: false,
-                    isLoadingReplies: false,
-                    isLoadingMoreReplies: resolvedThreadState.isLoadingMore,
-                    hasMoreReplies: resolvedThreadState.nextCursor != nil,
-                    isLikeLocked: isLikeLocked,
-                    onReply: onReply,
-                    onToggleReplies: onToggleReplies,
-                    onLoadMoreReplies: onLoadMoreReplies,
-                    onLike: onLike,
-                    canManage: canManage,
-                    onEdit: onEdit,
-                    onDelete: onDelete,
-                    canReport: canReport,
-                    onReport: onReport,
-                    onHashtagTap: onHashtagTap,
-                    onMentionTap: onMentionTap,
-                    threadStateProvider: threadStateProvider
-                )
-                .id(reply.backendId ?? reply.id.hashValue)
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(resolvedThreadState.replies) { reply in
+                    CommentRow(
+                        comment: reply,
+                        nestingLevel: min(nestingLevel + 1, 1),
+                        replies: [],
+                        isExpanded: false,
+                        isLoadingReplies: false,
+                        isLoadingMoreReplies: resolvedThreadState.isLoadingMore,
+                        hasMoreReplies: resolvedThreadState.nextCursor != nil,
+                        isLikeLocked: isLikeLocked,
+                        onReply: onReply,
+                        onToggleReplies: onToggleReplies,
+                        onLoadMoreReplies: onLoadMoreReplies,
+                        onLike: onLike,
+                        canManage: canManage,
+                        onEdit: onEdit,
+                        onDelete: onDelete,
+                        canReport: canReport,
+                        onReport: onReport,
+                        onHashtagTap: onHashtagTap,
+                        onMentionTap: onMentionTap,
+                        threadStateProvider: threadStateProvider
+                    )
+                    .id(reply.backendId ?? reply.id.hashValue)
+                }
             }
+            .padding(.leading, shouldInsetThread ? 0 : 0)
 
             if resolvedThreadState.isLoadingMore {
                 ProgressView()
@@ -349,15 +343,8 @@ struct CommentRow: View {
                 .padding(.top, 2)
             }
         }
-        .padding(.leading, shouldInsetThread ? 16 : 0)
+        .padding(.leading, 0)
         .padding(.top, 2)
-        .overlay(alignment: .leading) {
-            if shouldInsetThread {
-                Capsule(style: .continuous)
-                    .fill(threadConnectorColor)
-                    .frame(width: 1.25)
-            }
-        }
     }
 
     @ViewBuilder
@@ -504,17 +491,6 @@ struct CommentRow: View {
             .loopedDoubleTapToLike {
                 handleDoubleTapLike()
             }
-            .overlay(alignment: .topLeading) {
-                if nestingLevel > 0 {
-                    ThreadBranchElbow()
-                        .stroke(
-                            threadConnectorColor,
-                            style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round)
-                        )
-                        .frame(width: 14, height: 12)
-                        .offset(x: -16, y: branchConnectorYOffset)
-                }
-            }
             .padding(.vertical, nestingLevel == 0 ? 14 : 10)
 
             if resolvedThreadState.isExpanded {
@@ -559,21 +535,6 @@ struct CommentRow: View {
             }
             Button("Cancel", role: .cancel) { }
         }
-    }
-}
-
-private struct ThreadBranchElbow: Shape {
-    func path(in rect: CGRect) -> Path {
-        let radius = min(6, min(rect.width, rect.height) * 0.5)
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: 0, y: rect.height - radius))
-        path.addQuadCurve(
-            to: CGPoint(x: radius, y: rect.height),
-            control: CGPoint(x: 0, y: rect.height)
-        )
-        path.addLine(to: CGPoint(x: rect.width, y: rect.height))
-        return path
     }
 }
 

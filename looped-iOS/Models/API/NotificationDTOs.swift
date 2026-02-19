@@ -39,5 +39,6 @@ struct NotificationPayloadDTO: Codable {
     let communityName: String?
     let expiresAt: String?
     let daysRemaining: Int?
+    let rejectReason: String?
     let eventKey: String?
 }

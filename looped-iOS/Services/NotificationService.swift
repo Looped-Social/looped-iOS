@@ -28,6 +28,8 @@ class NotificationService: NotificationServiceProtocol {
                 isAnonymous: actorIsAnonymous
             )
             let mentionContext = payload?.context.flatMap(NotificationMentionContext.init(rawValue:))
+            let deeplink = payload?.deeplink ?? payload?.actionDeeplink
+            let actionDeeplink = payload?.actionDeeplink ?? payload?.deeplink
             let announcementKind: NotificationAnnouncementKind? = {
                 guard let rawKind = payload?.kind?.trimmingCharacters(in: .whitespacesAndNewlines), !rawKind.isEmpty else {
                     return nil
@@ -57,10 +59,11 @@ class NotificationService: NotificationServiceProtocol {
                 verificationExpiresAt: parseISODate(payload?.expiresAt),
                 verificationDaysRemaining: payload?.daysRemaining,
                 verificationEventKey: payload?.eventKey,
+                verificationRejectReason: payload?.rejectReason,
                 announcementKind: announcementKind,
                 announcementYears: payload?.years,
-                deeplink: payload?.deeplink,
-                actionDeeplink: payload?.actionDeeplink ?? payload?.deeplink,
+                deeplink: deeplink,
+                actionDeeplink: actionDeeplink,
                 mentionContext: mentionContext,
                 isRead: !dto.unread,
                 createdAt: dto.createdAt
