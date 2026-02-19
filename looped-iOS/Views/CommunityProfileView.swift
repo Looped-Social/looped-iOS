@@ -8,19 +8,21 @@ enum CommunityProfileTab: String, CaseIterable {
 
 struct CommunityProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.loopedIsTabBarVisible) private var isTabBarVisible
+    @Environment(\.loopedSetTabBarVisible) private var setTabBarVisible
     @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel: CommunityProfileViewModel
     @StateObject private var hashtagPostsViewModel: CommunityHashtagPostsViewModel
     @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: CommunityProfileTab = .posts
     @State private var verificationTargetCommunity: CommunityProfileData?
-    @State private var verificationUnavailableMessage: String?
-    @State private var showSpecializationJoinInfo = false
+    @State private var specializationJoinInfoSheet: SpecializationJoinInfoSheetState?
     @State private var showSpecializationJoinConfirmation = false
     @State private var showSpecializationLeaveConfirmation = false
     @State private var hasLoaded = false
     @State private var canPop: Bool?
     @State private var isAtTop = true
+    @State private var specializationInfoCachedTabBarVisible: Bool?
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
@@ -96,17 +98,6 @@ struct CommunityProfileView: View {
             }
         }
         .alert(
-            "Verification Needed",
-            isPresented: Binding(
-                get: { verificationUnavailableMessage != nil },
-                set: { if !$0 { verificationUnavailableMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(verificationUnavailableMessage ?? "")
-        }
-        .alert(
             "Update Failed",
             isPresented: Binding(
                 get: { viewModel.followErrorMessage != nil },
@@ -116,6 +107,39 @@ struct CommunityProfileView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.followErrorMessage ?? "")
+        }
+        .overlay {
+            LoopedBottomDrawer(
+                isPresented: specializationJoinInfoSheet != nil,
+                onDismiss: { specializationJoinInfoSheet = nil }
+            ) {
+                if let info = specializationJoinInfoSheet {
+                    SpecializationJoinInfoSheetView(
+                        title: info.title,
+                        message: info.message
+                    )
+                }
+            }
+        }
+        .onChange(of: specializationJoinInfoSheet != nil) { _, isPresented in
+            if isPresented {
+                if specializationInfoCachedTabBarVisible == nil {
+                    specializationInfoCachedTabBarVisible = isTabBarVisible
+                }
+                setTabBarVisible(false)
+                return
+            }
+
+            if let cached = specializationInfoCachedTabBarVisible {
+                setTabBarVisible(cached)
+            }
+            specializationInfoCachedTabBarVisible = nil
+        }
+        .onDisappear {
+            if let cached = specializationInfoCachedTabBarVisible {
+                setTabBarVisible(cached)
+            }
+            specializationInfoCachedTabBarVisible = nil
         }
         .loopedHashtagNavigationHost()
         .loopedMentionNavigationHost()
@@ -129,10 +153,21 @@ struct CommunityProfileView: View {
             )
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .center) {
-                    Text("\(formattedMemberCount(viewModel.community.memberCount)) Members")
-                        .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedTextSecondary)
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(communityTypeTitle)
+                            .font(.loopedSubBodyBold)
+                            .foregroundColor(.loopedContrast)
+
+                        HStack(spacing: 4) {
+                            Text(formattedMemberCount(viewModel.community.memberCount))
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedContrast)
+                            Text("Members")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                    }
 
                     Spacer()
 
@@ -286,7 +321,7 @@ struct CommunityProfileView: View {
             .buttonStyle(PlainButtonStyle())
             .disabled(isSpecializationJoinActionDisabled)
 
-            Button(action: { showSpecializationJoinInfo = true }) {
+            Button(action: { presentSpecializationJoinInfoSheet(emphasizeVerification: false) }) {
                 Image(systemName: "questionmark.circle")
                     .font(.loopedCustom(.semibold, size: 14))
                     .foregroundColor(.loopedTextSecondary)
@@ -298,11 +333,6 @@ struct CommunityProfileView: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .opacity((viewModel.isJoinActionInFlight || viewModel.isFollowActionInFlight) ? 0.7 : 1)
-        .alert("About \(specializationJoinDisplay.label)", isPresented: $showSpecializationJoinInfo) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(specializationJoinDisplay.infoText)
-        }
         .alert("Leave \(specializationJoinDisplay.label)?", isPresented: $showSpecializationLeaveConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Leave", role: .destructive) {
@@ -329,14 +359,12 @@ struct CommunityProfileView: View {
 
         let joinLimit = viewModel.community.joinLimit
         if joinLimit?.requiresVerificationForJoin == true {
-            let required = joinLimit?.requiredVerificationKind?.displayName ?? "Company/School"
-            let label = viewModel.community.specializationLabel ?? "Specialization"
-            verificationUnavailableMessage = "You must be verified in at least 1 \(required.lowercased()) to join a \(label.lowercased())."
+            presentSpecializationJoinInfoSheet(emphasizeVerification: true)
             return
         }
 
         guard joinLimit?.canJoin != false else {
-            showSpecializationJoinInfo = true
+            presentSpecializationJoinInfoSheet(emphasizeVerification: false)
             return
         }
 
@@ -580,6 +608,26 @@ struct CommunityProfileView: View {
         return "\(count)"
     }
 
+    private var communityTypeTitle: String {
+        switch viewModel.community.kind {
+        case .company:
+            return "Workplace"
+        case .school:
+            return "School"
+        case .specialization:
+            switch viewModel.community.specializationType {
+            case .major:
+                return "Major"
+            case .field:
+                return "Field"
+            case .unknown:
+                return "Specialization"
+            }
+        case .unknown:
+            return "Community"
+        }
+    }
+
     private func loadIfNeeded() async {
         guard !hasLoaded else { return }
         hasLoaded = true
@@ -599,14 +647,12 @@ struct CommunityProfileView: View {
         let subtitle: String?
         let icon: String
         let color: Color
-        let infoText: String
     }
 
     private var specializationJoinDisplay: SpecializationJoinDisplay {
         let label = viewModel.community.specializationLabel ?? "Specialization"
         let joinLimit = viewModel.community.joinLimit
         let subtitle = specializationJoinSubtitle(joinLimit: joinLimit)
-        let infoText = specializationJoinInfoText(joinLimit: joinLimit, label: label)
 
         if viewModel.community.isJoined {
             return SpecializationJoinDisplay(
@@ -614,18 +660,17 @@ struct CommunityProfileView: View {
                 title: "Joined",
                 subtitle: subtitle,
                 icon: "person.crop.circle.badge.checkmark",
-                color: .loopedPrimary,
-                infoText: infoText
+                color: .loopedPrimary
             )
         }
         if joinLimit?.requiresVerificationForJoin == true {
+            let required = joinLimit?.requiredVerificationKind?.displayName.lowercased() ?? "company or school"
             return SpecializationJoinDisplay(
                 label: label,
-                title: "Verify to Join",
+                title: "Verify in a \(required) to Join",
                 subtitle: subtitle,
                 icon: "lock.fill",
-                color: .loopedSecondary,
-                infoText: infoText
+                color: .loopedSecondary
             )
         }
         if joinLimit?.canJoin == false {
@@ -636,8 +681,7 @@ struct CommunityProfileView: View {
                 title: title,
                 subtitle: subtitle,
                 icon: icon,
-                color: .loopedTextSecondary,
-                infoText: infoText
+                color: .loopedTextSecondary
             )
         }
         return SpecializationJoinDisplay(
@@ -645,8 +689,7 @@ struct CommunityProfileView: View {
             title: "Join \(label)",
             subtitle: subtitle,
             icon: "person.crop.circle.badge.plus",
-            color: .loopedSecondary,
-            infoText: infoText
+            color: .loopedSecondary
         )
     }
 
@@ -656,8 +699,9 @@ struct CommunityProfileView: View {
         }
 
         if joinLimit.requiresVerificationForJoin {
-            let required = joinLimit.requiredVerificationKind?.displayName ?? "Company/School"
-            return "Verify your \(required.lowercased()) to join."
+            let required = joinLimit.requiredVerificationKind?.displayName.lowercased() ?? "company or school"
+            let label = (viewModel.community.specializationLabel ?? "specialization").lowercased()
+            return "Verify in at least one \(required) to join this \(label)."
         }
 
         if joinLimit.cooldownActive, let cooldownEndsAt = joinLimit.cooldownEndsAt {
@@ -681,11 +725,16 @@ struct CommunityProfileView: View {
         }
 
         if joinLimit.requiresVerificationForJoin {
-            let required = joinLimit.requiredVerificationKind?.displayName ?? "Company/School"
-            return """
-            Verify your \(required.lowercased()) before joining \(label.lowercased()) communities.
-            After verification, you can join up to \(joinLimit.limit) \(joinLimit.pluralLabel.lowercased()) and changes may be limited.
-            """
+            let required = joinLimit.requiredVerificationKind?.displayName.lowercased() ?? "company or school"
+            var lines: [String] = []
+            lines.append("You're not verified in a \(required) community yet.")
+            lines.append("Verify in at least one \(required) first to unlock joining \(joinLimit.pluralLabel.lowercased()).")
+            if joinLimit.cooldownMonths > 0 {
+                lines.append("You get \(joinLimit.limit) joins every \(joinLimit.cooldownMonths) months, so leaving and rejoining still counts in that window.")
+            } else {
+                lines.append("You get up to \(joinLimit.limit) total joins in your current window.")
+            }
+            return lines.joined(separator: "\n")
         }
 
         let remaining = max(0, joinLimit.canJoin ? joinLimit.remaining : 0)
@@ -699,11 +748,32 @@ struct CommunityProfileView: View {
         }
 
         if joinLimit.canJoin {
-            lines.append("After you use your joins, you’ll need to wait until it resets to change your \(joinLimit.pluralLabel.lowercased()).")
+            lines.append("If you leave a \(label.lowercased()), that still uses a join in the same window, so choose carefully.")
         } else {
-            lines.append("To change your \(joinLimit.pluralLabel.lowercased()), you’ll need to wait until it resets.")
+            lines.append("You've used all joins in this window. Wait for the reset before changing your \(joinLimit.pluralLabel.lowercased()).")
         }
         return lines.joined(separator: "\n")
+    }
+
+    private func presentSpecializationJoinInfoSheet(emphasizeVerification: Bool) {
+        let label = viewModel.community.specializationLabel ?? "Specialization"
+        let joinLimit = viewModel.community.joinLimit
+        let title: String
+
+        if viewModel.community.isJoined {
+            title = "About \(label) Joins"
+        } else if emphasizeVerification || joinLimit?.requiresVerificationForJoin == true {
+            title = "Verify to Join \(label)"
+        } else if joinLimit?.canJoin == false {
+            title = "Join Limits for \(label)"
+        } else {
+            title = "About Joining \(label)"
+        }
+
+        specializationJoinInfoSheet = SpecializationJoinInfoSheetState(
+            title: title,
+            message: specializationJoinInfoText(joinLimit: joinLimit, label: label)
+        )
     }
 
     private func specializationLeaveConfirmationText() -> String {
@@ -778,6 +848,37 @@ struct CommunityProfileView: View {
             singular = "specialization"
         }
         return count == 1 ? singular : "\(singular)s"
+    }
+
+    private struct SpecializationJoinInfoSheetState: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+    }
+
+    private struct SpecializationJoinInfoSheetView: View {
+        let title: String
+        let message: String
+
+        var body: some View {
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.loopedHeadlineScaled)
+                    .foregroundColor(.loopedTextPrimary)
+                    .multilineTextAlignment(.center)
+
+                Text(message)
+                    .font(.loopedSubheadlineScaled)
+                    .foregroundColor(.loopedTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 2)
+            .padding(.bottom, 10)
+            .frame(maxWidth: .infinity, alignment: .top)
+        }
     }
 }
 

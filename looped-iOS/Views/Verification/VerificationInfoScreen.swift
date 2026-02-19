@@ -24,9 +24,7 @@ struct VerificationInfoScreen: View {
                             iconSize: 16,
                             iconWeight: .semibold,
                             hitArea: 36,
-                            showsBackground: true,
-                            backgroundColor: .loopedMutedBackground,
-                            backgroundOpacity: 1
+                            showsBackground: false
                         )
                     }
                 }

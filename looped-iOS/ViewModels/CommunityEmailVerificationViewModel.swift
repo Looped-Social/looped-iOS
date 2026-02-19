@@ -150,7 +150,7 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
             stage = .enterCode
             code = ""
             pendingEmail = email
-            statusMessage = "Check your email. If you don’t see it, check spam."
+            statusMessage = "Code sent. Check spam/junk first - it may not land in your inbox."
             return true
         } catch {
             applyRateLimitIfNeeded(error)

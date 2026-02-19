@@ -640,26 +640,6 @@ struct UserSettingsView: View {
                         .padding(.horizontal, 20)
                     }
 
-                    // Save Button
-                    Button(action: { saveProfile() }) {
-                        HStack {
-                            if isSaving {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .loopedWhite))
-                            }
-                            Text(isSaving ? "Saving..." : "Save Changes")
-                                .font(.loopedBodyStrong)
-                        }
-                        .foregroundColor(.loopedWhite)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(saveButtonColor)
-                        .cornerRadius(12)
-                    }
-                    .disabled(isSaving || !isFormValid)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-
                     if let saveError = saveError {
                         Text(saveError)
                             .font(.loopedSubBodyRegular)
@@ -680,6 +660,22 @@ struct UserSettingsView: View {
 	            ToolbarItem(placement: .navigationBarLeading) {
 	                LoopedBackButton(action: handleBackAction, usesHaptics: true)
 	            }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { saveProfile() }) {
+                        if isSaving {
+                            ProgressView()
+                                .tint(.loopedPrimary)
+                                .frame(width: 28, height: 28)
+                        } else {
+                            Text("Save")
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor((isFormValid && hasUnsavedChanges) ? .loopedPrimary : .loopedTextSecondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSaving || !isFormValid || !hasUnsavedChanges)
+                    .accessibilityLabel("Save changes")
+                }
 	        }
 	        .toast($toastMessage)
 	        .alert("Save changes?", isPresented: $isShowingUnsavedChangesAlert) {
@@ -1446,10 +1442,6 @@ private extension UserSettingsView {
         return isUsernameReady
             && !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    var saveButtonColor: Color {
-        isSaving || !isFormValid ? Color.loopedPrimary.opacity(0.7) : Color.loopedPrimary
     }
 
     func handleUsernameChange(_ value: String) {

@@ -645,6 +645,12 @@ struct MainTabView: View {
 	                    }
 	                }
 	                .environment(\.loopedTabBarHeight, isTabBarVisible ? tabBarHeight : 0)
+	                .environment(\.loopedIsTabBarVisible, isTabBarVisible)
+	                .environment(\.loopedSetTabBarVisible) { visible in
+	                    withAnimation(.easeInOut(duration: 0.25)) {
+	                        isTabBarVisible = visible
+	                    }
+	                }
 	                .environment(\.loopedPresentMainOverlay) { destination in
 	                    withAnimation(.easeInOut(duration: 0.25)) {
 	                        mainOverlayDestination = destination

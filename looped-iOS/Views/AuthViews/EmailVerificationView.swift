@@ -61,6 +61,12 @@ struct EmailVerificationView: View {
                         emailEntryCard
                     } else {
                         codeEntryCard
+                        inboxDeliveryHintCard
+                        Text(resendCooldownMessage)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
                     }
 
                     if let errorMessage = viewModel.errorMessage {
@@ -112,7 +118,7 @@ struct EmailVerificationView: View {
 
                 if viewModel.stage == .enterCode {
                     Button(action: { Task { await viewModel.resendCode() } }) {
-                        Text(resendCodeTitle)
+                        Text("Resend email")
                             .font(.loopedSubBodyRegular)
                             .foregroundColor(.loopedSecondary)
                     }
@@ -284,11 +290,13 @@ private extension EmailVerificationView {
             && viewModel.errorMessage != nil
     }
 
-    var resendCodeTitle: String {
-        if viewModel.retryAfterSecondsRemaining > 0 {
-            return "Resend in \(viewModel.retryAfterSecondsRemaining)s"
+    var resendCooldownMessage: String {
+        let remaining = viewModel.retryAfterSecondsRemaining
+        if remaining > 0 {
+            let unit = remaining == 1 ? "second" : "seconds"
+            return "You can resend the email in \(remaining) \(unit)."
         }
-        return "Resend code"
+        return "Didn't get it? Check spam/junk first, then resend."
     }
 
     func handlePrimaryAction() {
@@ -305,6 +313,31 @@ private extension EmailVerificationView {
                 }
             }
         }
+    }
+
+    var inboxDeliveryHintCard: some View {
+        VStack(spacing: 6) {
+            Text("Check spam and junk folders")
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+                .multilineTextAlignment(.center)
+
+            Text("Verification emails are often filtered and may not appear in your inbox.")
+                .font(.loopedSmallText)
+                .foregroundColor(.loopedTextSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.loopedSecondary.opacity(0.12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.loopedSecondary.opacity(0.24), lineWidth: 1)
+                )
+        )
     }
 }
 
