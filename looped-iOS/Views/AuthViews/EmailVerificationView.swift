@@ -62,11 +62,6 @@ struct EmailVerificationView: View {
                     } else {
                         codeEntryCard
                         inboxDeliveryHintCard
-                        Text(resendCooldownMessage)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 8)
                     }
 
                     if let errorMessage = viewModel.errorMessage {
@@ -74,14 +69,16 @@ struct EmailVerificationView: View {
                             .font(.loopedSmallText)
                             .foregroundColor(.loopedError)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 8)
                     }
 
-                    if let statusMessage = viewModel.statusMessage {
+                    if let statusMessage = displayStatusMessage {
                         Text(statusMessage)
                             .font(.loopedSmallText)
                             .foregroundColor(.loopedSecondary)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 8)
                     }
                 }
@@ -92,6 +89,26 @@ struct EmailVerificationView: View {
                         .fill(Color.loopedMutedBackground)
                 )
                 .padding(.horizontal, 28)
+
+                if viewModel.stage == .enterCode {
+                    Button(action: { Task { await viewModel.resendCode() } }) {
+                        Text("Resend email")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedSecondary)
+                    }
+                    .disabled(viewModel.retryAfterSecondsRemaining > 0 || viewModel.isSendingCode)
+                    .padding(.top, 12)
+
+                    if let resendCooldownMessage {
+                        Text(resendCooldownMessage)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedTextSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 28)
+                            .padding(.top, 4)
+                    }
+                }
 
                 Spacer()
 
@@ -116,23 +133,6 @@ struct EmailVerificationView: View {
                     .padding(.top, 10)
                 }
 
-                if viewModel.stage == .enterCode {
-                    Button(action: { Task { await viewModel.resendCode() } }) {
-                        Text("Resend email")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedSecondary)
-                    }
-                    .disabled(viewModel.retryAfterSecondsRemaining > 0 || viewModel.isSendingCode)
-                    .padding(.top, 14)
-
-                    Button(action: viewModel.resetToEmailEntry) {
-                        Text("Change email")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedTextSecondary)
-                    }
-                    .padding(.top, 4)
-                }
-
                 if viewModel.isFetchingDomains || viewModel.isSendingCode || viewModel.isVerifyingCode {
                     ProgressView()
                         .padding(.top, 12)
@@ -145,6 +145,7 @@ struct EmailVerificationView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .task {
             await viewModel.loadDomains()
         }
@@ -290,13 +291,24 @@ private extension EmailVerificationView {
             && viewModel.errorMessage != nil
     }
 
-    var resendCooldownMessage: String {
+    var resendCooldownMessage: String? {
         let remaining = viewModel.retryAfterSecondsRemaining
         if remaining > 0 {
             let unit = remaining == 1 ? "second" : "seconds"
-            return "You can resend the email in \(remaining) \(unit)."
+            return "You can resend email in \(remaining) \(unit)."
         }
-        return "Didn't get it? Check spam/junk first, then resend."
+        return nil
+    }
+
+    var displayStatusMessage: String? {
+        guard let raw = viewModel.statusMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else {
+            return nil
+        }
+        if raw.hasPrefix("Try again in ") || raw.hasPrefix("Code sent") {
+            return nil
+        }
+        return raw
     }
 
     func handlePrimaryAction() {
@@ -321,11 +333,13 @@ private extension EmailVerificationView {
                 .font(.loopedSubBodyMedium)
                 .foregroundColor(.loopedTextPrimary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text("Verification emails are often filtered and may not appear in your inbox.")
                 .font(.loopedSmallText)
                 .foregroundColor(.loopedTextSecondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 12)
@@ -381,6 +395,16 @@ private extension EmailVerificationView {
                         code = String(filtered.prefix(digits))
                     } else if filtered != newValue {
                         code = filtered
+                    }
+                }
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") {
+                            isFocused = false
+                        }
+                        .font(.loopedSubBodyMedium)
+                        .foregroundColor(.loopedSecondary)
                     }
                 }
         }

@@ -110,7 +110,7 @@ class CommentsModalManager: ObservableObject {
         await loadComments(reset: false)
     }
 
-    private func loadReplies(for comment: Comment, reset: Bool) async {
+    private func loadReplies(for comment: Comment, reset: Bool, preserveExistingReplies: Bool = false) async {
         guard let commentId = comment.backendId else { return }
         var state = replyThreads[commentId] ?? ReplyThreadState()
 
@@ -118,7 +118,9 @@ class CommentsModalManager: ObservableObject {
             state.isLoading = true
             state.isLoadingMore = false
             state.nextCursor = nil
-            state.replies = []
+            if !preserveExistingReplies {
+                state.replies = []
+            }
         } else {
             guard state.nextCursor != nil, !state.isLoadingMore else { return }
             state.isLoadingMore = true
@@ -132,10 +134,14 @@ class CommentsModalManager: ObservableObject {
                 limit: pageSize,
                 cursor: reset ? nil : state.nextCursor
             )
-            let visibleReplies = page.comments.filter { !$0.isDeleted || $0.replyCount > 0 }
+            let visibleReplies = page.comments.filter { !$0.isDeleted || effectiveThreadReplyCount(for: $0) > 0 }
             var updated = replyThreads[commentId] ?? ReplyThreadState()
             if reset {
-                updated.replies = visibleReplies
+                if preserveExistingReplies {
+                    updated.replies = Self.deduplicatedCommentsForDisplay(visibleReplies + updated.replies)
+                } else {
+                    updated.replies = visibleReplies
+                }
             } else {
                 updated.replies.append(contentsOf: visibleReplies)
                 updated.replies = Self.deduplicatedCommentsForDisplay(updated.replies)
@@ -144,6 +150,7 @@ class CommentsModalManager: ObservableObject {
             updated.isExpanded = true
             updated.isLoading = false
             updated.isLoadingMore = false
+            updated.hasLoadedFromEndpoint = true
             replyThreads[commentId] = updated
         } catch {
             var updated = replyThreads[commentId] ?? ReplyThreadState()
@@ -178,7 +185,19 @@ class CommentsModalManager: ObservableObject {
         state.isExpanded = true
         replyThreads[backendId] = state
 
-        if state.replies.isEmpty {
+        // Inline-seeded replies from the post comments payload can be partial.
+        // Always do one authoritative endpoint fetch on first expansion.
+        let threadReplyCount = effectiveThreadReplyCount(for: comment)
+        if threadReplyCount > 0 && !state.hasLoadedFromEndpoint {
+            await loadReplies(
+                for: comment,
+                reset: true,
+                preserveExistingReplies: !state.replies.isEmpty
+            )
+            return
+        }
+
+        if state.replies.isEmpty && threadReplyCount > 0 {
             await loadReplies(for: comment, reset: true)
         }
     }
@@ -272,8 +291,14 @@ class CommentsModalManager: ObservableObject {
                 state.replies.append(resolvedComment)
                 replyThreads[parentId] = state
                 if let index = currentComments.firstIndex(where: { $0.backendId == parentId }) {
-                    currentComments[index] = currentComments[index].updating(
-                        replyCount: currentComments[index].replyCount + 1
+                    let parent = currentComments[index]
+                    let updatedReplyCount = parent.replyCount + 1
+                    let updatedTotalReplyCount: Int?? = parent.totalReplyCount == nil
+                        ? nil
+                        : .some((parent.totalReplyCount ?? parent.replyCount) + 1)
+                    currentComments[index] = parent.updating(
+                        replyCount: updatedReplyCount,
+                        totalReplyCount: updatedTotalReplyCount
                     )
                 }
             } else {
@@ -364,7 +389,7 @@ class CommentsModalManager: ObservableObject {
             if let index = currentComments.firstIndex(where: { $0.backendId == commentId }) {
                 let existing = currentComments[index]
                 let loadedReplyCount = replyThreads[commentId]?.replies.count ?? 0
-                let effectiveReplyCount = max(existing.replyCount, loadedReplyCount)
+                let effectiveReplyCount = max(effectiveThreadReplyCount(for: existing), loadedReplyCount)
                 if effectiveReplyCount == 0 {
                     currentComments.remove(at: index)
                     replyThreads[commentId] = nil
@@ -377,12 +402,19 @@ class CommentsModalManager: ObservableObject {
                let replyIndex = state.replies.firstIndex(where: { $0.backendId == commentId }) {
                 let existingReply = state.replies[replyIndex]
                 let nestedReplyCount = existingReply.backendId.flatMap { replyThreads[$0]?.replies.count } ?? 0
-                let effectiveReplyCount = max(existingReply.replyCount, nestedReplyCount)
+                let effectiveReplyCount = max(effectiveThreadReplyCount(for: existingReply), nestedReplyCount)
                 if effectiveReplyCount == 0 {
                     state.replies.remove(at: replyIndex)
                     if let parentIndex = currentComments.firstIndex(where: { $0.backendId == parentKey }) {
                         let parent = currentComments[parentIndex]
-                        currentComments[parentIndex] = parent.updating(replyCount: max(parent.replyCount - 1, 0))
+                        let updatedReplyCount = max(parent.replyCount - 1, 0)
+                        let updatedTotalReplyCount: Int?? = parent.totalReplyCount == nil
+                            ? nil
+                            : .some(max((parent.totalReplyCount ?? parent.replyCount) - 1, 0))
+                        currentComments[parentIndex] = parent.updating(
+                            replyCount: updatedReplyCount,
+                            totalReplyCount: updatedTotalReplyCount
+                        )
                     }
                 } else {
                     state.replies[replyIndex] = existingReply.updating(content: "", isDeleted: true)
@@ -523,7 +555,8 @@ class CommentsModalManager: ObservableObject {
         }
 
         let dedupedTopLevel = deduplicatedCommentsForDisplay(topLevelComments).filter { comment in
-            guard comment.isDeleted, comment.replyCount == 0 else { return true }
+            let hasThreadReplies = max(comment.totalReplyCount ?? comment.replyCount, 0) > 0
+            guard comment.isDeleted, !hasThreadReplies else { return true }
             guard let backendId = comment.backendId else { return true }
             let inlineReplyCount = inlineRepliesByParentId[backendId]?.count ?? 0
             return inlineReplyCount > 0
@@ -539,14 +572,6 @@ class CommentsModalManager: ObservableObject {
             var state = replyThreads[parentId] ?? ReplyThreadState()
             state.replies = mergeDeduplicatedComments(existing: state.replies, incoming: inlineReplies)
             replyThreads[parentId] = state
-
-            if let parentIndex = currentComments.firstIndex(where: { $0.backendId == parentId }) {
-                let parent = currentComments[parentIndex]
-                let resolvedReplyCount = max(parent.replyCount, state.replies.count)
-                if resolvedReplyCount != parent.replyCount {
-                    currentComments[parentIndex] = parent.updating(replyCount: resolvedReplyCount)
-                }
-            }
         }
     }
 
@@ -571,6 +596,10 @@ class CommentsModalManager: ObservableObject {
         }
 
         return unique
+    }
+
+    private func effectiveThreadReplyCount(for comment: Comment) -> Int {
+        max(comment.totalReplyCount ?? comment.replyCount, 0)
     }
 
     private func loadPermissions() async {
@@ -670,13 +699,22 @@ struct ReplyThreadState {
     var isLoading: Bool = false
     var isLoadingMore: Bool = false
     var isExpanded: Bool = false
+    var hasLoadedFromEndpoint: Bool = false
 
-    init(replies: [Comment] = [], nextCursor: String? = nil, isLoading: Bool = false, isLoadingMore: Bool = false, isExpanded: Bool = false) {
+    init(
+        replies: [Comment] = [],
+        nextCursor: String? = nil,
+        isLoading: Bool = false,
+        isLoadingMore: Bool = false,
+        isExpanded: Bool = false,
+        hasLoadedFromEndpoint: Bool = false
+    ) {
         self.replies = replies
         self.nextCursor = nextCursor
         self.isLoading = isLoading
         self.isLoadingMore = isLoadingMore
         self.isExpanded = isExpanded
+        self.hasLoadedFromEndpoint = hasLoadedFromEndpoint
     }
 }
 

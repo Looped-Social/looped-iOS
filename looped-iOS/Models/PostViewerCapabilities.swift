@@ -68,9 +68,9 @@ extension PostViewerCapabilities {
         case .some(.specializationVerificationRequired):
             return "Verify first, then join this major or field to \(verb)."
         case .some(.communityNotVerified):
-            return "You must be verified in this community to \(verb). Go to that community and tap Verify."
+            return "Verify in this community to \(verb)."
         case .some(.verificationExpired):
-            return "Your verification expired. Verify again to \(verb)."
+            return "Verify again in this community to \(verb)."
         case .some(.communityBanned):
             return "You can’t \(verb) in this community."
         case .some(.unknownRestriction), .none:

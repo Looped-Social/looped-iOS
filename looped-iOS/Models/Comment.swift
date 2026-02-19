@@ -19,6 +19,7 @@ struct Comment: Codable, Identifiable {
     let isUnderReview: Bool
     let likeCount: Int
     let replyCount: Int
+    let totalReplyCount: Int?
     let userLiked: Bool
     let isLikedByCreator: Bool
     let createdAt: Date
@@ -45,6 +46,7 @@ struct Comment: Codable, Identifiable {
         isUnderReview: Bool = false,
         likeCount: Int = 0,
         replyCount: Int = 0,
+        totalReplyCount: Int? = nil,
         userLiked: Bool = false,
         isLikedByCreator: Bool = false,
         createdAt: Date = Date(),
@@ -70,6 +72,7 @@ struct Comment: Codable, Identifiable {
         self.isUnderReview = isUnderReview
         self.likeCount = likeCount
         self.replyCount = replyCount
+        self.totalReplyCount = totalReplyCount
         self.userLiked = userLiked
         self.isLikedByCreator = isLikedByCreator
         self.createdAt = createdAt
@@ -95,6 +98,7 @@ struct Comment: Codable, Identifiable {
         isDeleted: Bool = false,
         likeCount: Int = 0,
         replyCount: Int = 0,
+        totalReplyCount: Int? = nil,
         userLiked: Bool = false,
         isLikedByCreator: Bool = false,
         createdAt: Date = Date(),
@@ -120,6 +124,7 @@ struct Comment: Codable, Identifiable {
             isDeleted: isDeleted,
             likeCount: likeCount,
             replyCount: replyCount,
+            totalReplyCount: totalReplyCount,
             userLiked: userLiked,
             isLikedByCreator: isLikedByCreator,
             createdAt: createdAt,
@@ -160,6 +165,7 @@ struct Comment: Codable, Identifiable {
             isUnderReview: dto.isUnderReview ?? false,
             likeCount: dto.likesCount,
             replyCount: dto.replyCount ?? 0,
+            totalReplyCount: dto.totalReplyCount ?? dto.descendantReplyCount ?? dto.threadReplyCount,
             userLiked: dto.userLiked ?? false,
             isLikedByCreator: dto.likedByCreator ?? false,
             createdAt: dto.createdAt,
@@ -175,6 +181,7 @@ struct Comment: Codable, Identifiable {
         userLiked: Bool? = nil,
         isLikedByCreator: Bool? = nil,
         replyCount: Int? = nil,
+        totalReplyCount: Int?? = nil,
         isDeleted: Bool? = nil,
         attachments: [MediaAttachment]?? = nil
     ) -> Comment {
@@ -197,6 +204,7 @@ struct Comment: Codable, Identifiable {
             isUnderReview: isUnderReview,
             likeCount: likeCount ?? self.likeCount,
             replyCount: replyCount ?? self.replyCount,
+            totalReplyCount: totalReplyCount ?? self.totalReplyCount,
             userLiked: userLiked ?? self.userLiked,
             isLikedByCreator: isLikedByCreator ?? self.isLikedByCreator,
             createdAt: createdAt,

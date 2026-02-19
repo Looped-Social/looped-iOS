@@ -96,6 +96,46 @@ struct CommentsModalManagerTests {
     }
 
     @Test
+    func commentDecoding_readsTotalReplyCountFromBackendPayload() throws {
+        let payload = """
+        {
+          "id": 123,
+          "post_id": 1,
+          "parent_id": null,
+          "author": {
+            "id": 42,
+            "principal_id": 42,
+            "is_anonymous": false,
+            "display_name": "Author"
+          },
+          "is_anonymous": false,
+          "author_is_anonymous": false,
+          "author_principal_id": 42,
+          "content": "Body",
+          "media_asset_id": null,
+          "likes_count": 0,
+          "reply_count": 2,
+          "totalReplyCount": 7,
+          "total_reply_count": 7,
+          "user_liked": false,
+          "liked_by_creator": false,
+          "is_deleted": false,
+          "is_under_review": false,
+          "created_at": "2026-02-19T12:00:00Z"
+        }
+        """
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        let dto = try decoder.decode(CommentDTO.self, from: Data(payload.utf8))
+        let comment = looped_iOS.Comment(dto: dto)
+
+        #expect(comment.replyCount == 2)
+        #expect(comment.totalReplyCount == 7)
+    }
+
+    @Test
     func deleteComment_removesTopLevelWhenNoReplies() async {
         let commentsService = MockCommentsService()
         let manager = makeManager(commentsService: commentsService)
@@ -139,6 +179,48 @@ struct CommentsModalManagerTests {
 
         #expect(manager.replyThreads[501]?.replies.isEmpty == true)
         #expect(manager.currentComments.first?.replyCount == 0)
+    }
+
+    @Test
+    func toggleReplies_fetchesAuthoritativeRepliesWhenThreadWasInlineSeeded() async {
+        let commentsService = MockCommentsService()
+        let manager = makeManager(commentsService: commentsService)
+        await prepareManagerForPost(manager, postId: 102)
+
+        let parent = makeComment(backendId: 700, parentId: nil, displayName: "Parent", replyCount: 2)
+        let seededReply = makeComment(backendId: 701, parentId: 700, displayName: "Seeded")
+        let fetchedReplyOne = makeComment(backendId: 701, parentId: 700, displayName: "Fetched One")
+        let fetchedReplyTwo = makeComment(backendId: 702, parentId: 700, displayName: "Fetched Two")
+        commentsService.fetchRepliesResult = CommentPage(comments: [fetchedReplyOne, fetchedReplyTwo], nextCursor: nil)
+
+        manager.currentComments = [parent]
+        manager.replyThreads[700] = ReplyThreadState(replies: [seededReply], isExpanded: false, hasLoadedFromEndpoint: false)
+
+        await manager.toggleReplies(for: parent)
+
+        #expect(commentsService.fetchRepliesCallCommentIds == [700])
+        #expect(manager.replyThreads[700]?.isExpanded == true)
+        #expect(manager.replyThreads[700]?.hasLoadedFromEndpoint == true)
+        #expect(manager.replyThreads[700]?.replies.compactMap(\.backendId) == [701, 702])
+    }
+
+    @Test
+    func toggleReplies_doesNotRefetchAfterFirstEndpointLoad() async {
+        let commentsService = MockCommentsService()
+        let manager = makeManager(commentsService: commentsService)
+        await prepareManagerForPost(manager, postId: 103)
+
+        let parent = makeComment(backendId: 710, parentId: nil, displayName: "Parent", replyCount: 1)
+        let fetchedReply = makeComment(backendId: 711, parentId: 710, displayName: "Reply")
+        commentsService.fetchRepliesResult = CommentPage(comments: [fetchedReply], nextCursor: nil)
+        manager.currentComments = [parent]
+
+        await manager.toggleReplies(for: parent)
+        await manager.toggleReplies(for: parent) // collapse
+        await manager.toggleReplies(for: parent) // expand again
+
+        #expect(commentsService.fetchRepliesCallCommentIds == [710])
+        #expect(manager.replyThreads[710]?.isExpanded == true)
     }
 }
 
@@ -202,6 +284,9 @@ private func makeCommentDTO(
         mediaAssetId: nil,
         likesCount: 0,
         replyCount: 0,
+        totalReplyCount: nil,
+        descendantReplyCount: nil,
+        threadReplyCount: nil,
         userLiked: false,
         likedByCreator: false,
         isDeleted: isDeleted,
@@ -228,12 +313,14 @@ private func prepareManagerForPost(_ manager: CommentsModalManager, postId: Int)
 final class MockCommentsService: CommentsServiceProtocol {
     var fetchCommentsResult = CommentPage(comments: [], nextCursor: nil)
     var fetchRepliesResult = CommentPage(comments: [], nextCursor: nil)
+    var fetchRepliesCallCommentIds: [Int] = []
 
     func fetchComments(postId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
         fetchCommentsResult
     }
 
     func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
+        fetchRepliesCallCommentIds.append(commentId)
         fetchRepliesResult
     }
 

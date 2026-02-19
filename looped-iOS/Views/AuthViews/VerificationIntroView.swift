@@ -49,17 +49,32 @@ struct VerificationIntroView: View {
                     .padding(.horizontal, 28)
 
                 VStack(spacing: 12) {
-                    Text("Verify your identity for \(loopName)")
-                        .font(.loopedHeading)
-                        .foregroundColor(.loopedContrast)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.85)
+                    VStack(spacing: 2) {
+                        Text("Verify your identity for")
+                            .font(.loopedHeadingMedium28)
+                            .foregroundColor(.loopedContrast)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.75)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                    Text("We require verification to post, comment, and like in communities\nto keep your experience authentic")
+                        Text(loopName)
+                            .font(.loopedHeadingMedium28)
+                            .foregroundColor(.loopedContrast)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.75)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Text("We require verification to post, comment, and like in communities to keep your experience authentic.")
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                         .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.9)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(1)
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 16)

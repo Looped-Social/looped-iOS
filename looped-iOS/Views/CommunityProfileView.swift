@@ -156,7 +156,7 @@ struct CommunityProfileView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(communityTypeTitle)
-                            .font(.loopedSubBodyBold)
+                            .font(.loopedSubBodyMedium)
                             .foregroundColor(.loopedContrast)
 
                         HStack(spacing: 4) {
@@ -172,17 +172,6 @@ struct CommunityProfileView: View {
                     Spacer()
 
                     actionButtons
-                }
-
-                if let specializationLabel = viewModel.community.specializationLabel {
-                    Text(specializationLabel)
-                        .font(.loopedSmallText)
-                        .foregroundColor(.loopedPrimary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.loopedMutedBackground)
-                        .clipShape(Capsule())
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if viewModel.community.kind == .specialization {
@@ -664,10 +653,9 @@ struct CommunityProfileView: View {
             )
         }
         if joinLimit?.requiresVerificationForJoin == true {
-            let required = joinLimit?.requiredVerificationKind?.displayName.lowercased() ?? "company or school"
             return SpecializationJoinDisplay(
                 label: label,
-                title: "Verify in a \(required) to Join",
+                title: "Not Verified Yet",
                 subtitle: subtitle,
                 icon: "lock.fill",
                 color: .loopedSecondary
@@ -700,8 +688,7 @@ struct CommunityProfileView: View {
 
         if joinLimit.requiresVerificationForJoin {
             let required = joinLimit.requiredVerificationKind?.displayName.lowercased() ?? "company or school"
-            let label = (viewModel.community.specializationLabel ?? "specialization").lowercased()
-            return "Verify in at least one \(required) to join this \(label)."
+            return "Verify one \(required) first."
         }
 
         if joinLimit.cooldownActive, let cooldownEndsAt = joinLimit.cooldownEndsAt {

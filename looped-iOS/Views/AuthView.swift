@@ -378,11 +378,13 @@ private extension AuthView {
         case .skipVerificationExplainer:
             OnboardingVerificationExplainerView(
                 title: "You skipped verification",
-                message: "Skipped for now. You can browse right away. To post and join majors or fields, verify anytime from a community page or in Settings > Community Verification.",
+                message: "You can verify later anytime in settings or on a community page. You can post, like, and comment only in communities where you’re verified.",
                 buttonTitle: "Continue",
                 illustrationAssetName: "skipped-verification",
-                illustrationMaxWidth: 246,
-                illustrationMaxHeight: 184,
+                illustrationMaxWidth: 360,
+                illustrationMaxHeight: 270,
+                titleFont: .loopedHeadingMedium28,
+                messageFont: .loopedBody,
                 onBack: {
                     let isStudent = isStudentOnboardingFlow
                     setNavigationStack(for: .verificationIntro(isStudent: isStudent))

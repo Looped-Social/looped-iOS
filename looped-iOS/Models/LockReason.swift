@@ -24,7 +24,8 @@ enum LockReason: Equatable, Sendable {
         fieldName: String?,
         majorName: String?,
         joinCreditsRemaining: Int?,
-        alreadyVerifiedElsewhere: Bool
+        alreadyVerifiedElsewhere: Bool,
+        communityButtonShortName: String?
     )
     case specializationJoinRequired(
         communityId: Int,
@@ -50,7 +51,7 @@ enum LockReason: Equatable, Sendable {
 extension LockReason {
     var communityId: Int? {
         switch self {
-        case .communityVerificationRequired(let communityId, _, _, _, _, _):
+        case .communityVerificationRequired(let communityId, _, _, _, _, _, _):
             return communityId
         case .specializationJoinRequired(let communityId, _, _, _, _, _):
             return communityId
@@ -61,7 +62,7 @@ extension LockReason {
 
     var communityName: String {
         switch self {
-        case .communityVerificationRequired(_, let communityName, _, _, _, _):
+        case .communityVerificationRequired(_, let communityName, _, _, _, _, _):
             return communityName
         case .specializationJoinRequired(_, let communityName, _, _, _, _):
             return communityName
@@ -72,7 +73,7 @@ extension LockReason {
 
     var fieldName: String? {
         switch self {
-        case .communityVerificationRequired(_, _, let fieldName, _, _, _):
+        case .communityVerificationRequired(_, _, let fieldName, _, _, _, _):
             return fieldName
         case .specializationJoinRequired(_, _, let fieldName, _, _, _):
             return fieldName
@@ -83,7 +84,7 @@ extension LockReason {
 
     var majorName: String? {
         switch self {
-        case .communityVerificationRequired(_, _, _, let majorName, _, _):
+        case .communityVerificationRequired(_, _, _, let majorName, _, _, _):
             return majorName
         case .specializationJoinRequired(_, _, _, let majorName, _, _):
             return majorName
@@ -94,7 +95,7 @@ extension LockReason {
 
     var joinCreditsRemaining: Int? {
         switch self {
-        case .communityVerificationRequired(_, _, _, _, let joinCreditsRemaining, _):
+        case .communityVerificationRequired(_, _, _, _, let joinCreditsRemaining, _, _):
             return joinCreditsRemaining
         case .specializationJoinRequired(_, _, _, _, let joinCreditsRemaining, _):
             return joinCreditsRemaining
@@ -105,7 +106,7 @@ extension LockReason {
 
     var alreadyVerifiedElsewhere: Bool {
         switch self {
-        case .communityVerificationRequired(_, _, _, _, _, let alreadyVerifiedElsewhere):
+        case .communityVerificationRequired(_, _, _, _, _, let alreadyVerifiedElsewhere, _):
             return alreadyVerifiedElsewhere
         case .specializationJoinRequired(_, _, _, _, _, let alreadyVerifiedElsewhere):
             return alreadyVerifiedElsewhere
@@ -127,7 +128,7 @@ extension LockReason {
         switch self {
         case .joinRequiresVerificationFirst(_, _, _, _, _, _, _, let verifyTargetCommunityId, _):
             return verifyTargetCommunityId
-        case .communityVerificationRequired(let communityId, _, _, _, _, _):
+        case .communityVerificationRequired(let communityId, _, _, _, _, _, _):
             return communityId
         case .specializationJoinRequired:
             return nil
@@ -138,7 +139,7 @@ extension LockReason {
         switch self {
         case .joinRequiresVerificationFirst(_, _, _, _, _, _, _, _, let verifyTargetCommunityName):
             return verifyTargetCommunityName
-        case .communityVerificationRequired(_, let communityName, _, _, _, _):
+        case .communityVerificationRequired(_, let communityName, _, _, _, _, _):
             return communityName
         case .specializationJoinRequired:
             return nil
@@ -190,11 +191,8 @@ extension LockReason {
 
     func body(for actionType: LockedFeedActionType) -> String {
         switch self {
-        case .communityVerificationRequired(_, let communityName, _, _, _, let alreadyVerifiedElsewhere):
-            if alreadyVerifiedElsewhere {
-                return "You're verified elsewhere, but not in \(communityName). Verify \(communityName) to \(actionType.verb)."
-            }
-            return "You can browse here, but you need verification in \(communityName) to \(actionType.verb)."
+        case .communityVerificationRequired(_, let communityName, _, _, _, _, _):
+            return "Verify in \(communityName) to \(actionType.verb)."
 
         case .specializationJoinRequired(_, _, _, _, let joinCreditsRemaining, _):
             if let joinCreditsRemaining {
@@ -216,8 +214,14 @@ extension LockReason {
 
     var primaryButtonTitle: String {
         switch self {
-        case .communityVerificationRequired(_, let communityName, _, _, _, _):
-            return "Verify \(communityName)"
+        case .communityVerificationRequired(_, let communityName, _, _, _, _, let communityButtonShortName):
+            let resolvedButtonName: String
+            if let shortName = communityButtonShortName?.trimmingCharacters(in: .whitespacesAndNewlines), !shortName.isEmpty {
+                resolvedButtonName = shortName
+            } else {
+                resolvedButtonName = communityName
+            }
+            return "Verify \(resolvedButtonName)"
         case .specializationJoinRequired:
             return "Join \(specializationDisplayName)"
         case .joinRequiresVerificationFirst(_, _, _, _, _, _, let requiredKind, _, let verifyTargetCommunityName):
@@ -248,7 +252,7 @@ extension LockReason {
 
     func compactToastMessage(for actionType: LockedFeedActionType) -> String {
         switch self {
-        case .communityVerificationRequired(_, let communityName, _, _, _, _):
+        case .communityVerificationRequired(_, let communityName, _, _, _, _, _):
             return "Locked in \(communityName): verify to \(actionType.verb)."
         case .specializationJoinRequired:
             return "Locked: join \(specializationDisplayName) to \(actionType.verb)."

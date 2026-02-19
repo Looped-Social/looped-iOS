@@ -17,6 +17,9 @@ struct CommentDTO: Codable {
     let mediaAssetId: Int?
     let likesCount: Int
     let replyCount: Int?
+    let totalReplyCount: Int?
+    let descendantReplyCount: Int?
+    let threadReplyCount: Int?
     let userLiked: Bool?
     let likedByCreator: Bool?
     let isDeleted: Bool?

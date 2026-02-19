@@ -2,6 +2,7 @@ import SwiftUI
 
 enum ToastKind: Equatable {
     case info
+    case pending
     case warning
     case loading
     case success
@@ -11,6 +12,8 @@ enum ToastKind: Equatable {
         switch self {
         case .info:
             return "Info"
+        case .pending:
+            return "Pending"
         case .warning:
             return "Warning"
         case .loading:
@@ -24,7 +27,7 @@ enum ToastKind: Equatable {
 
     var accentColor: Color {
         switch self {
-        case .info, .loading:
+        case .info, .pending, .loading:
             return .loopedSecondary
         case .warning:
             return .loopedSecondary
@@ -39,6 +42,8 @@ enum ToastKind: Equatable {
         switch self {
         case .info:
             return "info.circle.fill"
+        case .pending:
+            return "clock.fill"
         case .warning:
             return "exclamationmark.triangle.fill"
         case .loading:
@@ -58,7 +63,7 @@ enum ToastKind: Equatable {
             return "warning-toast"
         case .error:
             return "error-toast"
-        case .info, .loading:
+        case .info, .pending, .loading:
             return nil
         }
     }

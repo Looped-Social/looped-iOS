@@ -1495,17 +1495,17 @@ struct PostCard: View {
 	        return error.localizedDescription
 	    }
 
-	    private func actionErrorMessage(verb: String, error: Error) -> String {
-	        if let apiError = error as? APIError {
-	            switch apiError {
-	            case .unauthorized:
-	                return "Please sign in again and try to \(verb)."
-	            case .apiError(_, let error, let message):
+    private func actionErrorMessage(verb: String, error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .unauthorized:
+                return "Please sign in again and try to \(verb)."
+            case .apiError(_, let error, let message):
                     if error == "community_not_verified" {
-                        return "You must be verified in this community to \(verb). Go to that community and tap Verify."
+                        return "Verify in \(resolvedPostCommunityName()) to \(verb)."
 	                }
                     if error == "specialization_not_joined" {
-                        return "Join this major or field to \(verb)."
+                        return "Join \(resolvedPostCommunityName()) to \(verb)."
                     }
                     if error == "specialization_verification_required" {
                         return "Verify first, then join this major or field to \(verb)."
@@ -1619,10 +1619,10 @@ struct PostCard: View {
         }
         guard let communityPermissions else { return "You can’t \(verb) right now." }
         if communityPermissions.requiresJoin && !communityPermissions.canPost {
-            return "Join this major or field to \(verb)."
+            return "Join \(resolvedPostCommunityName()) to \(verb)."
         }
         if communityPermissions.requiresVerification && !communityPermissions.canPost {
-            return "You must be verified in this community to \(verb). Go to that community and tap Verify."
+            return "Verify in \(resolvedPostCommunityName()) to \(verb)."
         }
         return "You can’t \(verb) right now."
     }
@@ -1667,6 +1667,7 @@ struct PostCard: View {
         let lockContext = viewerCapabilities?.lockContext
         let primaryUnlockAction = viewerCapabilities?.primaryUnlockAction
         let resolvedLockCommunityName = normalizedOptional(lockContext?.communityName) ?? resolvedCommunityName
+        let resolvedPostCommunityShortName = normalizedOptional(post.communityShortName)
         let resolvedSpecializationName = normalizedOptional(lockContext?.specializationName)
         let resolvedSpecializationType = lockContext?.specializationType ?? .unknown
         let fieldNameFromContext = resolvedSpecializationType == .field ? (resolvedSpecializationName ?? resolvedLockCommunityName) : nil
@@ -1675,6 +1676,15 @@ struct PostCard: View {
         let resolvedAlreadyVerifiedElsewhere = lockContext?.alreadyVerifiedElsewhere ?? false
         let resolvedVerifyTargetCommunityId = primaryUnlockAction?.communityId ?? lockContext?.verifyTargetCommunityId
         let resolvedVerifyTargetCommunityName = normalizedOptional(lockContext?.verifyTargetCommunityName)
+        let resolvedVerifyTargetCommunityShortName: String? = {
+            guard let resolvedVerifyTargetCommunityId,
+                  let postCommunityId = post.communityId,
+                  resolvedVerifyTargetCommunityId == postCommunityId
+            else {
+                return nil
+            }
+            return resolvedPostCommunityShortName
+        }()
         let resolvedSpecializationId = primaryUnlockAction?.specializationId ?? lockContext?.specializationId ?? post.communityId
 
         let fallbackVerificationReason = LockReason.communityVerificationRequired(
@@ -1683,7 +1693,8 @@ struct PostCard: View {
             fieldName: nil,
             majorName: nil,
             joinCreditsRemaining: nil,
-            alreadyVerifiedElsewhere: resolvedAlreadyVerifiedElsewhere
+            alreadyVerifiedElsewhere: resolvedAlreadyVerifiedElsewhere,
+            communityButtonShortName: resolvedVerifyTargetCommunityShortName ?? resolvedPostCommunityShortName
         )
 
         if let primaryUnlockAction {
@@ -1886,7 +1897,7 @@ struct PostCard: View {
         track("locked_action_primary_tapped", props: lockedActionAnalyticsProps(reason: reason, actionType: actionType))
 
         switch reason {
-        case .communityVerificationRequired(let communityId, _, _, _, _, _):
+        case .communityVerificationRequired(let communityId, _, _, _, _, _, _):
             // Verification completion should not auto-retry the original action (like/comment).
             pendingLockedActionRetry = nil
             pendingJoinAfterVerificationCommunityId = nil
@@ -2008,7 +2019,7 @@ struct PostCard: View {
 	            // Photo ID / badge verifications may be reviewed async. Don't retry any locked actions.
 	            pendingLockedActionRetry = nil
 	            pendingJoinAfterVerificationCommunityId = nil
-	            presentToast(ToastMessage(text: "Verification submitted for \(community.name).", kind: .info))
+	            presentToast(ToastMessage(text: "Verification submitted for \(community.name).", kind: .pending))
 	        }
 	    }
 

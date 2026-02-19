@@ -26,6 +26,7 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
     private let verificationService: CommunityVerificationServiceProtocol
     private let ensureOnboardingVerificationStep: (() async -> Void)?
     private let onboardingSyncRetryDelayNanoseconds: UInt64
+    private let defaultResendCooldownSeconds: Int
     private var pendingEmail: String?
     private var retryCooldownTask: Task<Void, Never>?
 
@@ -35,7 +36,8 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         communityService: CommunityServiceProtocol = CommunityService(),
         verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService(),
         ensureOnboardingVerificationStep: (() async -> Void)? = nil,
-        onboardingSyncRetryDelayNanoseconds: UInt64 = 250_000_000
+        onboardingSyncRetryDelayNanoseconds: UInt64 = 250_000_000,
+        defaultResendCooldownSeconds: Int = 30
     ) {
         self.communityId = communityId
         self.communityName = communityName
@@ -43,6 +45,7 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         self.verificationService = verificationService
         self.ensureOnboardingVerificationStep = ensureOnboardingVerificationStep
         self.onboardingSyncRetryDelayNanoseconds = onboardingSyncRetryDelayNanoseconds
+        self.defaultResendCooldownSeconds = defaultResendCooldownSeconds
     }
 
     deinit {
@@ -57,7 +60,6 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
 
     var canSubmitCode: Bool {
         code.trimmingCharacters(in: .whitespacesAndNewlines).count == 6
-            && retryAfterSecondsRemaining == 0
     }
 
     var composedEmail: String? {
@@ -150,7 +152,8 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
             stage = .enterCode
             code = ""
             pendingEmail = email
-            statusMessage = "Code sent. Check spam/junk first - it may not land in your inbox."
+            let cooldownSeconds = max(defaultResendCooldownSeconds, 1)
+            startRetryCooldown(seconds: cooldownSeconds)
             return true
         } catch {
             applyRateLimitIfNeeded(error)
@@ -167,10 +170,6 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
     func submitCode() async -> Bool {
         guard let communityId else {
             errorMessage = "Missing community for verification."
-            return false
-        }
-        guard retryAfterSecondsRemaining == 0 else {
-            statusMessage = "Try again in \(retryAfterSecondsRemaining)s."
             return false
         }
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)

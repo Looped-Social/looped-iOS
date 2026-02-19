@@ -78,6 +78,41 @@ struct CommunityEmailVerificationViewModelTests {
     }
 
     @Test
+    func sendCode_success_startsResendCooldownWithoutBlockingCodeSubmit() async {
+        let communityService = MockCommunityService()
+        let verificationService = MockCommunityVerificationService()
+
+        verificationService.startVerificationHandler = { _, _, _ in
+            CommunityVerificationStartResponse(
+                status: "pending",
+                method: .email,
+                devCode: nil,
+                sessionId: nil,
+                instructions: nil
+            )
+        }
+
+        let viewModel = CommunityEmailVerificationViewModel(
+            communityId: 321,
+            communityName: "Wells Fargo",
+            communityService: communityService,
+            verificationService: verificationService,
+            defaultResendCooldownSeconds: 5
+        )
+        viewModel.emailLocalPart = "hello"
+        viewModel.selectedDomain = "wellsfargo.com"
+
+        let success = await viewModel.sendCode()
+
+        #expect(success)
+        #expect(viewModel.retryAfterSecondsRemaining == 5)
+        #expect(viewModel.statusMessage == "Try again in 5s.")
+
+        viewModel.code = "123456"
+        #expect(viewModel.canSubmitCode)
+    }
+
+    @Test
     func sendCode_onboardingGateError_showsCleanRetryMessage() async {
         let communityService = MockCommunityService()
         let verificationService = MockCommunityVerificationService()

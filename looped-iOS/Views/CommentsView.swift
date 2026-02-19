@@ -16,6 +16,7 @@ struct CommentsView: View {
     @EnvironmentObject var commentsManager: CommentsModalManager
     @EnvironmentObject private var feedViewModel: FeedViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @Environment(\.loopedOpenHashtag) private var openHashtag
     @Environment(\.loopedOpenMention) private var openMention
     @AppStorage("anonymousMode") private var isAnonymousMode = false
@@ -1099,17 +1100,46 @@ private extension CommentsView {
     var restrictedInteractionMessage: String {
         if let capabilities = post.viewerCapabilities {
             if capabilities.lockReason == .specializationNotJoined {
-                return "Join this major or field to comment or interact."
+                return "Join \(commentLockSpecializationName) to comment."
             }
-            return capabilities.lockMessage(for: "comment or interact with comments")
+            if capabilities.lockReason == .communityNotVerified || capabilities.lockReason == .verificationExpired {
+                return "Verify in \(commentLockCommunityName) to comment."
+            }
+            return capabilities.lockMessage(for: "comment")
         }
         if commentsManager.isLoadingPermissions {
             return "Checking permissions..."
         }
         if joinIsRequired {
-            return "Join this major or field to comment or interact."
+            return "Join \(commentLockSpecializationName) to comment."
         }
-        return "You must be verified in this community to comment or interact. Go to that community and tap Verify."
+        return "Verify in \(commentLockCommunityName) to comment."
+    }
+
+    var commentLockCommunityName: String {
+        if let name = post.communityDisplayName(preferShortNames: preferCommunityShortNames)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            return name
+        }
+        if let name = post.communityName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+            return name
+        }
+        return "this community"
+    }
+
+    var commentLockSpecializationName: String {
+        if let name = post.viewerCapabilities?.lockContext?.specializationName?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            return name
+        }
+        if let name = post.communityDisplayName(preferShortNames: preferCommunityShortNames)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            return name
+        }
+        return "this major or field"
     }
 
 	var restrictedInteractionNotice: some View {

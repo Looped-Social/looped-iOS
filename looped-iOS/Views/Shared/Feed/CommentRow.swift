@@ -147,10 +147,19 @@ struct CommentRow: View {
         return "\(countText) like\(comment.likeCount == 1 ? "" : "s")"
     }
 
+    private var backendDirectReplyCount: Int {
+        max(comment.replyCount, 0)
+    }
+
+    private var backendReplyCount: Int {
+        max(comment.totalReplyCount ?? comment.replyCount, 0)
+    }
+
     private var totalKnownReplyCount: Int {
-        var visited = Set<Int>()
-        let loaded = loadedDescendantCount(for: comment, visited: &visited)
-        return max(comment.replyCount, loaded)
+        if backendReplyCount > 0 {
+            return backendReplyCount
+        }
+        return max(resolvedThreadState.replies.count, 0)
     }
 
     private var avatarView: some View {
@@ -208,7 +217,7 @@ struct CommentRow: View {
     }
 
     private var remainingRepliesLabel: String {
-        let remaining = max(totalKnownReplyCount - resolvedThreadState.replies.count, 0)
+        let remaining = max(backendDirectReplyCount - resolvedThreadState.replies.count, 0)
         if remaining > 0 {
             return "View replies (\(remaining))"
         }
@@ -225,28 +234,6 @@ struct CommentRow: View {
         guard let onLike else { return }
         guard !comment.userLiked else { return }
         onLike(comment)
-    }
-
-    private func loadedDescendantCount(for root: Comment, visited: inout Set<Int>) -> Int {
-        guard let rootId = root.backendId else { return 0 }
-        guard visited.insert(rootId).inserted else { return 0 }
-
-        let state: ReplyThreadState
-        if rootId == comment.backendId {
-            state = resolvedThreadState
-        } else if let threadStateProvider {
-            state = threadStateProvider(root)
-        } else {
-            state = ReplyThreadState()
-        }
-
-        guard !state.replies.isEmpty else { return 0 }
-
-        var total = state.replies.count
-        for child in state.replies {
-            total += loadedDescendantCount(for: child, visited: &visited)
-        }
-        return total
     }
 
     private var canTapLike: Bool {
