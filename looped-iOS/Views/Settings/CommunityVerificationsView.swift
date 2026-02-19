@@ -10,6 +10,7 @@ struct CommunityVerificationsView: View {
     @State private var verificationSearchText = ""
     @State private var verificationSearchTask: Task<Void, Never>?
     @State private var verificationFlowCommunity: CommunityProfileData?
+    @State private var specializationDestination: SpecializationDestination?
 
     var body: some View {
         List {
@@ -130,6 +131,9 @@ struct CommunityVerificationsView: View {
                 }
             )
             .environmentObject(authViewModel)
+        }
+        .navigationDestination(item: $specializationDestination) { destination in
+            CommunityProfileView(community: destination.community)
         }
         .confirmationDialog(
             selectedVerification?.communityName ?? "Verification",
@@ -606,23 +610,28 @@ struct CommunityVerificationsView: View {
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedError)
             } else if !viewModel.specializationSearchResults.isEmpty {
+                let searchResults = specializationSearchListItems
                 VStack(spacing: 0) {
-                    ForEach(viewModel.specializationSearchResults.prefix(6)) { result in
-                        NavigationLink(destination: CommunityProfileView(community: CommunityProfileData(community: result))) {
+                    ForEach(Array(searchResults.enumerated()), id: \.element.id) { index, item in
+                        Button {
+                            specializationDestination = SpecializationDestination(
+                                community: CommunityProfileData(community: item.result)
+                            )
+                        } label: {
                             HStack(spacing: 10) {
-                                specializationSearchPreview(for: result)
+                                specializationSearchPreview(for: item.result)
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(result.name)
+                                    Text(item.result.name)
                                         .font(.loopedBodyMedium)
                                         .foregroundColor(.loopedTextPrimary)
                                         .lineLimit(1)
-                                    Text(result.specializationType == .major ? "Major" : "Field")
+                                    Text(item.result.specializationType == .major ? "Major" : "Field")
                                         .font(.loopedSmallText)
                                         .foregroundColor(.loopedTextSecondary)
                                 }
                                 Spacer()
-                                if result.isJoined == true {
+                                if item.result.isJoined == true {
                                     Text("Joined")
                                         .font(.loopedSmallText)
                                         .foregroundColor(.loopedPrimary)
@@ -633,7 +642,7 @@ struct CommunityVerificationsView: View {
                         }
                         .buttonStyle(.plain)
 
-                        if result.id != viewModel.specializationSearchResults.prefix(6).last?.id {
+                        if index < searchResults.count - 1 {
                             Divider()
                         }
                     }
@@ -695,6 +704,10 @@ struct CommunityVerificationsView: View {
         }
         .frame(width: 34, height: 34)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var specializationSearchListItems: [SpecializationSearchListItem] {
+        Array(viewModel.specializationSearchResults.prefix(6)).map(SpecializationSearchListItem.init)
     }
 
     private func specializationSearchPreviewFallback(for result: CommunitySearchResult) -> some View {
@@ -783,6 +796,30 @@ struct CommunityVerificationsView: View {
             guard !Task.isCancelled else { return }
             await viewModel.searchVerificationCommunities(query: query)
         }
+    }
+}
+
+private struct SpecializationSearchListItem: Identifiable {
+    let result: CommunitySearchResult
+    let id: String
+
+    init(result: CommunitySearchResult) {
+        self.result = result
+        // Major/field IDs can overlap, so include specialization type to keep row identity unique.
+        self.id = "\(result.specializationType.rawValue)-\(result.id)"
+    }
+}
+
+private struct SpecializationDestination: Identifiable, Hashable {
+    let id = UUID()
+    let community: CommunityProfileData
+
+    static func == (lhs: SpecializationDestination, rhs: SpecializationDestination) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
