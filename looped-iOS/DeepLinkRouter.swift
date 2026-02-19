@@ -13,6 +13,12 @@ enum DeepLinkFailureReason: String {
 }
 
 enum DeepLinkPathType: String {
+    case home
+    case messages
+    case search
+    case profileTab = "profile_tab"
+    case createPost = "create_post"
+    case community
     case post
     case profile
     case comment
@@ -24,6 +30,11 @@ enum DeepLinkPathType: String {
 }
 
 enum DeepLinkDestination: Equatable {
+    case messages
+    case search
+    case profileTab
+    case createPost
+    case community(Int)
     case post(Int)
     case profileSlug(String)
     case comment(Int, postId: Int?)
@@ -35,6 +46,16 @@ enum DeepLinkDestination: Equatable {
 
     var routedName: String {
         switch self {
+        case .messages:
+            return "messages"
+        case .search:
+            return "search"
+        case .profileTab:
+            return "profile_tab"
+        case .createPost:
+            return "create_post"
+        case .community:
+            return "community"
         case .post:
             return "post"
         case .profileSlug:
@@ -58,6 +79,8 @@ enum DeepLinkDestination: Equatable {
         switch self {
         case .home:
             return false
+        case .messages, .search, .profileTab, .createPost, .community:
+            return true
         default:
             return true
         }
@@ -265,6 +288,21 @@ final class DeepLinkRouter: ObservableObject {
         let isAnonymous = components?.queryItems?.first(where: { $0.name == "anon" })?.value == "true"
 
         switch host {
+        case "home":
+            return ParsedDeepLink(destination: .home, pathType: .home)
+        case "messages":
+            return ParsedDeepLink(destination: .messages, pathType: .messages)
+        case "search":
+            return ParsedDeepLink(destination: .search, pathType: .search)
+        case "profile":
+            return ParsedDeepLink(destination: .profileTab, pathType: .profileTab)
+        case "create-post", "create_post", "new-post", "new_post":
+            return ParsedDeepLink(destination: .createPost, pathType: .createPost)
+        case "community":
+            if let idValue {
+                return ParsedDeepLink(destination: .community(idValue), pathType: .community)
+            }
+            return ParsedDeepLink(destination: .home, pathType: .community, failureReason: .parseError)
         case "post":
             if let idValue {
                 return ParsedDeepLink(destination: .post(idValue), pathType: .post)

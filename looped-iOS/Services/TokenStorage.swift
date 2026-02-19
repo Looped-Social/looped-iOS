@@ -4,25 +4,43 @@ import Security
 class TokenStorage {
     private let tokenKey = "looped.auth.token"
     private let refreshTokenKey = "looped.auth.refreshToken"
+    private let sharedTokenKey = "looped.auth.token.shared"
+    private let sharedRefreshTokenKey = "looped.auth.refreshToken.shared"
     
     var token: String? {
-        get { getFromKeychain(key: tokenKey) }
+        get {
+            if let keychainToken = getFromKeychain(key: tokenKey) {
+                sharedDefaults()?.set(keychainToken, forKey: sharedTokenKey)
+                return keychainToken
+            }
+            return sharedDefaults()?.string(forKey: sharedTokenKey)
+        }
         set { 
             if let token = newValue {
                 saveToKeychain(key: tokenKey, value: token)
+                sharedDefaults()?.set(token, forKey: sharedTokenKey)
             } else {
                 deleteFromKeychain(key: tokenKey)
+                sharedDefaults()?.removeObject(forKey: sharedTokenKey)
             }
         }
     }
     
     var refreshToken: String? {
-        get { getFromKeychain(key: refreshTokenKey) }
+        get {
+            if let keychainRefreshToken = getFromKeychain(key: refreshTokenKey) {
+                sharedDefaults()?.set(keychainRefreshToken, forKey: sharedRefreshTokenKey)
+                return keychainRefreshToken
+            }
+            return sharedDefaults()?.string(forKey: sharedRefreshTokenKey)
+        }
         set {
             if let token = newValue {
                 saveToKeychain(key: refreshTokenKey, value: token)
+                sharedDefaults()?.set(token, forKey: sharedRefreshTokenKey)
             } else {
                 deleteFromKeychain(key: refreshTokenKey)
+                sharedDefaults()?.removeObject(forKey: sharedRefreshTokenKey)
             }
         }
     }
@@ -81,5 +99,17 @@ class TokenStorage {
         ]
         
         SecItemDelete(query as CFDictionary)
+    }
+
+    private func sharedDefaults() -> UserDefaults? {
+        guard let bundleId = Bundle.main.bundleIdentifier else { return nil }
+        let normalizedBundleId: String
+        if bundleId.hasSuffix(".widgets") {
+            normalizedBundleId = String(bundleId.dropLast(".widgets".count))
+        } else {
+            normalizedBundleId = bundleId
+        }
+        let suiteName = "group.\(normalizedBundleId)"
+        return UserDefaults(suiteName: suiteName)
     }
 }

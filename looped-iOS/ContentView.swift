@@ -361,6 +361,7 @@ struct MainTabView: View {
     private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
     private let deepLinkFeedService: FeedServiceProtocol = FeedService()
     private let deepLinkUserService: UserServiceProtocol = UserService()
+    private let widgetSummaryService: WidgetSummaryServiceProtocol = WidgetSummaryService()
     
     var body: some View {
         GeometryReader { geometry in
@@ -381,6 +382,8 @@ struct MainTabView: View {
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
             startSearchPageDiscoveryIfNeeded()
+            await widgetSummaryService.refreshSharedSnapshot()
+            syncWidgetSnapshot()
         }
         .onAppear {
             startFeedDiscoveryIfNeeded()
@@ -438,6 +441,24 @@ struct MainTabView: View {
         .onReceive(messagesViewModel.$messageRequests) { _ in
             guard selectedTab == .messages else { return }
             lastSeenMessagesAt = Date().timeIntervalSince1970
+        }
+        .onReceive(messagesViewModel.$conversations) { _ in
+            syncWidgetSnapshot()
+        }
+        .onReceive(messagesViewModel.$messageRequests) { _ in
+            syncWidgetSnapshot()
+        }
+        .onReceive(notificationsViewModel.$notifications) { _ in
+            syncWidgetSnapshot()
+        }
+        .onReceive(feedViewModel.$followedCommunities) { _ in
+            syncWidgetSnapshot()
+        }
+        .onReceive(feedViewModel.$selectedCommunity) { _ in
+            syncWidgetSnapshot()
+        }
+        .onChange(of: isAnonymousMode) { _, _ in
+            syncWidgetSnapshot()
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
@@ -774,6 +795,58 @@ struct MainTabView: View {
         }
     }
 
+    private func syncWidgetSnapshot() {
+        let unreadMessages: Int
+        let pendingRequests: Int
+        if isAnonymousMode {
+            unreadMessages = 0
+            pendingRequests = 0
+        } else {
+            unreadMessages = messagesViewModel.conversations.reduce(0) { partialResult, conversation in
+                partialResult + max(0, conversation.unreadCount)
+            }
+            pendingRequests = messagesViewModel.messageRequests.count
+        }
+
+        let unreadMentions = notificationsViewModel.notifications.reduce(0) { partialResult, notification in
+            guard !notification.isRead, notification.type == .mention else { return partialResult }
+            return partialResult + 1
+        }
+
+        let verifiedCommunities = feedViewModel.followedCommunities.filter(\.canPost)
+        WidgetSnapshotStore.save(
+            unreadMessageCount: unreadMessages,
+            messageRequestCount: pendingRequests,
+            unreadMentionCount: unreadMentions,
+            verifiedCommunities: verifiedCommunities,
+            selectedCommunityId: feedViewModel.selectedCommunity?.id,
+            trendingPost: makeWidgetTrendingPost()
+        )
+    }
+
+    private func makeWidgetTrendingPost() -> WidgetSnapshot.TrendingPost? {
+        guard let post = feedViewModel.posts.first(where: { ($0.backendId ?? 0) > 0 }) else {
+            return nil
+        }
+        guard let postId = post.backendId, postId > 0 else { return nil }
+
+        let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let preview = trimmedContent.isEmpty ? "Open Looped to see what's trending." : trimmedContent
+        let community = (post.communityShortName ?? post.communityName ?? "Trending")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let communityName = community.isEmpty ? "Trending" : community
+        let thumbnail = post.attachments?.first?.thumbnailUrl ?? post.attachments?.first?.url
+
+        return .init(
+            postId: postId,
+            communityName: communityName,
+            contentPreview: preview,
+            likeCount: max(0, post.reactionCount),
+            commentCount: max(0, post.commentsCount),
+            mediaThumbnailUrl: thumbnail
+        )
+    }
+
     private func syncFloatingActionButtonVisibility() {
         switch selectedTab {
         case .home, .messages, .profile:
@@ -1034,6 +1107,22 @@ struct MainTabView: View {
         defer { deepLinkRouter.consumeNavigation(request) }
 
         switch request.destination {
+        case .messages:
+            if isAnonymousMode {
+                selectedTab = .home
+                toastMessage = ToastMessage(text: "Messages aren't available in anonymous mode.", kind: .info)
+            } else {
+                selectedTab = .messages
+            }
+        case .search:
+            selectedTab = .search
+        case .profileTab:
+            selectedTab = .profile
+        case .createPost:
+            selectedTab = .home
+            showCreatePost = true
+        case .community(let communityId):
+            openCommunity(communityId: communityId)
         case .post(let postId):
             Task {
                 await openPost(postId: postId, focusCommentId: nil, request: request)
@@ -1062,6 +1151,25 @@ struct MainTabView: View {
             selectedTab = .home
             if request.pathType != .unsupported {
                 toastMessage = ToastMessage(text: "That link isn't available.", kind: .warning)
+            }
+        }
+    }
+
+    private func openCommunity(communityId: Int) {
+        selectedTab = .home
+        Task {
+            if let existing = feedViewModel.followedCommunities.first(where: { $0.id == communityId }) {
+                await feedViewModel.selectCommunity(existing)
+                await widgetSummaryService.markCommunitySeen(communityId: communityId)
+                return
+            }
+
+            await feedViewModel.loadFollowedCommunities(reset: true)
+            if let loaded = feedViewModel.followedCommunities.first(where: { $0.id == communityId }) {
+                await feedViewModel.selectCommunity(loaded)
+                await widgetSummaryService.markCommunitySeen(communityId: communityId)
+            } else {
+                toastMessage = ToastMessage(text: "That community is unavailable right now.", kind: .warning)
             }
         }
     }
