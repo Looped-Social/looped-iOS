@@ -76,14 +76,14 @@ final class PhotoIdVerificationViewModel: ObservableObject {
             do {
                 try await uploadAndSubmit(selfie: selfie, idFront: idFront, idBack: idBack, session: activeSession)
                 session = nil
-                LoopedHaptics.success()
+                LoopedHaptics.verificationSuccess()
                 return true
             } catch let apiError as APIError {
                 if apiError.isInvalidSession {
                     let refreshed = try await startSessionIfNeeded(forceNew: true)
                     try await uploadAndSubmit(selfie: selfie, idFront: idFront, idBack: idBack, session: refreshed)
                     session = nil
-                    LoopedHaptics.success()
+                    LoopedHaptics.verificationSuccess()
                     return true
                 }
                 throw apiError

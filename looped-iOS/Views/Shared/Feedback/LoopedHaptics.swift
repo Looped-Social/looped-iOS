@@ -19,4 +19,12 @@ enum LoopedHaptics {
             impact(style: .soft, intensity: 0.65)
         }
     }
+
+    static func verificationSuccess() {
+        Task { @MainActor in
+            let generator = UINotificationFeedbackGenerator()
+            generator.prepare()
+            generator.notificationOccurred(.success)
+        }
+    }
 }
