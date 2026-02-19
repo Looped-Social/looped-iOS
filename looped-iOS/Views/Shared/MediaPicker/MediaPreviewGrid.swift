@@ -230,6 +230,26 @@ struct PostedMediaGrid: View {
     }
 }
 
+enum PostedMediaLayoutMetrics {
+    static let fallbackSingleAspectRatio: CGFloat = 4.0 / 5.0
+
+    static func singleAspectRatio(for attachment: MediaAttachment) -> CGFloat {
+        guard
+            let width = attachment.width,
+            let height = attachment.height,
+            width > 0,
+            height > 0
+        else {
+            return fallbackSingleAspectRatio
+        }
+        return CGFloat(width) / CGFloat(height)
+    }
+
+    static func singleMinimumHeight(maxHeight: CGFloat) -> CGFloat {
+        min(max(maxHeight * 0.45, 120), maxHeight)
+    }
+}
+
 // MARK: - Single Posted Media
 struct SinglePostedMedia: View {
     let attachment: MediaAttachment
@@ -237,6 +257,18 @@ struct SinglePostedMedia: View {
     let onImageTap: (String) -> Void
     let onVideoTap: (VideoSelection) -> Void
     @State private var isShimmering = true
+    @State private var loadCompleted = false
+    @State private var scheduledRetry = false
+    @State private var retryCount = 0
+    @State private var reloadToken = UUID()
+
+    private var resolvedAspectRatio: CGFloat {
+        PostedMediaLayoutMetrics.singleAspectRatio(for: attachment)
+    }
+
+    private var minimumHeight: CGFloat {
+        PostedMediaLayoutMetrics.singleMinimumHeight(maxHeight: maxHeight)
+    }
 
     var body: some View {
         if attachment.type == .video {
@@ -265,22 +297,36 @@ struct SinglePostedMedia: View {
         } else {
             // Image
             AsyncImage(url: URL(string: attachment.url)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .onAppear { isShimmering = false }
-                case .failure:
-                    MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
-                        .onAppear { isShimmering = false }
-                case .empty:
-                    MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
-                @unknown default:
-                    MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                Group {
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .onAppear {
+                                isShimmering = false
+                                loadCompleted = true
+                            }
+                    case .failure:
+                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                            .onAppear { isShimmering = false }
+                            .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
+                    case .empty:
+                        MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
+                            .task { await scheduleRetryIfNeeded(afterNanoseconds: 4_000_000_000) }
+                    @unknown default:
+                        MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
+                            .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .id(reloadToken)
+            .aspectRatio(resolvedAspectRatio, contentMode: .fit)
+            .frame(maxWidth: .infinity)
             .frame(maxHeight: maxHeight)
+            .frame(minHeight: minimumHeight)
+            .background(Color.loopedMutedBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .task {
                 await stopShimmerAfterDelay()
@@ -289,13 +335,44 @@ struct SinglePostedMedia: View {
             .onTapGesture {
                 onImageTap(attachment.url)
             }
+            .onChange(of: attachment.url) { _, _ in
+                resetLoadState()
+            }
         }
+    }
+
+    @MainActor
+    private func scheduleRetryIfNeeded(afterNanoseconds delay: UInt64) async {
+        guard !loadCompleted else { return }
+        guard !scheduledRetry else { return }
+        guard retryCount < 2 else {
+            loadCompleted = true
+            return
+        }
+
+        scheduledRetry = true
+        try? await Task.sleep(nanoseconds: delay)
+        guard !Task.isCancelled else { return }
+        guard !loadCompleted else { return }
+
+        retryCount += 1
+        scheduledRetry = false
+        isShimmering = true
+        reloadToken = UUID()
     }
 
     private func stopShimmerAfterDelay() async {
         guard isShimmering else { return }
         try? await Task.sleep(nanoseconds: 1_500_000_000)
         isShimmering = false
+    }
+
+    private func resetLoadState() {
+        isShimmering = true
+        loadCompleted = false
+        scheduledRetry = false
+        retryCount = 0
+        reloadToken = UUID()
     }
 }
 

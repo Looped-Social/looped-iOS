@@ -321,7 +321,7 @@ final class MockCommentsService: CommentsServiceProtocol {
 
     func fetchReplies(commentId: Int, communityId: Int?, limit: Int, cursor: String?) async throws -> CommentPage {
         fetchRepliesCallCommentIds.append(commentId)
-        fetchRepliesResult
+        return fetchRepliesResult
     }
 
     func createComment(postId: Int, communityId: Int?, content: String, parentId: Int?, mediaAssetId: Int?) async throws -> looped_iOS.Comment {

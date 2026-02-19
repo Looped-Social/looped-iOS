@@ -98,20 +98,20 @@ struct NotificationServiceTests {
         let announcementWithKindOnly = Notification(
             type: .announcement,
             actorName: "Looped",
-            verificationKind: "user_verification",
-            verificationStatus: nil,
             title: nil,
-            body: nil
+            body: nil,
+            verificationKind: "user_verification",
+            verificationStatus: nil
         )
         #expect(announcementWithKindOnly.notificationText == "Looped posted an announcement")
 
         let announcementWithKindAndStatus = Notification(
             type: .announcement,
             actorName: "Looped",
-            verificationKind: "user_verification",
-            verificationStatus: "approved",
             title: nil,
-            body: nil
+            body: nil,
+            verificationKind: "user_verification",
+            verificationStatus: "approved"
         )
         #expect(announcementWithKindAndStatus.notificationText == "You're verified")
         #expect(announcementWithKindAndStatus.previewText == "Your verification is approved.")
@@ -119,10 +119,10 @@ struct NotificationServiceTests {
         let systemWithVerificationMetadata = Notification(
             type: .system,
             actorName: "System",
-            verificationKind: "user_verification",
-            verificationStatus: "approved",
             title: nil,
-            body: nil
+            body: nil,
+            verificationKind: "user_verification",
+            verificationStatus: "approved"
         )
         #expect(systemWithVerificationMetadata.notificationText == "System notification")
     }

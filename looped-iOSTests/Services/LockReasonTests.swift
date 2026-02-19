@@ -11,7 +11,8 @@ struct LockReasonTests {
             fieldName: nil,
             majorName: nil,
             joinCreditsRemaining: nil,
-            alreadyVerifiedElsewhere: false
+            alreadyVerifiedElsewhere: false,
+            communityButtonShortName: nil
         )
 
         #expect(reason.primaryButtonTitle == "Verify Acme")
