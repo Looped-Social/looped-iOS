@@ -245,6 +245,46 @@ class NotificationsViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Dismiss Notifications
+    func dismissNotification(_ notification: Notification) async {
+        guard let backendId = notification.id.backendInt else {
+            toastMessage = ToastMessage(text: "This notification can't be dismissed yet.", kind: .info)
+            return
+        }
+        guard notifications.contains(where: { $0.id == notification.id }) else { return }
+
+        let previousNotifications = notifications
+        notifications.removeAll { $0.id == notification.id }
+        cacheStore.save(notifications)
+
+        do {
+            try await notificationService.dismiss(notificationId: backendId)
+        } catch {
+            if shouldTreatDismissAsSuccess(error) {
+                return
+            }
+            notifications = previousNotifications
+            cacheStore.save(notifications)
+            toastMessage = ToastMessage(text: dismissErrorMessage(for: error), kind: .error)
+        }
+    }
+
+    func dismissAllNotifications() async {
+        guard !notifications.isEmpty else { return }
+        let previousNotifications = notifications
+        notifications = []
+        cacheStore.save(notifications)
+
+        do {
+            _ = try await notificationService.dismissAll()
+            toastMessage = ToastMessage(text: "Dismissed all notifications", kind: .success)
+        } catch {
+            notifications = previousNotifications
+            cacheStore.save(notifications)
+            toastMessage = ToastMessage(text: dismissErrorMessage(for: error), kind: .error)
+        }
+    }
+
     // MARK: - Navigation Helpers
     private func navigateToPost(_ postId: UUID?, commentId: UUID? = nil) {
         guard let postId = postId?.backendInt else { return }
@@ -296,6 +336,40 @@ class NotificationsViewModel: ObservableObject {
         } catch {
             toastMessage = ToastMessage(text: error.localizedDescription, kind: .error)
         }
+    }
+
+    private func dismissErrorMessage(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .apiError(_, let code, let message):
+                if code == "user_not_provisioned" {
+                    return message ?? "Finish setting up your account to manage notifications."
+                }
+                if code == "not_found" {
+                    return "This notification is no longer available."
+                }
+                return message ?? "Couldn't dismiss notifications right now."
+            case .unauthorized:
+                return "Please sign in again and try."
+            default:
+                return "Couldn't dismiss notifications right now."
+            }
+        }
+        return error.localizedDescription
+    }
+
+    private func shouldTreatDismissAsSuccess(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .apiError(let statusCode, let code, _):
+                return statusCode == 404 || code == "not_found"
+            case .serverError(let statusCode):
+                return statusCode == 404
+            default:
+                return false
+            }
+        }
+        return false
     }
 
     private func openDeeplink(_ deeplink: String?) -> Bool {

@@ -8,10 +8,17 @@ class NotificationService: NotificationServiceProtocol {
     }
     
     func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage {
+        try await fetchNotifications(limit: limit, cursor: cursor, includeDismissed: false)
+    }
+
+    func fetchNotifications(limit: Int, cursor: String?, includeDismissed: Bool) async throws -> NotificationPage {
         var endpoint = "/v1/notifications?limit=\(limit)"
         if let cursor = cursor, !cursor.isEmpty {
             let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
             endpoint += "&cursor=\(encoded)"
+        }
+        if includeDismissed {
+            endpoint += "&includeDismissed=true"
         }
         let response: NotificationListResponseDTO = try await apiClient.get(endpoint)
         let notifications: [Notification] = response.items.map { dto -> Notification in
@@ -75,6 +82,17 @@ class NotificationService: NotificationServiceProtocol {
     func markRead(notificationId: Int) async throws {
         struct MarkReadResponse: Codable { let read: Bool }
         let _: MarkReadResponse = try await apiClient.post("/v1/notifications/\(notificationId)/read", body: EmptyBody())
+    }
+
+    func dismiss(notificationId: Int) async throws {
+        struct DismissResponse: Codable { let dismissed: Bool }
+        let _: DismissResponse = try await apiClient.post("/v1/notifications/\(notificationId)/dismiss", body: EmptyBody())
+    }
+
+    func dismissAll() async throws -> Int {
+        struct DismissAllResponse: Codable { let dismissedCount: Int }
+        let response: DismissAllResponse = try await apiClient.post("/v1/notifications/dismiss-all", body: EmptyBody())
+        return max(0, response.dismissedCount)
     }
 
     func fetchPreferences() async throws -> NotificationPreferencesDTO {

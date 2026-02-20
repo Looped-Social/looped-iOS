@@ -345,8 +345,17 @@ protocol DiscoveryServiceProtocol {
 protocol NotificationServiceProtocol {
     func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage
     func markRead(notificationId: Int) async throws
+    func dismiss(notificationId: Int) async throws
+    func dismissAll() async throws -> Int
     func fetchPreferences() async throws -> NotificationPreferencesDTO
     func updatePreferences(_ update: NotificationPreferencesUpdateRequest) async throws -> NotificationPreferencesDTO
+}
+
+extension NotificationServiceProtocol {
+    func fetchNotifications(limit: Int, cursor: String?, includeDismissed: Bool) async throws -> NotificationPage {
+        _ = includeDismissed
+        return try await fetchNotifications(limit: limit, cursor: cursor)
+    }
 }
 
 protocol ContentPreferencesServiceProtocol {

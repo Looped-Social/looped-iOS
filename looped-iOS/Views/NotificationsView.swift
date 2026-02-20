@@ -86,10 +86,7 @@ struct NotificationsView: View {
                                     }
                                 },
                                 onHideTapped: {
-                                    viewModel.toastMessage = ToastMessage(
-                                        text: "Hide is preview-only for now.",
-                                        kind: .info
-                                    )
+                                    Task { await viewModel.dismissNotification(notification) }
                                 }
                             )
                             .contentShape(Rectangle())
@@ -191,10 +188,7 @@ struct NotificationsView: View {
             .disabled(isMarkAllDisabled)
 
             Button {
-                viewModel.toastMessage = ToastMessage(
-                    text: "Dismiss all is preview-only for now.",
-                    kind: .info
-                )
+                Task { await viewModel.dismissAllNotifications() }
             } label: {
                 Label("Dismiss all", systemImage: "eye.slash")
             }
