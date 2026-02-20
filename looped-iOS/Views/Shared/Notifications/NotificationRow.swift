@@ -10,6 +10,7 @@ struct NotificationRow: View {
     let isActionEnabled: Bool
     let onActionTapped: (() -> Void)?
     let onActorTapped: (() -> Void)?
+    let onHideTapped: (() -> Void)?
 
     init(
         notification: Notification,
@@ -17,7 +18,8 @@ struct NotificationRow: View {
         isActionLoading: Bool = false,
         isActionEnabled: Bool = true,
         onActionTapped: (() -> Void)? = nil,
-        onActorTapped: (() -> Void)? = nil
+        onActorTapped: (() -> Void)? = nil,
+        onHideTapped: (() -> Void)? = nil
     ) {
         self.notification = notification
         self.actionTitle = actionTitle
@@ -25,6 +27,7 @@ struct NotificationRow: View {
         self.isActionEnabled = isActionEnabled
         self.onActionTapped = onActionTapped
         self.onActorTapped = onActorTapped
+        self.onHideTapped = onHideTapped
     }
 
     var body: some View {
@@ -58,6 +61,23 @@ struct NotificationRow: View {
                             .font(.loopedSmallText)
                             .foregroundColor(.loopedTextSecondary)
                             .lineLimit(1)
+
+                        if let onHideTapped {
+                            Menu {
+                                Button {
+                                    onHideTapped()
+                                } label: {
+                                    Label("Hide", systemImage: "eye.slash")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.loopedCustom(.medium, size: 16))
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .frame(width: 24, height: 24)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Notification options")
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

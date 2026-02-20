@@ -84,6 +84,12 @@ struct NotificationsView: View {
                                     if let destination = ProfileDestination(notification: notification) {
                                         selectedProfileDestination = destination
                                     }
+                                },
+                                onHideTapped: {
+                                    viewModel.toastMessage = ToastMessage(
+                                        text: "Hide is preview-only for now.",
+                                        kind: .info
+                                    )
                                 }
                             )
                             .contentShape(Rectangle())
@@ -141,14 +147,7 @@ struct NotificationsView: View {
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task { await viewModel.markAllAsRead() }
-                } label: {
-                    Image(systemName: "checkmark.circle")
-                        .font(.loopedCustom(size: 20))
-                        .foregroundColor(isMarkAllDisabled ? .loopedTextSecondary.opacity(0.4) : .loopedTextSecondary)
-                }
-                .disabled(isMarkAllDisabled)
+                bulkNotificationActionsButton
             }
         }
         .toast($viewModel.toastMessage)
@@ -172,6 +171,47 @@ struct NotificationsView: View {
 
     private var isMarkAllDisabled: Bool {
         viewModel.notifications.isEmpty || viewModel.notifications.allSatisfy(\.isRead) || viewModel.isLoading
+    }
+
+    private var isDismissAllDisabled: Bool {
+        viewModel.notifications.isEmpty || viewModel.isLoading
+    }
+
+    private var areBulkNotificationActionsDisabled: Bool {
+        isDismissAllDisabled && isMarkAllDisabled
+    }
+
+    private var bulkNotificationActionsButton: some View {
+        Menu {
+            Button {
+                viewModel.toastMessage = ToastMessage(
+                    text: "Dismiss all is preview-only for now.",
+                    kind: .info
+                )
+            } label: {
+                Label("Dismiss all", systemImage: "eye.slash")
+            }
+            .disabled(isDismissAllDisabled)
+
+            Button {
+                Task { await viewModel.markAllAsRead() }
+            } label: {
+                Label("Read all", systemImage: "checkmark.circle")
+            }
+            .disabled(isMarkAllDisabled)
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.loopedCustom(.medium, size: 18))
+                .foregroundColor(
+                    areBulkNotificationActionsDisabled
+                    ? .loopedTextSecondary.opacity(0.4)
+                    : .loopedTextSecondary
+                )
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Notification actions")
+        .disabled(areBulkNotificationActionsDisabled)
     }
 }
 
