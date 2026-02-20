@@ -854,7 +854,7 @@ private struct ProfileStatsWidgetView: View {
                     Text("\(entry.snapshot.profileStats.likesReceived)")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(WidgetTheme.textPrimary)
-                    Text("likes received")
+                    Text("likes")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(WidgetTheme.textSecondary)
                 }
@@ -1207,32 +1207,38 @@ private struct TrendingPostWidgetView: View {
 }
 
 private struct LockScreenQuickActionWidgetView: View {
-    @Environment(\.widgetFamily) private var family
-
     let title: String
-    let symbol: String
+    let systemSymbol: String?
+    let assetSymbol: String?
     let destination: URL
+
+    init(title: String, systemSymbol: String? = nil, assetSymbol: String? = nil, destination: URL) {
+        self.title = title
+        self.systemSymbol = systemSymbol
+        self.assetSymbol = assetSymbol
+        self.destination = destination
+    }
 
     var body: some View {
         Group {
-            switch family {
-            case .accessoryCircular:
-                Image(systemName: symbol)
-                    .font(.system(size: 18, weight: .semibold))
-            case .accessoryRectangular:
-                HStack(spacing: 6) {
-                    Image(systemName: symbol)
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .lineLimit(1)
-                }
-            default:
-                Label(title, systemImage: symbol)
+            if let assetSymbol {
+                Image(assetSymbol)
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+            } else {
+                Image(systemName: systemSymbol ?? "square.fill")
+                    .font(.system(size: 22, weight: .semibold))
             }
         }
-        .foregroundStyle(WidgetTheme.textPrimary)
-        .widgetURL(destination)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .foregroundStyle(WidgetTheme.textPrimary)
+            .containerBackground(for: .widget) {
+                Color.clear
+            }
+            .widgetURL(destination)
+            .accessibilityLabel(Text(title))
     }
 }
 
@@ -1313,13 +1319,13 @@ struct LockScreenCreateWidget: Widget {
         StaticConfiguration(kind: kind, provider: LockScreenQuickActionProvider()) { _ in
             LockScreenQuickActionWidgetView(
                 title: "Create",
-                symbol: "plus",
+                systemSymbol: "plus",
                 destination: WidgetDeepLink.createPost
             )
         }
         .configurationDisplayName("Create Post")
         .description("Quickly start a new post from the lock screen.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+        .supportedFamilies([.accessoryCircular])
     }
 }
 
@@ -1330,29 +1336,14 @@ struct LockScreenSearchWidget: Widget {
         StaticConfiguration(kind: kind, provider: LockScreenQuickActionProvider()) { _ in
             LockScreenQuickActionWidgetView(
                 title: "Search",
-                symbol: "magnifyingglass",
+                systemSymbol: "magnifyingglass",
                 destination: WidgetDeepLink.search
             )
         }
         .configurationDisplayName("Search")
         .description("Open search from the lock screen.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+        .supportedFamilies([.accessoryCircular])
     }
 }
 
-struct LockScreenChatWidget: Widget {
-    let kind = "com.mylooped.looped.widgets.lockscreen-chat"
-
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: LockScreenQuickActionProvider()) { _ in
-            LockScreenQuickActionWidgetView(
-                title: "Chat",
-                symbol: "paperplane.fill",
-                destination: WidgetDeepLink.messages
-            )
-        }
-        .configurationDisplayName("Chat")
-        .description("Jump into messages from the lock screen.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
-    }
-}
+// LockScreenChatWidget intentionally removed from bundle registration.

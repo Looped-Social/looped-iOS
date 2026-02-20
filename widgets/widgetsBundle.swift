@@ -5,11 +5,9 @@ import SwiftUI
 struct LoopedWidgetsBundle: WidgetBundle {
     var body: some Widget {
         QuickActionsWidget()
-        InboxPulseWidget()
         ProfileStatsWidget()
         TrendingPostWidget()
         LockScreenCreateWidget()
         LockScreenSearchWidget()
-        LockScreenChatWidget()
     }
 }
