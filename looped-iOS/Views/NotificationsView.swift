@@ -184,6 +184,13 @@ struct NotificationsView: View {
     private var bulkNotificationActionsButton: some View {
         Menu {
             Button {
+                Task { await viewModel.markAllAsRead() }
+            } label: {
+                Label("Read all", systemImage: "checkmark.circle")
+            }
+            .disabled(isMarkAllDisabled)
+
+            Button {
                 viewModel.toastMessage = ToastMessage(
                     text: "Dismiss all is preview-only for now.",
                     kind: .info
@@ -192,13 +199,6 @@ struct NotificationsView: View {
                 Label("Dismiss all", systemImage: "eye.slash")
             }
             .disabled(isDismissAllDisabled)
-
-            Button {
-                Task { await viewModel.markAllAsRead() }
-            } label: {
-                Label("Read all", systemImage: "checkmark.circle")
-            }
-            .disabled(isMarkAllDisabled)
         } label: {
             Image(systemName: "ellipsis")
                 .font(.loopedCustom(.medium, size: 18))
