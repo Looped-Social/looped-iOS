@@ -190,7 +190,7 @@ struct NotificationsView: View {
             Button {
                 Task { await viewModel.dismissAllNotifications() }
             } label: {
-                Label("Dismiss all", systemImage: "eye.slash")
+                Label("Clear all", systemImage: "eye.slash")
             }
             .disabled(isDismissAllDisabled)
         } label: {

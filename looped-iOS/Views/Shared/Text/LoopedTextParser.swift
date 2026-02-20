@@ -67,6 +67,31 @@ struct LoopedTextParser {
         return nil
     }
 
+    static func removingFirstURL(from text: String) -> String {
+        let components = parse(
+            text,
+            detectHashtags: false,
+            detectMentions: false,
+            detectLinks: true
+        )
+
+        var output = ""
+        var removedFirstURL = false
+        for component in components {
+            switch component {
+            case .url(let string, _):
+                if !removedFirstURL {
+                    removedFirstURL = true
+                    continue
+                }
+                output += string
+            case .regular(let string), .hashtag(let string), .mention(let string):
+                output += string
+            }
+        }
+        return output
+    }
+
     static func removingURLs(from text: String) -> String {
         let components = parse(
             text,
