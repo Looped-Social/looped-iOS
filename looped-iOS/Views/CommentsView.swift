@@ -295,6 +295,13 @@ struct CommentsView: View {
             } message: {
                 Text(moderationAlertMessage ?? "")
             }
+            .toolbar {
+                if presentationStyle == .navigation && canReportPost {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        postOptionsButton
+                    }
+                }
+            }
         }
     }
 }
@@ -362,12 +369,32 @@ private extension CommentsView {
             HStack {
                 LoopedBackButton(action: onDismiss)
                 Spacer()
+                if canReportPost {
+                    postOptionsButton
+                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 10)
         .background(Color.loopedBackground)
+    }
+
+    var postOptionsButton: some View {
+        Menu {
+            if canReportPost {
+                Button("Report Post", role: .destructive) {
+                    activeModerationSheet = .reportPost
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.loopedCustom(.medium, size: 18))
+                .foregroundColor(.loopedTextSecondary)
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Post options")
     }
 
     var threadHeader: some View {
@@ -1079,9 +1106,28 @@ private extension CommentsView {
         return true
     }
 
+    var canReportPost: Bool {
+        post.backendId != nil
+    }
+
     @ViewBuilder
     func moderationSheetContent(_ sheet: ModerationSheet) -> some View {
         switch sheet {
+        case .reportPost:
+            ReportReasonSheet(
+                title: "Report Post",
+                onSubmit: { reason in
+                    guard let backendId = post.backendId else {
+                        throw ModerationError.missingTarget
+                    }
+                    _ = try await moderationService.createReport(
+                        targetType: "post",
+                        targetId: backendId,
+                        reason: reason
+                    )
+                },
+                onSuccess: { moderationAlertMessage = "Thanks for reporting. We'll review it shortly." }
+            )
         case .reportComment:
             ReportReasonSheet(
                 title: "Report Comment",
@@ -1221,6 +1267,7 @@ private extension CommentsView {
 
 private extension CommentsView {
     enum ModerationSheet: String, Identifiable {
+        case reportPost
         case reportComment
 
         var id: String { rawValue }
