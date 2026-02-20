@@ -45,7 +45,9 @@ struct HashtagText: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(attributedText)
+            if !displayTextTrimmed.isEmpty {
+                Text(attributedText)
+            }
 
             if shouldRenderLinkPreview, let firstURL {
                 NativeLinkPreviewView(url: firstURL)
@@ -77,9 +79,20 @@ struct HashtagText: View {
         LoopedTextParser.firstURL(in: text)
     }
 
+    private var displayText: String {
+        if shouldRenderLinkPreview && firstURL != nil {
+            return LoopedTextParser.removingURLs(from: text)
+        }
+        return text
+    }
+
+    private var displayTextTrimmed: String {
+        displayText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var attributedText: AttributedString {
         let components = LoopedTextParser.parse(
-            text,
+            displayText,
             detectHashtags: true,
             detectMentions: true,
             detectLinks: true

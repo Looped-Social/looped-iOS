@@ -67,6 +67,26 @@ struct LoopedTextParser {
         return nil
     }
 
+    static func removingURLs(from text: String) -> String {
+        let components = parse(
+            text,
+            detectHashtags: false,
+            detectMentions: false,
+            detectLinks: true
+        )
+
+        var output = ""
+        for component in components {
+            switch component {
+            case .url:
+                continue
+            case .regular(let string), .hashtag(let string), .mention(let string):
+                output += string
+            }
+        }
+        return output
+    }
+
     private enum MatchKind: Equatable {
         case hashtag
         case mention
@@ -90,7 +110,8 @@ struct LoopedTextParser {
         if detectLinks, let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) {
             for result in detector.matches(in: text, options: [], range: searchRange) {
                 guard let url = result.url else { continue }
-                guard url.scheme == "http" || url.scheme == "https" else { continue }
+                let scheme = (url.scheme ?? "").lowercased()
+                guard scheme == "http" || scheme == "https" else { continue }
                 matches.append(Match(range: result.range, kind: .url(url)))
             }
         }

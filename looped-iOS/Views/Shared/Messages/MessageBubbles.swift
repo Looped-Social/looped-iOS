@@ -410,7 +410,8 @@ struct ImageMessageBubble: View {
                                 message.normalizedContent,
                                 font: .loopedBody,
                                 textColor: .loopedTextPrimary,
-                                linkColor: .loopedPrimary
+                                linkColor: .loopedPrimary,
+                                linkPreviewStyle: .messageBubble
                             )
                             .multilineTextAlignment(isFromCurrentUser ? .trailing : .leading)
                         }
@@ -723,7 +724,8 @@ private func bubbleTextWithNewlineTime(message: Message, isFromCurrentUser: Bool
             message.normalizedContent,
             font: .loopedBody,
             textColor: .loopedTextPrimary,
-            linkColor: .loopedPrimary
+            linkColor: .loopedPrimary,
+            linkPreviewStyle: .messageBubble
         )
         .multilineTextAlignment(isFromCurrentUser ? .trailing : .leading)
         .fixedSize(horizontal: false, vertical: true)

@@ -6,6 +6,7 @@ struct LinkifiedText: View {
     let textColor: Color
     let linkColor: Color
     let showsLinkPreview: Bool
+    let linkPreviewStyle: NativeLinkPreviewStyle
     @AppStorage(LinkPreviewSettings.appStorageKey) private var linkPreviewsEnabled = LinkPreviewSettings.defaultEnabled
 
     init(
@@ -13,22 +14,26 @@ struct LinkifiedText: View {
         font: Font = .loopedBodyScaled,
         textColor: Color = .loopedTextPrimary,
         linkColor: Color = .loopedPrimary,
-        showsLinkPreview: Bool = true
+        showsLinkPreview: Bool = true,
+        linkPreviewStyle: NativeLinkPreviewStyle = .standard
     ) {
         self.text = text
         self.font = font
         self.textColor = textColor
         self.linkColor = linkColor
         self.showsLinkPreview = showsLinkPreview
+        self.linkPreviewStyle = linkPreviewStyle
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(attributedText)
-                .font(font)
+            if !displayTextTrimmed.isEmpty {
+                Text(attributedText)
+                    .font(font)
+            }
 
             if shouldRenderLinkPreview, let firstURL {
-                NativeLinkPreviewView(url: firstURL)
+                NativeLinkPreviewView(url: firstURL, style: linkPreviewStyle)
             }
         }
     }
@@ -41,8 +46,19 @@ struct LinkifiedText: View {
         LoopedTextParser.firstURL(in: text)
     }
 
+    private var displayText: String {
+        if shouldRenderLinkPreview && firstURL != nil {
+            return LoopedTextParser.removingURLs(from: text)
+        }
+        return text
+    }
+
+    private var displayTextTrimmed: String {
+        displayText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var attributedText: AttributedString {
-        let components = LoopedTextParser.parse(text, detectHashtags: false, detectLinks: true)
+        let components = LoopedTextParser.parse(displayText, detectHashtags: false, detectLinks: true)
         var result = AttributedString()
 
         for component in components {
