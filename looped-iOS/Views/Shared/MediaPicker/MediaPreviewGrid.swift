@@ -312,7 +312,10 @@ struct SinglePostedMedia: View {
         } else {
             // Image
             ZStack {
-                AsyncImage(url: URL(string: attachment.url)) { phase in
+                LoopedDownsampledAsyncImage(
+                    url: URL.loopedMediaURL(from: attachment.url),
+                    maxPixelSize: max(resolvedWidth, targetHeight) * UIScreen.main.scale
+                ) { phase in
                     Group {
                         switch phase {
                         case .success(let image):
@@ -330,9 +333,6 @@ struct SinglePostedMedia: View {
                         case .empty:
                             MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
                                 .task { await scheduleRetryIfNeeded(afterNanoseconds: 4_000_000_000) }
-                        @unknown default:
-                            MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
-                                .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -429,8 +429,12 @@ struct PostedMediaThumbnail: View {
     @State private var reloadToken = UUID()
 
     var body: some View {
+        let rawURL = attachment.type == .video ? (attachment.thumbnailUrl ?? attachment.url) : attachment.url
         ZStack {
-            AsyncImage(url: URL(string: attachment.type == .video ? (attachment.thumbnailUrl ?? attachment.url) : attachment.url)) { phase in
+            LoopedDownsampledAsyncImage(
+                url: URL.loopedMediaURL(from: rawURL),
+                maxPixelSize: 1200
+            ) { phase in
                 switch phase {
                 case .success(let image):
                     image
@@ -445,9 +449,6 @@ struct PostedMediaThumbnail: View {
                 case .empty:
                     MediaLoadPlaceholder(isShimmering: isShimmering, showProgress: true, showErrorIcon: false)
                         .task { await scheduleRetryIfNeeded(afterNanoseconds: 4_000_000_000) }
-                @unknown default:
-                    MediaLoadPlaceholder(isShimmering: false, showProgress: false, showErrorIcon: true)
-                        .task { await scheduleRetryIfNeeded(afterNanoseconds: 2_000_000_000) }
                 }
             }
             .clipped()

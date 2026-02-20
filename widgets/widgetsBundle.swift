@@ -6,8 +6,10 @@ struct LoopedWidgetsBundle: WidgetBundle {
     var body: some Widget {
         QuickActionsWidget()
         InboxPulseWidget()
-        VerifiedCommunitiesWidget()
         ProfileStatsWidget()
         TrendingPostWidget()
+        LockScreenCreateWidget()
+        LockScreenSearchWidget()
+        LockScreenChatWidget()
     }
 }

@@ -214,10 +214,8 @@ struct LoopSearchResultItem: View {
 
     private var loopImage: some View {
         Group {
-            if let imageUrl = loop.imageUrl,
-               let url = URL(string: imageUrl),
-               url.scheme != nil {
-                AsyncImage(url: url) { phase in
+            if let url = URL.loopedMediaURL(from: loop.imageUrl) {
+                LoopedDownsampledAsyncImage(url: url, maxPixelSize: 384) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -226,8 +224,6 @@ struct LoopSearchResultItem: View {
                     case .failure:
                         placeholderImage
                     case .empty:
-                        placeholderImage
-                    @unknown default:
                         placeholderImage
                     }
                 }
@@ -271,8 +267,8 @@ struct LoopSearchResultItem: View {
                     .font(.loopedCustom(.semibold, size: 18))
                     .foregroundColor(.loopedTextPrimary)
             case .imageUrl:
-                if let url = URL(string: icon.value), url.scheme != nil {
-                    AsyncImage(url: url) { phase in
+                if let url = URL.loopedMediaURL(from: icon.value) {
+                    LoopedDownsampledAsyncImage(url: url, maxPixelSize: 384) { phase in
                         switch phase {
                         case .success(let image):
                             image
@@ -285,10 +281,6 @@ struct LoopSearchResultItem: View {
                         case .empty:
                             ProgressView()
                                 .tint(.loopedTextSecondary)
-                        @unknown default:
-                            Text(specializationInitials)
-                                .font(.loopedCustom(.semibold, size: 16))
-                                .foregroundColor(.loopedPrimary)
                         }
                     }
                     .frame(width: 48, height: 48)

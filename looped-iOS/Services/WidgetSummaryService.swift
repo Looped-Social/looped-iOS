@@ -16,6 +16,23 @@ struct WidgetSummaryService: WidgetSummaryServiceProtocol {
         let previous = WidgetSnapshotStore.load()
         do {
             let response: WidgetSummaryResponse = try await apiClient.get("v1/widget-summary")
+            let fallbackTrending = await fetchTrendingFallback()
+            let incomingProfileSummary: WidgetSnapshot.ProfileSummary? = {
+                guard let summary = response.profileSummary else { return nil }
+                let displayName = summary.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                let specialization = summary.specialization?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let community = summary.primaryCommunityName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let avatar = summary.avatarThumbnailUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if displayName.isEmpty && (specialization ?? "").isEmpty && (community ?? "").isEmpty && (avatar ?? "").isEmpty {
+                    return nil
+                }
+                return .init(
+                    displayName: displayName,
+                    avatarThumbnailUrl: (avatar?.isEmpty == false) ? avatar : nil,
+                    specialization: (specialization?.isEmpty == false) ? specialization : nil,
+                    primaryCommunityName: (community?.isEmpty == false) ? community : nil
+                )
+            }()
             let snapshot = WidgetSnapshot(
                 updatedAt: Date(),
                 serverTime: response.serverTime,
@@ -28,6 +45,8 @@ struct WidgetSummaryService: WidgetSummaryServiceProtocol {
                     following: max(0, response.profileStats.following),
                     likesReceived: max(0, response.profileStats.likesReceived)
                 ),
+                profileSummary: incomingProfileSummary ?? previous.profileSummary,
+                recentChats: mapRecentChats(response.recentChats),
                 trendingPost: response.trendingPost.flatMap { dto in
                     guard dto.postId > 0 else { return nil }
                     let preview = dto.contentPreview.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,7 +59,7 @@ struct WidgetSummaryService: WidgetSummaryServiceProtocol {
                         commentCount: max(0, dto.commentCount),
                         mediaThumbnailUrl: dto.mediaThumbnailUrl
                     )
-                } ?? previous.trendingPost,
+                } ?? fallbackTrending ?? previous.trendingPost,
                 verifiedCommunities: response.verifiedCommunities.map {
                     .init(
                         id: $0.id,
@@ -69,6 +88,62 @@ struct WidgetSummaryService: WidgetSummaryServiceProtocol {
             // Best effort only.
         }
     }
+
+    private func fetchTrendingFallback() async -> WidgetSnapshot.TrendingPost? {
+        do {
+            let response: WidgetTrendingFeedResponse = try await apiClient.get("v1/feed/trending?limit=1")
+            guard let item = response.items.first, item.id > 0 else { return nil }
+            let previewRaw = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            let preview = previewRaw.isEmpty
+                ? "Open app to get the latest posts and update this widget."
+                : previewRaw
+            let communityRaw = (item.communityShortName ?? item.communityName ?? "Trending")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let community = communityRaw.isEmpty ? "Trending" : communityRaw
+            return .init(
+                postId: item.id,
+                communityName: community,
+                contentPreview: preview,
+                likeCount: max(0, item.likesCount),
+                commentCount: max(0, item.commentsCount),
+                mediaThumbnailUrl: item.cdnUrl ?? item.mediaUrl
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    private func mapRecentChats(_ chats: [WidgetSummaryRecentChat]) -> [WidgetSnapshot.RecentChat] {
+        let mapped = chats.compactMap { chat -> WidgetSnapshot.RecentChat? in
+            guard chat.conversationId > 0 else { return nil }
+            let title = chat.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let preview = chat.lastMessagePreview.trimmingCharacters(in: .whitespacesAndNewlines)
+            let avatar = chat.avatarThumbnailUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .init(
+                conversationId: chat.conversationId,
+                title: title.isEmpty ? "Chat" : title,
+                avatarThumbnailUrl: (avatar?.isEmpty == false) ? avatar : nil,
+                lastMessagePreview: preview.isEmpty ? "Open chat to continue." : preview,
+                unreadCount: max(0, chat.unreadCount)
+            )
+        }
+        return Array(mapped.prefix(3))
+    }
+}
+
+private struct WidgetTrendingFeedResponse: Decodable {
+    let items: [WidgetTrendingFeedItem]
+}
+
+private struct WidgetTrendingFeedItem: Decodable {
+    let id: Int
+    let content: String
+    let likesCount: Int
+    let commentsCount: Int
+    let communityName: String?
+    let communityShortName: String?
+    let mediaUrl: String?
+    let cdnUrl: String?
 }
 
 private struct WidgetSummaryResponse: Decodable {
@@ -76,6 +151,8 @@ private struct WidgetSummaryResponse: Decodable {
     let snapshotTtlSeconds: Int?
     let inbox: WidgetSummaryInbox
     let profileStats: WidgetSummaryProfileStats
+    let profileSummary: WidgetSummaryProfileSummary?
+    let recentChats: [WidgetSummaryRecentChat]
     let trendingPost: WidgetSummaryTrendingPost?
     let verifiedCommunities: [WidgetSummaryCommunity]
     let defaultCommunityId: Int?
@@ -85,6 +162,8 @@ private struct WidgetSummaryResponse: Decodable {
         case snapshotTtlSeconds
         case inbox
         case profileStats
+        case profileSummary
+        case recentChats
         case trendingPost
         case verifiedCommunities
         case defaultCommunityId
@@ -96,6 +175,8 @@ private struct WidgetSummaryResponse: Decodable {
         snapshotTtlSeconds = try container.decodeIfPresent(Int.self, forKey: .snapshotTtlSeconds)
         inbox = try container.decodeIfPresent(WidgetSummaryInbox.self, forKey: .inbox) ?? .init()
         profileStats = try container.decodeIfPresent(WidgetSummaryProfileStats.self, forKey: .profileStats) ?? .init()
+        profileSummary = try container.decodeIfPresent(WidgetSummaryProfileSummary.self, forKey: .profileSummary)
+        recentChats = try container.decodeIfPresent([WidgetSummaryRecentChat].self, forKey: .recentChats) ?? []
         trendingPost = try container.decodeIfPresent(WidgetSummaryTrendingPost.self, forKey: .trendingPost)
         verifiedCommunities = try container.decodeIfPresent([WidgetSummaryCommunity].self, forKey: .verifiedCommunities) ?? []
         defaultCommunityId = try container.decodeIfPresent(Int.self, forKey: .defaultCommunityId)
@@ -177,6 +258,53 @@ private struct WidgetSummaryProfileStats: Decodable {
         followers = try container.decodeIfPresent(Int.self, forKey: .followers) ?? 0
         following = try container.decodeIfPresent(Int.self, forKey: .following) ?? 0
         likesReceived = try container.decodeIfPresent(Int.self, forKey: .likesReceived) ?? 0
+    }
+}
+
+private struct WidgetSummaryProfileSummary: Decodable {
+    let displayName: String
+    let avatarThumbnailUrl: String?
+    let specialization: String?
+    let primaryCommunityName: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case displayName
+        case avatarThumbnailUrl
+        case specialization
+        case primaryCommunityName
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        avatarThumbnailUrl = try container.decodeIfPresent(String.self, forKey: .avatarThumbnailUrl)
+        specialization = try container.decodeIfPresent(String.self, forKey: .specialization)
+        primaryCommunityName = try container.decodeIfPresent(String.self, forKey: .primaryCommunityName)
+    }
+}
+
+private struct WidgetSummaryRecentChat: Decodable {
+    let conversationId: Int
+    let title: String
+    let avatarThumbnailUrl: String?
+    let lastMessagePreview: String
+    let unreadCount: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case conversationId
+        case title
+        case avatarThumbnailUrl
+        case lastMessagePreview
+        case unreadCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        conversationId = max(0, try container.decodeIfPresent(Int.self, forKey: .conversationId) ?? 0)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        avatarThumbnailUrl = try container.decodeIfPresent(String.self, forKey: .avatarThumbnailUrl)
+        lastMessagePreview = try container.decodeIfPresent(String.self, forKey: .lastMessagePreview) ?? ""
+        unreadCount = max(0, try container.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0)
     }
 }
 

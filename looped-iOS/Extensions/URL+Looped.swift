@@ -1,6 +1,8 @@
 import Foundation
 
 extension URL {
+    private static let allowedRemoteSchemes: Set<String> = ["http", "https"]
+
     /// Resolves a string into a URL suitable for loading remote media.
     ///
     /// Supports:
@@ -11,7 +13,9 @@ extension URL {
         let trimmed = (rawValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        if let absolute = URL(string: trimmed), absolute.scheme != nil {
+        if let absolute = URL(string: trimmed),
+           let scheme = absolute.scheme?.lowercased(),
+           allowedRemoteSchemes.contains(scheme) {
             return absolute
         }
 
@@ -32,6 +36,12 @@ extension URL {
             }
         }
 
-        return URL(string: trimmed, relativeTo: LoopedEnvironment.apiBaseURL())
+        guard let relative = URL(string: trimmed, relativeTo: LoopedEnvironment.apiBaseURL()) else {
+            return nil
+        }
+        guard let scheme = relative.scheme?.lowercased(), allowedRemoteSchemes.contains(scheme) else {
+            return nil
+        }
+        return relative
     }
 }

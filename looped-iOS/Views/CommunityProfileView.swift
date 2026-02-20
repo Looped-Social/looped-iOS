@@ -915,7 +915,7 @@ struct CommunityProfileBanner: View {
                     .resizable()
                     .scaledToFit()
             } else if let remoteBannerURL {
-                AsyncImage(url: remoteBannerURL) { phase in
+                LoopedDownsampledAsyncImage(url: remoteBannerURL, maxPixelSize: 1800) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -924,8 +924,6 @@ struct CommunityProfileBanner: View {
                     case .failure:
                         bannerBackdropColor
                     case .empty:
-                        bannerBackdropColor
-                    @unknown default:
                         bannerBackdropColor
                     }
                 }

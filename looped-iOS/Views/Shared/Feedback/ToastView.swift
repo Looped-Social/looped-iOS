@@ -30,7 +30,7 @@ enum ToastKind: Equatable {
         case .info, .pending, .loading:
             return .loopedSecondary
         case .warning:
-            return .loopedSecondary
+            return .loopedWarning
         case .success:
             return .loopedSuccess
         case .error:

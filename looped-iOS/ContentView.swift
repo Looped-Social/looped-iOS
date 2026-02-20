@@ -314,6 +314,7 @@ struct MainTabView: View {
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var feedViewModel: FeedViewModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: TabItem = .home
     @State private var homePopToRootSignal = 0
     @State private var homePopToRootProcessedSignal = 0
@@ -457,8 +458,18 @@ struct MainTabView: View {
         .onReceive(feedViewModel.$selectedCommunity) { _ in
             syncWidgetSnapshot()
         }
+        .onReceive(feedViewModel.$posts) { _ in
+            syncWidgetSnapshot()
+        }
         .onChange(of: isAnonymousMode) { _, _ in
             syncWidgetSnapshot()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task {
+                await widgetSummaryService.refreshSharedSnapshot()
+                syncWidgetSnapshot()
+            }
         }
         .environmentObject(feedViewModel)
         .environmentObject(commentsManager)
@@ -820,31 +831,29 @@ struct MainTabView: View {
             unreadMentionCount: unreadMentions,
             verifiedCommunities: verifiedCommunities,
             selectedCommunityId: feedViewModel.selectedCommunity?.id,
-            trendingPost: makeWidgetTrendingPost()
+            recentChats: makeWidgetRecentChats()
         )
     }
 
-    private func makeWidgetTrendingPost() -> WidgetSnapshot.TrendingPost? {
-        guard let post = feedViewModel.posts.first(where: { ($0.backendId ?? 0) > 0 }) else {
-            return nil
+    private func makeWidgetRecentChats() -> [WidgetSnapshot.RecentChat]? {
+        guard !isAnonymousMode else { return nil }
+        let recent = messagesViewModel.conversations
+            .sorted { $0.lastMessageTimestamp > $1.lastMessageTimestamp }
+            .prefix(3)
+        guard !recent.isEmpty else { return nil }
+
+        return recent.map { conversation in
+            let name = conversation.userName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let preview = conversation.lastMessagePreview.trimmingCharacters(in: .whitespacesAndNewlines)
+            let avatar = conversation.userProfileImageUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .init(
+                conversationId: max(0, conversation.backendId),
+                title: name.isEmpty ? "Chat" : name,
+                avatarThumbnailUrl: (avatar?.isEmpty == false) ? avatar : nil,
+                lastMessagePreview: preview.isEmpty ? "Open chat to continue." : preview,
+                unreadCount: max(0, conversation.unreadCount)
+            )
         }
-        guard let postId = post.backendId, postId > 0 else { return nil }
-
-        let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let preview = trimmedContent.isEmpty ? "Open Looped to see what's trending." : trimmedContent
-        let community = (post.communityShortName ?? post.communityName ?? "Trending")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let communityName = community.isEmpty ? "Trending" : community
-        let thumbnail = post.attachments?.first?.thumbnailUrl ?? post.attachments?.first?.url
-
-        return .init(
-            postId: postId,
-            communityName: communityName,
-            contentPreview: preview,
-            likeCount: max(0, post.reactionCount),
-            commentCount: max(0, post.commentsCount),
-            mediaThumbnailUrl: thumbnail
-        )
     }
 
     private func syncFloatingActionButtonVisibility() {
@@ -1144,12 +1153,14 @@ struct MainTabView: View {
         case .announcement:
             selectedTab = .notifications
         case .conversation(let conversationId):
-            openChat(conversationId: conversationId, channelId: nil)
+            Task {
+                await openConversationFromDeepLink(conversationId)
+            }
         case .channel(let channelId):
             openChat(conversationId: nil, channelId: channelId)
         case .home:
             selectedTab = .home
-            if request.pathType != .unsupported {
+            if request.pathType != .home && request.pathType != .unsupported {
                 toastMessage = ToastMessage(text: "That link isn't available.", kind: .warning)
             }
         }
@@ -1182,6 +1193,39 @@ struct MainTabView: View {
             deepLinkConversationId = conversationId
             deepLinkChannelId = channelId
             showingChat = true
+        }
+    }
+
+    private func openChat(conversation: Conversation) {
+        selectedTab = .messages
+        withAnimation(.easeInOut(duration: 0.3)) {
+            selectedConversation = conversation
+            selectedChannel = nil
+            deepLinkConversationId = nil
+            deepLinkChannelId = nil
+            showingChat = true
+        }
+    }
+
+    @MainActor
+    private func openConversationFromDeepLink(_ conversationId: Int) async {
+        guard conversationId > 0 else {
+            selectedTab = .messages
+            toastMessage = ToastMessage(text: "That chat is unavailable right now.", kind: .warning)
+            return
+        }
+
+        if let existing = messagesViewModel.conversations.first(where: { $0.backendId == conversationId }) {
+            openChat(conversation: existing)
+            return
+        }
+
+        await messagesViewModel.loadConversations()
+        if let loaded = messagesViewModel.conversations.first(where: { $0.backendId == conversationId }) {
+            openChat(conversation: loaded)
+        } else {
+            // Fallback: still open chat by id so direct-load path can attempt message fetch.
+            openChat(conversationId: conversationId, channelId: nil)
         }
     }
 

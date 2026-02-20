@@ -12,5 +12,9 @@
 	<array>
 		<string>applinks:mylooped.app</string>
 	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.mylooped.looped</string>
+	</array>
 </dict>
 </plist>

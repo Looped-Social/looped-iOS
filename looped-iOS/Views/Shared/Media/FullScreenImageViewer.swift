@@ -168,7 +168,10 @@ struct SingleImageView: View {
     @State private var isShimmering = true
 
     var body: some View {
-        AsyncImage(url: URL(string: imageUrl)) { phase in
+        LoopedDownsampledAsyncImage(
+            url: URL.loopedMediaURL(from: imageUrl),
+            maxPixelSize: 3072
+        ) { phase in
             switch phase {
             case .success(let image):
                 image
@@ -264,7 +267,7 @@ struct SingleImageView: View {
                         isShimmering = false
                     }
 
-            case .failure(_):
+            case .failure:
                 VStack(spacing: 16) {
                     Image(systemName: "photo")
                         .font(.loopedCustom(size: 60))
@@ -285,9 +288,6 @@ struct SingleImageView: View {
                     .task {
                         await stopShimmerAfterDelay()
                     }
-
-            @unknown default:
-                EmptyView()
             }
         }
     }

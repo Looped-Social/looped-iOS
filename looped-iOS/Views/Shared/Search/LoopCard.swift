@@ -76,15 +76,29 @@ struct LoopCard: View {
     }
 
     private var bannerImage: some View {
-        let resolvedImageURL: String? = {
-            if let imageURL, let url = URL(string: imageURL), url.scheme != nil { return imageURL }
-            if let icon, let resolved = icon.normalizedOrNil(), resolved.kind == .imageUrl { return resolved.value }
-            return imageURL
+        let localImage: UIImage? = {
+            guard let imageURL else { return nil }
+            return UIImage(named: imageURL)
+        }()
+
+        let resolvedRemoteURL: URL? = {
+            if localImage != nil { return nil }
+            if let resolved = URL.loopedMediaURL(from: imageURL) {
+                return resolved
+            }
+            if let icon, let resolvedIcon = icon.normalizedOrNil(), resolvedIcon.kind == .imageUrl {
+                return URL.loopedMediaURL(from: resolvedIcon.value)
+            }
+            return nil
         }()
 
         return Group {
-            if let resolvedImageURL, let url = URL(string: resolvedImageURL), url.scheme != nil {
-                AsyncImage(url: url) { phase in
+            if let localImage {
+                Image(uiImage: localImage)
+                    .resizable()
+                    .scaledToFit()
+            } else if let resolvedRemoteURL {
+                LoopedDownsampledAsyncImage(url: resolvedRemoteURL, maxPixelSize: 512) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -94,14 +108,8 @@ struct LoopCard: View {
                         placeholderImage
                     case .empty:
                         placeholderImage
-                    @unknown default:
-                        placeholderImage
                     }
                 }
-            } else if let imageURL, let localImage = UIImage(named: imageURL) {
-                Image(uiImage: localImage)
-                    .resizable()
-                    .scaledToFit()
             } else {
                 placeholderImage
             }

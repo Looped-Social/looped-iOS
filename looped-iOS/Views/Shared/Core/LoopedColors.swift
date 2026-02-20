@@ -30,6 +30,7 @@ extension Color {
 
     static let loopedError = Color("ErrorColor")
     static let loopedSuccess = Color("SuccessColor")
+    static let loopedWarning = Color("WarningColor")
     
     
 

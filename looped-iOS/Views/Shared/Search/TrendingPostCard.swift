@@ -100,8 +100,12 @@ struct TrendingPostCard: View {
 
     private var trendingImage: some View {
         Group {
-            if let url = URL(string: imageName), url.scheme != nil {
-                AsyncImage(url: url) { phase in
+            if let uiImage = UIImage(named: imageName) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+            } else if let url = URL.loopedMediaURL(from: imageName) {
+                LoopedDownsampledAsyncImage(url: url, maxPixelSize: 1400) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -111,14 +115,8 @@ struct TrendingPostCard: View {
                         imagePlaceholder(shimmer: false)
                     case .empty:
                         imagePlaceholder(shimmer: true)
-                    @unknown default:
-                        imagePlaceholder(shimmer: true)
                     }
                 }
-            } else if let uiImage = UIImage(named: imageName) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
             } else {
                 imagePlaceholder(shimmer: false)
             }

@@ -4,6 +4,47 @@ import WidgetKit
 #endif
 
 struct WidgetSnapshot: Codable, Equatable {
+    struct RecentChat: Codable, Equatable, Identifiable {
+        let conversationId: Int
+        let title: String
+        let avatarThumbnailUrl: String?
+        let lastMessagePreview: String
+        let unreadCount: Int
+
+        var id: Int { conversationId }
+
+        init(
+            conversationId: Int,
+            title: String,
+            avatarThumbnailUrl: String?,
+            lastMessagePreview: String,
+            unreadCount: Int
+        ) {
+            self.conversationId = conversationId
+            self.title = title
+            self.avatarThumbnailUrl = avatarThumbnailUrl
+            self.lastMessagePreview = lastMessagePreview
+            self.unreadCount = unreadCount
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case conversationId
+            case title
+            case avatarThumbnailUrl
+            case lastMessagePreview
+            case unreadCount
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            conversationId = max(0, try container.decodeIfPresent(Int.self, forKey: .conversationId) ?? 0)
+            title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+            avatarThumbnailUrl = try container.decodeIfPresent(String.self, forKey: .avatarThumbnailUrl)
+            lastMessagePreview = try container.decodeIfPresent(String.self, forKey: .lastMessagePreview) ?? ""
+            unreadCount = max(0, try container.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0)
+        }
+    }
+
     struct TrendingPost: Codable, Equatable {
         let postId: Int
         let communityName: String
@@ -73,6 +114,40 @@ struct WidgetSnapshot: Codable, Equatable {
         }
     }
 
+    struct ProfileSummary: Codable, Equatable {
+        let displayName: String
+        let avatarThumbnailUrl: String?
+        let specialization: String?
+        let primaryCommunityName: String?
+
+        init(
+            displayName: String = "",
+            avatarThumbnailUrl: String? = nil,
+            specialization: String? = nil,
+            primaryCommunityName: String? = nil
+        ) {
+            self.displayName = displayName
+            self.avatarThumbnailUrl = avatarThumbnailUrl
+            self.specialization = specialization
+            self.primaryCommunityName = primaryCommunityName
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case displayName
+            case avatarThumbnailUrl
+            case specialization
+            case primaryCommunityName
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+            avatarThumbnailUrl = try container.decodeIfPresent(String.self, forKey: .avatarThumbnailUrl)
+            specialization = try container.decodeIfPresent(String.self, forKey: .specialization)
+            primaryCommunityName = try container.decodeIfPresent(String.self, forKey: .primaryCommunityName)
+        }
+    }
+
     struct VerifiedCommunity: Codable, Equatable, Identifiable {
         let id: Int
         let name: String
@@ -113,6 +188,8 @@ struct WidgetSnapshot: Codable, Equatable {
     let messageRequestCount: Int
     let unreadMentionCount: Int
     let profileStats: ProfileStats
+    let profileSummary: ProfileSummary?
+    let recentChats: [RecentChat]
     let trendingPost: TrendingPost?
     let verifiedCommunities: [VerifiedCommunity]
     let selectedCommunityId: Int?
@@ -125,6 +202,8 @@ struct WidgetSnapshot: Codable, Equatable {
         messageRequestCount: 0,
         unreadMentionCount: 0,
         profileStats: .init(followers: 0, following: 0, likesReceived: 0),
+        profileSummary: nil,
+        recentChats: [],
         trendingPost: nil,
         verifiedCommunities: [],
         selectedCommunityId: nil
@@ -138,6 +217,8 @@ struct WidgetSnapshot: Codable, Equatable {
         case messageRequestCount
         case unreadMentionCount
         case profileStats
+        case profileSummary
+        case recentChats
         case trendingPost
         case verifiedCommunities
         case selectedCommunityId
@@ -151,6 +232,8 @@ struct WidgetSnapshot: Codable, Equatable {
         messageRequestCount: Int,
         unreadMentionCount: Int,
         profileStats: ProfileStats,
+        profileSummary: ProfileSummary? = nil,
+        recentChats: [RecentChat] = [],
         trendingPost: TrendingPost?,
         verifiedCommunities: [VerifiedCommunity],
         selectedCommunityId: Int?
@@ -162,6 +245,8 @@ struct WidgetSnapshot: Codable, Equatable {
         self.messageRequestCount = messageRequestCount
         self.unreadMentionCount = unreadMentionCount
         self.profileStats = profileStats
+        self.profileSummary = profileSummary
+        self.recentChats = recentChats
         self.trendingPost = trendingPost
         self.verifiedCommunities = verifiedCommunities
         self.selectedCommunityId = selectedCommunityId
@@ -176,6 +261,8 @@ struct WidgetSnapshot: Codable, Equatable {
         messageRequestCount = try container.decodeIfPresent(Int.self, forKey: .messageRequestCount) ?? 0
         unreadMentionCount = try container.decodeIfPresent(Int.self, forKey: .unreadMentionCount) ?? 0
         profileStats = try container.decodeIfPresent(ProfileStats.self, forKey: .profileStats) ?? .init()
+        profileSummary = try container.decodeIfPresent(ProfileSummary.self, forKey: .profileSummary)
+        recentChats = try container.decodeIfPresent([RecentChat].self, forKey: .recentChats) ?? []
         trendingPost = try container.decodeIfPresent(TrendingPost.self, forKey: .trendingPost)
         verifiedCommunities = try container.decodeIfPresent([VerifiedCommunity].self, forKey: .verifiedCommunities) ?? []
         selectedCommunityId = try container.decodeIfPresent(Int.self, forKey: .selectedCommunityId)
@@ -191,6 +278,7 @@ enum WidgetSnapshotStore {
         unreadMentionCount: Int,
         verifiedCommunities: [CommunitySummary],
         selectedCommunityId: Int?,
+        recentChats: [WidgetSnapshot.RecentChat]? = nil,
         trendingPost: WidgetSnapshot.TrendingPost? = nil
     ) {
         let previous = load()
@@ -215,6 +303,8 @@ enum WidgetSnapshotStore {
             messageRequestCount: max(0, messageRequestCount),
             unreadMentionCount: max(0, unreadMentionCount),
             profileStats: previous.profileStats,
+            profileSummary: previous.profileSummary,
+            recentChats: recentChats ?? previous.recentChats,
             trendingPost: trendingPost ?? previous.trendingPost,
             verifiedCommunities: mergedCommunities,
             selectedCommunityId: selectedCommunityId

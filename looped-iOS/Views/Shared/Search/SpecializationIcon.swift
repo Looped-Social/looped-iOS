@@ -57,8 +57,8 @@ struct SpecializationIcon: View {
                 .font(.loopedCustom(.semibold, size: 22))
                 .foregroundColor(.loopedTextPrimary)
         case .imageUrl:
-            if let url = URL(string: icon.value), url.scheme != nil {
-                AsyncImage(url: url) { phase in
+            if let url = URL.loopedMediaURL(from: icon.value) {
+                LoopedDownsampledAsyncImage(url: url, maxPixelSize: 256) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -71,10 +71,6 @@ struct SpecializationIcon: View {
                     case .empty:
                         ProgressView()
                             .tint(.loopedTextSecondary)
-                    @unknown default:
-                        Text(initials)
-                            .font(.loopedCustom(.semibold, size: 24))
-                            .foregroundColor(.loopedPrimary)
                     }
                 }
                 .frame(width: 46, height: 46)

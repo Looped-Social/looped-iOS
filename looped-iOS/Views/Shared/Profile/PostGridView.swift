@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// A 2-column grid view for displaying posts (Instagram/TikTok style)
 /// Used for user posts, liked posts, and saved posts
@@ -41,16 +42,23 @@ struct PostGridCell: View {
                 // Background based on content type
                 if let firstAttachment = post.attachments?.first {
                     // Show first media attachment
-                    AsyncImage(url: URL(string: firstAttachment.type == .video ? (firstAttachment.thumbnailUrl ?? firstAttachment.url) : firstAttachment.url)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: geometry.size.width, height: geometry.size.width)
-                            .clipped()
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.loopedMutedBackground)
-                            .overlay(ProgressView())
+                    let rawURL = firstAttachment.type == .video ? (firstAttachment.thumbnailUrl ?? firstAttachment.url) : firstAttachment.url
+                    LoopedDownsampledAsyncImage(
+                        url: URL.loopedMediaURL(from: rawURL),
+                        maxPixelSize: max(600, geometry.size.width * UIScreen.main.scale)
+                    ) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: geometry.size.width, height: geometry.size.width)
+                                .clipped()
+                        case .failure, .empty:
+                            Rectangle()
+                                .fill(Color.loopedMutedBackground)
+                                .overlay(ProgressView())
+                        }
                     }
 
                     // Video indicator
