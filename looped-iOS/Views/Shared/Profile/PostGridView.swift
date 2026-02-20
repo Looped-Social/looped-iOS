@@ -160,7 +160,8 @@ struct MiniaturePostCard: View {
                     post.content,
                     font: .loopedCustom(size: 8),
                     textColor: .loopedTextPrimary,
-                    linkColor: .loopedPrimary
+                    linkColor: .loopedPrimary,
+                    showsLinkPreview: false
                 )
                 .lineLimit(8)
                 .multilineTextAlignment(.leading)

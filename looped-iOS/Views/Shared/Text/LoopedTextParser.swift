@@ -52,6 +52,21 @@ struct LoopedTextParser {
         return components.isEmpty ? [.regular(text)] : components
     }
 
+    static func firstURL(in text: String) -> URL? {
+        let components = parse(
+            text,
+            detectHashtags: false,
+            detectMentions: false,
+            detectLinks: true
+        )
+        for component in components {
+            if case let .url(_, url) = component {
+                return url
+            }
+        }
+        return nil
+    }
+
     private enum MatchKind: Equatable {
         case hashtag
         case mention

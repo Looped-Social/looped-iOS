@@ -113,6 +113,7 @@ struct PostSearchResultItem: View {
                 font: .loopedBody,
                 textColor: .loopedTextPrimary,
                 hashtagColor: .loopedPrimary,
+                showsLinkPreview: false,
                 onHashtagTap: { _ in },
                 onMentionTap: { _ in }
             )
@@ -123,7 +124,8 @@ struct PostSearchResultItem: View {
                 trimmed,
                 font: .loopedBody,
                 textColor: .loopedTextPrimary,
-                linkColor: .loopedPrimary
+                linkColor: .loopedPrimary,
+                showsLinkPreview: false
             )
             .multilineTextAlignment(.leading)
             .lineLimit(3)

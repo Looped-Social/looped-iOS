@@ -5,22 +5,40 @@ struct LinkifiedText: View {
     let font: Font
     let textColor: Color
     let linkColor: Color
+    let showsLinkPreview: Bool
+    @AppStorage(LinkPreviewSettings.appStorageKey) private var linkPreviewsEnabled = LinkPreviewSettings.defaultEnabled
 
     init(
         _ text: String,
         font: Font = .loopedBodyScaled,
         textColor: Color = .loopedTextPrimary,
-        linkColor: Color = .loopedPrimary
+        linkColor: Color = .loopedPrimary,
+        showsLinkPreview: Bool = true
     ) {
         self.text = text
         self.font = font
         self.textColor = textColor
         self.linkColor = linkColor
+        self.showsLinkPreview = showsLinkPreview
     }
 
     var body: some View {
-        Text(attributedText)
-            .font(font)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(attributedText)
+                .font(font)
+
+            if shouldRenderLinkPreview, let firstURL {
+                NativeLinkPreviewView(url: firstURL)
+            }
+        }
+    }
+
+    private var shouldRenderLinkPreview: Bool {
+        showsLinkPreview && linkPreviewsEnabled
+    }
+
+    private var firstURL: URL? {
+        LoopedTextParser.firstURL(in: text)
     }
 
     private var attributedText: AttributedString {

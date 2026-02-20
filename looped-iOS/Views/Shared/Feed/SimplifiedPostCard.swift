@@ -33,6 +33,7 @@ struct SimplifiedPostCard: View {
                             font: .loopedBody,
                             textColor: .loopedTextPrimary,
                             hashtagColor: .loopedPrimary,
+                            showsLinkPreview: false,
                             onHashtagTap: { hashtag in
                                 openHashtag(hashtag)
                             },
@@ -46,7 +47,8 @@ struct SimplifiedPostCard: View {
                             post.content,
                             font: .loopedBody,
                             textColor: .loopedTextPrimary,
-                            linkColor: .loopedPrimary
+                            linkColor: .loopedPrimary,
+                            showsLinkPreview: false
                         )
                         .multilineTextAlignment(.leading)
                         .lineLimit(nil)

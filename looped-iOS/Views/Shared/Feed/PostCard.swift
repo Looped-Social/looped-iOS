@@ -820,7 +820,9 @@ struct PostCard: View {
 
 		    private var postCardStyled: some View {
 		        postCardContent
+                    .frame(maxWidth: .infinity, alignment: .leading)
 		            .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 		            .background(Color.loopedBackground)
 		            .cornerRadius(0)
                     .clipped()

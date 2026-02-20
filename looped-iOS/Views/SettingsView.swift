@@ -36,6 +36,7 @@ struct SettingsView: View {
     @State private var showEmailSignInSettings = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
     @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
+    @AppStorage(LinkPreviewSettings.appStorageKey) private var linkPreviewsEnabled = LinkPreviewSettings.defaultEnabled
     @State private var showFeedback = false
     @State private var showContentPolicy = false
     @State private var showPrivacyPolicy = false
@@ -77,6 +78,7 @@ struct SettingsView: View {
         SettingsListContent(
             appearanceMode: $appearanceMode,
             preferCommunityShortNames: $preferCommunityShortNames,
+            linkPreviewsEnabled: $linkPreviewsEnabled,
             hideAnonymousPosts: $hideAnonymousPosts,
             showFollowerCount: $showFollowerCount,
             anonymousMode: $anonymousMode,
@@ -257,6 +259,7 @@ private struct SettingsListContent: View {
 
     @Binding var appearanceMode: String
     @Binding var preferCommunityShortNames: Bool
+    @Binding var linkPreviewsEnabled: Bool
     @Binding var hideAnonymousPosts: Bool
     @Binding var showFollowerCount: Bool
     @Binding var anonymousMode: Bool
@@ -329,6 +332,11 @@ private struct SettingsListContent: View {
 
             Toggle(isOn: $preferCommunityShortNames) {
                 SettingsRowLabel(icon: .system("textformat.size.smaller"), title: "Prefer Community Short Names")
+            }
+            .tint(.loopedSecondary)
+
+            Toggle(isOn: $linkPreviewsEnabled) {
+                SettingsRowLabel(icon: .system("link"), title: "Link Previews")
             }
             .tint(.loopedSecondary)
         }

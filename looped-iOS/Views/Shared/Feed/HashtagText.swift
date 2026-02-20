@@ -10,8 +10,10 @@ struct HashtagText: View {
     let hashtagColor: Color
     let mentionColor: Color
     let linkColor: Color
+    let showsLinkPreview: Bool
     let onHashtagTap: (String) -> Void
     let onMentionTap: ((String) -> Void)?
+    @AppStorage(LinkPreviewSettings.appStorageKey) private var linkPreviewsEnabled = LinkPreviewSettings.defaultEnabled
 
     init(
         text: String,
@@ -23,6 +25,7 @@ struct HashtagText: View {
         hashtagColor: Color = .loopedPrimary,
         mentionColor: Color? = nil,
         linkColor: Color = .loopedPrimary,
+        showsLinkPreview: Bool = true,
         onHashtagTap: @escaping (String) -> Void,
         onMentionTap: ((String) -> Void)? = nil
     ) {
@@ -35,28 +38,43 @@ struct HashtagText: View {
         self.hashtagColor = hashtagColor
         self.mentionColor = mentionColor ?? hashtagColor
         self.linkColor = linkColor
+        self.showsLinkPreview = showsLinkPreview
         self.onHashtagTap = onHashtagTap
         self.onMentionTap = onMentionTap
     }
 
     var body: some View {
-        Text(attributedText)
-            .environment(\.openURL, OpenURLAction { url in
-                // Handle hashtag taps via URL scheme
-                if url.scheme == "hashtag", let hashtag = url.host {
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
-                    onHashtagTap(hashtag)
-                    return .handled
-                }
-                if url.scheme == "mention", let handle = mentionHandle(from: url) {
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
-                    onMentionTap?(handle)
-                    return .handled
-                }
-                return .systemAction
-            })
+        VStack(alignment: .leading, spacing: 8) {
+            Text(attributedText)
+
+            if shouldRenderLinkPreview, let firstURL {
+                NativeLinkPreviewView(url: firstURL)
+            }
+        }
+        .environment(\.openURL, OpenURLAction { url in
+            // Handle hashtag taps via URL scheme
+            if url.scheme == "hashtag", let hashtag = url.host {
+                let impact = UIImpactFeedbackGenerator(style: .light)
+                impact.impactOccurred()
+                onHashtagTap(hashtag)
+                return .handled
+            }
+            if url.scheme == "mention", let handle = mentionHandle(from: url) {
+                let impact = UIImpactFeedbackGenerator(style: .light)
+                impact.impactOccurred()
+                onMentionTap?(handle)
+                return .handled
+            }
+            return .systemAction
+        })
+    }
+
+    private var shouldRenderLinkPreview: Bool {
+        showsLinkPreview && linkPreviewsEnabled
+    }
+
+    private var firstURL: URL? {
+        LoopedTextParser.firstURL(in: text)
     }
 
     private var attributedText: AttributedString {

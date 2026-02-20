@@ -263,6 +263,7 @@ struct SinglePostedMedia: View {
     @State private var retryCount = 0
     @State private var reloadToken = UUID()
     @State private var containerWidth: CGFloat = 0
+    private let horizontalScreenGutter: CGFloat = 32
 
     private var resolvedAspectRatio: CGFloat {
         PostedMediaLayoutMetrics.singleAspectRatio(for: attachment)
@@ -272,11 +273,15 @@ struct SinglePostedMedia: View {
         PostedMediaLayoutMetrics.singleMinimumHeight(maxHeight: maxHeight)
     }
 
+    private var maxContentWidth: CGFloat {
+        max(UIScreen.main.bounds.width - horizontalScreenGutter, 1)
+    }
+
     private var resolvedWidth: CGFloat {
         if containerWidth > 0 {
-            return containerWidth
+            return min(containerWidth, maxContentWidth)
         }
-        return UIScreen.main.bounds.width
+        return maxContentWidth
     }
 
     private var targetHeight: CGFloat {
@@ -339,7 +344,7 @@ struct SinglePostedMedia: View {
                 }
                 .id(reloadToken)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: maxContentWidth)
             .frame(height: targetHeight)
             .background(Color.loopedMutedBackground)
             .clipShape(RoundedRectangle(cornerRadius: 12))
