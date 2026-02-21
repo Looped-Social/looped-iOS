@@ -416,58 +416,60 @@ private struct CommunityRequestStepTwoView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                VerificationProgressView(currentStep: 2, totalSteps: 2)
-                    .padding(.top, 8)
+        VStack(spacing: 0) {
+            VerificationProgressView(currentStep: 2, totalSteps: 2)
+                .padding(.top, 8)
 
-                Image("community-find")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: geometry.size.height * 0.32)
-                    .padding(.horizontal, 32)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
+            Spacer()
+                .frame(height: 36)
 
-                VStack(spacing: 10) {
-                    Text("Thanks, we are on it.")
-                        .font(.loopedSubheadMedium)
-                        .foregroundColor(.loopedTextPrimary)
+            Image("community-confirm")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 220, maxHeight: 180)
 
-                    Text(
-                        confirmationMessage
-                    )
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, 28)
-                .padding(.top, 12)
+            VStack(spacing: 12) {
+                Text("Thank you.")
+                    .font(.loopedSubheadMedium)
+                    .foregroundColor(.loopedTextPrimary)
+                    .multilineTextAlignment(.center)
 
-                if let completionError {
-                    Text(completionError)
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedError)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 10)
-                }
+                Text("You planted the seed for your community.")
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .multilineTextAlignment(.center)
 
-                Spacer()
-
-                PrimaryButton(
-                    title: isOnboarding ? "Explore the app" : "Done",
-                    isEnabled: !isCompleting,
-                    isLoading: isCompleting
-                ) {
-                    handlePrimaryAction()
-                }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 28)
+                Text(confirmationMessage)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .multilineTextAlignment(.center)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(Color.loopedBackground.ignoresSafeArea())
+            .padding(.horizontal, 26)
+            .padding(.top, 24)
+
+            if let completionError {
+                Text(completionError)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedError)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 26)
+                    .padding(.top, 12)
+            }
+
+            Spacer()
+
+            PrimaryButton(
+                title: "Continue to app",
+                isEnabled: !isCompleting,
+                isLoading: isCompleting
+            ) {
+                handlePrimaryAction()
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom, 24)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.loopedBackground.ignoresSafeArea())
         .interactiveDismissDisabled(isCompleting)
         .navigationBarBackButtonHidden(true)
         .navigationBarTitleDisplayMode(.inline)
@@ -505,17 +507,10 @@ private struct CommunityRequestStepTwoView: View {
     }
 
     private var confirmationMessage: String {
-        if isOnboarding {
-            if willNotifyByEmail {
-                return "For now, you can browse the app while we work on your request. We will email you when it is ready."
-            }
-            return "For now, you can browse the app while we work on your request."
-        }
-
         if willNotifyByEmail {
-            return "For now, you can browse while we process your request. We will email you when it is ready."
+            return "We'll get back to you within 48 hours. We'll email you when it's ready."
         }
-        return "For now, you can browse while we process your request."
+        return "We'll get back to you within 48 hours."
     }
 }
 
