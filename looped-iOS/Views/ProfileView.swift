@@ -30,6 +30,7 @@ struct ProfileView: View {
     @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
     @State private var profileRefreshTask: Task<Void, Never>?
     @State private var lastHeaderToggleAt: TimeInterval = 0
+    @State private var headerRevealProgress: CGFloat = 0
 
 		@State private var headerHeight: CGFloat = 300
 		@State private var hasActiveVerifications: Bool?
@@ -260,6 +261,7 @@ struct ProfileView: View {
                     let delta = newOffset - oldOffset
                     let maxReasonableDelta: CGFloat = 180
                     if abs(delta) > maxReasonableDelta {
+                        headerRevealProgress = 0
                         let atTop = newOffset >= -50
                         if atTop != isAtTop {
                             isAtTop = atTop
@@ -270,13 +272,22 @@ struct ProfileView: View {
                     let nearTopThreshold: CGFloat = -50
                     let hideTriggerOffset: CGFloat = -110
                     let directionalDeltaThreshold: CGFloat = 8
+                    let revealDistanceThreshold: CGFloat = 34
 
                     if newOffset >= nearTopThreshold {
+                        headerRevealProgress = 0
                         nextHeaderVisible = true
                     } else if delta <= -directionalDeltaThreshold && newOffset <= hideTriggerOffset {
+                        headerRevealProgress = 0
                         nextHeaderVisible = false
-                    } else if delta >= directionalDeltaThreshold {
-                        nextHeaderVisible = true
+                    } else if delta > 0, headerVisible == false {
+                        headerRevealProgress += delta
+                        if headerRevealProgress >= revealDistanceThreshold {
+                            headerRevealProgress = 0
+                            nextHeaderVisible = true
+                        }
+                    } else if delta < 0 {
+                        headerRevealProgress = 0
                     }
 
                     if let nextHeaderVisible {

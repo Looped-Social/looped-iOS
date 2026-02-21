@@ -22,6 +22,7 @@ struct UserProfileView: View {
     @State private var headerHeight: CGFloat = 0
     @State private var headerVisible = true
     @State private var lastHeaderToggleAt: TimeInterval = 0
+    @State private var headerRevealProgress: CGFloat = 0
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
     @State private var canPop: Bool?
@@ -398,16 +399,27 @@ struct UserProfileView: View {
         let nearTopThreshold: CGFloat = -50
         let hideTriggerOffset: CGFloat = -110
         let directionalDeltaThreshold: CGFloat = 8
+        let revealDistanceThreshold: CGFloat = 34
         let maxReasonableDelta: CGFloat = 180
 
         if abs(delta) <= maxReasonableDelta {
             if newOffset >= nearTopThreshold {
+                headerRevealProgress = 0
                 setHeaderVisibility(true, force: true)
             } else if delta <= -directionalDeltaThreshold && newOffset <= hideTriggerOffset {
+                headerRevealProgress = 0
                 setHeaderVisibility(false)
-            } else if delta >= directionalDeltaThreshold {
-                setHeaderVisibility(true)
+            } else if delta > 0, headerVisible == false {
+                headerRevealProgress += delta
+                if headerRevealProgress >= revealDistanceThreshold {
+                    headerRevealProgress = 0
+                    setHeaderVisibility(true)
+                }
+            } else if delta < 0 {
+                headerRevealProgress = 0
             }
+        } else {
+            headerRevealProgress = 0
         }
 
         let atTop = newOffset >= nearTopThreshold
