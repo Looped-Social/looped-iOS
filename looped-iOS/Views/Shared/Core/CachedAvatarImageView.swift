@@ -189,6 +189,12 @@ private final class LoopedDownsampledImageLoader: ObservableObject {
     private static let imageCache = NSCache<NSString, UIImage>()
     private static let maxDecodedPixels: CGFloat = 40_000_000
     private static let maxDownloadBytes = 30 * 1024 * 1024
+    private static let uncachedSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        return URLSession(configuration: configuration)
+    }()
 
     private var currentURL: URL?
     private var currentPixelSize: CGFloat = 0
@@ -223,42 +229,31 @@ private final class LoopedDownsampledImageLoader: ObservableObject {
         task = Task { [weak self] in
             guard let self else { return }
             do {
-                let request = URLRequest(
-                    url: url,
-                    cachePolicy: .returnCacheDataElseLoad,
-                    timeoutInterval: 30
-                )
-                let (data, _) = try await URLSession.shared.data(for: request)
+                let resolvedImage: UIImage
+                do {
+                    resolvedImage = try await Self.loadImage(
+                        from: url,
+                        maxPixelSize: clampedPixelSize,
+                        bypassCache: false
+                    )
+                } catch {
+                    // Retry once without URLCache to recover from stale cached payloads.
+                    resolvedImage = try await Self.loadImage(
+                        from: url,
+                        maxPixelSize: clampedPixelSize,
+                        bypassCache: true
+                    )
+                }
                 guard !Task.isCancelled else { return }
-
-                guard data.count <= Self.maxDownloadBytes else {
-                    await MainActor.run {
-                        guard self.currentURL == url else { return }
-                        self.phase = .failure
-                    }
-                    return
-                }
-
-                guard let uiImage = Self.downsampledImage(
-                    from: data,
-                    maxPixelSize: clampedPixelSize
-                ) else {
-                    await MainActor.run {
-                        guard self.currentURL == url else { return }
-                        self.phase = .failure
-                    }
-                    return
-                }
-
-                Self.imageCache.setObject(
-                    uiImage,
-                    forKey: self.cacheKey(for: url, maxPixelSize: clampedPixelSize),
-                    cost: self.cost(for: uiImage)
-                )
 
                 await MainActor.run {
                     guard self.currentURL == url else { return }
-                    self.phase = .success(Image(uiImage: uiImage))
+                    Self.imageCache.setObject(
+                        resolvedImage,
+                        forKey: self.cacheKey(for: url, maxPixelSize: clampedPixelSize),
+                        cost: self.cost(for: resolvedImage)
+                    )
+                    self.phase = .success(Image(uiImage: resolvedImage))
                 }
             } catch {
                 await MainActor.run {
@@ -306,6 +301,38 @@ private final class LoopedDownsampledImageLoader: ObservableObject {
         return UIImage(cgImage: cgImage)
     }
 
+    private static func fetchImageData(for url: URL, bypassCache: Bool) async throws -> Data {
+        let request = URLRequest(
+            url: url,
+            cachePolicy: bypassCache ? .reloadIgnoringLocalCacheData : .returnCacheDataElseLoad,
+            timeoutInterval: 30
+        )
+        let session = bypassCache ? Self.uncachedSession : URLSession.shared
+        let (data, response) = try await session.data(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            throw LoopedMediaLoadError.httpStatus(httpResponse.statusCode)
+        }
+
+        guard data.count <= Self.maxDownloadBytes else {
+            throw LoopedMediaLoadError.payloadTooLarge
+        }
+        return data
+    }
+
+    private static func loadImage(
+        from url: URL,
+        maxPixelSize: CGFloat,
+        bypassCache: Bool
+    ) async throws -> UIImage {
+        let data = try await fetchImageData(for: url, bypassCache: bypassCache)
+        guard let image = downsampledImage(from: data, maxPixelSize: maxPixelSize) else {
+            throw LoopedMediaLoadError.decodeFailed
+        }
+        return image
+    }
+
     private func cacheKey(for url: URL, maxPixelSize: CGFloat) -> NSString {
         "\(url.absoluteString)|\(Int(maxPixelSize.rounded()))" as NSString
     }
@@ -314,4 +341,10 @@ private final class LoopedDownsampledImageLoader: ObservableObject {
         guard let cgImage = image.cgImage else { return 0 }
         return cgImage.bytesPerRow * cgImage.height
     }
+}
+
+private enum LoopedMediaLoadError: Error {
+    case httpStatus(Int)
+    case payloadTooLarge
+    case decodeFailed
 }

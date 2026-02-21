@@ -753,7 +753,7 @@ struct InlineVideoPlayer: View {
             Rectangle().fill(Color.loopedBlack)
 
             if let thumbnailUrl, !thumbnailUrl.isEmpty {
-                AsyncImage(url: URL(string: thumbnailUrl)) { phase in
+                AsyncImage(url: URL.loopedMediaURL(from: thumbnailUrl)) { phase in
                     switch phase {
                     case .success(let image):
                         image
