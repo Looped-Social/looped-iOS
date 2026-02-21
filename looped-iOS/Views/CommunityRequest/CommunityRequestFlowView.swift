@@ -104,7 +104,6 @@ struct CommunityRequestFlowView: View {
                         mode: mode,
                         willNotifyByEmail: !draft.contactEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                         onOnboardingExploreApp: onOnboardingExploreApp,
-                        onCancel: { dismiss() },
                         onDone: { dismiss() }
                     )
                 }
@@ -242,14 +241,20 @@ private struct CommunityRequestStepOneView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    fieldLabel("Contact Email (Optional)")
-                    TextField("you@example.com", text: $draft.contactEmail)
+                    fieldLabel("Contact Email", optional: true)
+                    TextField(
+                        "",
+                        text: $draft.contactEmail,
+                        prompt: Text("you@example.com")
+                            .foregroundColor(.loopedTextSecondary)
+                    )
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                         .background(Color.loopedMutedBackground)
                         .cornerRadius(12)
+                        .tint(.loopedTextPrimary)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .textContentType(.emailAddress)
@@ -257,7 +262,7 @@ private struct CommunityRequestStepOneView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
-                    fieldLabel("Picture")
+                    fieldLabel("Picture", optional: true)
 
                     PhotosPicker(selection: $selectedImage, matching: .images) {
                         ZStack {
@@ -383,10 +388,19 @@ private struct CommunityRequestStepOneView: View {
         return predicate.evaluate(with: email)
     }
 
-    private func fieldLabel(_ title: String) -> some View {
-        Text(title)
-            .font(.loopedBodyMedium)
-            .foregroundColor(.loopedTextPrimary)
+    @ViewBuilder
+    private func fieldLabel(_ title: String, optional: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(title)
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+
+            if optional {
+                Text("Optional")
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+        }
     }
 
     private var termsText: some View {
@@ -406,7 +420,6 @@ private struct CommunityRequestStepTwoView: View {
     let mode: CommunityRequestFlowView.Mode
     let willNotifyByEmail: Bool
     let onOnboardingExploreApp: (() async -> Bool)?
-    let onCancel: () -> Void
     let onDone: () -> Void
     @State private var isCompleting = false
     @State private var completionError: String?
@@ -426,11 +439,11 @@ private struct CommunityRequestStepTwoView: View {
             Image("community-confirm")
                 .resizable()
                 .scaledToFit()
-                .frame(maxWidth: 220, maxHeight: 180)
+                .frame(maxWidth: 360, maxHeight: 320)
 
             VStack(spacing: 12) {
-                Text("Thank you.")
-                    .font(.loopedSubheadMedium)
+                Text("Thank you!")
+                    .font(.loopedHeadingMedium)
                     .foregroundColor(.loopedTextPrimary)
                     .multilineTextAlignment(.center)
 
@@ -459,7 +472,7 @@ private struct CommunityRequestStepTwoView: View {
             Spacer()
 
             PrimaryButton(
-                title: "Continue to app",
+                title: "Continue",
                 isEnabled: !isCompleting,
                 isLoading: isCompleting
             ) {
@@ -473,11 +486,6 @@ private struct CommunityRequestStepTwoView: View {
         .interactiveDismissDisabled(isCompleting)
         .navigationBarBackButtonHidden(true)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                LoopedCancelTextButton(action: onCancel)
-            }
-        }
     }
 
     private func handlePrimaryAction() {
@@ -508,9 +516,9 @@ private struct CommunityRequestStepTwoView: View {
 
     private var confirmationMessage: String {
         if willNotifyByEmail {
-            return "We'll get back to you within 48 hours. We'll email you when it's ready."
+            return "We'll get back to you within 48 hours. If you added an email, we'll email you when it's ready. Make sure to check back. You can still verify in other communities in the meantime."
         }
-        return "We'll get back to you within 48 hours."
+        return "We'll get back to you within 48 hours. You can still verify in other communities in the meantime."
     }
 }
 

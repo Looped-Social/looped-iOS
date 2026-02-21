@@ -268,11 +268,12 @@ struct ProfileView: View {
                     }
                     var nextHeaderVisible: Bool?
                     let nearTopThreshold: CGFloat = -50
+                    let hideTriggerOffset: CGFloat = -110
                     let directionalDeltaThreshold: CGFloat = 8
 
                     if newOffset >= nearTopThreshold {
                         nextHeaderVisible = true
-                    } else if delta <= -directionalDeltaThreshold {
+                    } else if delta <= -directionalDeltaThreshold && newOffset <= hideTriggerOffset {
                         nextHeaderVisible = false
                     } else if delta >= directionalDeltaThreshold {
                         nextHeaderVisible = true

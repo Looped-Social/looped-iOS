@@ -395,14 +395,15 @@ struct UserProfileView: View {
 
     private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
         let delta = newOffset - oldOffset
-        let nearTopThreshold: CGFloat = -20
+        let nearTopThreshold: CGFloat = -50
+        let hideTriggerOffset: CGFloat = -110
         let directionalDeltaThreshold: CGFloat = 8
         let maxReasonableDelta: CGFloat = 180
 
         if abs(delta) <= maxReasonableDelta {
             if newOffset >= nearTopThreshold {
                 setHeaderVisibility(true, force: true)
-            } else if delta <= -directionalDeltaThreshold {
+            } else if delta <= -directionalDeltaThreshold && newOffset <= hideTriggerOffset {
                 setHeaderVisibility(false)
             } else if delta >= directionalDeltaThreshold {
                 setHeaderVisibility(true)
