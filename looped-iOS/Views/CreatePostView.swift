@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CreatePostView: View {
     @Environment(\.dismiss) private var dismiss
@@ -402,6 +403,7 @@ struct CreatePostView: View {
         } message: {
             Text(draftPromptMessage)
         }
+        .loopedInteractiveDismissDisabled(hasDraftableContent, onAttemptToDismiss: handleCancel)
         .sheet(isPresented: $showMediaPicker) {
             MediaPickerView(
                 selectedMedia: $selectedMedia,
@@ -726,10 +728,7 @@ struct CreatePostView: View {
     }
 
     private var hasDraftableContent: Bool {
-        if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
-        guard let pollDraft else { return false }
-        if !pollDraft.question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
-        return pollDraft.options.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        CreatePostDraftPromptPolicy.shouldPromptForDraft(content: postText, poll: pollDraft)
     }
 
 	    private var draftPromptMessage: String {
@@ -934,6 +933,93 @@ private extension CreatePostView {
     struct MentionTrigger {
         let query: String
         let range: Range<String.Index>
+    }
+}
+
+enum CreatePostDraftPromptPolicy {
+    static func shouldPromptForDraft(content: String, poll: PollDraft?) -> Bool {
+        if !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        guard let poll else { return false }
+        if !poll.question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+        return poll.options.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+}
+
+private struct LoopedInteractiveDismissableView<T: View>: UIViewControllerRepresentable {
+    let view: T
+    let isDisabled: Bool
+    let onAttemptToDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> UIHostingController<T> {
+        UIHostingController(rootView: view)
+    }
+
+    func updateUIViewController(_ uiViewController: UIHostingController<T>, context: Context) {
+        context.coordinator.isDisabled = isDisabled
+        context.coordinator.onAttemptToDismiss = onAttemptToDismiss
+        uiViewController.rootView = view
+        applyDelegateIfPossible(for: uiViewController, coordinator: context.coordinator)
+        DispatchQueue.main.async {
+            applyDelegateIfPossible(for: uiViewController, coordinator: context.coordinator)
+        }
+    }
+
+    private func applyDelegateIfPossible(
+        for uiViewController: UIHostingController<T>,
+        coordinator: Coordinator
+    ) {
+        if let presentationController = uiViewController.parent?.presentationController {
+            presentationController.delegate = coordinator
+            coordinator.observedPresentationController = presentationController
+            return
+        }
+
+        if let presentationController = uiViewController.presentationController {
+            presentationController.delegate = coordinator
+            coordinator.observedPresentationController = presentationController
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isDisabled: isDisabled, onAttemptToDismiss: onAttemptToDismiss)
+    }
+
+    final class Coordinator: NSObject, UIAdaptivePresentationControllerDelegate {
+        var isDisabled: Bool
+        var onAttemptToDismiss: () -> Void
+        weak var observedPresentationController: UIPresentationController?
+
+        init(isDisabled: Bool, onAttemptToDismiss: @escaping () -> Void) {
+            self.isDisabled = isDisabled
+            self.onAttemptToDismiss = onAttemptToDismiss
+        }
+
+        deinit {
+            if observedPresentationController?.delegate === self {
+                observedPresentationController?.delegate = nil
+            }
+        }
+
+        func presentationControllerShouldDismiss(_ presentationController: UIPresentationController) -> Bool {
+            !isDisabled
+        }
+
+        func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
+            onAttemptToDismiss()
+        }
+    }
+}
+
+private extension View {
+    func loopedInteractiveDismissDisabled(
+        _ isDisabled: Bool = true,
+        onAttemptToDismiss: @escaping () -> Void
+    ) -> some View {
+        LoopedInteractiveDismissableView(
+            view: self,
+            isDisabled: isDisabled,
+            onAttemptToDismiss: onAttemptToDismiss
+        )
     }
 }
 

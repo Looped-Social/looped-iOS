@@ -72,4 +72,34 @@ struct PostDraftStoreTests {
 
         defaults.removePersistentDomain(forName: suite)
     }
+
+    @Test
+    func createPostDraftPromptPolicy_ignoresWhitespaceWithoutPoll() {
+        let shouldPrompt = CreatePostDraftPromptPolicy.shouldPromptForDraft(
+            content: "   \n\t  ",
+            poll: nil
+        )
+
+        #expect(shouldPrompt == false)
+    }
+
+    @Test
+    func createPostDraftPromptPolicy_promptsForTextQuestionOrOption() {
+        let textOnly = CreatePostDraftPromptPolicy.shouldPromptForDraft(
+            content: "hello",
+            poll: nil
+        )
+        let pollQuestionOnly = CreatePostDraftPromptPolicy.shouldPromptForDraft(
+            content: "   ",
+            poll: PollDraft(question: "Question", options: ["", ""])
+        )
+        let pollOptionOnly = CreatePostDraftPromptPolicy.shouldPromptForDraft(
+            content: "   ",
+            poll: PollDraft(question: "   ", options: ["Option", ""])
+        )
+
+        #expect(textOnly == true)
+        #expect(pollQuestionOnly == true)
+        #expect(pollOptionOnly == true)
+    }
 }

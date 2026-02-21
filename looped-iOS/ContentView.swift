@@ -40,11 +40,16 @@ enum MenuDestination: Identifiable {
 }
 
 struct ContentView: View {
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var feedViewModel = FeedViewModel()
     @State private var keepBootstrapVisible = false
     @State private var showNotificationPermissionPrompt = false
+    @State private var showMinimumSupportedVersionPrompt = false
+    @State private var minimumSupportedVersionPromptMessage = ""
+    @State private var minimumSupportedVersionPromptValue = ""
+    @State private var minimumSupportedVersionUpdateUrl: URL?
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeletionPendingAlert") private var showAccountDeletionPendingAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
@@ -55,6 +60,8 @@ struct ContentView: View {
     @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
     @AppStorage("defaultProfileImageUrlFetchedAt") private var defaultProfileImageUrlFetchedAt = 0.0
     @AppStorage("didShowNotificationPermissionPrompt") private var didShowNotificationPermissionPrompt = false
+    @AppStorage("dismissedMinimumSupportedVersion") private var dismissedMinimumSupportedVersion = ""
+    @AppStorage("dismissedMinimumSupportedVersionAt") private var dismissedMinimumSupportedVersionAt = 0.0
     private let spotlightIndexingService: SpotlightIndexingServiceProtocol = SpotlightIndexingService()
     private var uiTestBypassAuth: Bool {
         ProcessInfo.processInfo.environment["LOOPED_UI_TEST_BYPASS_AUTH"] == "1"
@@ -82,7 +89,7 @@ struct ContentView: View {
             }
         }
         .task {
-            await loadDefaultProfileImageIfNeeded()
+            await fetchAppConfigAndEvaluateMinimumVersionPrompt()
         }
         .task(id: notificationPromptKey) {
             await evaluateNotificationPermissionPromptIfNeeded()
@@ -123,6 +130,19 @@ struct ContentView: View {
             Text(providerDisconnectStatusMessage.isEmpty
                  ? "Connected account status changed. Please sign in again."
                  : providerDisconnectStatusMessage)
+        }
+        .alert("Update Recommended", isPresented: $showMinimumSupportedVersionPrompt) {
+            Button("Not Now", role: .cancel) {
+                recordMinimumSupportedVersionPromptDismissal()
+            }
+            if let minimumSupportedVersionUpdateUrl {
+                Button("Update Now") {
+                    recordMinimumSupportedVersionPromptDismissal()
+                    openURL(minimumSupportedVersionUpdateUrl)
+                }
+            }
+        } message: {
+            Text(minimumSupportedVersionPromptMessage)
         }
         .environmentObject(authViewModel)
         .environmentObject(feedViewModel)
@@ -192,20 +212,92 @@ struct ContentView: View {
         #endif
     }
 
-    private func loadDefaultProfileImageIfNeeded() async {
+    private func fetchAppConfigAndEvaluateMinimumVersionPrompt() async {
+        guard !uiTestBypassAuth else { return }
+        do {
+            let config = try await AppConfigService().fetch()
+            applyDefaultProfileImageIfNeeded(from: config)
+            evaluateMinimumSupportedVersionPrompt(from: config)
+        } catch {
+            // Best-effort; the UI will still fall back to local placeholders.
+        }
+    }
+
+    private func applyDefaultProfileImageIfNeeded(from config: AppConfigDTO) {
         let now = Date().timeIntervalSince1970
         let refreshAfterSeconds = 24.0 * 60.0 * 60.0
         if now - defaultProfileImageUrlFetchedAt < refreshAfterSeconds, !defaultProfileImageUrl.isEmpty {
             return
         }
 
-        do {
-            let config = try await AppConfigService().fetch()
-            defaultProfileImageUrl = (config.defaultProfileImageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            defaultProfileImageUrlFetchedAt = now
-        } catch {
-            // Best-effort; the UI will still fall back to local placeholders.
+        defaultProfileImageUrl = (config.defaultProfileImageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        defaultProfileImageUrlFetchedAt = now
+    }
+
+    private func evaluateMinimumSupportedVersionPrompt(from config: AppConfigDTO) {
+        let minimumVersion = (config.minimumSupportedVersion ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !minimumVersion.isEmpty else { return }
+
+        let currentVersion = AppVersionPolicy.currentAppVersion()
+        guard AppVersionPolicy.shouldPromptForMinimumSupportedVersion(
+            currentVersion: currentVersion,
+            minimumSupportedVersion: minimumVersion
+        ) else {
+            return
         }
+
+        guard shouldShowMinimumSupportedVersionPrompt(for: minimumVersion) else { return }
+
+        minimumSupportedVersionPromptValue = minimumVersion
+        minimumSupportedVersionPromptMessage = resolveMinimumSupportedVersionPromptMessage(
+            from: config,
+            minimumVersion: minimumVersion
+        )
+        minimumSupportedVersionUpdateUrl = resolveMinimumSupportedVersionUpdateUrl(from: config)
+        showMinimumSupportedVersionPrompt = true
+    }
+
+    private func resolveMinimumSupportedVersionPromptMessage(from config: AppConfigDTO, minimumVersion: String) -> String {
+        let backendMessage = (config.minimumSupportedVersionMessage ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !backendMessage.isEmpty {
+            return backendMessage
+        }
+
+        return "We have your best interests in mind and added important improvements to your Looped experience. Please update to version \(minimumVersion)."
+    }
+
+    private func resolveMinimumSupportedVersionUpdateUrl(from config: AppConfigDTO) -> URL? {
+        let backendUrl = (config.minimumSupportedVersionUpdateUrl ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !backendUrl.isEmpty,
+           let url = URL(string: backendUrl),
+           let scheme = url.scheme?.lowercased(),
+           scheme == "https" || scheme == "itms-apps" {
+            return url
+        }
+        return fallbackAppStoreUrl()
+    }
+
+    private func fallbackAppStoreUrl() -> URL? {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier,
+              let encodedBundleIdentifier = bundleIdentifier.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            return nil
+        }
+        return URL(string: "itms-apps://itunes.apple.com/app/bundle-id/\(encodedBundleIdentifier)")
+    }
+
+    private func shouldShowMinimumSupportedVersionPrompt(for minimumVersion: String) -> Bool {
+        guard dismissedMinimumSupportedVersion == minimumVersion else { return true }
+        let now = Date().timeIntervalSince1970
+        let reminderInterval: TimeInterval = 24.0 * 60.0 * 60.0
+        return now - dismissedMinimumSupportedVersionAt >= reminderInterval
+    }
+
+    private func recordMinimumSupportedVersionPromptDismissal() {
+        dismissedMinimumSupportedVersion = minimumSupportedVersionPromptValue
+        dismissedMinimumSupportedVersionAt = Date().timeIntervalSince1970
     }
 }
 
