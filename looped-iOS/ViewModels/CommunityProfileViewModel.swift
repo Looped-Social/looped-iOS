@@ -41,10 +41,32 @@ final class CommunityProfileViewModel: ObservableObject {
                 Task { await self.refreshPostsForContentPreferencesChange() }
             }
             .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .communityStateChanged)
+            .sink { [weak self] (notification: Foundation.Notification) in
+                guard let self else { return }
+                Task { await self.handleCommunityStateChanged(notification) }
+            }
+            .store(in: &cancellables)
     }
 
     private func refreshPostsForContentPreferencesChange() async {
         await loadPosts(reset: true)
+    }
+
+    private func handleCommunityStateChanged(_ notification: Foundation.Notification) async {
+        let changedCommunityId = notification.userInfo?[LoopedNotificationUserInfoKey.communityId] as? Int
+
+        if community.kind == .specialization {
+            await loadSpecializationJoinLimit(force: true)
+            if changedCommunityId == community.id {
+                await loadCommunityDetails(force: true)
+            }
+            return
+        }
+
+        guard let changedCommunityId, changedCommunityId == community.id else { return }
+        await loadCommunityDetails(force: true)
+        await loadVerification()
     }
 
     func loadIfNeeded() async {
@@ -143,6 +165,11 @@ final class CommunityProfileViewModel: ObservableObject {
                 userInfo: [LoopedNotificationUserInfoKey.communityId: community.id]
             )
         } catch {
+            if case let APIError.apiError(_, apiError, _) = error,
+               apiError == "specialization_verification_required" {
+                await loadSpecializationJoinLimit(force: true)
+                await loadCommunityDetails(force: true)
+            }
             updateCommunity { community in
                 community.isJoined = wasJoined
                 community.isFollowing = wasFollowing

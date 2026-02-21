@@ -22,11 +22,15 @@ final class CommunityRequestFlowViewModel: ObservableObject {
         name: String,
         about: String,
         kind: CommunityRequestKind?,
-        imageData: Data?
+        imageData: Data?,
+        contactEmail: String?,
+        notifyWhenAvailable: Bool
     ) async -> Bool {
         guard !isSubmitting else { return false }
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAbout = about.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedContactEmail = (contactEmail ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedContactEmail = trimmedContactEmail.isEmpty ? nil : trimmedContactEmail
 
         guard !trimmedName.isEmpty else {
             errorMessage = "Enter a community name."
@@ -73,7 +77,9 @@ final class CommunityRequestFlowViewModel: ObservableObject {
                 kind: kind,
                 name: trimmedName,
                 about: trimmedAbout,
-                imageKey: imageKey
+                imageKey: imageKey,
+                contactEmail: normalizedContactEmail,
+                notifyWhenAvailable: notifyWhenAvailable
             )
             submission = response
             return true
@@ -102,6 +108,10 @@ final class CommunityRequestFlowViewModel: ObservableObject {
                 return "A community with this name already exists."
             case "request_already_pending":
                 return "You already have a pending request for this community."
+            case "invalid_contact_email":
+                return "Enter a valid contact email."
+            case "contact_email_required":
+                return "Add a contact email so we can notify you."
             default:
                 break
             }

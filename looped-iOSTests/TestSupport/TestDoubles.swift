@@ -178,6 +178,12 @@ final class MockCommunityService: CommunityServiceProtocol {
     var fetchCommunityDomainsCalls: [Int] = []
     var fetchCommunityDomainsHandler: ((Int) async throws -> [String])?
 
+    var fetchCommunityDetailsDTOCalls: [(communityId: Int, kind: CommunityKind)] = []
+    var fetchCommunityDetailsDTOHandler: ((Int, CommunityKind) async throws -> CommunityDetailsDTO)?
+
+    var fetchSpecializationJoinLimitsCalls: [CommunitySpecializationType?] = []
+    var fetchSpecializationJoinLimitsHandler: ((CommunitySpecializationType?) async throws -> [SpecializationJoinLimit])?
+
     func fetchFollowedCommunities(limit: Int, cursor: String?, order: CommunityFollowOrder) async throws -> CommunityPage {
         try unimplemented(#function)
     }
@@ -195,7 +201,11 @@ final class MockCommunityService: CommunityServiceProtocol {
     }
 
     func fetchCommunityDetailsDTO(communityId: Int, kind: CommunityKind) async throws -> CommunityDetailsDTO {
-        try unimplemented(#function)
+        fetchCommunityDetailsDTOCalls.append((communityId, kind))
+        if let handler = fetchCommunityDetailsDTOHandler {
+            return try await handler(communityId, kind)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func fetchCommunityDomains(communityId: Int) async throws -> [String] {
@@ -215,7 +225,11 @@ final class MockCommunityService: CommunityServiceProtocol {
     }
 
     func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit] {
-        try unimplemented(#function)
+        fetchSpecializationJoinLimitsCalls.append(type)
+        if let handler = fetchSpecializationJoinLimitsHandler {
+            return try await handler(type)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func searchCommunities(query: String, limit: Int, cursor: String?, kind: CommunitySearchKind?) async throws -> SearchResultPage<CommunitySearchResult> {
@@ -769,6 +783,8 @@ final class MockUserService: UserServiceProtocol {
     var acknowledgeOnboardingV2PhotoPendingExplainerHandler: (() async throws -> OnboardingStateV2DTO)?
     var finalizeOnboardingV2CallCount = 0
     var finalizeOnboardingV2Handler: (() async throws -> OnboardingStateV2DTO)?
+    var completeOnboardingV2AfterCommunityRequestCallCount = 0
+    var completeOnboardingV2AfterCommunityRequestHandler: (() async throws -> OnboardingStateV2DTO)?
 
     func getIdentity() async throws -> IdentityResponseDTO {
         getIdentityCallCount += 1
@@ -936,6 +952,14 @@ final class MockUserService: UserServiceProtocol {
     func finalizeOnboardingV2() async throws -> OnboardingStateV2DTO {
         finalizeOnboardingV2CallCount += 1
         if let handler = finalizeOnboardingV2Handler {
+            return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func completeOnboardingV2AfterCommunityRequest() async throws -> OnboardingStateV2DTO {
+        completeOnboardingV2AfterCommunityRequestCallCount += 1
+        if let handler = completeOnboardingV2AfterCommunityRequestHandler {
             return try await handler()
         }
         throw TestError.unimplemented(#function)

@@ -443,6 +443,13 @@ class UserService: UserServiceProtocol {
         )
     }
 
+    func completeOnboardingV2AfterCommunityRequest() async throws -> OnboardingStateV2DTO {
+        try await apiClient.post(
+            "/v1/users/me/onboarding-v2/complete-after-community-request",
+            body: EmptyBody()
+        )
+    }
+
     func fetchUserComments(userId: Int, limit: Int, cursor: String?) async throws -> UserCommentsPage {
         var endpoint = "/v1/users/\(userId)/comments?limit=\(limit)"
         if let cursor = cursor, !cursor.isEmpty {

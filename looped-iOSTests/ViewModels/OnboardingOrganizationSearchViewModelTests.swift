@@ -70,6 +70,50 @@ struct OnboardingOrganizationSearchViewModelTests {
     }
 
     @Test
+    func refresh_withQuery_noMatches_setsNoResultsForActiveQuery() async {
+        let service = MockCommunityService()
+        service.searchCommunitiesHandler = { query, _, _, kind in
+            #expect(query == "unknown")
+            #expect(kind == .school)
+            return SearchResultPage(items: [], nextCursor: nil)
+        }
+
+        let viewModel = OnboardingOrganizationSearchViewModel(
+            scope: .schoolsOnly,
+            communityService: service,
+            enableQueryBinding: false
+        )
+        viewModel.query = "unknown"
+
+        await refreshAndWaitForCompletion(viewModel, service: service)
+
+        #expect(viewModel.organizations.isEmpty)
+        #expect(viewModel.errorMessage == nil)
+        #expect(viewModel.hasNoResultsForActiveQuery == true)
+    }
+
+    @Test
+    func refresh_emptyQuery_emptySuggestions_keepsNoResultsFlagFalse() async {
+        let service = MockCommunityService()
+        service.fetchRecommendedHandler = { _, _, _ in
+            SearchResultPage(items: [], nextCursor: nil)
+        }
+
+        let viewModel = OnboardingOrganizationSearchViewModel(
+            scope: .companiesOnly,
+            communityService: service,
+            enableQueryBinding: false
+        )
+        viewModel.query = ""
+
+        await refreshAndWaitForCompletion(viewModel, service: service)
+
+        #expect(viewModel.organizations.isEmpty)
+        #expect(viewModel.errorMessage == nil)
+        #expect(viewModel.hasNoResultsForActiveQuery == false)
+    }
+
+    @Test
     func refresh_error_setsErrorAndClearsResults() async {
         let service = MockCommunityService()
         service.searchCommunitiesHandler = { _, _, _, _ in

@@ -111,6 +111,71 @@ struct AuthViewModelTests {
     }
 
     @Test
+    func completeOnboardingAfterCommunityRequest_success_callsDedicatedEndpoint() async {
+        let authService = MockAuthService()
+        authService.isAuthenticated = true
+        let userService = MockUserService()
+        userService.completeOnboardingV2AfterCommunityRequestHandler = {
+            return OnboardingStateV2DTO(
+                onboardingComplete: true,
+                onboardingStep: .verificationNotifications,
+                onboardingStageV2: "completed",
+                onboardingContext: makeOnboardingContext(completionReason: "community_requested")
+            )
+        }
+        userService.getIdentityHandler = {
+            TestFixtures.identityDTO(
+                provisioned: true,
+                onboardingComplete: true,
+                onboardingStep: nil,
+                user: TestFixtures.userDTO(id: 52)
+            )
+        }
+        userService.getCurrentUserHandler = {
+            TestFixtures.user(backendId: 52, handle: "requestdone", displayName: "Request Done")
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        let success = await viewModel.completeOnboardingAfterCommunityRequest()
+
+        #expect(success == true)
+        #expect(userService.completeOnboardingV2AfterCommunityRequestCallCount == 1)
+        #expect(userService.setOnboardingV2VerificationChoiceCalls.isEmpty)
+        #expect(userService.acknowledgeOnboardingV2SkipExplainerCallCount == 0)
+        #expect(userService.finalizeOnboardingV2CallCount == 0)
+    }
+
+    @Test
+    func completeOnboardingAfterCommunityRequest_whenEndpointFails_returnsFalse() async {
+        let authService = MockAuthService()
+        authService.isAuthenticated = true
+        let userService = MockUserService()
+        userService.completeOnboardingV2AfterCommunityRequestHandler = {
+            throw TestError(message: "community_request_required")
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        let success = await viewModel.completeOnboardingAfterCommunityRequest()
+
+        #expect(success == false)
+        #expect(userService.completeOnboardingV2AfterCommunityRequestCallCount == 1)
+        #expect(userService.acknowledgeOnboardingV2SkipExplainerCallCount == 0)
+        #expect(userService.finalizeOnboardingV2CallCount == 0)
+    }
+
+    @Test
     func loadCurrentUser_userNotProvisioned_setsOnboardingFallbackState() async {
         let authService = MockAuthService()
         let userService = MockUserService()
@@ -303,7 +368,8 @@ struct AuthViewModelTests {
 private func makeOnboardingContext(
     selectedOrgKind: String? = nil,
     verificationPath: String? = nil,
-    verificationStatus: String? = nil
+    verificationStatus: String? = nil,
+    completionReason: String? = nil
 ) -> OnboardingContextV2DTO {
     OnboardingContextV2DTO(
         selectedOrgId: nil,
@@ -314,7 +380,7 @@ private func makeOnboardingContext(
         specializationRequired: nil,
         specializationId: nil,
         specializationName: nil,
-        completionReason: nil
+        completionReason: completionReason
     )
 }
 

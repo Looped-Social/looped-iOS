@@ -16,6 +16,7 @@ struct FeedView: View {
     @State private var lockedActionSheetRequest: LockedActionSheetRequest?
     @State private var lockedActionCachedTabBarVisible: Bool?
     @State private var lockedActionCachedFabHidden: Bool?
+    @State private var lastChromeToggleAt: TimeInterval = 0
 
     private var headerHeight: CGFloat { max(0, measuredHeaderHeight) }
     private let pollInterval: TimeInterval = 90
@@ -135,10 +136,7 @@ struct FeedView: View {
                     isAtTop: isAtTop,
                     indicatorTopPadding: headerVisible ? headerHeight + 14 : 16
                 ) {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        headerVisible = true
-                        isTabBarVisible = true
-                    }
+                    setChromeVisibility(true, force: true)
                     await viewModel.loadInitial()
                 }
                 .overlay(alignment: .top) {
@@ -259,6 +257,7 @@ struct FeedView: View {
             headerVisible = true
             isTabBarVisible = true
             lastScrollOffset = 0
+            lastChromeToggleAt = Date().timeIntervalSince1970
             startPolling()
         }
         .onDisappear {
@@ -321,13 +320,16 @@ struct FeedView: View {
     private func handleScroll(_ offset: CGFloat) {
         guard lockedActionSheetRequest == nil else { return }
 
+        let delta = offset - lastScrollOffset
+        let maxReasonableDelta: CGFloat = 180
+        if abs(delta) > maxReasonableDelta {
+            // Ignore sudden geometry jumps caused by layout transitions.
+            lastScrollOffset = offset
+            return
+        }
+
         if viewModel.isCommunitySearchActive {
-            if !headerVisible || !isTabBarVisible {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    headerVisible = true
-                    isTabBarVisible = true
-                }
-            }
+            setChromeVisibility(true, force: true)
             lastScrollOffset = offset
             let atTop = offset >= -50
             if atTop != isAtTop {
@@ -336,35 +338,49 @@ struct FeedView: View {
             return
         }
 
-        let delta = offset - lastScrollOffset
+        let nearTopThreshold: CGFloat = -50
+        let hideTriggerOffset: CGFloat = -110
+        let directionalDeltaThreshold: CGFloat = 8
         var updatedVisibility: Bool?
 
         // Show header when near top
-        if offset >= -50 {
+        if offset >= nearTopThreshold {
             updatedVisibility = true
         }
         // Hide when scrolling down significantly
-        else if delta < -30 && offset < -100 {
+        else if delta <= -directionalDeltaThreshold && offset <= hideTriggerOffset {
             updatedVisibility = false
         }
         // Show when scrolling up significantly
-        else if delta > 30 {
+        else if delta >= directionalDeltaThreshold {
             updatedVisibility = true
         }
 
-        if let updatedVisibility,
-           headerVisible != updatedVisibility || isTabBarVisible != updatedVisibility {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                headerVisible = updatedVisibility
-                isTabBarVisible = updatedVisibility
-            }
+        if let updatedVisibility {
+            setChromeVisibility(updatedVisibility, force: offset >= nearTopThreshold)
         }
 
-        let atTop = offset >= -50
+        let atTop = offset >= nearTopThreshold
         if atTop != isAtTop {
             isAtTop = atTop
         }
         lastScrollOffset = offset
+    }
+
+    private func setChromeVisibility(_ isVisible: Bool, force: Bool = false) {
+        guard headerVisible != isVisible || isTabBarVisible != isVisible else { return }
+
+        let now = Date().timeIntervalSince1970
+        let toggleCooldown: TimeInterval = 0.16
+        if !force, now - lastChromeToggleAt < toggleCooldown {
+            return
+        }
+
+        lastChromeToggleAt = now
+        withAnimation(.easeInOut(duration: 0.22)) {
+            headerVisible = isVisible
+            isTabBarVisible = isVisible
+        }
     }
 
     private func startPolling() {
@@ -443,15 +459,7 @@ struct FeedView: View {
     }
 
     private func scrollToTop(proxy: ScrollViewProxy) {
-        if !headerVisible || !isTabBarVisible {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                headerVisible = true
-                isTabBarVisible = true
-            }
-        } else {
-            headerVisible = true
-            isTabBarVisible = true
-        }
+        setChromeVisibility(true, force: true)
 
         Task { @MainActor in
             await Task.yield()

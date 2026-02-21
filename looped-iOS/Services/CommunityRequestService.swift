@@ -11,13 +11,17 @@ class CommunityRequestService: CommunityRequestServiceProtocol {
         kind: CommunityRequestKind,
         name: String,
         about: String,
-        imageKey: String?
+        imageKey: String?,
+        contactEmail: String?,
+        notifyWhenAvailable: Bool
     ) async throws -> CommunityRequestSubmission {
         let request = CommunityRequestCreateRequestDTO(
             type: kind.rawValue,
             name: name,
             about: about,
-            imageKey: imageKey
+            imageKey: imageKey,
+            contactEmail: contactEmail,
+            notifyWhenAvailable: notifyWhenAvailable
         )
         let response: CommunityRequestCreateResponseDTO = try await apiClient.post(
             "/v1/community-requests",

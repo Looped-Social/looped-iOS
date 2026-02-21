@@ -189,6 +189,7 @@ protocol UserServiceProtocol {
     func acknowledgeOnboardingV2SkipExplainer() async throws -> OnboardingStateV2DTO
     func acknowledgeOnboardingV2PhotoPendingExplainer() async throws -> OnboardingStateV2DTO
     func finalizeOnboardingV2() async throws -> OnboardingStateV2DTO
+    func completeOnboardingV2AfterCommunityRequest() async throws -> OnboardingStateV2DTO
 }
 
 struct UserFollowActionResult {
@@ -435,7 +436,14 @@ struct MessageMediaResolvedItem: Equatable {
 }
 
 protocol CommunityRequestServiceProtocol {
-    func createCommunityRequest(kind: CommunityRequestKind, name: String, about: String, imageKey: String?) async throws -> CommunityRequestSubmission
+    func createCommunityRequest(
+        kind: CommunityRequestKind,
+        name: String,
+        about: String,
+        imageKey: String?,
+        contactEmail: String?,
+        notifyWhenAvailable: Bool
+    ) async throws -> CommunityRequestSubmission
     func fetchCommunityRequests(status: CommunityRequestStatus?) async throws -> [CommunityRequest]
 }
 

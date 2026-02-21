@@ -2005,6 +2005,7 @@ struct PostCard: View {
 	        community: CommunityProfileData,
 	        completion: CommunityVerificationCompletion
 	    ) async {
+	        await authViewModel.loadCurrentUser()
 	        await refreshCommunityPermissions()
 
 	        switch completion {

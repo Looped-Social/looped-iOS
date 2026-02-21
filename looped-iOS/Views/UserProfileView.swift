@@ -21,6 +21,7 @@ struct UserProfileView: View {
     @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
     @State private var headerHeight: CGFloat = 0
     @State private var headerVisible = true
+    @State private var lastHeaderToggleAt: TimeInterval = 0
     @State private var selectedTab: UserProfileTab = .content
     @State private var hasLoaded = false
     @State private var canPop: Bool?
@@ -95,7 +96,10 @@ struct UserProfileView: View {
             .background(NavigationCanPopReader(canPop: $canPop))
             .modifier(profileActionsModifier)
             .onPreferenceChange(UserProfileHeaderHeightKey.self, perform: handleHeaderHeightChange)
-            .onAppear { syncFloatingActionButtonVisibility() }
+            .onAppear {
+                syncFloatingActionButtonVisibility()
+                lastHeaderToggleAt = Date().timeIntervalSince1970
+            }
             .onReceive(NotificationCenter.default.publisher(for: .userBlockListChanged)) { _ in
                 Task { await refreshBlockState() }
             }
@@ -255,98 +259,98 @@ struct UserProfileView: View {
         }
     }
 
-	    private var profileLayout: some View {
-		        ZStack(alignment: .top) {
-		            ScrollView {
-		                LazyVStack(spacing: 0) {
-		                    scrollContent
-		                    Color.loopedClear.frame(height: 80)
-		                }
-			                .background(
-			                    GeometryReader { geo in
-			                        Color.loopedClear
-			                            .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
-			                                guard abs(newValue - oldValue) > 0.5 else { return }
-			                                handleScroll(oldOffset: oldValue, newOffset: newValue)
-			                            }
-			                    }
-			                )
-		            }
-                    .coordinateSpace(name: scrollCoordinateSpace)
-		            .background(Color.loopedBackground.ignoresSafeArea())
-	            .task { await loadIfNeeded() }
-	            .loopedPullToRefresh(
-	                isAtTop: isAtTop,
-	                showsIndicatorOverlay: false,
-	                indicatorState: $refreshIndicatorState
-	            ) { await reload() }
-	            .safeAreaInset(edge: .top, spacing: 0) {
-	                Color.loopedClear.frame(height: headerHeight)
-	            }
+    private var profileLayout: some View {
+        ZStack(alignment: .top) {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    scrollContent
+                    Color.loopedClear.frame(height: 80)
+                }
+                .background(
+                    GeometryReader { geo in
+                        Color.loopedClear
+                            .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
+                                guard abs(newValue - oldValue) > 0.5 else { return }
+                                handleScroll(oldOffset: oldValue, newOffset: newValue)
+                            }
+                    }
+                )
+            }
+            .coordinateSpace(name: scrollCoordinateSpace)
+            .background(Color.loopedBackground.ignoresSafeArea())
+            .task { await loadIfNeeded() }
+            .loopedPullToRefresh(
+                isAtTop: isAtTop,
+                showsIndicatorOverlay: false,
+                indicatorState: $refreshIndicatorState
+            ) { await reload() }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.loopedClear.frame(height: headerHeight)
+            }
 
-	            headerOverlay
-	        }
-	    }
+            headerOverlay
+        }
+    }
 
-	    @ViewBuilder
-	    private var scrollContent: some View {
-	        if viewModel.isLoading && viewModel.profile == nil {
-	            loadingState
-		        } else if let error = viewModel.errorMessage, viewModel.profile == nil {
-		            errorState(error)
-		        } else if let profile = viewModel.profile {
-	            UserProfileContentView(
-	                userProfile: profile,
-	                selectedTab: selectedTab,
-	                contentViewModel: contentViewModel,
-	                postsViewModel: postsViewModel,
-	                repostsViewModel: repostsViewModel,
-	                commentsViewModel: commentsViewModel
-	            )
-	        } else {
-	            Text("Profile unavailable")
-	                .font(.loopedBodyMedium)
-	                .foregroundColor(.loopedTextSecondary)
-	                .padding(.top, 120)
-	        }
-	    }
+    @ViewBuilder
+    private var scrollContent: some View {
+        if viewModel.isLoading && viewModel.profile == nil {
+            loadingState
+        } else if let error = viewModel.errorMessage, viewModel.profile == nil {
+            errorState(error)
+        } else if let profile = viewModel.profile {
+            UserProfileContentView(
+                userProfile: profile,
+                selectedTab: selectedTab,
+                contentViewModel: contentViewModel,
+                postsViewModel: postsViewModel,
+                repostsViewModel: repostsViewModel,
+                commentsViewModel: commentsViewModel
+            )
+        } else {
+            Text("Profile unavailable")
+                .font(.loopedBodyMedium)
+                .foregroundColor(.loopedTextSecondary)
+                .padding(.top, 120)
+        }
+    }
 
-	    @ViewBuilder
-	    private var headerOverlay: some View {
-	        if let profile = viewModel.profile {
-	            VStack(spacing: 0) {
-	                UserProfileInfoSection(
-	                    userProfile: profile,
-	                    isAnonymousMode: $isAnonymousMode,
-	                    followConfig: followConfig,
-	                    messageConfig: messageConfig
-	                )
-	                UserProfileTabsView(selectedTab: $selectedTab, tabs: tabs)
-	                if let state = refreshIndicatorState {
-	                    LoopedPullToRefreshIndicator(
-	                        fillProgress: state.fillProgress,
-	                        stretchProgress: state.stretchProgress,
-	                        phase: state.phase
-	                    )
-	                    .frame(height: 44)
-	                    .frame(maxWidth: .infinity)
-	                    .padding(.bottom, 6)
-	                    .transition(.opacity)
-	                }
-	            }
-	            .padding(.top, 12)
-	            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top).allowsHitTesting(false))
-	            .background(
-	                GeometryReader { proxy in
-	                    Color.loopedClear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
-	                }
-	            )
+    @ViewBuilder
+    private var headerOverlay: some View {
+        if let profile = viewModel.profile {
+            VStack(spacing: 0) {
+                UserProfileInfoSection(
+                    userProfile: profile,
+                    isAnonymousMode: $isAnonymousMode,
+                    followConfig: followConfig,
+                    messageConfig: messageConfig
+                )
+                UserProfileTabsView(selectedTab: $selectedTab, tabs: tabs)
+                if let state = refreshIndicatorState {
+                    LoopedPullToRefreshIndicator(
+                        fillProgress: state.fillProgress,
+                        stretchProgress: state.stretchProgress,
+                        phase: state.phase
+                    )
+                    .frame(height: 44)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 6)
+                    .transition(.opacity)
+                }
+            }
+            .padding(.top, 12)
+            .background(Color.loopedBackground.ignoresSafeArea(.all, edges: .top).allowsHitTesting(false))
+            .background(
+                GeometryReader { proxy in
+                    Color.loopedClear.preference(key: UserProfileHeaderHeightKey.self, value: proxy.size.height)
+                }
+            )
                 .offset(y: headerVisible ? 0 : -headerHeight)
                 .opacity(headerVisible ? 1 : 0)
                 .allowsHitTesting(headerVisible)
                 .animation(.easeInOut(duration: 0.22), value: headerVisible)
-	        }
-	    }
+        }
+    }
 
     private var loadingState: some View {
         VStack(spacing: 12) {
@@ -378,44 +382,53 @@ struct UserProfileView: View {
         .padding(.horizontal, 24)
     }
 
-	    private func loadIfNeeded() async {
-	        guard !hasLoaded else { return }
-	        hasLoaded = true
-	        await reload()
-	    }
+    private func loadIfNeeded() async {
+        guard !hasLoaded else { return }
+        hasLoaded = true
+        await reload()
+    }
 
-	    private func handleHeaderHeightChange(_ newValue: CGFloat) {
-	        guard newValue > 0, abs(newValue - headerHeight) > 1 else { return }
-	        headerHeight = newValue
-	    }
+    private func handleHeaderHeightChange(_ newValue: CGFloat) {
+        guard newValue > 0, abs(newValue - headerHeight) > 1 else { return }
+        headerHeight = newValue
+    }
 
-	        private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
-	            let delta = newOffset - oldOffset
+    private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
+        let delta = newOffset - oldOffset
+        let nearTopThreshold: CGFloat = -20
+        let directionalDeltaThreshold: CGFloat = 8
+        let maxReasonableDelta: CGFloat = 180
 
-            // At/near top: always show header
-            if newOffset >= -20 {
-                if !headerVisible {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        headerVisible = true
-                    }
-                }
-            } else if delta < -2, headerVisible {
-                // Any meaningful scroll down collapses
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    headerVisible = false
-                }
-            } else if delta > 2, !headerVisible {
-                // Any meaningful scroll up expands
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    headerVisible = true
-                }
+        if abs(delta) <= maxReasonableDelta {
+            if newOffset >= nearTopThreshold {
+                setHeaderVisibility(true, force: true)
+            } else if delta <= -directionalDeltaThreshold {
+                setHeaderVisibility(false)
+            } else if delta >= directionalDeltaThreshold {
+                setHeaderVisibility(true)
             }
+        }
 
-	            let atTop = newOffset >= -20
-	            if atTop != isAtTop {
-	                isAtTop = atTop
-	            }
-	        }
+        let atTop = newOffset >= nearTopThreshold
+        if atTop != isAtTop {
+            isAtTop = atTop
+        }
+    }
+
+    private func setHeaderVisibility(_ isVisible: Bool, force: Bool = false) {
+        guard headerVisible != isVisible else { return }
+
+        let now = Date().timeIntervalSince1970
+        let toggleCooldown: TimeInterval = 0.16
+        if !force, now - lastHeaderToggleAt < toggleCooldown {
+            return
+        }
+
+        lastHeaderToggleAt = now
+        withAnimation(.easeInOut(duration: 0.22)) {
+            headerVisible = isVisible
+        }
+    }
 
     private func reload() async {
         await viewModel.loadProfile()

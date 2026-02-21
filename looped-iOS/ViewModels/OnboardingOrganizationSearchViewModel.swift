@@ -7,12 +7,24 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
         case companiesAndSchools
         case companiesOnly
         case schoolsOnly
+
+        var preferredRequestKind: CommunityRequestKind? {
+            switch self {
+            case .companiesOnly:
+                return .company
+            case .schoolsOnly:
+                return .school
+            case .companiesAndSchools:
+                return nil
+            }
+        }
     }
 
     @Published var query = ""
     @Published private(set) var organizations: [Organization] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var hasNoResultsForActiveQuery = false
 
     private let scope: Scope
     private let communityService: CommunityServiceProtocol
@@ -55,6 +67,7 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         errorMessage = nil
+        hasNoResultsForActiveQuery = false
 
         do {
             if trimmed.isEmpty {
@@ -62,17 +75,20 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 guard querySnapshot == self.query.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
                 organizations = suggested
+                hasNoResultsForActiveQuery = false
             } else {
                 let results = try await searchOrganizations(query: trimmed)
                 guard !Task.isCancelled else { return }
                 guard querySnapshot == self.query.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
                 organizations = results
+                hasNoResultsForActiveQuery = results.isEmpty
             }
         } catch {
             guard !Task.isCancelled else { return }
             guard querySnapshot == self.query.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
             organizations = []
             errorMessage = error.localizedDescription
+            hasNoResultsForActiveQuery = false
         }
     }
 

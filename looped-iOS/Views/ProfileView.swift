@@ -29,6 +29,7 @@ struct ProfileView: View {
     @Environment(\.loopedPresentMainOverlay) private var presentMainOverlay
     @State private var refreshIndicatorState: LoopedPullToRefreshIndicatorState?
     @State private var profileRefreshTask: Task<Void, Never>?
+    @State private var lastHeaderToggleAt: TimeInterval = 0
 
 		@State private var headerHeight: CGFloat = 300
 		@State private var hasActiveVerifications: Bool?
@@ -173,6 +174,7 @@ struct ProfileView: View {
 	        .onAppear {
                 fabState.isHidden = false
 	            headerVisible = true
+                lastHeaderToggleAt = Date().timeIntervalSince1970
 	            startProfileDiscoveryIfNeeded()
             if isAnonymous {
                 queueAnonymousDiscoveryIfNeeded()
@@ -247,11 +249,7 @@ struct ProfileView: View {
 
 				private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
 					guard !isShowingDiscoveryOverlay else {
-						if !headerVisible {
-							withAnimation(.easeInOut(duration: 0.25)) {
-								headerVisible = true
-							}
-						}
+                        setHeaderVisibility(true, force: true)
                         let atTop = newOffset >= -50
                         if atTop != isAtTop {
                             isAtTop = atTop
@@ -260,28 +258,53 @@ struct ProfileView: View {
 					}
 
                     let delta = newOffset - oldOffset
-                    var nextHeaderVisible: Bool?
-
-                    if newOffset >= -50 {
-                        nextHeaderVisible = true
-                    } else if delta < -2 {
-                        nextHeaderVisible = false
-                    } else if delta > 2 {
-                        nextHeaderVisible = true
-                    }
-
-                    if let nextHeaderVisible, nextHeaderVisible != headerVisible {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            headerVisible = nextHeaderVisible
+                    let maxReasonableDelta: CGFloat = 180
+                    if abs(delta) > maxReasonableDelta {
+                        let atTop = newOffset >= -50
+                        if atTop != isAtTop {
+                            isAtTop = atTop
                         }
+                        return
+                    }
+                    var nextHeaderVisible: Bool?
+                    let nearTopThreshold: CGFloat = -50
+                    let directionalDeltaThreshold: CGFloat = 8
+
+                    if newOffset >= nearTopThreshold {
+                        nextHeaderVisible = true
+                    } else if delta <= -directionalDeltaThreshold {
+                        nextHeaderVisible = false
+                    } else if delta >= directionalDeltaThreshold {
+                        nextHeaderVisible = true
                     }
 
-                    let atTop = newOffset >= -50
+                    if let nextHeaderVisible {
+                        setHeaderVisibility(nextHeaderVisible, force: newOffset >= nearTopThreshold)
+                    }
+
+                    let atTop = newOffset >= nearTopThreshold
                     if atTop != isAtTop {
                         isAtTop = atTop
                     }
                 }
 		}
+
+private extension ProfileView {
+    func setHeaderVisibility(_ isVisible: Bool, force: Bool = false) {
+        guard headerVisible != isVisible else { return }
+
+        let now = Date().timeIntervalSince1970
+        let toggleCooldown: TimeInterval = 0.16
+        if !force, now - lastHeaderToggleAt < toggleCooldown {
+            return
+        }
+
+        lastHeaderToggleAt = now
+        withAnimation(.easeInOut(duration: 0.22)) {
+            headerVisible = isVisible
+        }
+    }
+}
 
 private struct ProfileHeaderHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0

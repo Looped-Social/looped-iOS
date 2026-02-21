@@ -5,6 +5,8 @@ struct CommunityRequestCreateRequestDTO: Encodable {
     let name: String
     let about: String
     let imageKey: String?
+    let contactEmail: String?
+    let notifyWhenAvailable: Bool
 }
 
 struct CommunityRequestCreateResponseDTO: Decodable {

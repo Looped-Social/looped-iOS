@@ -9,9 +9,11 @@ struct OrganizationSelectionView: View {
     let selectedOrganizationId: UUID?
     let onSelect: (Organization) -> Void
     let onContinue: (Organization) -> Void
+    let onRequestCommunityCompletion: () async -> Bool
 
     @StateObject private var viewModel: OnboardingOrganizationSearchViewModel
     @State private var isInfoPresented = false
+    @State private var isCommunityRequestPresented = false
     @State private var pendingSelection: Organization?
     @FocusState private var isSearchFieldFocused: Bool
 
@@ -21,7 +23,8 @@ struct OrganizationSelectionView: View {
         searchText: Binding<String>,
         selectedOrganizationId: UUID?,
         onSelect: @escaping (Organization) -> Void,
-        onContinue: @escaping (Organization) -> Void
+        onContinue: @escaping (Organization) -> Void,
+        onRequestCommunityCompletion: @escaping () async -> Bool = { false }
     ) {
         self.title = title
         self.scope = scope
@@ -29,6 +32,7 @@ struct OrganizationSelectionView: View {
         self.selectedOrganizationId = selectedOrganizationId
         self.onSelect = onSelect
         self.onContinue = onContinue
+        self.onRequestCommunityCompletion = onRequestCommunityCompletion
         _viewModel = StateObject(wrappedValue: OnboardingOrganizationSearchViewModel(scope: scope))
     }
 
@@ -121,6 +125,39 @@ struct OrganizationSelectionView: View {
                             .foregroundColor(.loopedTextSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.top, 24)
+
+                            if viewModel.hasNoResultsForActiveQuery {
+                                VStack(spacing: 8) {
+                                    Text("Don't see your community?")
+                                        .font(.loopedSubBodyMedium)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .multilineTextAlignment(.center)
+
+                                    Text("No worries. Request it here and we'll be on it.")
+                                        .font(.loopedSmallText)
+                                        .foregroundColor(.loopedTextSecondary)
+                                        .multilineTextAlignment(.center)
+
+                                    Button {
+                                        isCommunityRequestPresented = true
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.loopedSymbol(.medium, size: 16))
+                                            Text("Request your community")
+                                                .font(.loopedBodyMedium)
+                                        }
+                                        .foregroundColor(.loopedWhite)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 46)
+                                        .background(Color.loopedPrimary)
+                                        .cornerRadius(14)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.top, 8)
+                                .padding(.horizontal, 8)
+                            }
                         }
 
                         ForEach(viewModel.organizations) { organization in
@@ -173,6 +210,14 @@ struct OrganizationSelectionView: View {
             Button("Got it", role: .cancel) { }
         } message: {
             Text("You can only post in communities where you're verified. We'll ask you to verify next, so choose one where you can verify with a work/school email or ID/badge.")
+        }
+        .fullScreenCover(isPresented: $isCommunityRequestPresented) {
+            CommunityRequestFlowView(
+                mode: .onboarding,
+                initialName: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+                suggestedKind: scope.preferredRequestKind,
+                onOnboardingExploreApp: onRequestCommunityCompletion
+            )
         }
     }
 

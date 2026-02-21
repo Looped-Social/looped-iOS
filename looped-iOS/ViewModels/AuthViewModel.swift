@@ -430,6 +430,12 @@ class AuthViewModel: ObservableObject {
         }
     }
 
+    func completeOnboardingAfterCommunityRequest() async -> Bool {
+        await performOnboardingV2Update {
+            try await userService.completeOnboardingV2AfterCommunityRequest()
+        }
+    }
+
     func linkGoogle() async throws {
         guard let vc = UIHelpers.topViewController() else {
             throw AuthError.networkError

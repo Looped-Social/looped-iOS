@@ -162,6 +162,14 @@ private extension AuthView {
                         }
                         restoreOnboardingScreen()
                     }
+                },
+                onRequestCommunityCompletion: {
+                    let success = await authViewModel.completeOnboardingAfterCommunityRequest()
+                    if !success {
+                        await authViewModel.loadCurrentUser()
+                        restoreOnboardingScreen()
+                    }
+                    return success
                 }
             )
         case .selectSchool:
@@ -209,6 +217,14 @@ private extension AuthView {
                         }
                         restoreOnboardingScreen()
                     }
+                },
+                onRequestCommunityCompletion: {
+                    let success = await authViewModel.completeOnboardingAfterCommunityRequest()
+                    if !success {
+                        await authViewModel.loadCurrentUser()
+                        restoreOnboardingScreen()
+                    }
+                    return success
                 }
             )
         case .departmentSelection:

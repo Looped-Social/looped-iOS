@@ -107,7 +107,10 @@ struct CommunityProfileView: View {
         )
         .sheet(item: $verificationTargetCommunity) { community in
             CommunityVerificationFlowView(community: community) { _ in
-                Task { await viewModel.loadVerification() }
+                Task {
+                    await authViewModel.loadCurrentUser()
+                    await viewModel.loadVerification()
+                }
             }
         }
         .sheet(item: $communityShareSheetPayload) { payload in
