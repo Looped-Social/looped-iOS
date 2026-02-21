@@ -51,6 +51,7 @@ protocol FeedServiceProtocol {
     func fetchLikedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchSavedPosts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchRepostedPosts(limit: Int, cursor: String?) async throws -> FeedPage
+    func fetchReposters(postId: Int, limit: Int, cursor: String?) async throws -> RepostersPage
     func fetchUserReposts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage
     func fetchMyReposts(limit: Int, cursor: String?) async throws -> FeedPage
     func fetchAnonReposts(anonProfileId: Int, limit: Int, cursor: String?) async throws -> FeedPage
@@ -81,6 +82,11 @@ struct PostRepostResponse {
 struct PostDeleteResponse {
     let postId: Int
     let deleted: Bool
+}
+
+struct RepostersPage {
+    let items: [RepostBannerUser]
+    let nextCursor: String?
 }
 
 protocol PollsServiceProtocol {

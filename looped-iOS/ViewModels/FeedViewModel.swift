@@ -33,6 +33,7 @@ class FeedViewModel: ObservableObject {
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
     private let mediaService: MediaServiceProtocol
+    private let spotlightIndexingService: SpotlightIndexingServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var nextCursor: String?
     private var communitiesNextCursor: String?
@@ -57,11 +58,13 @@ class FeedViewModel: ObservableObject {
     init(
         feedService: FeedServiceProtocol = FeedService(),
         communityService: CommunityServiceProtocol = CommunityService(),
-        mediaService: MediaServiceProtocol = MediaService()
+        mediaService: MediaServiceProtocol = MediaService(),
+        spotlightIndexingService: SpotlightIndexingServiceProtocol = SpotlightIndexingService()
     ) {
         self.feedService = feedService
         self.communityService = communityService
         self.mediaService = mediaService
+        self.spotlightIndexingService = spotlightIndexingService
         restoreFeedFilterState()
         NotificationCenter.default.publisher(for: .contentPreferencesChanged)
             .sink { [weak self] _ in
@@ -297,8 +300,10 @@ class FeedViewModel: ObservableObject {
             )
             if reset {
                 posts = deduplicatedPosts(page.posts)
+                reindexPostsInSpotlight(posts)
             } else {
                 posts = deduplicatedPosts(posts + page.posts)
+                indexPostsInSpotlight(page.posts)
             }
             pruneTelemetryRequestIdsForVisiblePosts()
             nextCursor = page.nextCursor
@@ -425,16 +430,25 @@ class FeedViewModel: ObservableObject {
     func removePost(backendId: Int?) {
         guard let backendId else { return }
         posts.removeAll { $0.backendId == backendId }
+        removePostsFromSpotlight([backendId])
         pruneTelemetryRequestIdsForVisiblePosts()
     }
 
     func removePosts(authorBackendId: Int) {
+        let removedPostIds = posts
+            .filter { $0.authorBackendId == authorBackendId }
+            .compactMap(\.backendId)
         posts.removeAll { $0.authorBackendId == authorBackendId }
+        removePostsFromSpotlight(removedPostIds)
         pruneTelemetryRequestIdsForVisiblePosts()
     }
 
     func removePosts(authorPrincipalId: Int) {
+        let removedPostIds = posts
+            .filter { $0.authorPrincipalId == authorPrincipalId }
+            .compactMap(\.backendId)
         posts.removeAll { $0.authorPrincipalId == authorPrincipalId }
+        removePostsFromSpotlight(removedPostIds)
         pruneTelemetryRequestIdsForVisiblePosts()
     }
 
@@ -442,6 +456,7 @@ class FeedViewModel: ObservableObject {
         guard let backendId = updated.backendId else { return }
         if let index = posts.firstIndex(where: { $0.backendId == backendId }) {
             posts[index] = updated
+            indexPostsInSpotlight([updated])
         }
     }
 
@@ -607,6 +622,7 @@ class FeedViewModel: ObservableObject {
 
             posts.insert(resolvedPost, at: 0)
             posts = deduplicatedPosts(posts)
+            indexPostsInSpotlight([resolvedPost])
             lastPostedCommunityId = communityId
             UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
             return resolvedPost.isUnderReview ? .createdUnderReview : .created
@@ -622,6 +638,7 @@ class FeedViewModel: ObservableObject {
                 ) {
                     posts.insert(recovered, at: 0)
                     posts = deduplicatedPosts(posts)
+                    indexPostsInSpotlight([recovered])
                     lastPostedCommunityId = communityId
                     UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
                     return .createdUnderReview
@@ -725,6 +742,28 @@ class FeedViewModel: ObservableObject {
             return candidates.max(by: { $0.createdAt < $1.createdAt })
         } catch {
             return nil
+        }
+    }
+
+    private func reindexPostsInSpotlight(_ posts: [Post]) {
+        let snapshot = posts
+        Task(priority: .utility) {
+            await self.spotlightIndexingService.reindexPosts(snapshot)
+        }
+    }
+
+    private func indexPostsInSpotlight(_ posts: [Post]) {
+        let snapshot = posts
+        Task(priority: .utility) {
+            await self.spotlightIndexingService.indexPosts(snapshot)
+        }
+    }
+
+    private func removePostsFromSpotlight(_ postIds: [Int]) {
+        let uniqueIds = Array(Set(postIds.filter { $0 > 0 }))
+        guard !uniqueIds.isEmpty else { return }
+        Task(priority: .utility) {
+            await self.spotlightIndexingService.removePosts(withIds: uniqueIds)
         }
     }
 }

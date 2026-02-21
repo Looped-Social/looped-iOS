@@ -323,6 +323,22 @@ class FeedService: FeedServiceProtocol {
         try await fetchPosts(from: "/v1/posts/reposted", limit: limit, cursor: cursor, communityId: nil)
     }
 
+    func fetchReposters(postId: Int, limit: Int, cursor: String?) async throws -> RepostersPage {
+        let resolvedLimit = limit > 0 ? min(limit, 100) : defaultLimit
+        var endpoint = "/v1/posts/\(postId)/reposters?limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? cursor
+            endpoint += "&cursor=\(encodedCursor)"
+        }
+
+        let data = try await apiClient.getData(endpoint)
+        let response = try decode(RepostersResponseDTO.self, from: data)
+        return RepostersPage(
+            items: response.items.map(RepostBannerUser.init(dto:)),
+            nextCursor: response.nextCursor
+        )
+    }
+
     func fetchUserReposts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
         try await fetchPosts(from: "/v1/users/\(userId)/reposts", limit: limit, cursor: cursor, communityId: nil)
     }

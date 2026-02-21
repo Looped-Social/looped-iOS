@@ -127,6 +127,24 @@ struct PostViewerPrimaryUnlockActionDTO: Codable {
 struct RepostedByUserDTO: Codable {
     let userId: Int
     let username: String
+    let displayName: String?
+    let handle: String?
+    let profileImageUrl: String?
+}
+
+struct RepostersResponseDTO: Codable {
+    let items: [ReposterItemDTO]
+    let nextCursor: String?
+}
+
+struct ReposterItemDTO: Codable {
+    let repostId: Int?
+    let repostedAt: Date?
+    let userId: Int
+    let username: String
+    let displayName: String?
+    let handle: String?
+    let profileImageUrl: String?
 }
 
 struct CreatePostResponseDTO: Codable {

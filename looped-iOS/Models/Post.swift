@@ -381,18 +381,51 @@ extension Post {
 }
 
 struct RepostBannerUser: Codable, Identifiable, Hashable {
+    let repostId: Int?
+    let repostedAt: Date?
     let userId: Int
     let username: String
+    let displayName: String?
+    let handle: String?
+    let profileImageURL: String?
 
     var id: Int { userId }
 
-    init(userId: Int, username: String) {
+    init(
+        userId: Int,
+        username: String,
+        displayName: String? = nil,
+        handle: String? = nil,
+        profileImageURL: String? = nil,
+        repostId: Int? = nil,
+        repostedAt: Date? = nil
+    ) {
+        self.repostId = repostId
+        self.repostedAt = repostedAt
         self.userId = userId
         self.username = username
+        self.displayName = displayName
+        self.handle = handle
+        self.profileImageURL = profileImageURL
     }
 
     init(dto: RepostedByUserDTO) {
+        self.repostId = nil
+        self.repostedAt = nil
         self.userId = dto.userId
         self.username = dto.username
+        self.displayName = dto.displayName
+        self.handle = dto.handle
+        self.profileImageURL = dto.profileImageUrl
+    }
+
+    init(dto: ReposterItemDTO) {
+        self.repostId = dto.repostId
+        self.repostedAt = dto.repostedAt
+        self.userId = dto.userId
+        self.username = dto.username
+        self.displayName = dto.displayName
+        self.handle = dto.handle
+        self.profileImageURL = dto.profileImageUrl
     }
 }

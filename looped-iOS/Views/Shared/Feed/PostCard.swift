@@ -310,6 +310,7 @@ struct PostCard: View {
 		            .sheet(isPresented: $showRepostersSheet) {
 		                NavigationStack {
 		                    RepostersListView(
+                                postId: post.backendId,
 		                        users: post.repostedByFollowedUsers ?? [],
 		                        totalCount: post.repostedByFollowedUsersCount ?? post.repostedByFollowedUsers?.count ?? 0
 		                    )

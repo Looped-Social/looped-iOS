@@ -10,6 +10,7 @@ struct CommunityProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.loopedIsTabBarVisible) private var isTabBarVisible
     @Environment(\.loopedSetTabBarVisible) private var setTabBarVisible
+    @Environment(\.loopedPresentToast) private var presentToast
     @EnvironmentObject private var authViewModel: AuthViewModel
     @StateObject private var viewModel: CommunityProfileViewModel
     @StateObject private var hashtagPostsViewModel: CommunityHashtagPostsViewModel
@@ -23,6 +24,7 @@ struct CommunityProfileView: View {
     @State private var canPop: Bool?
     @State private var isAtTop = true
     @State private var specializationInfoCachedTabBarVisible: Bool?
+    @State private var communityShareSheetPayload: CommunityShareSheetPayload?
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
@@ -78,6 +80,17 @@ struct CommunityProfileView: View {
                     .accessibilityLabel("Close")
                 }
             }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: shareCommunityPage) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.loopedCustom(.medium, size: 18))
+                        .foregroundColor(.loopedTextSecondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share community")
+            }
         }
         .background(NavigationCanPopReader(canPop: $canPop))
         .environmentObject(commentsManager)
@@ -96,6 +109,9 @@ struct CommunityProfileView: View {
             CommunityVerificationFlowView(community: community) { _ in
                 Task { await viewModel.loadVerification() }
             }
+        }
+        .sheet(item: $communityShareSheetPayload) { payload in
+            ShareSheet(items: payload.items)
         }
         .alert(
             "Update Failed",
@@ -623,11 +639,28 @@ struct CommunityProfileView: View {
         await viewModel.loadIfNeeded()
     }
 
+    private func shareCommunityPage() {
+        guard let url = communityShareURL else {
+            presentToast(ToastMessage(text: "Couldn't share community link right now.", kind: .error))
+            return
+        }
+        communityShareSheetPayload = CommunityShareSheetPayload(items: [url])
+    }
+
+    private var communityShareURL: URL? {
+        URL(string: "https://mylooped.app/c/\(viewModel.community.id)")
+    }
+
     private struct VerificationDisplay {
         let title: String
         let subtitle: String?
         let icon: String
         let color: Color
+    }
+
+    private struct CommunityShareSheetPayload: Identifiable {
+        let id = UUID()
+        let items: [Any]
     }
 
     private struct SpecializationJoinDisplay {

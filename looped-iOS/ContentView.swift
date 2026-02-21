@@ -55,6 +55,7 @@ struct ContentView: View {
     @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
     @AppStorage("defaultProfileImageUrlFetchedAt") private var defaultProfileImageUrlFetchedAt = 0.0
     @AppStorage("didShowNotificationPermissionPrompt") private var didShowNotificationPermissionPrompt = false
+    private let spotlightIndexingService: SpotlightIndexingServiceProtocol = SpotlightIndexingService()
     private var uiTestBypassAuth: Bool {
         ProcessInfo.processInfo.environment["LOOPED_UI_TEST_BYPASS_AUTH"] == "1"
     }
@@ -129,9 +130,19 @@ struct ContentView: View {
         .preferredColorScheme(preferredColorScheme)
         .onAppear {
             deepLinkRouter.setAuthenticationState(authViewModel.isAuthenticated)
+            if !authViewModel.isAuthenticated {
+                Task {
+                    await spotlightIndexingService.removeAllPosts()
+                }
+            }
         }
         .onChange(of: authViewModel.isAuthenticated) { _, newValue in
             deepLinkRouter.setAuthenticationState(newValue)
+            if !newValue {
+                Task {
+                    await spotlightIndexingService.removeAllPosts()
+                }
+            }
         }
         .onChange(of: preferCommunityShortNames) { _, _ in
             Task { await feedViewModel.loadFollowedCommunities(reset: true) }

@@ -111,6 +111,10 @@ final class MockFeedService: FeedServiceProtocol {
         try unimplemented(#function)
     }
 
+    func fetchReposters(postId: Int, limit: Int, cursor: String?) async throws -> RepostersPage {
+        try unimplemented(#function)
+    }
+
     func fetchUserReposts(userId: Int, limit: Int, cursor: String?) async throws -> FeedPage {
         try unimplemented(#function)
     }

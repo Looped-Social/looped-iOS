@@ -132,11 +132,16 @@ final class DeepLinkRouter: ObservableObject {
 
     @discardableResult
     func handleUserActivity(_ userActivity: NSUserActivity) -> Bool {
-        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
-              let url = userActivity.webpageURL else {
-            return false
+        if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+           let url = userActivity.webpageURL {
+            return handleIncomingURL(url)
         }
-        return handleIncomingURL(url)
+
+        if let spotlightURL = SpotlightPostRoute.deepLinkURL(from: userActivity) {
+            return handleIncomingURL(spotlightURL)
+        }
+
+        return false
     }
 
     @discardableResult
@@ -262,6 +267,15 @@ final class DeepLinkRouter: ObservableObject {
                 return ParsedDeepLink(destination: .home, pathType: .post, failureReason: .parseError)
             }
             return ParsedDeepLink(destination: .post(postId), pathType: .post)
+
+        case "c":
+            guard encodedSegments.count > 1 else {
+                return ParsedDeepLink(destination: .home, pathType: .community, failureReason: .parseError)
+            }
+            guard let communityId = Int(encodedSegments[1]), communityId > 0 else {
+                return ParsedDeepLink(destination: .home, pathType: .community, failureReason: .parseError)
+            }
+            return ParsedDeepLink(destination: .community(communityId), pathType: .community)
 
         case "u":
             guard encodedSegments.count > 1 else {

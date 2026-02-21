@@ -9,6 +9,12 @@ import SwiftUI
 import Foundation
 import FirebaseCore
 import UserNotifications
+#if canImport(CoreSpotlight)
+import CoreSpotlight
+#endif
+#if canImport(AppIntents)
+import AppIntents
+#endif
 #if canImport(FirebaseAuth)
 import FirebaseAuth
 #endif
@@ -205,6 +211,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 struct looped_iOSApp: App {
     init() {
         CacheHousekeeper.configureCacheLimits()
+        #if canImport(AppIntents)
+        LoopedAppShortcuts.updateAppShortcutParameters()
+        #endif
         DispatchQueue.global(qos: .utility).async {
             CacheHousekeeper.runIfNeeded()
         }
@@ -220,6 +229,11 @@ struct looped_iOSApp: App {
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
                     _ = deepLinkRouter.handleUserActivity(userActivity)
                 }
+                #if canImport(CoreSpotlight)
+                .onContinueUserActivity(CSSearchableItemActionType) { userActivity in
+                    _ = deepLinkRouter.handleUserActivity(userActivity)
+                }
+                #endif
                 .onOpenURL { url in
                     #if canImport(FirebaseAuth)
                     if Auth.auth().canHandle(url) {
