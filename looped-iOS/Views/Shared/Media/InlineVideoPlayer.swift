@@ -745,6 +745,7 @@ struct InlineVideoPlayer: View {
         let clipShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         let hasThumbnail = (thumbnailUrl ?? "").isEmpty == false
         let shouldShowPoster = hasThumbnail && !viewModel.isReadyForDisplay
+        let isBuffering = hasAttemptedPlayback && !viewModel.isReadyForDisplay && viewModel.errorDescription == nil
         let muteBottomPadding: CGFloat = (controlsVisible && onFullScreen == nil) ? 54 : 10
 
         ZStack {
@@ -781,7 +782,7 @@ struct InlineVideoPlayer: View {
             .allowsHitTesting(false)
             .zIndex(1)
 
-            if hasAttemptedPlayback, !viewModel.isReadyForDisplay, viewModel.errorDescription == nil {
+            if isBuffering {
                 ProgressView()
                     .tint(.loopedWhite.opacity(0.9))
                     .allowsHitTesting(false)
@@ -822,6 +823,7 @@ struct InlineVideoPlayer: View {
                         }
                 }
             }
+            .allowsHitTesting(!isBuffering)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .zIndex(3)
 
