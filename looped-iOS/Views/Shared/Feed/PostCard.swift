@@ -461,6 +461,7 @@ struct PostCard: View {
 		            VStack(alignment: .leading, spacing: 0) {
 		                HStack(spacing: 6) {
 		                    authorName
+                                .layoutPriority(1)
 
 		                    if let authorDisplayLine {
 		                        Text("•")
