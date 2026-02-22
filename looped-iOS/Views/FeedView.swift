@@ -155,7 +155,7 @@ struct FeedView: View {
                 }
                 .feedTopSafeInsetIfNeeded(height: headerHeight, isEnabled: !usesIOS17ScrollTuning)
                 .loopedPullToRefresh(
-                    isEnabled: !viewModel.isCommunitySearchActive && !usesIOS17ScrollTuning,
+                    isEnabled: !viewModel.isCommunitySearchActive,
                     isAtTop: isAtTop,
                     indicatorTopPadding: headerVisible ? headerHeight + 14 : 16
                 ) {
@@ -435,6 +435,7 @@ struct FeedView: View {
             let nearTopThreshold: CGFloat = -24
             let hideTriggerOffset: CGFloat = -96
             let hideTravelThreshold: CGFloat = 24
+            let showTravelThreshold: CGFloat = 16
 
             if delta < 0 {
                 scrollDirectionTravel = min(0, scrollDirectionTravel) + delta
@@ -448,6 +449,9 @@ struct FeedView: View {
             } else if scrollDirectionTravel <= -hideTravelThreshold, offset <= hideTriggerOffset {
                 scrollDirectionTravel = 0
                 setChromeVisibility(false)
+            } else if scrollDirectionTravel >= showTravelThreshold {
+                scrollDirectionTravel = 0
+                setChromeVisibility(true)
             }
 
             let atTop = offset >= nearTopThreshold

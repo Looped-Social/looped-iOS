@@ -43,10 +43,6 @@ final class UserCommentsViewModel: ObservableObject {
     func loadInitial() async {
         guard !isLoading else { return }
         nextCursor = nil
-        comments = []
-        postLookup = [:]
-        loadingPostIds = []
-        unavailablePostIds = []
         await load(reset: true)
     }
 
@@ -87,7 +83,9 @@ final class UserCommentsViewModel: ObservableObject {
             }
             nextCursor = page.nextCursor
         } catch {
-            errorMessage = error.localizedDescription
+            if !isCancellation(error) {
+                errorMessage = error.localizedDescription
+            }
         }
 
         if reset {
@@ -164,6 +162,26 @@ final class UserCommentsViewModel: ObservableObject {
         let comments = response.items.map(Comment.init(dto:))
         return UserCommentsPage(comments: comments, nextCursor: response.nextCursor)
     }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return true
+        }
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .networkError(let underlying):
+                return isCancellation(underlying)
+            default:
+                return false
+            }
+        }
+        return false
+    }
 }
 
 @MainActor
@@ -211,10 +229,6 @@ final class UserRepliesViewModel: ObservableObject {
     func loadInitial() async {
         guard !isLoading else { return }
         nextCursor = nil
-        replies = []
-        postLookup = [:]
-        loadingPostIds = []
-        unavailablePostIds = []
         await load(reset: true)
     }
 
@@ -251,7 +265,9 @@ final class UserRepliesViewModel: ObservableObject {
             }
             nextCursor = page.nextCursor
         } catch {
-            errorMessage = error.localizedDescription
+            if !isCancellation(error) {
+                errorMessage = error.localizedDescription
+            }
         }
 
         if reset {
@@ -336,5 +352,25 @@ final class UserRepliesViewModel: ObservableObject {
             "anonSig=\(encodedSig)"
         ]
         return endpoint + "&" + params.joined(separator: "&")
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return true
+        }
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .networkError(let underlying):
+                return isCancellation(underlying)
+            default:
+                return false
+            }
+        }
+        return false
     }
 }

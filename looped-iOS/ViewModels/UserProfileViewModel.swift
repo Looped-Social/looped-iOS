@@ -77,7 +77,9 @@ final class UserProfileViewModel: ObservableObject {
                 await syncFollowStateFromBackend(for: .anon(id: anonProfileId))
             }
         } catch {
-            errorMessage = error.localizedDescription
+            if !isCancellation(error) {
+                errorMessage = error.localizedDescription
+            }
         }
 
         isLoading = false
@@ -268,5 +270,25 @@ final class UserProfileViewModel: ObservableObject {
         default:
             return "Couldn't \(verb) user. \(message ?? apiError)"
         }
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return true
+        }
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .networkError(let underlying):
+                return isCancellation(underlying)
+            default:
+                return false
+            }
+        }
+        return false
     }
 }

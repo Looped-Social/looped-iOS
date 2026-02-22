@@ -46,10 +46,6 @@ final class UserContentViewModel: ObservableObject {
     func loadInitial() async {
         guard !isLoading else { return }
         nextCursor = nil
-        items = []
-        postLookup = [:]
-        loadingPostIds = []
-        unavailablePostIds = []
         await load(reset: true)
     }
 
@@ -134,7 +130,9 @@ final class UserContentViewModel: ObservableObject {
                 }
             }
         } catch {
-            errorMessage = error.localizedDescription
+            if !isCancellation(error) {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -206,6 +204,26 @@ final class UserContentViewModel: ObservableObject {
                 return code == 404
             case .apiError(let code, _, _):
                 return code == 404
+            default:
+                return false
+            }
+        }
+        return false
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+            return true
+        }
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .networkError(let underlying):
+                return isCancellation(underlying)
             default:
                 return false
             }
