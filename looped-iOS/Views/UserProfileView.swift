@@ -36,6 +36,10 @@ struct UserProfileView: View {
 	    @State private var startedConversation: Conversation?
 	    @State private var messageErrorMessage: String?
     private let scrollCoordinateSpace = "userProfileScrollCoordinateSpace"
+    private var usesIOS17ScrollTuning: Bool {
+        if #available(iOS 18.0, *) { return false }
+        return true
+    }
 
 	    private let blockService: BlockServiceProtocol = BlockService()
 	    private let messageService: MessageServiceProtocol = MessageService()
@@ -264,6 +268,12 @@ struct UserProfileView: View {
         ZStack(alignment: .top) {
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    if usesIOS17ScrollTuning {
+                        Color.loopedClear
+                            .frame(height: headerHeight)
+                            .allowsHitTesting(false)
+                    }
+
                     scrollContent
                     Color.loopedClear.frame(height: 80)
                 }
@@ -285,9 +295,7 @@ struct UserProfileView: View {
                 showsIndicatorOverlay: false,
                 indicatorState: $refreshIndicatorState
             ) { await reload() }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.loopedClear.frame(height: headerHeight)
-            }
+            .userProfileTopSafeInsetIfNeeded(height: headerHeight, isEnabled: !usesIOS17ScrollTuning)
 
             headerOverlay
         }
@@ -349,7 +357,6 @@ struct UserProfileView: View {
                 .offset(y: headerVisible ? 0 : -headerHeight)
                 .opacity(headerVisible ? 1 : 0)
                 .allowsHitTesting(headerVisible)
-                .animation(.easeInOut(duration: 0.22), value: headerVisible)
         }
     }
 
@@ -396,11 +403,11 @@ struct UserProfileView: View {
 
     private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
         let delta = newOffset - oldOffset
-        let nearTopThreshold: CGFloat = -50
-        let hideTriggerOffset: CGFloat = -110
-        let directionalDeltaThreshold: CGFloat = 8
-        let revealDistanceThreshold: CGFloat = 34
-        let maxReasonableDelta: CGFloat = 180
+        let nearTopThreshold: CGFloat = usesIOS17ScrollTuning ? -24 : -50
+        let hideTriggerOffset: CGFloat = usesIOS17ScrollTuning ? -96 : -110
+        let directionalDeltaThreshold: CGFloat = usesIOS17ScrollTuning ? 10 : 8
+        let revealDistanceThreshold: CGFloat = usesIOS17ScrollTuning ? 28 : 34
+        let maxReasonableDelta: CGFloat = usesIOS17ScrollTuning ? 90 : 180
 
         if abs(delta) <= maxReasonableDelta {
             if newOffset >= nearTopThreshold {
@@ -432,7 +439,7 @@ struct UserProfileView: View {
         guard headerVisible != isVisible else { return }
 
         let now = Date().timeIntervalSince1970
-        let toggleCooldown: TimeInterval = 0.16
+        let toggleCooldown: TimeInterval = usesIOS17ScrollTuning ? 0.12 : 0.16
         if !force, now - lastHeaderToggleAt < toggleCooldown {
             return
         }
@@ -1281,6 +1288,21 @@ private struct UserProfileHeaderHeightKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func userProfileTopSafeInsetIfNeeded(height: CGFloat, isEnabled: Bool) -> some View {
+        if isEnabled {
+            self.safeAreaInset(edge: .top, spacing: 0) {
+                Color.loopedClear
+                    .frame(height: height)
+                    .allowsHitTesting(false)
+            }
+        } else {
+            self
+        }
     }
 }
 

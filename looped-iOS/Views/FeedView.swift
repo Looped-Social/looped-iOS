@@ -17,15 +17,33 @@ struct FeedView: View {
     @State private var lockedActionCachedTabBarVisible: Bool?
     @State private var lockedActionCachedFabHidden: Bool?
     @State private var lastChromeToggleAt: TimeInterval = 0
+    @State private var scrollDirectionTravel: CGFloat = 0
+    @State private var activeNavigationDestination: FeedNavigationDestination?
+    @State private var debugRawOffset: CGFloat = 0
+    @State private var debugNormalizedOffset: CGFloat = 0
+    @State private var debugDelta: CGFloat = 0
+    @State private var debugSampleCount: Int = 0
+    @State private var lastDebugConsoleBucket: Int = .min
+    @State private var isUserActivelyScrolling = false
+    @State private var scrollIdleWorkItem: DispatchWorkItem?
 
     private var headerHeight: CGFloat { max(0, measuredHeaderHeight) }
     private let pollInterval: TimeInterval = 90
     private let toastCooldown: TimeInterval = 7 * 60
     private let minNewPostsCount = 7
     private let topAnchorId = "feedTop"
-    private let scrollCoordinateSpace = "feedScrollCoordinateSpace"
+    private var usesIOS17ScrollTuning: Bool {
+        if #available(iOS 18.0, *) { return false }
+        return true
+    }
     private var uiTestDisableNetworkBootstrap: Bool {
         ProcessInfo.processInfo.environment["LOOPED_UI_TEST_DISABLE_NETWORK"] == "1"
+    }
+    private var showsScrollDebugOverlay: Bool {
+        usesIOS17ScrollTuning && ProcessInfo.processInfo.environment["LOOPED_DEBUG_SCROLL"] == "1"
+    }
+    private var showsScrollDebugConsole: Bool {
+        usesIOS17ScrollTuning && ProcessInfo.processInfo.environment["LOOPED_DEBUG_SCROLL_LOG"] == "1"
     }
 
     init(
@@ -44,95 +62,100 @@ struct FeedView: View {
             // Simple native ScrollView with ScrollViewReader
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    VStack(spacing: 0) {
                         Color.loopedClear
                             .frame(height: 0)
                             .id(topAnchorId)
+                            .background(
+                                LoopedScrollOffsetObserver { offset in
+                                    handleRawScroll(offset)
+                                }
+                            )
 
-                        if viewModel.isLoading && viewModel.posts.isEmpty {
-                            if viewModel.showSkeleton {
-                                ForEach(0..<6, id: \.self) { index in
-                                    PostCardSkeleton(showsMedia: index % 3 != 0)
+                        if usesIOS17ScrollTuning {
+                            Color.loopedClear
+                                .frame(height: headerHeight)
+                                .allowsHitTesting(false)
+                        }
+
+                        LazyVStack(spacing: 0) {
+                            if viewModel.isLoading && viewModel.posts.isEmpty {
+                                if viewModel.showSkeleton {
+                                    ForEach(0..<6, id: \.self) { index in
+                                        PostCardSkeleton(showsMedia: index % 3 != 0)
+
+                                        Rectangle()
+                                            .frame(height: 1)
+                                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                    }
+                                } else {
+                                    ProgressView()
+                                        .tint(.loopedPrimary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 26)
+                                }
+                            } else if viewModel.posts.isEmpty {
+                                EmptyFeedView()
+                            } else {
+                                ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
+                                    let telemetryContext = viewModel.feedTelemetryContext(for: post, position: index)
+                                    PostCard(
+                                        post: post,
+                                        showsCommunityLabel: true,
+                                        showsRepostBanner: true,
+                                        telemetryFeedContext: telemetryContext,
+                                        telemetryEntryPoint: "feed",
+                                        onUpdate: { updated in
+                                            viewModel.updatePost(updated)
+                                        },
+                                        onDelete: { deleted in
+                                            viewModel.removePost(backendId: deleted.backendId)
+                                        },
+                                        onBlockUser: { blockedUserId in
+                                            viewModel.removePosts(authorBackendId: blockedUserId)
+                                        },
+                                        onBlockPrincipal: { principalId in
+                                            viewModel.removePosts(authorPrincipalId: principalId)
+                                        },
+                                        onPresentLockedActionSheet: { request in
+                                            lockedActionSheetRequest = request
+                                            prepareForLockedActionPresentation()
+                                        },
+                                        onAuthorNavigationRequested: { profileId, isAnonymousProfile in
+                                            handleAuthorNavigationRequest(profileId: profileId, isAnonymousProfile: isAnonymousProfile)
+                                        },
+                                        onCommunityNavigationRequested: { community in
+                                            handleCommunityNavigationRequest(community)
+                                        }
+                                    )
+                                        .onAppear {
+                                            beginImpressionTracking(for: post, context: telemetryContext)
+                                            Task {
+                                                await viewModel.loadMoreIfNeeded(currentPost: post)
+                                            }
+                                        }
+                                        .onDisappear {
+                                            endImpressionTracking(for: post)
+                                        }
 
                                     Rectangle()
                                         .frame(height: 1)
                                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
                                 }
-                            } else {
-                                ProgressView()
-                                    .tint(.loopedPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 26)
-                            }
-                        } else if viewModel.posts.isEmpty {
-                            EmptyFeedView()
-                        } else {
-                            ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
-                                let telemetryContext = viewModel.feedTelemetryContext(for: post, position: index)
-                                PostCard(
-                                    post: post,
-                                    showsCommunityLabel: true,
-                                    showsRepostBanner: true,
-                                    telemetryFeedContext: telemetryContext,
-                                    telemetryEntryPoint: "feed",
-                                    onUpdate: { updated in
-                                        viewModel.updatePost(updated)
-                                    },
-                                    onDelete: { deleted in
-                                        viewModel.removePost(backendId: deleted.backendId)
-                                    },
-                                    onBlockUser: { blockedUserId in
-                                        viewModel.removePosts(authorBackendId: blockedUserId)
-                                    },
-                                    onBlockPrincipal: { principalId in
-                                        viewModel.removePosts(authorPrincipalId: principalId)
-                                    },
-                                    onPresentLockedActionSheet: { request in
-                                        lockedActionSheetRequest = request
-                                        prepareForLockedActionPresentation()
-                                    }
-                                )
-                                    .onAppear {
-                                        beginImpressionTracking(for: post, context: telemetryContext)
-                                        Task {
-                                            await viewModel.loadMoreIfNeeded(currentPost: post)
-                                        }
-                                    }
-                                    .onDisappear {
-                                        endImpressionTracking(for: post)
-                                    }
 
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                            }
-
-                            if viewModel.isLoadingMore {
-                                LoopedInlineLoadingIndicator()
+                                if viewModel.isLoadingMore {
+                                    LoopedInlineLoadingIndicator()
+                                }
                             }
                         }
                     }
-                    .background(
-                        GeometryReader { geo in
-                            Color.loopedClear
-                                .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
-                                    guard abs(newValue - oldValue) > 0.5 else { return }
-                                    handleScroll(newValue)
-                                }
-                        }
-                    )
                 }
-                .coordinateSpace(name: scrollCoordinateSpace)
                 .onChange(of: scrollToTopSignal) { _, _ in
                     scrollToTop(proxy: proxy)
                 }
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    Color.loopedClear
-                        .frame(height: headerHeight)
-                        .allowsHitTesting(false)
-                }
+                .feedTopSafeInsetIfNeeded(height: headerHeight, isEnabled: !usesIOS17ScrollTuning)
                 .loopedPullToRefresh(
-                    isEnabled: !viewModel.isCommunitySearchActive,
+                    isEnabled: !viewModel.isCommunitySearchActive && !usesIOS17ScrollTuning,
                     isAtTop: isAtTop,
                     indicatorTopPadding: headerVisible ? headerHeight + 14 : 16
                 ) {
@@ -216,10 +239,27 @@ struct FeedView: View {
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
             .allowsHitTesting(headerVisible)
-            .animation(.easeInOut(duration: 0.25), value: headerVisible)
         }
         .background(Color.loopedBackground)
         .navigationBarHidden(true)
+        .overlay(alignment: .bottomLeading) {
+            if showsScrollDebugOverlay {
+                scrollDebugOverlay
+                    .padding(.leading, 12)
+                    .padding(.bottom, 12)
+                    .allowsHitTesting(false)
+            }
+        }
+        .navigationDestination(item: $activeNavigationDestination) { destination in
+            switch destination {
+            case .userProfile(let userId):
+                UserProfileView(userId: userId)
+            case .anonymousProfile(let profileId):
+                UserProfileView(anonProfileId: profileId)
+            case .community(let community):
+                CommunityProfileView(community: community)
+            }
+        }
         .overlay {
             LoopedBottomDrawer(
                 isPresented: lockedActionSheetRequest != nil,
@@ -257,7 +297,14 @@ struct FeedView: View {
             headerVisible = true
             isTabBarVisible = true
             lastScrollOffset = 0
+            scrollDirectionTravel = 0
+            isUserActivelyScrolling = false
+            scrollIdleWorkItem?.cancel()
+            scrollIdleWorkItem = nil
             lastChromeToggleAt = Date().timeIntervalSince1970
+            if showsScrollDebugConsole {
+                print("[FeedScroll] debug console enabled")
+            }
             startPolling()
         }
         .onDisappear {
@@ -272,6 +319,9 @@ struct FeedView: View {
                 lockedActionCachedFabHidden = nil
                 lockedActionSheetRequest = nil
             }
+            scrollIdleWorkItem?.cancel()
+            scrollIdleWorkItem = nil
+            isUserActivelyScrolling = false
             stopPolling()
         }
         .onChange(of: isAnonymousMode) { _, _ in
@@ -317,42 +367,123 @@ struct FeedView: View {
         }
     }
 
+    private func handleAuthorNavigationRequest(profileId: Int, isAnonymousProfile: Bool) {
+        activeNavigationDestination = isAnonymousProfile
+            ? .anonymousProfile(profileId: profileId)
+            : .userProfile(userId: profileId)
+    }
+
+    private func handleCommunityNavigationRequest(_ community: CommunityProfileData) {
+        activeNavigationDestination = .community(community: community)
+    }
+
+    private func handleRawScroll(_ rawOffset: CGFloat) {
+        if showsScrollDebugOverlay {
+            debugRawOffset = rawOffset
+            debugNormalizedOffset = rawOffset
+            debugSampleCount = (debugSampleCount + 1) % 100_000
+        }
+        handleScroll(rawOffset)
+        if showsScrollDebugConsole {
+            let bucket = Int((rawOffset / 16).rounded(.towardZero))
+            if bucket != lastDebugConsoleBucket {
+                lastDebugConsoleBucket = bucket
+                print("[FeedScroll] raw=\(Int(rawOffset)) off=\(Int(debugNormalizedOffset)) delta=\(Int(debugDelta)) travel=\(Int(scrollDirectionTravel)) header=\(headerVisible) top=\(isAtTop)")
+            }
+        }
+    }
+
     private func handleScroll(_ offset: CGFloat) {
         guard lockedActionSheetRequest == nil else { return }
 
+        let topStateThreshold: CGFloat = usesIOS17ScrollTuning ? -24 : -50
+        let minimumDirectionalDelta: CGFloat = usesIOS17ScrollTuning ? 1.0 : 0.8
         let delta = offset - lastScrollOffset
-        let maxReasonableDelta: CGFloat = 180
+        markUserScrollingIfNeeded(delta: delta)
+        if showsScrollDebugOverlay || showsScrollDebugConsole {
+            debugNormalizedOffset = offset
+            debugDelta = delta
+        }
+        let maxReasonableDelta: CGFloat = usesIOS17ScrollTuning ? 120 : 180
         if abs(delta) > maxReasonableDelta {
             // Ignore sudden geometry jumps caused by layout transitions.
+            scrollDirectionTravel = 0
+            lastScrollOffset = offset
+            return
+        }
+        if abs(delta) < minimumDirectionalDelta {
+            let atTop = offset >= topStateThreshold
+            if atTop != isAtTop {
+                isAtTop = atTop
+            }
             lastScrollOffset = offset
             return
         }
 
         if viewModel.isCommunitySearchActive {
             setChromeVisibility(true, force: true)
+            scrollDirectionTravel = 0
             lastScrollOffset = offset
-            let atTop = offset >= -50
+            let atTop = offset >= topStateThreshold
             if atTop != isAtTop {
                 isAtTop = atTop
             }
             return
         }
 
+        if usesIOS17ScrollTuning {
+            let nearTopThreshold: CGFloat = -24
+            let hideTriggerOffset: CGFloat = -96
+            let hideTravelThreshold: CGFloat = 24
+
+            if delta < 0 {
+                scrollDirectionTravel = min(0, scrollDirectionTravel) + delta
+            } else if delta > 0 {
+                scrollDirectionTravel = max(0, scrollDirectionTravel) + delta
+            }
+
+            if offset >= nearTopThreshold {
+                scrollDirectionTravel = 0
+                setChromeVisibility(true, force: true)
+            } else if scrollDirectionTravel <= -hideTravelThreshold, offset <= hideTriggerOffset {
+                scrollDirectionTravel = 0
+                setChromeVisibility(false)
+            }
+
+            let atTop = offset >= nearTopThreshold
+            if atTop != isAtTop {
+                isAtTop = atTop
+            }
+            lastScrollOffset = offset
+            return
+        }
+
         let nearTopThreshold: CGFloat = -50
         let hideTriggerOffset: CGFloat = -110
-        let directionalDeltaThreshold: CGFloat = 8
+        let hideTravelThreshold: CGFloat = 22
+        let showTravelThreshold: CGFloat = 18
+
+        if delta < 0 {
+            scrollDirectionTravel = min(0, scrollDirectionTravel) + delta
+        } else if delta > 0 {
+            scrollDirectionTravel = max(0, scrollDirectionTravel) + delta
+        }
+
         var updatedVisibility: Bool?
 
-        // Show header when near top
+        // Always show chrome near the top boundary.
         if offset >= nearTopThreshold {
+            scrollDirectionTravel = 0
             updatedVisibility = true
         }
-        // Hide when scrolling down significantly
-        else if delta <= -directionalDeltaThreshold && offset <= hideTriggerOffset {
+        // Hide when downward travel accumulates below the trigger offset.
+        else if scrollDirectionTravel <= -hideTravelThreshold, offset <= hideTriggerOffset {
+            scrollDirectionTravel = 0
             updatedVisibility = false
         }
-        // Show when scrolling up significantly
-        else if delta >= directionalDeltaThreshold {
+        // Show when upward travel accumulates.
+        else if scrollDirectionTravel >= showTravelThreshold {
+            scrollDirectionTravel = 0
             updatedVisibility = true
         }
 
@@ -367,8 +498,30 @@ struct FeedView: View {
         lastScrollOffset = offset
     }
 
+    @ViewBuilder
+    private var scrollDebugOverlay: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("raw: \(Int(debugRawOffset))")
+            Text("off: \(Int(debugNormalizedOffset))")
+            Text("delta: \(Int(debugDelta))")
+            Text("samples: \(debugSampleCount)")
+            Text("travel: \(Int(scrollDirectionTravel))")
+            Text("header: \(headerVisible ? "1" : "0")")
+            Text("tab: \(isTabBarVisible ? "1" : "0")")
+            Text("top: \(isAtTop ? "1" : "0")")
+            Text("scrolling: \(isUserActivelyScrolling ? "1" : "0")")
+        }
+        .font(.loopedSmallText)
+        .foregroundColor(.loopedBackground)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.loopedTextPrimary.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
     private func setChromeVisibility(_ isVisible: Bool, force: Bool = false) {
-        guard headerVisible != isVisible || isTabBarVisible != isVisible else { return }
+        let targetTabBarVisible = isVisible
+        guard headerVisible != isVisible || isTabBarVisible != targetTabBarVisible else { return }
 
         let now = Date().timeIntervalSince1970
         let toggleCooldown: TimeInterval = 0.16
@@ -379,8 +532,29 @@ struct FeedView: View {
         lastChromeToggleAt = now
         withAnimation(.easeInOut(duration: 0.22)) {
             headerVisible = isVisible
-            isTabBarVisible = isVisible
+            isTabBarVisible = targetTabBarVisible
         }
+        if showsScrollDebugConsole {
+            print("[FeedChrome] header=\(isVisible) tab=\(targetTabBarVisible) force=\(force)")
+        }
+    }
+
+    private func markUserScrollingIfNeeded(delta: CGFloat) {
+        if abs(delta) <= 0.15 {
+            return
+        }
+
+        if !isUserActivelyScrolling {
+            isUserActivelyScrolling = true
+        }
+
+        scrollIdleWorkItem?.cancel()
+        let work = DispatchWorkItem {
+            isUserActivelyScrolling = false
+        }
+        scrollIdleWorkItem = work
+        let idleDelay: TimeInterval = usesIOS17ScrollTuning ? 0.16 : 0.3
+        DispatchQueue.main.asyncAfter(deadline: .now() + idleDelay, execute: work)
     }
 
     private func startPolling() {
@@ -478,6 +652,31 @@ private struct ActiveFeedImpression {
     let lockReason: String?
 }
 
+private enum FeedNavigationDestination: Hashable, Identifiable {
+    case userProfile(userId: Int)
+    case anonymousProfile(profileId: Int)
+    case community(community: CommunityProfileData)
+
+    var id: String {
+        switch self {
+        case .userProfile(let userId):
+            return "user-\(userId)"
+        case .anonymousProfile(let profileId):
+            return "anon-\(profileId)"
+        case .community(let community):
+            return "community-\(community.id)"
+        }
+    }
+
+    static func == (lhs: FeedNavigationDestination, rhs: FeedNavigationDestination) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
 private struct FeedHeaderHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 140
 
@@ -485,6 +684,21 @@ private struct FeedHeaderHeightPreferenceKey: PreferenceKey {
         let next = nextValue()
         if next > 0 {
             value = next
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func feedTopSafeInsetIfNeeded(height: CGFloat, isEnabled: Bool) -> some View {
+        if isEnabled {
+            self.safeAreaInset(edge: .top, spacing: 0) {
+                Color.loopedClear
+                    .frame(height: height)
+                    .allowsHitTesting(false)
+            }
+        } else {
+            self
         }
     }
 }

@@ -14,6 +14,8 @@ struct PostCard: View {
     let onBlockUser: ((Int) -> Void)?
     let onBlockPrincipal: ((Int) -> Void)?
     let onPresentLockedActionSheet: ((LockedActionSheetRequest) -> Void)?
+    let onAuthorNavigationRequested: ((Int, Bool) -> Void)?
+    let onCommunityNavigationRequested: ((CommunityProfileData) -> Void)?
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
     @State private var isLiked = false
@@ -105,7 +107,9 @@ struct PostCard: View {
         onDelete: ((Post) -> Void)? = nil,
         onBlockUser: ((Int) -> Void)? = nil,
         onBlockPrincipal: ((Int) -> Void)? = nil,
-        onPresentLockedActionSheet: ((LockedActionSheetRequest) -> Void)? = nil
+        onPresentLockedActionSheet: ((LockedActionSheetRequest) -> Void)? = nil,
+        onAuthorNavigationRequested: ((Int, Bool) -> Void)? = nil,
+        onCommunityNavigationRequested: ((CommunityProfileData) -> Void)? = nil
     ) {
         self.post = post
         self.feedService = feedService
@@ -121,6 +125,8 @@ struct PostCard: View {
         self.onBlockUser = onBlockUser
         self.onBlockPrincipal = onBlockPrincipal
         self.onPresentLockedActionSheet = onPresentLockedActionSheet
+        self.onAuthorNavigationRequested = onAuthorNavigationRequested
+        self.onCommunityNavigationRequested = onCommunityNavigationRequested
     }
 
     private var repostBannerText: String? {
@@ -233,16 +239,21 @@ struct PostCard: View {
 
     @ViewBuilder
     private var authorAvatar: some View {
-        if let authorProfileId {
+        if let authorProfileId, let onAuthorNavigationRequested {
+            Button(action: { onAuthorNavigationRequested(authorProfileId, post.isAnonymous) }) {
+                avatarContent
+            }
+            .buttonStyle(.plain)
+        } else if let authorProfileId {
             NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
                 avatarContent
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.plain)
         } else {
             Button(action: presentMissingAuthorProfileError) {
                 avatarContent
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.plain)
         }
     }
 
@@ -256,7 +267,16 @@ struct PostCard: View {
 
     @ViewBuilder
     private var authorName: some View {
-        if let authorProfileId {
+        if let authorProfileId, let onAuthorNavigationRequested {
+            Button(action: { onAuthorNavigationRequested(authorProfileId, post.isAnonymous) }) {
+                Text(post.resolvedAuthorName)
+                    .font(.loopedHeadlineScaled)
+                    .foregroundColor(post.isAnonymous ? .loopedSecondary : .loopedTextPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .buttonStyle(.plain)
+        } else if let authorProfileId {
             NavigationLink(destination: authorProfileDestination(profileId: authorProfileId)) {
                 Text(post.resolvedAuthorName)
                     .font(.loopedHeadlineScaled)
@@ -264,7 +284,7 @@ struct PostCard: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.plain)
         } else {
             Button(action: presentMissingAuthorProfileError) {
                 Text(post.resolvedAuthorName)
@@ -273,18 +293,18 @@ struct PostCard: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .buttonStyle(PlainButtonStyle())
+            .buttonStyle(.plain)
         }
     }
 
-	    @ViewBuilder
-	    private func authorProfileDestination(profileId: Int) -> some View {
-	        if post.isAnonymous {
-	            UserProfileView(anonProfileId: profileId)
-	        } else {
-	            UserProfileView(userId: profileId)
-	        }
-	    }
+    @ViewBuilder
+    private func authorProfileDestination(profileId: Int) -> some View {
+        if post.isAnonymous {
+            UserProfileView(anonProfileId: profileId)
+        } else {
+            UserProfileView(userId: profileId)
+        }
+    }
 
 		    @ViewBuilder
 		    private var repostBanner: some View {
@@ -462,8 +482,8 @@ struct PostCard: View {
 		                }
 
 		                if let communityContextText {
-			                    if let communityProfileData {
-			                        NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
+			                    if let communityProfileData, let onCommunityNavigationRequested {
+			                        Button(action: { onCommunityNavigationRequested(communityProfileData) }) {
 			                            HStack(spacing: 0) {
 			                                Text(communityContextText)
 			                                    .lineLimit(1)
@@ -475,7 +495,21 @@ struct PostCard: View {
 				                            .padding(.top, -2)
 				                            .contentShape(Rectangle())
 				                        }
-				                        .buttonStyle(PlainButtonStyle())
+				                        .buttonStyle(.plain)
+				                    } else if let communityProfileData {
+				                        NavigationLink(destination: CommunityProfileView(community: communityProfileData)) {
+				                            HStack(spacing: 0) {
+				                                Text(communityContextText)
+				                                    .lineLimit(1)
+				                                    .truncationMode(.tail)
+				                                Spacer(minLength: 0)
+				                            }
+				                            .font(.loopedSubBodyRegular)
+				                            .foregroundColor(.loopedTextSecondary)
+				                            .padding(.top, -2)
+				                            .contentShape(Rectangle())
+				                        }
+				                        .buttonStyle(.plain)
 				                    } else {
 				                        Text(communityContextText)
 				                            .font(.loopedSubBodyRegular)
@@ -1092,23 +1126,23 @@ struct PostCard: View {
 	            } message: {
 	                Text(repostErrorMessage ?? "")
 	            }
-	            .alert(item: $actionError) { error in
-                    if let action = error.primaryAction {
-                        return Alert(
-                            title: Text(error.title),
-                            message: Text(error.message),
+		            .alert(item: $actionError) { error in
+	                    if let action = error.primaryAction {
+	                        return Alert(
+	                            title: Text(error.title),
+	                            message: Text(error.message),
                             primaryButton: .default(Text("Join")) {
                                 handlePrimaryAction(action)
                             },
                             secondaryButton: .cancel()
                         )
                     }
-	                return Alert(
-	                    title: Text(error.title),
-	                    message: Text(error.message),
-	                    dismissButton: .default(Text("OK"))
-	                )
-	            }
+		                return Alert(
+		                    title: Text(error.title),
+		                    message: Text(error.message),
+		                    dismissButton: .default(Text("OK"))
+		                )
+		            }
 	    }
 
     private var canonicalPostURL: URL? {

@@ -2,11 +2,9 @@ import SwiftUI
 import UIKit
 
 struct LoopedScrollSafeTapCaptureView: UIViewRepresentable {
-    let allowableMovement: CGFloat
     let onTap: () -> Void
 
-    init(allowableMovement: CGFloat = 6, onTap: @escaping () -> Void) {
-        self.allowableMovement = allowableMovement
+    init(allowableMovement _: CGFloat = 6, onTap: @escaping () -> Void) {
         self.onTap = onTap
     }
 
@@ -21,12 +19,11 @@ struct LoopedScrollSafeTapCaptureView: UIViewRepresentable {
         view.isUserInteractionEnabled = true
         view.isAccessibilityElement = false
 
-        let tap = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
-        tap.minimumPressDuration = 0
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tap.numberOfTapsRequired = 1
         tap.cancelsTouchesInView = false
         tap.delaysTouchesBegan = false
         tap.delaysTouchesEnded = false
-        tap.allowableMovement = allowableMovement
         tap.delegate = context.coordinator
         view.addGestureRecognizer(tap)
 
@@ -36,19 +33,17 @@ struct LoopedScrollSafeTapCaptureView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.onTap = onTap
-        context.coordinator.tapRecognizer?.allowableMovement = allowableMovement
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onTap: () -> Void
-        weak var tapRecognizer: UILongPressGestureRecognizer?
+        weak var tapRecognizer: UITapGestureRecognizer?
 
         init(onTap: @escaping () -> Void) {
             self.onTap = onTap
         }
 
-        @objc func handleTap(_ recognizer: UILongPressGestureRecognizer) {
-            guard recognizer.state == .ended else { return }
+        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
             if shouldSuppressTap(for: recognizer.view) { return }
             onTap()
         }

@@ -34,9 +34,13 @@ struct ProfileView: View {
 
 		@State private var headerHeight: CGFloat = 300
 		@State private var hasActiveVerifications: Bool?
-	private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+    private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
     private let anonService: AnonService = .shared
     private let scrollCoordinateSpace = "profileScrollCoordinateSpace"
+    private var usesIOS17ScrollTuning: Bool {
+        if #available(iOS 18.0, *) { return false }
+        return true
+    }
 
 	private var isShowingDiscoveryOverlay: Bool {
 		profileDiscoveryStep != nil || anonymousDiscoveryStep != nil
@@ -47,6 +51,12 @@ struct ProfileView: View {
             // ScrollView with content (bottom layer)
 			            ScrollView {
 			                LazyVStack(spacing: 0) {
+                        if usesIOS17ScrollTuning {
+                            Color.loopedClear
+                                .frame(height: headerHeight)
+                                .allowsHitTesting(false)
+                        }
+
 			                    // Content based on selected tab
 			                    switch selectedTab {
 		                        case .content:
@@ -77,7 +87,7 @@ struct ProfileView: View {
 	                .background(
 	                    GeometryReader { geo in
 	                        Color.loopedClear
-	                            .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
+	                .onChange(of: geo.frame(in: .named(scrollCoordinateSpace)).minY) { oldValue, newValue in
 	                                guard abs(newValue - oldValue) > 0.5 else { return }
 	                                handleScroll(oldOffset: oldValue, newOffset: newValue)
 	                            }
@@ -93,9 +103,7 @@ struct ProfileView: View {
 		            ) {
 		                await refreshAll()
 		            }
-	            .safeAreaInset(edge: .top, spacing: 0) {
-	                Color.loopedClear.frame(height: headerHeight)
-	            }
+                .profileTopSafeInsetIfNeeded(height: headerHeight, isEnabled: !usesIOS17ScrollTuning)
 	            .background(Color.loopedBackground.ignoresSafeArea())
 
             // Fixed collapsible header (middle layer)
@@ -151,7 +159,7 @@ struct ProfileView: View {
             )
             .offset(y: headerVisible ? 0 : -headerHeight)
             .opacity(headerVisible ? 1 : 0)
-            .animation(.easeInOut(duration: 0.25), value: headerVisible)
+            .allowsHitTesting(headerVisible)
         }
 			.overlay(alignment: .topTrailing) {
 				if displayProfile?.isCurrentUser ?? true {
@@ -249,9 +257,13 @@ struct ProfileView: View {
 		    }
 
 				private func handleScroll(oldOffset: CGFloat, newOffset: CGFloat) {
+                    let nearTopThreshold: CGFloat = usesIOS17ScrollTuning ? -24 : -50
+                    let hideTriggerOffset: CGFloat = usesIOS17ScrollTuning ? -96 : -110
+                    let directionalDeltaThreshold: CGFloat = usesIOS17ScrollTuning ? 10 : 8
+                    let revealDistanceThreshold: CGFloat = usesIOS17ScrollTuning ? 28 : 34
 					guard !isShowingDiscoveryOverlay else {
                         setHeaderVisibility(true, force: true)
-                        let atTop = newOffset >= -50
+                        let atTop = newOffset >= nearTopThreshold
                         if atTop != isAtTop {
                             isAtTop = atTop
                         }
@@ -259,20 +271,16 @@ struct ProfileView: View {
 					}
 
                     let delta = newOffset - oldOffset
-                    let maxReasonableDelta: CGFloat = 180
+                    let maxReasonableDelta: CGFloat = usesIOS17ScrollTuning ? 90 : 180
                     if abs(delta) > maxReasonableDelta {
                         headerRevealProgress = 0
-                        let atTop = newOffset >= -50
+                        let atTop = newOffset >= nearTopThreshold
                         if atTop != isAtTop {
                             isAtTop = atTop
                         }
                         return
                     }
                     var nextHeaderVisible: Bool?
-                    let nearTopThreshold: CGFloat = -50
-                    let hideTriggerOffset: CGFloat = -110
-                    let directionalDeltaThreshold: CGFloat = 8
-                    let revealDistanceThreshold: CGFloat = 34
 
                     if newOffset >= nearTopThreshold {
                         headerRevealProgress = 0
@@ -306,7 +314,7 @@ private extension ProfileView {
         guard headerVisible != isVisible else { return }
 
         let now = Date().timeIntervalSince1970
-        let toggleCooldown: TimeInterval = 0.16
+        let toggleCooldown: TimeInterval = usesIOS17ScrollTuning ? 0.12 : 0.16
         if !force, now - lastHeaderToggleAt < toggleCooldown {
             return
         }
@@ -323,6 +331,21 @@ private struct ProfileHeaderHeightKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func profileTopSafeInsetIfNeeded(height: CGFloat, isEnabled: Bool) -> some View {
+        if isEnabled {
+            self.safeAreaInset(edge: .top, spacing: 0) {
+                Color.loopedClear
+                    .frame(height: height)
+                    .allowsHitTesting(false)
+            }
+        } else {
+            self
+        }
     }
 }
 

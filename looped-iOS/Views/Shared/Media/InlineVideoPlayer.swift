@@ -811,14 +811,17 @@ struct InlineVideoPlayer: View {
                 .zIndex(2)
             }
 
-            LoopedScrollSafeTapCaptureView {
-                VideoDebugLogger.log("id=\(id) tapped")
-                playbackManager.promoteToActive(id: id)
-                if let onFullScreen {
-                    viewModel.setExternallyPresented(true)
-                    onFullScreen(viewModel)
+            Group {
+                if #available(iOS 18.0, *) {
+                    LoopedScrollSafeTapCaptureView {
+                        handlePrimaryTap()
+                    }
                 } else {
-                    showControls()
+                    Color.loopedClear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            handlePrimaryTap()
+                        }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1150,6 +1153,17 @@ struct InlineVideoPlayer: View {
         hasAttemptedPlayback = true
         playbackManager.promoteToActive(id: id)
         viewModel.replay()
+    }
+
+    private func handlePrimaryTap() {
+        VideoDebugLogger.log("id=\(id) tapped")
+        playbackManager.promoteToActive(id: id)
+        if let onFullScreen {
+            viewModel.setExternallyPresented(true)
+            onFullScreen(viewModel)
+        } else {
+            showControls()
+        }
     }
 
     private func resetForNewMedia() {
