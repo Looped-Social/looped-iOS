@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct EmailVerificationView: View {
     let communityId: Int?
@@ -42,108 +43,116 @@ struct EmailVerificationView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                if showsHeader {
-                    header
-                        .padding(.top, 8)
-                        .padding(.horizontal, 16)
-                }
-
-                Spacer()
-                    .frame(height: geometry.size.height * 0.08)
-
-                VStack(spacing: 18) {
-                    Text("Verify Your Email")
-                        .font(.loopedSubheadMedium)
-                        .foregroundColor(.loopedTextPrimary)
-
-                    if viewModel.stage == .enterEmail {
-                        emailEntryCard
-                    } else {
-                        codeEntryCard
-                        inboxDeliveryHintCard
+            ZStack {
+                Color.loopedBackground
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        dismissKeyboard()
                     }
 
-                    if let errorMessage = viewModel.errorMessage {
-                        Text(errorMessage)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedError)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 8)
+                VStack(spacing: 0) {
+                    if showsHeader {
+                        header
+                            .padding(.top, 8)
+                            .padding(.horizontal, 16)
                     }
 
-                    if let statusMessage = displayStatusMessage {
-                        Text(statusMessage)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedSecondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 8)
+                    Spacer()
+                        .frame(height: geometry.size.height * 0.08)
+
+                    VStack(spacing: 18) {
+                        Text("Verify Your Email")
+                            .font(.loopedSubheadMedium)
+                            .foregroundColor(.loopedTextPrimary)
+
+                        if viewModel.stage == .enterEmail {
+                            emailEntryCard
+                        } else {
+                            codeEntryCard
+                            inboxDeliveryHintCard
+                        }
+
+                        if let errorMessage = viewModel.errorMessage {
+                            Text(errorMessage)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedError)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 8)
+                        }
+
+                        if let statusMessage = displayStatusMessage {
+                            Text(statusMessage)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedSecondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 8)
+                        }
                     }
-                }
-                .padding(.vertical, 24)
-                .padding(.horizontal, 18)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.loopedMutedBackground)
-                )
-                .padding(.horizontal, 28)
+                    .padding(.vertical, 24)
+                    .padding(.horizontal, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.loopedMutedBackground)
+                    )
+                    .padding(.horizontal, 28)
 
-                if viewModel.stage == .enterCode {
-                    Button(action: { Task { await viewModel.resendCode() } }) {
-                        Text("Resend email")
-                            .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedSecondary)
-                    }
-                    .disabled(viewModel.retryAfterSecondsRemaining > 0 || viewModel.isSendingCode)
-                    .padding(.top, 12)
-
-                    if let resendCooldownMessage {
-                        Text(resendCooldownMessage)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedTextSecondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 28)
-                            .padding(.top, 4)
-                    }
-                }
-
-                Spacer()
-
-                Button(action: handlePrimaryAction) {
-                    Text(primaryButtonTitle)
-                        .font(.loopedBodyMedium)
-                        .foregroundColor(.loopedWhite)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.loopedPrimary)
-                        .clipShape(Capsule())
-                }
-                .disabled(!primaryActionEnabled)
-                .opacity(primaryActionEnabled ? 1 : 0.4)
-                .padding(.horizontal, 32)
-
-                if shouldShowRetryDomainsAction {
-                    SecondaryButton(title: "Retry") {
-                        Task { await viewModel.loadDomains() }
-                    }
-                    .padding(.horizontal, 32)
-                    .padding(.top, 10)
-                }
-
-                if viewModel.isFetchingDomains || viewModel.isSendingCode || viewModel.isVerifyingCode {
-                    ProgressView()
+                    if viewModel.stage == .enterCode {
+                        Button(action: { Task { await viewModel.resendCode() } }) {
+                            Text("Resend email")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedSecondary)
+                        }
+                        .disabled(viewModel.retryAfterSecondsRemaining > 0 || viewModel.isSendingCode)
                         .padding(.top, 12)
-                        .tint(.loopedPrimary)
-                }
 
-                Spacer()
-                    .frame(height: 24)
+                        if let resendCooldownMessage {
+                            Text(resendCooldownMessage)
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 28)
+                                .padding(.top, 4)
+                        }
+                    }
+
+                    Spacer()
+
+                    Button(action: handlePrimaryAction) {
+                        Text(primaryButtonTitle)
+                            .font(.loopedBodyMedium)
+                            .foregroundColor(.loopedWhite)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Color.loopedPrimary)
+                            .clipShape(Capsule())
+                    }
+                    .disabled(!primaryActionEnabled)
+                    .opacity(primaryActionEnabled ? 1 : 0.4)
+                    .padding(.horizontal, 32)
+
+                    if shouldShowRetryDomainsAction {
+                        SecondaryButton(title: "Retry") {
+                            Task { await viewModel.loadDomains() }
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.top, 10)
+                    }
+
+                    if viewModel.isFetchingDomains || viewModel.isSendingCode || viewModel.isVerifyingCode {
+                        ProgressView()
+                            .padding(.top, 12)
+                            .tint(.loopedPrimary)
+                    }
+
+                    Spacer()
+                        .frame(height: 24)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(Color.loopedBackground.ignoresSafeArea())
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .task {
@@ -325,6 +334,15 @@ private extension EmailVerificationView {
                 }
             }
         }
+    }
+
+    func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
     }
 
     var inboxDeliveryHintCard: some View {

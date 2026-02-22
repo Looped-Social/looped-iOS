@@ -433,10 +433,8 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            self.isPlaying = false
-            self.didReachEnd = true
-            self.player.pause()
-            self.updatePlaybackAudioSession()
+            // Loop previews automatically instead of stopping on a replay state.
+            self.replay()
         }
 
         failedToPlayObserver = NotificationCenter.default.addObserver(

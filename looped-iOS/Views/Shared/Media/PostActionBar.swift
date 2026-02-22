@@ -73,12 +73,13 @@ struct PostActionBarCompact: View {
                 count: nil,
                 tint: state.isReposted ? .loopedPrimary : .loopedWhite,
                 disabled: state.isRepostLoading,
-                action: onRepost
+                action: onRepost,
+                iconScale: 1.12
             )
 
             actionButton(
                 icon: Image("send-icon-fab"),
-                count: state.shareCount,
+                count: nil,
                 tint: .loopedWhite,
                 disabled: state.isPreparingShareSheet,
                 action: onShare
@@ -105,7 +106,8 @@ struct PostActionBarCompact: View {
         tint: Color,
         disabled: Bool,
         action: @escaping () -> Void,
-        showsLock: Bool = false
+        showsLock: Bool = false,
+        iconScale: CGFloat = 1.0
     ) -> some View {
         Button(action: action) {
             HStack(spacing: labelSpacing) {
@@ -114,7 +116,7 @@ struct PostActionBarCompact: View {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: iconSize, height: iconSize)
+                        .frame(width: iconSize * iconScale, height: iconSize * iconScale)
                         .foregroundColor(tint)
 
                     if showsLock {

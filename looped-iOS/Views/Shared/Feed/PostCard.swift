@@ -41,7 +41,7 @@ struct PostCard: View {
     @State private var selectedVideo: VideoSelection?
     @StateObject private var postActionState = PostActionBarState()
     @ScaledMetric private var actionIconSize: CGFloat = 22
-    @ScaledMetric private var repostIconSize: CGFloat = 24
+    @ScaledMetric private var repostIconSize: CGFloat = 26
     @ScaledMetric private var actionLabelSpacing: CGFloat = 4
     @ScaledMetric private var engagementBarSpacing: CGFloat = 10
     @EnvironmentObject var commentsManager: CommentsModalManager
@@ -370,17 +370,12 @@ struct PostCard: View {
 
     private var shareButton: some View {
         Button(action: { prepareShareSheet() }) {
-            HStack(spacing: actionLabelSpacing) {
-		                Image("send-icon-fab")
-		                    .resizable()
-		                    .renderingMode(.template)
-	                    .scaledToFit()
-	                    .frame(width: actionIconSize, height: actionIconSize)
-	                    .foregroundColor(.loopedTextSecondary)
-	                Text("\(currentShareCount)")
-	                    .font(.loopedSubheadlineScaled)
-		                    .foregroundColor(.loopedTextSecondary)
-            }
+            Image("send-icon-fab")
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: actionIconSize, height: actionIconSize)
+                .foregroundColor(.loopedTextSecondary)
         }
         .buttonStyle(PlainButtonStyle())
         .contentShape(Rectangle())

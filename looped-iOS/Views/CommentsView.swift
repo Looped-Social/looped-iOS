@@ -156,10 +156,6 @@ struct CommentsView: View {
         max(postLikeCountOverride ?? post.reactionCount, 0)
     }
 
-    private var displayedPostShareCount: Int {
-        max(postShareCountOverride ?? post.shareCount, 0)
-    }
-
     private var isPostLiked: Bool {
         postIsLikedOverride ?? (post.userReaction == .like)
     }
@@ -540,7 +536,7 @@ private extension CommentsView {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: 26, height: 26)
+                        .frame(width: 27, height: 27)
                         .foregroundColor(isPostReposted ? .loopedPrimary : .loopedTextSecondary)
                 }
             }
@@ -549,17 +545,12 @@ private extension CommentsView {
             .opacity(isPostRepostLoading ? 0.6 : 1.0)
 
             Button(action: preparePostShareSheet) {
-                HStack(spacing: 4) {
-                    Image("send-icon-fab")
-                        .resizable()
-                        .renderingMode(.template)
-                        .scaledToFit()
-                        .frame(width: 24, height: 24)
-                        .foregroundColor(.loopedTextSecondary)
-                    Text("\(displayedPostShareCount)")
-                        .font(.loopedCommentsPostMeta)
-                        .foregroundColor(.loopedTextSecondary)
-                }
+                Image("send-icon-fab")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(.loopedTextSecondary)
             }
             .buttonStyle(PlainButtonStyle())
             .disabled(isPreparingPostShareSheet)
