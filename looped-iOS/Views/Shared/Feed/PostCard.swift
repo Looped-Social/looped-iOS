@@ -478,8 +478,12 @@ struct PostCard: View {
 
 		                    Button(action: { showActionMenu = true }) {
 		                        Image(systemName: "ellipsis")
+                                    .font(.loopedSymbol(.regular, size: 17))
+                                    .scaleEffect(1.5)
 		                            .foregroundColor(.loopedTextSecondary)
 		                    }
+                            .contentShape(Rectangle().inset(by: -14))
+                            .accessibilityLabel("Post options")
 		                }
 
 		                if let communityContextText {
