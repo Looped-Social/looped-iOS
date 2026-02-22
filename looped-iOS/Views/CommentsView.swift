@@ -109,6 +109,20 @@ struct CommentsView: View {
         post.resolvedAuthorName
     }
 
+    private var postAuthorDisplayLine: String? {
+        post.authorDisplaySpecializationLine(preferShortNames: preferCommunityShortNames)
+    }
+
+    private var postCommunityContextText: String? {
+        if let name = post.communityDisplayName(preferShortNames: preferCommunityShortNames) {
+            return "Posted in \(name)"
+        }
+        if let kind = post.communityKind, kind != .unknown {
+            return "Posted in \(kind.rawValue.capitalized)"
+        }
+        return nil
+    }
+
     private var postAuthorProfileId: Int? {
         if post.isAnonymous {
             return post.anonProfileId
@@ -402,13 +416,45 @@ private extension CommentsView {
             threadAuthorAvatar
 
             VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(postAuthorName)
+                        .font(.loopedCommentsPostAuthor)
+                        .foregroundColor(.loopedTextStrong)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if postAuthorDisplayLine != nil || postCommunityContextText != nil {
+                        HStack(spacing: 4) {
+                            if let postAuthorDisplayLine {
+                                Text(postAuthorDisplayLine)
+                                    .font(.loopedCommentsPostMeta)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
+
+                            if postAuthorDisplayLine != nil, postCommunityContextText != nil {
+                                Text("•")
+                                    .font(.loopedCommentsPostMeta)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+
+                            if let postCommunityContextText {
+                                Text(postCommunityContextText)
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
+
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+
                 let trimmedContent = post.content.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedContent.isEmpty {
                     HashtagText(
                         text: trimmedContent,
-                        prefix: "\(postAuthorName) ",
-                        prefixFont: .loopedCommentsPostAuthor,
-                        prefixColor: .loopedTextStrong,
                         font: .loopedCommentsPostBody,
                         textColor: .loopedTextPrimary,
                         hashtagColor: .loopedPrimary,
