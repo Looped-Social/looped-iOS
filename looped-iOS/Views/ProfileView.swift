@@ -95,12 +95,12 @@ struct ProfileView: View {
 	                )
 	            }
                     .coordinateSpace(name: scrollCoordinateSpace)
-			            .loopedPullToRefresh(
-			                isAtTop: isAtTop,
-			                indicatorTopPadding: headerVisible ? headerHeight + 14 : 16,
-		                showsIndicatorOverlay: false,
-		                indicatorState: $refreshIndicatorState
-		            ) {
+		            .loopedPullToRefresh(
+		                isAtTop: isAtTop,
+		                indicatorTopPadding: headerVisible ? headerHeight + 14 : 16,
+	                showsIndicatorOverlay: usesIOS17ScrollTuning,
+	                indicatorState: $refreshIndicatorState
+	            ) {
 		                await refreshAll()
 		            }
                 .profileTopSafeInsetIfNeeded(height: headerHeight, isEnabled: !usesIOS17ScrollTuning)

@@ -292,7 +292,7 @@ struct UserProfileView: View {
             .task { await loadIfNeeded() }
             .loopedPullToRefresh(
                 isAtTop: isAtTop,
-                showsIndicatorOverlay: false,
+                showsIndicatorOverlay: usesIOS17ScrollTuning,
                 indicatorState: $refreshIndicatorState
             ) { await reload() }
             .userProfileTopSafeInsetIfNeeded(height: headerHeight, isEnabled: !usesIOS17ScrollTuning)

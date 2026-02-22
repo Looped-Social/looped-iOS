@@ -396,7 +396,7 @@ struct FeedView: View {
     private func handleScroll(_ offset: CGFloat) {
         guard lockedActionSheetRequest == nil else { return }
 
-        let topStateThreshold: CGFloat = usesIOS17ScrollTuning ? -24 : -50
+        let topStateThreshold: CGFloat = usesIOS17ScrollTuning ? -50 : -50
         let minimumDirectionalDelta: CGFloat = usesIOS17ScrollTuning ? 1.0 : 0.8
         let delta = offset - lastScrollOffset
         markUserScrollingIfNeeded(delta: delta)
@@ -412,7 +412,7 @@ struct FeedView: View {
             return
         }
         if abs(delta) < minimumDirectionalDelta {
-            let atTop = offset >= topStateThreshold
+            let atTop = resolvedTopState(for: offset, fallbackThreshold: topStateThreshold)
             if atTop != isAtTop {
                 isAtTop = atTop
             }
@@ -424,7 +424,7 @@ struct FeedView: View {
             setChromeVisibility(true, force: true)
             scrollDirectionTravel = 0
             lastScrollOffset = offset
-            let atTop = offset >= topStateThreshold
+            let atTop = resolvedTopState(for: offset, fallbackThreshold: topStateThreshold)
             if atTop != isAtTop {
                 isAtTop = atTop
             }
@@ -432,10 +432,17 @@ struct FeedView: View {
         }
 
         if usesIOS17ScrollTuning {
-            let nearTopThreshold: CGFloat = -24
-            let hideTriggerOffset: CGFloat = -96
-            let hideTravelThreshold: CGFloat = 24
+            let topEnterThreshold: CGFloat = -12
+            let topExitThreshold: CGFloat = -80
+            let hideTriggerOffset: CGFloat = -140
+            let hideTravelThreshold: CGFloat = 32
             let showTravelThreshold: CGFloat = 16
+            let atTop = resolvedTopState(
+                for: offset,
+                fallbackThreshold: topStateThreshold,
+                enterTopThreshold: topEnterThreshold,
+                exitTopThreshold: topExitThreshold
+            )
 
             if delta < 0 {
                 scrollDirectionTravel = min(0, scrollDirectionTravel) + delta
@@ -443,7 +450,7 @@ struct FeedView: View {
                 scrollDirectionTravel = max(0, scrollDirectionTravel) + delta
             }
 
-            if offset >= nearTopThreshold {
+            if atTop {
                 scrollDirectionTravel = 0
                 setChromeVisibility(true, force: true)
             } else if scrollDirectionTravel <= -hideTravelThreshold, offset <= hideTriggerOffset {
@@ -454,7 +461,6 @@ struct FeedView: View {
                 setChromeVisibility(true)
             }
 
-            let atTop = offset >= nearTopThreshold
             if atTop != isAtTop {
                 isAtTop = atTop
             }
@@ -500,6 +506,21 @@ struct FeedView: View {
             isAtTop = atTop
         }
         lastScrollOffset = offset
+    }
+
+    private func resolvedTopState(
+        for offset: CGFloat,
+        fallbackThreshold: CGFloat,
+        enterTopThreshold: CGFloat = -12,
+        exitTopThreshold: CGFloat = -80
+    ) -> Bool {
+        guard usesIOS17ScrollTuning else {
+            return offset >= fallbackThreshold
+        }
+        if isAtTop {
+            return offset >= exitTopThreshold
+        }
+        return offset >= enterTopThreshold
     }
 
     @ViewBuilder
