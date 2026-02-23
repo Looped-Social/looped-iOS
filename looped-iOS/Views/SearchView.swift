@@ -144,7 +144,7 @@ struct SearchView: View {
                                                 ) ?? community.name,
                                                 description: community.description,
                                                 memberCount: community.memberCount,
-                                                imageURL: community.imageUrl,
+                                                imageURL: community.profileDisplayImageUrl,
                                                 icon: community.icon,
                                                 kind: community.kind,
                                                 specializationType: community.specializationType

@@ -44,7 +44,6 @@ struct CommentsView: View {
     @State private var isPreparingPostShareSheet = false
     @State private var showPostShareSheet = false
     @State private var postShareItems: [Any] = []
-    @State private var postShareCountOverride: Int?
     @State private var isPostShareTracking = false
 	@FocusState private var isCommentFieldFocused: Bool
 
@@ -987,7 +986,6 @@ private extension CommentsView {
             defer { isPostShareTracking = false }
             do {
                 let response = try await feedService.sharePost(postId: postId)
-                postShareCountOverride = response.shareCount
                 let updated = post.updating(shareCount: response.shareCount, updatedAt: Date())
                 if let existing = feedViewModel.posts.first(where: { $0.backendId == postId }) {
                     let merged = existing.updating(shareCount: response.shareCount, updatedAt: Date())

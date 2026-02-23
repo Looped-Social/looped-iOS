@@ -163,11 +163,6 @@ private struct VideoPlayerSheetBody: View {
                 viewModel.play()
             }
         }
-        .onChange(of: viewModel.didReachEnd) { _, newValue in
-            if newValue {
-                viewModel.replay()
-            }
-        }
         .onDisappear {
             dragOffset = 0
             if usesSharedViewModel {
@@ -221,10 +216,6 @@ private struct VideoPlayerSheetBody: View {
     }
 
     private func togglePlayPause() {
-        if viewModel.didReachEnd {
-            viewModel.replay()
-            return
-        }
         if viewModel.isPlaying {
             viewModel.pause()
         } else {

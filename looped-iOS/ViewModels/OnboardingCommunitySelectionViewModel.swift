@@ -82,6 +82,8 @@ final class OnboardingCommunitySelectionViewModel: ObservableObject {
                         kind: result.kind,
                         specializationType: result.specializationType,
                         memberCount: result.memberCount,
+                        bannerImageUrl: result.bannerImageUrl,
+                        profileImageUrl: result.profileImageUrl,
                         imageUrl: result.imageUrl
                     )
                 }

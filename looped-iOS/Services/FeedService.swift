@@ -41,13 +41,11 @@ class FeedService: FeedServiceProtocol {
     }
 
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost] {
-        let resolvedLimit = limit > 0 ? limit : 3
-        var endpoint = "/v1/feed/trending?limit=\(resolvedLimit)"
-        if let communityId {
-            endpoint += "&communityId=\(communityId)"
-        }
-        let data = try await apiClient.getData(endpoint)
-        let response = try decode(TrendingFeedResponseDTO.self, from: data)
+        try await fetchTrendingPosts(limit: limit, cursor: nil, communityId: communityId)
+    }
+
+    func fetchTrendingPosts(limit: Int, cursor: String?, communityId: Int?) async throws -> [TrendingPost] {
+        let response = try await fetchTrendingResponse(limit: limit, cursor: cursor, communityId: communityId)
         let posts = response.items.map(TrendingPost.init(dto:))
         return await resolveTrendingMediaIfNeeded(for: posts)
     }
@@ -552,6 +550,23 @@ class FeedService: FeedServiceProtocol {
             nextCursor: response.nextCursor,
             feedRequestId: response.feedRequestId.flatMap(UUID.init(uuidString:))
         )
+    }
+
+    private func fetchTrendingResponse(
+        limit: Int,
+        cursor: String?,
+        communityId: Int?
+    ) async throws -> TrendingFeedResponseDTO {
+        let resolvedLimit = min(max(limit > 0 ? limit : defaultLimit, 1), 50)
+        var endpoint = "/v1/feed/trending?limit=\(resolvedLimit)"
+        if let cursor, !cursor.isEmpty {
+            endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
+        }
+        if let communityId {
+            endpoint += "&communityId=\(communityId)"
+        }
+        let data = try await apiClient.getData(endpoint)
+        return try decode(TrendingFeedResponseDTO.self, from: data)
     }
 
     private func fetchAnonCollection(

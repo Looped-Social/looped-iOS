@@ -3,7 +3,6 @@ import SwiftUI
 final class PostActionBarState: ObservableObject {
     @Published var likeCount: Int = 0
     @Published var commentCount: Int = 0
-    @Published var shareCount: Int = 0
     @Published var isLiked: Bool = false
     @Published var isReposted: Bool = false
     @Published var isSaved: Bool = false

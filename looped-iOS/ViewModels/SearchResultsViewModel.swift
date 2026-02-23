@@ -158,6 +158,8 @@ class SearchResultsViewModel: ObservableObject {
                         kind: loop.kind,
                         specializationType: loop.specializationType,
                         memberCount: loop.memberCount,
+                        bannerImageUrl: loop.bannerImageUrl,
+                        profileImageUrl: loop.profileImageUrl,
                         imageUrl: loop.imageUrl,
                         icon: loop.icon
                     )
@@ -181,6 +183,8 @@ class SearchResultsViewModel: ObservableObject {
                         kind: loop.kind,
                         specializationType: loop.specializationType,
                         memberCount: loop.memberCount,
+                        bannerImageUrl: loop.bannerImageUrl,
+                        profileImageUrl: loop.profileImageUrl,
                         imageUrl: loop.imageUrl,
                         icon: loop.icon
                     )
@@ -244,6 +248,8 @@ class SearchResultsViewModel: ObservableObject {
                             kind: loop.kind,
                             specializationType: loop.specializationType,
                             memberCount: loop.memberCount,
+                            bannerImageUrl: loop.bannerImageUrl,
+                            profileImageUrl: loop.profileImageUrl,
                             imageUrl: loop.imageUrl,
                             icon: loop.icon
                         )

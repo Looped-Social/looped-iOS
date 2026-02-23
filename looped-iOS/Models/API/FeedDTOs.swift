@@ -7,7 +7,34 @@ struct FeedResponseDTO: Codable {
 }
 
 struct TrendingFeedResponseDTO: Codable {
+    let feedRequestId: String?
+    let algorithm: String?
+    let algorithmVersion: String?
     let items: [TrendingPostDTO]
+    let nextCursor: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case feedRequestId
+        case algorithm
+        case algorithmVersion
+        case items
+        case nextCursor
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        feedRequestId = try container.decodeIfPresent(String.self, forKey: .feedRequestId)
+        algorithm = try container.decodeIfPresent(String.self, forKey: .algorithm)
+        if let version = try? container.decodeIfPresent(String.self, forKey: .algorithmVersion) {
+            algorithmVersion = version
+        } else if let version = try? container.decodeIfPresent(Int.self, forKey: .algorithmVersion) {
+            algorithmVersion = String(version)
+        } else {
+            algorithmVersion = nil
+        }
+        items = try container.decodeIfPresent([TrendingPostDTO].self, forKey: .items) ?? []
+        nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
+    }
 }
 
 struct TrendingPostDTO: Codable {
@@ -19,17 +46,17 @@ struct TrendingPostDTO: Codable {
     let authorHandle: String?
     let authorProfileImageUrl: String?
     let authorIsAnonymous: Bool?
-    let companyId: Int
+    let companyId: Int?
     let communityId: Int?
     let content: String
     let mediaAssetId: Int?
     let mediaAssetIds: [Int]?
     let mediaAssetIdsSnake: [Int]?
-    let likesCount: Int
+    let likesCount: Int?
     let commentsCount: Int?
     let shareCount: Int?
     let userLiked: Bool?
-    let createdAt: Date
+    let createdAt: Date?
     let isSaved: Bool?
     let isAnonymous: Bool?
     let communityName: String?

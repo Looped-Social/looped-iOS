@@ -722,8 +722,7 @@ struct CommunityVerificationsView: View {
 
     @ViewBuilder
     private func verificationSearchPreview(for result: CommunitySearchResult) -> some View {
-        let trimmed = (result.imageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let remoteURL = URL.loopedMediaURL(from: trimmed)
+        let remoteURL = URL.loopedMediaURL(from: result.profileDisplayImageUrl)
 
         Group {
             if let remoteURL {

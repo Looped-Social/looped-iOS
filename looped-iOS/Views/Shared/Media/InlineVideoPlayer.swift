@@ -286,7 +286,6 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     @Published var isPlaying: Bool = false
     @Published var isReady: Bool = false
     @Published var isReadyForDisplay: Bool = false
-    @Published var didReachEnd: Bool = false
     @Published var duration: Double = 0
     @Published var currentTime: Double = 0
     @Published var errorDescription: String?
@@ -369,7 +368,6 @@ final class InlineVideoPlayerViewModel: ObservableObject {
         errorDescription = nil
         isReady = false
         isReadyForDisplay = false
-        didReachEnd = false
         duration = 0
         currentTime = 0
         debugStatusText = "unknown"
@@ -467,7 +465,6 @@ final class InlineVideoPlayerViewModel: ObservableObject {
 
     func play() {
         isPlaying = true
-        didReachEnd = false
         updatePlaybackAudioSession()
         player.play()
     }
@@ -488,9 +485,6 @@ final class InlineVideoPlayerViewModel: ObservableObject {
             guard let self else { return }
             self.currentTime = target
             self.isScrubbing = false
-            if target < max(self.duration - 0.1, 0) {
-                self.didReachEnd = false
-            }
             if resumeIfPlaying {
                 self.play()
             }
@@ -498,7 +492,6 @@ final class InlineVideoPlayerViewModel: ObservableObject {
     }
 
     func replay() {
-        didReachEnd = false
         isPlaying = true
         updatePlaybackAudioSession()
         player.seek(to: .zero) { [weak self] _ in
@@ -827,13 +820,6 @@ struct InlineVideoPlayer: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .zIndex(3)
 
-            if viewModel.didReachEnd {
-                ReplayOverlayView {
-                    handleReplayTap()
-                }
-                .zIndex(3.5)
-            }
-
         }
         .aspectRatio(resolvedAspectRatio, contentMode: .fill)
         .frame(maxWidth: .infinity)
@@ -911,11 +897,6 @@ struct InlineVideoPlayer: View {
         }
         .onChange(of: controlsVisible) { _, newValue in
             VideoDebugLogger.log("id=\(id) controlsVisible=\(newValue) overlayZ=4 playerZ=1")
-        }
-        .onChange(of: viewModel.didReachEnd) { _, newValue in
-            if newValue {
-                hideControls()
-            }
         }
         .onChange(of: viewModel.isExternallyPresented) { _, _ in
             schedulePlaybackGate()
@@ -1060,11 +1041,6 @@ struct InlineVideoPlayer: View {
             logGate("external")
             return
         }
-        if viewModel.didReachEnd {
-            logGate("ended")
-            viewModel.pause()
-            return
-        }
         playbackManager.clearActiveIfStale()
         let isVisibleEnough = playbackManager.isVisibleEnough(id)
         guard isVisibleEnough else {
@@ -1133,10 +1109,6 @@ struct InlineVideoPlayer: View {
     }
 
     private func togglePlayPauseFromUser() {
-        if viewModel.didReachEnd {
-            handleReplayTap()
-            return
-        }
         if viewModel.isPlaying {
             userPaused = true
             viewModel.pause()
@@ -1146,13 +1118,6 @@ struct InlineVideoPlayer: View {
             viewModel.play()
         }
         scheduleAutoHideControlsIfNeeded()
-    }
-
-    private func handleReplayTap() {
-        userPaused = false
-        hasAttemptedPlayback = true
-        playbackManager.promoteToActive(id: id)
-        viewModel.replay()
     }
 
     private func handlePrimaryTap() {
@@ -1265,28 +1230,6 @@ struct VideoControlsOverlayView: View {
         let mins = total / 60
         let secs = total % 60
         return String(format: "%02d:%02d", mins, secs)
-    }
-}
-
-private struct ReplayOverlayView: View {
-    let onReplay: () -> Void
-
-    var body: some View {
-        Button(action: onReplay) {
-            ZStack {
-                Color.loopedBlack.opacity(0.35)
-                Image("replay-icon")
-                    .resizable()
-                    .renderingMode(.template)
-                    .scaledToFit()
-                    .frame(width: 64, height: 64)
-                    .foregroundColor(.loopedWhite)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .accessibilityLabel("Replay")
     }
 }
 

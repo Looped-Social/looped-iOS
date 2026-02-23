@@ -99,6 +99,12 @@ struct EmailVerificationView: View {
                     )
                     .padding(.horizontal, 28)
 
+                    if viewModel.stage == .enterEmail {
+                        domainSupportHint
+                            .padding(.horizontal, 32)
+                            .padding(.top, 10)
+                    }
+
                     if viewModel.stage == .enterCode {
                         Button(action: { Task { await viewModel.resendCode() } }) {
                             Text("Resend email")
@@ -135,10 +141,14 @@ struct EmailVerificationView: View {
                     .padding(.horizontal, 32)
 
                     if shouldShowRetryDomainsAction {
-                        SecondaryButton(title: "Retry") {
+                        Button(action: {
                             Task { await viewModel.loadDomains() }
+                        }) {
+                            Text("Retry loading domains")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedSecondary)
                         }
-                        .padding(.horizontal, 32)
+                        .buttonStyle(.plain)
                         .padding(.top, 10)
                     }
 
@@ -198,8 +208,8 @@ private extension EmailVerificationView {
         }
     }
 
-	    var emailEntryCard: some View {
-	        VStack(spacing: 16) {
+		    var emailEntryCard: some View {
+		        VStack(spacing: 16) {
 	            Text("Use your \(communityName) email")
 	                .font(.loopedSubBodyMedium)
 	                .foregroundColor(.loopedTextSecondary)
@@ -219,26 +229,90 @@ private extension EmailVerificationView {
                     .autocapitalization(.none)
                     .autocorrectionDisabled()
                     .keyboardType(.emailAddress)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
 	                domainSelector
+                        .layoutPriority(1)
 	            }
 	            .padding(.horizontal, 12)
 	            .padding(.vertical, 10)
-	            .background(
-	                RoundedRectangle(cornerRadius: 10, style: .continuous)
-	                    .fill(Color.loopedBackground)
-	                    .overlay(
-	                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-	                            .stroke(Color.loopedTextSecondary.opacity(0.18), lineWidth: 1)
-	                    )
-	            )
+		            .background(
+		                RoundedRectangle(cornerRadius: 10, style: .continuous)
+		                    .fill(Color.loopedBackground)
+		                    .overlay(
+		                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+		                            .stroke(Color.loopedTextSecondary.opacity(0.18), lineWidth: 1)
+		                    )
+		            )
+	        }
+	    }
 
-	            if viewModel.domains.count > 1 {
-	                Text("Select a domain")
-	                    .font(.loopedSmallText)
+    var domainSupportHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Don't see your email ending?")
+                .font(.loopedSubBodyMedium)
+                .foregroundColor(.loopedTextPrimary)
+
+            Text(emailEndingSupportText)
+                .font(.loopedSmallText)
+                .foregroundColor(.loopedTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            domainSupportActions
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    var domainSupportActions: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                Link("Contact form", destination: supportContactURL)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedSecondary)
+                    .underline()
+
+                Text("•")
+                    .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
+
+                Link("Email support", destination: supportEmailURL)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedSecondary)
+                    .underline()
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Link("Open contact form", destination: supportContactURL)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedSecondary)
+                    .underline()
+
+                Link("Email support@mylooped.app", destination: supportEmailURL)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedSecondary)
+                    .underline()
             }
         }
+    }
+
+    var emailEndingSupportText: String {
+        let endings = viewModel.domains.map { "@\($0)" }
+        guard let first = endings.first else {
+            return "No worries! Contact us here and we'll look into it."
+        }
+        if endings.count == 1 {
+            return "If your email doesn't end in \"\(first)\", no worries! Contact us here and we'll look into it."
+        }
+        return "If your email doesn't end in \"\(first)\" or one of our other options, no worries! Contact us here and we'll look into it."
+    }
+
+    var supportContactURL: URL {
+        URL(string: "https://mylooped.app/contact")!
+    }
+
+    var supportEmailURL: URL {
+        URL(string: "mailto:support@mylooped.app")!
     }
 
     var domainSelector: some View {
@@ -249,6 +323,8 @@ private extension EmailVerificationView {
                         Text("@\(domain)")
                             .font(.loopedBody)
                             .foregroundColor(.loopedTextPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                             .tag(domain)
                     }
                 } label: {
@@ -265,8 +341,13 @@ private extension EmailVerificationView {
         Text(viewModel.selectedDomain.isEmpty ? "@domain" : "@\(viewModel.selectedDomain)")
             .font(.loopedBody)
             .foregroundColor(.loopedTextSecondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .minimumScaleFactor(0.9)
+            .allowsTightening(true)
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
+            .frame(minWidth: 86, maxWidth: 150, alignment: .leading)
             .background(Color.loopedTextSecondary.opacity(0.12))
             .cornerRadius(8)
     }

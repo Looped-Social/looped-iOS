@@ -99,6 +99,8 @@ struct CommunitySearchResult: Identifiable, Equatable {
     let specializationType: CommunitySpecializationType
     /// Number of active verified members for this community (backend `member_count`).
     let memberCount: Int
+    let bannerImageUrl: String?
+    let profileImageUrl: String?
     let imageUrl: String?
     let icon: CommunityIcon?
     let isFollowing: Bool?
@@ -112,6 +114,8 @@ struct CommunitySearchResult: Identifiable, Equatable {
         kind: CommunityKind,
         specializationType: CommunitySpecializationType = .unknown,
         memberCount: Int,
+        bannerImageUrl: String? = nil,
+        profileImageUrl: String? = nil,
         imageUrl: String? = nil,
         icon: CommunityIcon? = nil,
         isFollowing: Bool? = nil,
@@ -124,10 +128,20 @@ struct CommunitySearchResult: Identifiable, Equatable {
         self.kind = kind
         self.specializationType = specializationType
         self.memberCount = memberCount
+        self.bannerImageUrl = bannerImageUrl
+        self.profileImageUrl = profileImageUrl
         self.imageUrl = imageUrl
         self.icon = icon
         self.isFollowing = isFollowing
         self.isJoined = isJoined
+    }
+
+    var bannerDisplayImageUrl: String? {
+        bannerImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
+    }
+
+    var profileDisplayImageUrl: String? {
+        profileImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
     }
 }
 
@@ -168,6 +182,8 @@ extension CommunitySearchResult {
             kind: kind,
             specializationType: specializationType,
             memberCount: memberCount,
+            bannerImageUrl: bannerImageUrl,
+            profileImageUrl: profileImageUrl,
             imageUrl: imageUrl,
             icon: icon,
             isFollowing: isFollowing,
@@ -186,6 +202,8 @@ extension CommunitySearchResult {
             ? parsedType
             : CommunitySpecializationType.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
+        bannerImageUrl = dto.bannerImageUrl
+        profileImageUrl = dto.profileImageUrl
         imageUrl = dto.imageUrl
         icon = dto.icon?.normalizedOrNil()
         isFollowing = dto.isFollowing
@@ -203,6 +221,8 @@ extension CommunitySearchResult {
             ? parsedType
             : CommunitySpecializationType.fromApi(dto.kind)
         memberCount = dto.memberCount ?? 0
+        bannerImageUrl = dto.bannerImageUrl
+        profileImageUrl = dto.profileImageUrl
         imageUrl = dto.imageUrl
         icon = dto.icon?.normalizedOrNil()
         isFollowing = dto.isFollowing

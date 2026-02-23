@@ -10,10 +10,22 @@ struct CommunityProfileData: Identifiable, Equatable {
     /// Number of active verified members for this community (backend `member_count`).
     /// Not affected by follow/unfollow or join/leave actions.
     var memberCount: Int
+    var bannerImageUrl: String? = nil
+    var profileImageUrl: String? = nil
     var imageUrl: String?
     var isFollowing: Bool
     var isJoined: Bool
     var joinLimit: SpecializationJoinLimit?
+}
+
+extension CommunityProfileData {
+    var bannerDisplayImageUrl: String? {
+        bannerImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
+    }
+
+    var profileDisplayImageUrl: String? {
+        profileImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
+    }
 }
 
 extension CommunityProfileData {
@@ -25,6 +37,8 @@ extension CommunityProfileData {
         self.kind = community.kind
         self.specializationType = community.specializationType
         self.memberCount = community.memberCount
+        self.bannerImageUrl = community.bannerImageUrl
+        self.profileImageUrl = community.profileImageUrl
         self.imageUrl = community.imageUrl
         self.isFollowing = community.isFollowing ?? false
         self.isJoined = community.isJoined ?? false
@@ -44,6 +58,8 @@ extension CommunityProfileData {
             self.specializationType = parsedType
         }
         self.memberCount = details.memberCount ?? 0
+        self.bannerImageUrl = details.bannerImageUrl
+        self.profileImageUrl = details.profileImageUrl
         self.imageUrl = details.imageUrl
         self.isFollowing = details.isFollowing ?? false
         self.isJoined = details.isJoined ?? false
@@ -71,15 +87,37 @@ extension CommunityProfileData {
 
         self.memberCount = details.memberCount ?? fallback.memberCount
 
-        let trimmedImageUrl = (details.imageUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        self.imageUrl = trimmedImageUrl.isEmpty ? fallback.imageUrl : trimmedImageUrl
+        let detailsImageUrl = details.imageUrl?.trimmedNonEmpty
+        self.imageUrl = detailsImageUrl ?? fallback.imageUrl
+
+        if let detailsBannerImageUrl = details.bannerImageUrl?.trimmedNonEmpty {
+            self.bannerImageUrl = detailsBannerImageUrl
+        } else if detailsImageUrl != nil {
+            self.bannerImageUrl = nil
+        } else {
+            self.bannerImageUrl = fallback.bannerImageUrl
+        }
+
+        if let detailsProfileImageUrl = details.profileImageUrl?.trimmedNonEmpty {
+            self.profileImageUrl = detailsProfileImageUrl
+        } else if detailsImageUrl != nil {
+            self.profileImageUrl = nil
+        } else {
+            self.profileImageUrl = fallback.profileImageUrl
+        }
 
         self.isFollowing = details.isFollowing ?? fallback.isFollowing
         self.isJoined = details.isJoined ?? fallback.isJoined
         self.joinLimit = details.joinLimit.map(SpecializationJoinLimit.init(dto:)) ?? fallback.joinLimit
     }
 
-    init(summary: CommunitySummary, description: String = "", imageUrl: String? = nil) {
+    init(
+        summary: CommunitySummary,
+        description: String = "",
+        imageUrl: String? = nil,
+        bannerImageUrl: String? = nil,
+        profileImageUrl: String? = nil
+    ) {
         self.id = summary.id
         self.name = summary.name
         self.shortName = summary.shortName
@@ -87,6 +125,8 @@ extension CommunityProfileData {
         self.kind = summary.kind
         self.specializationType = .unknown
         self.memberCount = summary.memberCount
+        self.bannerImageUrl = bannerImageUrl
+        self.profileImageUrl = profileImageUrl
         self.imageUrl = imageUrl
         self.isFollowing = true
         self.isJoined = false
@@ -102,6 +142,8 @@ extension CommunityProfileData {
         self.kind = loop.kind
         self.specializationType = loop.specializationType
         self.memberCount = loop.memberCount
+        self.bannerImageUrl = loop.bannerImageUrl
+        self.profileImageUrl = loop.profileImageUrl
         self.imageUrl = loop.imageUrl
         self.isFollowing = false
         self.isJoined = false
@@ -118,6 +160,8 @@ extension CommunityProfileData {
         self.kind = displayCommunity.kind
         self.specializationType = displayCommunity.specializationType ?? .unknown
         self.memberCount = 0
+        self.bannerImageUrl = nil
+        self.profileImageUrl = nil
         self.imageUrl = nil
         self.isFollowing = false
         self.isJoined = false

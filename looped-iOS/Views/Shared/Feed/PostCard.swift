@@ -33,7 +33,6 @@ struct PostCard: View {
 	    @State private var showShareSheet = false
         @State private var isPreparingShareSheet = false
         @State private var shareItems: [Any] = []
-	    @State private var shareCountOverride: Int?
 	    @State private var isShareTracking = false
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
@@ -173,10 +172,6 @@ struct PostCard: View {
         } else {
             return "just now"
         }
-    }
-
-    private var currentShareCount: Int {
-        shareCountOverride ?? post.shareCount
     }
 
     private var displayedReactionCount: Int {
@@ -907,14 +902,8 @@ struct PostCard: View {
             .onChange(of: post.commentsCount) { _, _ in
                 syncActionBarState()
             }
-            .onChange(of: post.shareCount) { _, _ in
-                syncActionBarState()
-            }
 
         let localChanges = postChanges
-            .onChange(of: shareCountOverride) { _, _ in
-                syncActionBarState()
-            }
             .onChange(of: isLiked) { _, _ in
                 syncActionBarState()
             }
@@ -1177,27 +1166,26 @@ struct PostCard: View {
         return post.backendId != nil
     }
 
-		    private func trackShare() {
-		        guard let postId = post.backendId, !isShareTracking else { return }
-		        isShareTracking = true
-		        Task {
-	            defer { isShareTracking = false }
-	            do {
-	                let response = try await feedService.sharePost(postId: postId)
-	                shareCountOverride = response.shareCount
-                    LoopedHaptics.success()
-	            } catch {
-                    if isNotFound(error) {
-                        handleContentUnavailable()
-                        return
-                    }
-	                actionError = PostActionError(
-	                    title: "Couldn't share post",
-	                    message: actionErrorMessage(verb: "share", error: error)
-	                )
-	            }
-	        }
-	    }
+    private func trackShare() {
+        guard let postId = post.backendId, !isShareTracking else { return }
+        isShareTracking = true
+        Task {
+            defer { isShareTracking = false }
+            do {
+                _ = try await feedService.sharePost(postId: postId)
+                LoopedHaptics.success()
+            } catch {
+                if isNotFound(error) {
+                    handleContentUnavailable()
+                    return
+                }
+                actionError = PostActionError(
+                    title: "Couldn't share post",
+                    message: actionErrorMessage(verb: "share", error: error)
+                )
+            }
+        }
+    }
 
     private func toggleBookmark() {
         guard !isBookmarkLoading else { return }
@@ -1461,7 +1449,6 @@ struct PostCard: View {
     private func syncActionBarState() {
         postActionState.likeCount = displayedReactionCount
         postActionState.commentCount = post.commentsCount
-        postActionState.shareCount = currentShareCount
         postActionState.isLiked = isLiked
         postActionState.isReposted = isReposted
         postActionState.isSaved = isBookmarked

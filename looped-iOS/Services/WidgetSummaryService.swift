@@ -91,7 +91,7 @@ struct WidgetSummaryService: WidgetSummaryServiceProtocol {
 
     private func fetchTrendingFallback() async -> WidgetSnapshot.TrendingPost? {
         do {
-            let response: WidgetTrendingFeedResponse = try await apiClient.get("v1/feed/trending?limit=1")
+            let response: WidgetTrendingFeedResponse = try await apiClient.get("/v1/feed/trending?limit=1")
             guard let item = response.items.first, item.id > 0 else { return nil }
             let previewRaw = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
             let preview = previewRaw.isEmpty

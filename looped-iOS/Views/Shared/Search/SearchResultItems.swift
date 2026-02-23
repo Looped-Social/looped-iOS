@@ -216,7 +216,7 @@ struct LoopSearchResultItem: View {
 
     private var loopImage: some View {
         Group {
-            if let url = URL.loopedMediaURL(from: loop.imageUrl) {
+            if let url = URL.loopedMediaURL(from: loop.profileDisplayImageUrl) {
                 LoopedDownsampledAsyncImage(url: url, maxPixelSize: 384) { phase in
                     switch phase {
                     case .success(let image):

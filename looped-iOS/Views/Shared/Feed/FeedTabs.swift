@@ -427,13 +427,12 @@ private struct CommunitySearchResultRow: View {
     }
 
     private var resolvedThumbnailURL: URL? {
-        if let imageUrl = result.imageUrl,
-           let url = URL(string: imageUrl) {
+        if let url = URL.loopedMediaURL(from: result.profileDisplayImageUrl) {
             return url
         }
         if let icon = result.icon?.normalizedOrNil(),
            icon.kind == .imageUrl,
-           let url = URL(string: icon.value) {
+           let url = URL.loopedMediaURL(from: icon.value) {
             return url
         }
         return nil

@@ -50,7 +50,7 @@ extension Organization {
             name: community.name,
             category: "",
             logoText: Self.logoText(for: community.name),
-            imageURL: community.imageUrl,
+            imageURL: community.profileDisplayImageUrl,
             kind: orgKind
         )
     }

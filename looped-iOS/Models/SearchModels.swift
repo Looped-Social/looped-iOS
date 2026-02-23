@@ -232,6 +232,8 @@ struct SearchResultLoop: Identifiable {
     let kind: CommunityKind
     let specializationType: CommunitySpecializationType
     let memberCount: Int
+    let bannerImageUrl: String?
+    let profileImageUrl: String?
     let imageUrl: String?
     let icon: CommunityIcon?
 
@@ -244,6 +246,8 @@ struct SearchResultLoop: Identifiable {
         kind: CommunityKind = .unknown,
         specializationType: CommunitySpecializationType = .unknown,
         memberCount: Int,
+        bannerImageUrl: String? = nil,
+        profileImageUrl: String? = nil,
         imageUrl: String? = nil,
         icon: CommunityIcon? = nil
     ) {
@@ -255,6 +259,8 @@ struct SearchResultLoop: Identifiable {
         self.kind = kind
         self.specializationType = specializationType
         self.memberCount = memberCount
+        self.bannerImageUrl = bannerImageUrl
+        self.profileImageUrl = profileImageUrl
         self.imageUrl = imageUrl
         self.icon = icon
     }
@@ -262,6 +268,14 @@ struct SearchResultLoop: Identifiable {
     var specializationLabel: String? {
         guard kind == .specialization else { return nil }
         return specializationType.displayName
+    }
+
+    var bannerDisplayImageUrl: String? {
+        bannerImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
+    }
+
+    var profileDisplayImageUrl: String? {
+        profileImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
     }
 }
 

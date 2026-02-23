@@ -168,7 +168,7 @@ struct CommunityProfileView: View {
         VStack(spacing: 12) {
             CommunityProfileBanner(
                 name: viewModel.community.name,
-                imageUrl: viewModel.community.imageUrl
+                imageUrl: viewModel.community.bannerDisplayImageUrl
             )
 
             VStack(alignment: .leading, spacing: 8) {

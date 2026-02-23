@@ -70,6 +70,8 @@ struct CommunityProfileViewModelTests {
             kind: "school",
             specializationType: nil,
             memberCount: 1234,
+            bannerImageUrl: nil,
+            profileImageUrl: nil,
             imageUrl: nil,
             icon: nil,
             isFollowing: true,
