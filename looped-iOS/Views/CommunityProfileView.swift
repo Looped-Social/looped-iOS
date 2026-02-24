@@ -425,7 +425,7 @@ struct CommunityProfileView: View {
     }
 
     private var postsSection: some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             if viewModel.isLoading && viewModel.posts.isEmpty {
                 ForEach(0..<6, id: \.self) { index in
                     PostCardSkeleton(showsMedia: index % 3 != 0)
@@ -475,7 +475,7 @@ struct CommunityProfileView: View {
     }
 
     private var hashtagsSection: some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             if hashtagPostsViewModel.isLoading && hashtagPostsViewModel.posts.isEmpty {
                 ForEach(0..<6, id: \.self) { index in
                     PostCardSkeleton(showsMedia: index % 3 != 0)
