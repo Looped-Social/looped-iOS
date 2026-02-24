@@ -33,43 +33,46 @@ struct CommunityProfileView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            ScrollView {
-                VStack(spacing: 0) {
-                    headerContent
-                        .padding(.top, 12)
-                    tabBar
-                    tabContent
-                }
-                .background(
-                    GeometryReader { geo in
-                        Color.loopedClear
-                            .onChange(of: geo.frame(in: .global).minY) { _, newValue in
-                                let atTop = newValue >= -20
-                                if atTop != isAtTop {
-                                    isAtTop = atTop
-                                }
-                            }
+            GeometryReader { scrollGeo in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        headerContent
+                            .padding(.top, 12)
+                        tabBar
+                        tabContent
                     }
-                )
-            }
-            .background(Color.loopedBackground.ignoresSafeArea())
-            .loopedPullToRefresh(isAtTop: isAtTop) {
-                if selectedTab == .hashtags {
-                    await hashtagPostsViewModel.refresh()
-                } else {
-                    await viewModel.refresh()
+                    .frame(width: scrollGeo.size.width, alignment: .top)
+                    .background(
+                        GeometryReader { geo in
+                            Color.loopedClear
+                                .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                                    let atTop = newValue >= -20
+                                    if atTop != isAtTop {
+                                        isAtTop = atTop
+                                    }
+                                }
+                        }
+                    )
                 }
-            }
-            .overlay(alignment: .bottom) {
-                if isSelectedTabLoadingMore {
-                    LoopedInlineLoadingIndicator()
-                        .background(Color.loopedBackground.opacity(0.92))
-                        .padding(.bottom, bottomInsetHeight)
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
+                .background(Color.loopedBackground.ignoresSafeArea())
+                .loopedPullToRefresh(isAtTop: isAtTop) {
+                    if selectedTab == .hashtags {
+                        await hashtagPostsViewModel.refresh()
+                    } else {
+                        await viewModel.refresh()
+                    }
                 }
+                .overlay(alignment: .bottom) {
+                    if isSelectedTabLoadingMore {
+                        LoopedInlineLoadingIndicator()
+                            .background(Color.loopedBackground.opacity(0.92))
+                            .padding(.bottom, bottomInsetHeight)
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+                    }
+                }
+                .task { await loadIfNeeded() }
             }
-            .task { await loadIfNeeded() }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
@@ -214,6 +217,7 @@ struct CommunityProfileView: View {
             }
             .padding(.horizontal, 20)
         }
+        .frame(maxWidth: .infinity)
         .padding(.top, 24)
         .padding(.bottom, 8)
     }
@@ -931,7 +935,9 @@ struct CommunityProfileBanner: View {
         VStack(spacing: 12) {
             if hasBannerImage {
                 bannerImage
+                    .frame(maxWidth: .infinity)
                     .frame(height: 120)
+                    .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
 
