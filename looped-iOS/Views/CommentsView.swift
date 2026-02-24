@@ -122,6 +122,36 @@ struct CommentsView: View {
         return nil
     }
 
+    private var postCommunityProfileData: CommunityProfileData? {
+        guard let communityId = post.communityId, communityId > 0 else { return nil }
+        let trimmedName = post.communityName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedName = trimmedName.isEmpty
+            ? post.communityKind?.rawValue.capitalized ?? "Community"
+            : trimmedName
+        return CommunityProfileData(
+            id: communityId,
+            name: resolvedName,
+            shortName: post.communityShortName?.trimmedNonEmpty,
+            description: "",
+            kind: post.communityKind ?? .unknown,
+            specializationType: .unknown,
+            memberCount: 0,
+            imageUrl: nil,
+            isFollowing: false,
+            isJoined: false
+        )
+    }
+
+    private var postAuthorDisplayProfileData: CommunityProfileData? {
+        if let specialization = post.authorDisplaySpecialization, specialization.id > 0 {
+            return CommunityProfileData(displayCommunity: specialization)
+        }
+        if let displayCommunity = post.authorDisplayCommunity, displayCommunity.id > 0 {
+            return CommunityProfileData(displayCommunity: displayCommunity)
+        }
+        return nil
+    }
+
     private var postAuthorProfileId: Int? {
         if post.isAnonymous {
             return post.anonProfileId
@@ -413,19 +443,12 @@ private extension CommentsView {
 
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(postAuthorName)
-                        .font(.loopedCommentsPostAuthor)
-                        .foregroundColor(.loopedTextStrong)
-                        .fixedSize(horizontal: false, vertical: true)
+                    threadAuthorName
 
                     if postAuthorDisplayLine != nil || postCommunityContextText != nil {
                         HStack(spacing: 4) {
                             if let postAuthorDisplayLine {
-                                Text(postAuthorDisplayLine)
-                                    .font(.loopedCommentsPostMeta)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
+                                postAuthorDisplayLineView(text: postAuthorDisplayLine)
                             }
 
                             if postAuthorDisplayLine != nil, postCommunityContextText != nil {
@@ -435,11 +458,7 @@ private extension CommentsView {
                             }
 
                             if let postCommunityContextText {
-                                Text(postCommunityContextText)
-                                    .font(.loopedSubBodyRegular)
-                                    .foregroundColor(.loopedTextSecondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
+                                postCommunityContextTextView(text: postCommunityContextText)
                             }
 
                             Spacer(minLength: 0)
@@ -578,6 +597,64 @@ private extension CommentsView {
                 size: 44,
                 variant: post.isAnonymous ? .anonymous : .standard
             )
+        }
+    }
+
+    @ViewBuilder
+    private var threadAuthorName: some View {
+        if let postAuthorProfileId {
+            NavigationLink(destination: postAuthorProfileDestination(profileId: postAuthorProfileId)) {
+                Text(postAuthorName)
+                    .font(.loopedCommentsPostAuthor)
+                    .foregroundColor(.loopedTextStrong)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            Text(postAuthorName)
+                .font(.loopedCommentsPostAuthor)
+                .foregroundColor(.loopedTextStrong)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func postAuthorDisplayLineView(text: String) -> some View {
+        if let postAuthorDisplayProfileData {
+            NavigationLink(destination: CommunityProfileView(community: postAuthorDisplayProfileData)) {
+                Text(text)
+                    .font(.loopedCommentsPostMeta)
+                    .foregroundColor(.loopedTextSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            Text(text)
+                .font(.loopedCommentsPostMeta)
+                .foregroundColor(.loopedTextSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+
+    @ViewBuilder
+    private func postCommunityContextTextView(text: String) -> some View {
+        if let postCommunityProfileData {
+            NavigationLink(destination: CommunityProfileView(community: postCommunityProfileData)) {
+                Text(text)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .buttonStyle(PlainButtonStyle())
+        } else {
+            Text(text)
+                .font(.loopedSubBodyRegular)
+                .foregroundColor(.loopedTextSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 

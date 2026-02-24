@@ -34,7 +34,7 @@ struct CommunityProfileView: View {
     var body: some View {
         ZStack(alignment: .top) {
             ScrollView {
-                LazyVStack(spacing: 0) {
+                VStack(spacing: 0) {
                     headerContent
                         .padding(.top, 12)
                     tabBar
