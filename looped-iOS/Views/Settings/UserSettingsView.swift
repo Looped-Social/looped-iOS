@@ -14,6 +14,7 @@ struct UserSettingsView: View {
     private let mediaService: MediaServiceProtocol = MediaService()
     private let communityService: CommunityServiceProtocol = CommunityService()
     private let anonService = AnonService.shared
+    private let bioCharacterLimit = 500
 
     @State private var username: String = ""
     @State private var firstName: String = ""
@@ -61,8 +62,6 @@ struct UserSettingsView: View {
     @State private var profilePhotoPayload: ImageUploadPayload?
     @State private var pendingCropImage: UIImage?
     @State private var isShowingImageCropper = false
-    @State private var isShowingDisplaySpecializationPicker = false
-    @State private var isShowingAnonDisplaySpecializationPicker = false
     @State private var profileShareSheetPayload: ProfileShareSheetPayload?
     @State private var initialUsername: String = ""
     @State private var initialFirstName: String = ""
@@ -262,19 +261,6 @@ struct UserSettingsView: View {
                                     .foregroundColor(.loopedError)
                             }
 
-                            Button {
-                                isShowingAnonDisplaySpecializationPicker = true
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.loopedCustom(size: 14))
-                                    Text("Browse majors and fields")
-                                        .font(.loopedSubBodyMedium)
-                                }
-                                .foregroundColor(.loopedPrimary)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(isSaving)
                         }
                         .padding(.horizontal, 20)
                     } else {
@@ -556,19 +542,6 @@ struct UserSettingsView: View {
                                     .foregroundColor(.loopedError)
                             }
 
-                            Button {
-                                isShowingDisplaySpecializationPicker = true
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.loopedCustom(size: 14))
-                                    Text("Browse majors and fields")
-                                        .font(.loopedSubBodyMedium)
-                                }
-                                .foregroundColor(.loopedPrimary)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(isSaving)
                         }
                         .padding(.horizontal, 20)
 
@@ -614,9 +587,17 @@ struct UserSettingsView: View {
                         .padding(.horizontal, 20)
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Bio")
-                                .font(.loopedBodyStrong)
-                                .foregroundColor(.loopedTextPrimary)
+                            HStack(spacing: 8) {
+                                Text("Bio")
+                                    .font(.loopedBodyStrong)
+                                    .foregroundColor(.loopedTextPrimary)
+
+                                Spacer()
+
+                                Text("\(bioRemainingCharacters) characters left")
+                                    .font(.loopedSmallText)
+                                    .foregroundColor(bioRemainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
+                            }
 
                             ZStack(alignment: .topLeading) {
                                 TextEditor(text: $bio)
@@ -709,26 +690,6 @@ struct UserSettingsView: View {
             } else {
                 EmptyView()
             }
-        }
-        .sheet(
-            isPresented: $isShowingDisplaySpecializationPicker,
-            onDismiss: { Task { await loadJoinedSpecializations() } }
-        ) {
-            DisplaySpecializationPickerView(
-                selectedSpecialization: $displaySpecialization,
-                title: "Display Specialization",
-                communityService: communityService
-            )
-        }
-        .sheet(
-            isPresented: $isShowingAnonDisplaySpecializationPicker,
-            onDismiss: { Task { await loadJoinedSpecializations() } }
-        ) {
-            DisplaySpecializationPickerView(
-                selectedSpecialization: $anonDisplaySpecialization,
-                title: "Display Specialization",
-                communityService: communityService
-            )
         }
         .sheet(item: $profileShareSheetPayload) { payload in
             ShareSheet(items: payload.items)
@@ -1442,6 +1403,11 @@ private extension UserSettingsView {
         return isUsernameReady
             && !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && bio.count <= bioCharacterLimit
+    }
+
+    var bioRemainingCharacters: Int {
+        bioCharacterLimit - bio.count
     }
 
     func handleUsernameChange(_ value: String) {

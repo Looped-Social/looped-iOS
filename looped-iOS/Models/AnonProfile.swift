@@ -39,7 +39,7 @@ extension AnonProfile {
         let now = Date()
         let createdAt = createdAt ?? now
         let calendar = Calendar.current
-        let yearsInLoop = max(0, calendar.component(.year, from: now) - calendar.component(.year, from: createdAt))
+        let yearsInLoop = max(0, calendar.dateComponents([.year], from: createdAt, to: now).year ?? 0)
         let resolvedHandle = Self.preferredHandle(handle: handle, username: nil)
 
         return UserProfile(

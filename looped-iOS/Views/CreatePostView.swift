@@ -59,7 +59,7 @@ struct CreatePostView: View {
         _pollDraft = State(initialValue: draft?.poll)
     }
     
-    private var characterLimit: Int { 280 }
+    private var characterLimit: Int { 500 }
     private var remainingCharacters: Int { characterLimit - postText.count }
     private var isPostValid: Bool {
         let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -221,9 +221,17 @@ struct CreatePostView: View {
                     
                     // Text input area
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("What's happening?")
-                            .font(.loopedSubBodyMedium)
-                            .foregroundColor(.loopedTextSecondary)
+                        HStack(spacing: 8) {
+                            Text("What's happening?")
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            Spacer()
+
+                            Text("\(remainingCharacters) characters left")
+                                .font(.loopedSmallText)
+                                .foregroundColor(remainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
+                        }
 
                         TextField("Share your thoughts...", text: $postText, axis: .vertical)
                             .font(.loopedBody)
@@ -319,14 +327,6 @@ struct CreatePostView: View {
                             TemporaryMediaFile.deleteIfOwned(item.videoURL)
                             selectedMedia.removeAll { $0.id == item.id }
                         }
-                    }
-
-                    // Character count
-                    HStack {
-                        Spacer()
-                        Text("\(remainingCharacters)")
-                            .font(.loopedSmallText)
-                            .foregroundColor(remainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
                     }
                     
                     // Anonymous mode toggle

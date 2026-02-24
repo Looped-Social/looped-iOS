@@ -159,6 +159,11 @@ class UserService: UserServiceProtocol {
         return UserShareLink(dto: response)
     }
 
+    func fetchUserShareLink(userId: Int) async throws -> UserProfileShareLink {
+        let response: UserProfileShareLinkDTO = try await apiClient.get("/v1/users/\(userId)/share-link")
+        return UserProfileShareLink(dto: response)
+    }
+
     func checkSlugAvailability(_ slug: String) async throws -> UserSlugAvailability {
         let encodedSlug = URLQueryEncoding.encode(slug)
         let response: UserSlugAvailabilityDTO = try await apiClient.get("/v1/users/slug/availability?slug=\(encodedSlug)")
@@ -604,6 +609,14 @@ private extension UserShareLink {
     init(dto: UserShareLinkDTO) {
         usernameSlug = dto.usernameSlug
         customSlug = dto.customSlug
+        activeSlug = dto.activeSlug
+        canonicalUrl = dto.canonicalUrl
+    }
+}
+
+private extension UserProfileShareLink {
+    init(dto: UserProfileShareLinkDTO) {
+        userId = dto.userId
         activeSlug = dto.activeSlug
         canonicalUrl = dto.canonicalUrl
     }

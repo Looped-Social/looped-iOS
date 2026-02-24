@@ -347,6 +347,8 @@ private extension FeedTab {
 	}
 
 private struct CommunitySearchResultRow: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let result: CommunitySearchResult
     let kindLabel: String
 
@@ -418,6 +420,7 @@ private struct CommunitySearchResultRow: View {
                 placeholder
             }
         }
+        .background(imageBackdropColor)
         .frame(width: 34, height: 34)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
@@ -444,6 +447,13 @@ private struct CommunitySearchResultRow: View {
             .overlay(
                 placeholderGlyph
             )
+    }
+
+    private var imageBackdropColor: Color {
+        if result.kind.usesContrastImageBackdrop {
+            return Color.loopedCommunityImageBackdrop(for: colorScheme)
+        }
+        return .loopedBackground
     }
 
     @ViewBuilder

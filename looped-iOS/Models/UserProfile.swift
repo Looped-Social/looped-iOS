@@ -31,8 +31,30 @@ struct UserProfile: Codable, Identifiable {
     }
 
     var formattedYearsInLoop: String {
-        let suffix = yearsInLoop == 1 ? "" : "s"
-        return String(yearsInLoop) + " year" + suffix + " in the Loop"
+        formattedTimeInLoop()
+    }
+
+    func formattedTimeInLoop(asOf referenceDate: Date = Date(), calendar: Calendar = .current) -> String {
+        let startDate = min(createdAt, referenceDate)
+        let endDate = max(createdAt, referenceDate)
+
+        let years = max(0, calendar.dateComponents([.year], from: startDate, to: endDate).year ?? 0)
+        if years >= 1 {
+            return Self.tenureLabel(value: years, unit: "year")
+        }
+
+        let months = max(0, calendar.dateComponents([.month], from: startDate, to: endDate).month ?? 0)
+        if months >= 1 {
+            return Self.tenureLabel(value: months, unit: "month")
+        }
+
+        let weeks = max(0, calendar.dateComponents([.weekOfYear], from: startDate, to: endDate).weekOfYear ?? 0)
+        if weeks >= 1 {
+            return Self.tenureLabel(value: weeks, unit: "week")
+        }
+
+        let days = max(0, calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 0)
+        return Self.tenureLabel(value: days, unit: "day")
     }
 
     var formattedJobTitle: String {
@@ -105,6 +127,11 @@ struct UserProfile: Codable, Identifiable {
         return trimmedJobTitle
     }
 
+    private static func tenureLabel(value: Int, unit: String) -> String {
+        let suffix = value == 1 ? "" : "s"
+        return String(value) + " " + unit + suffix + " in the Loop"
+    }
+
 }
 
 extension UserProfile {
@@ -139,9 +166,7 @@ extension UserProfile {
         let now = Date()
         let createdAt = user.createdAt ?? now
         let calendar = Calendar.current
-        let currentYear = calendar.component(.year, from: now)
-        let createdYear = calendar.component(.year, from: createdAt)
-        let yearsInLoop = max(0, currentYear - createdYear)
+        let yearsInLoop = max(0, calendar.dateComponents([.year], from: createdAt, to: now).year ?? 0)
         let username = user.username ?? user.handle
         let resolvedDisplayName = user.displayName ?? "Looped User"
         let resolvedCompany = user.companyName ?? "Looped"

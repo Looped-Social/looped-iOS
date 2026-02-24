@@ -31,7 +31,10 @@ extension Color {
     static let loopedError = Color("ErrorColor")
     static let loopedSuccess = Color("SuccessColor")
     static let loopedWarning = Color("WarningColor")
-    
-    
+
+    // Contrast-safe backdrop for community images with transparency.
+    static func loopedCommunityImageBackdrop(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? .loopedWhite.opacity(0.94) : .loopedBackground
+    }
 
 }

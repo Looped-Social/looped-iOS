@@ -39,7 +39,7 @@ protocol FeedServiceProtocol {
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost]
     func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage
     func createPost(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, mediaAssetIds: [Int]?, poll: PollDraft?) async throws -> Post
-    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post
+    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?, removeMedia: Bool) async throws -> Post
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse
     func unlikePost(postId: Int, communityId: Int?) async throws -> PostReactionResponse
     func sharePost(postId: Int) async throws -> PostShareResponse
@@ -87,6 +87,18 @@ struct PostDeleteResponse {
 struct RepostersPage {
     let items: [RepostBannerUser]
     let nextCursor: String?
+}
+
+extension FeedServiceProtocol {
+    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post {
+        try await updatePost(
+            postId: postId,
+            content: content,
+            isAnonymous: isAnonymous,
+            communityId: communityId,
+            removeMedia: false
+        )
+    }
 }
 
 protocol PollsServiceProtocol {
@@ -157,6 +169,7 @@ protocol UserServiceProtocol {
     func followAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult
     func unfollowAnonProfile(anonProfileId: Int, asAnonymousActor: Bool, communityId: Int?) async throws -> AnonProfileFollowActionResult
     func fetchMyShareLink() async throws -> UserShareLink
+    func fetchUserShareLink(userId: Int) async throws -> UserProfileShareLink
     func checkSlugAvailability(_ slug: String) async throws -> UserSlugAvailability
     func resolveUserId(fromSlug slug: String) async throws -> Int
     func updateMyShareLink(customSlug: String?) async throws -> UserShareLink
@@ -209,6 +222,12 @@ struct UserShareLink {
     let canonicalUrl: String
 }
 
+struct UserProfileShareLink {
+    let userId: Int
+    let activeSlug: String
+    let canonicalUrl: String
+}
+
 struct UserSlugAvailability {
     let slug: String
     let available: Bool
@@ -217,6 +236,10 @@ struct UserSlugAvailability {
 }
 
 extension UserServiceProtocol {
+    func fetchUserShareLink(userId: Int) async throws -> UserProfileShareLink {
+        throw APIError.invalidResponse
+    }
+
     func resolveUserId(fromSlug slug: String) async throws -> Int {
         let page = try await searchUsers(query: slug, limit: 25, cursor: nil)
         let normalized = slug.lowercased()

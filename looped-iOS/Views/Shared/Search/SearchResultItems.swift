@@ -154,6 +154,8 @@ struct PostSearchResultItem: View {
 
 // MARK: - Loop Search Result
 struct LoopSearchResultItem: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let loop: SearchResultLoop
     let onTap: () -> Void
 
@@ -233,12 +235,13 @@ struct LoopSearchResultItem: View {
                 placeholderImage
             }
         }
+        .background(imageBackdropColor)
         .clipped()
     }
 
     private var placeholderImage: some View {
         RoundedRectangle(cornerRadius: 10)
-            .fill(Color.loopedBackground)
+            .fill(imageBackdropColor)
             .overlay(
                 Group {
                     if loop.kind == .specialization {
@@ -254,6 +257,13 @@ struct LoopSearchResultItem: View {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.loopedMutedBackground, lineWidth: 1)
             )
+    }
+
+    private var imageBackdropColor: Color {
+        if loop.kind.usesContrastImageBackdrop {
+            return Color.loopedCommunityImageBackdrop(for: colorScheme)
+        }
+        return .loopedBackground
     }
 
     @ViewBuilder

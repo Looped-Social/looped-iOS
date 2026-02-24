@@ -87,6 +87,12 @@ struct UserShareLinkDTO: Decodable {
     let canonicalUrl: String
 }
 
+struct UserProfileShareLinkDTO: Decodable {
+    let userId: Int
+    let activeSlug: String
+    let canonicalUrl: String
+}
+
 struct UserSlugAvailabilityDTO: Decodable {
     let slug: String
     let available: Bool

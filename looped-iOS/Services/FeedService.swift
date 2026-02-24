@@ -134,11 +134,12 @@ class FeedService: FeedServiceProtocol {
         return Post(dto: dto, isAnonymousOverride: isAnonymous)
     }
 
-    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post {
+    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?, removeMedia: Bool) async throws -> Post {
         if isAnonymous {
             let anonContext = try await anonService.actionContext(for: .postEdit(postId: postId), communityId: communityId)
             let request = UpdatePostRequestDTO(
                 content: content,
+                removeMedia: removeMedia ? true : nil,
                 asAnon: true,
                 anonProfileId: anonContext.profileId,
                 anonCert: anonContext.cert,
@@ -157,6 +158,7 @@ class FeedService: FeedServiceProtocol {
 
         let request = UpdatePostRequestDTO(
             content: content,
+            removeMedia: removeMedia ? true : nil,
             asAnon: nil,
             anonProfileId: nil,
             anonCert: nil,

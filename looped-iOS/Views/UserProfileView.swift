@@ -10,6 +10,7 @@ enum UserProfileTab: String, Hashable {
 struct UserProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.floatingActionButtonState) private var fabState
+    @Environment(\.loopedPresentToast) private var presentToast
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var commentsManager: CommentsModalManager
     @StateObject private var viewModel: UserProfileViewModel
@@ -35,6 +36,8 @@ struct UserProfileView: View {
     @State private var isStartingConversation = false
 	    @State private var startedConversation: Conversation?
 	    @State private var messageErrorMessage: String?
+    @State private var profileShareSheetPayload: ProfileShareSheetPayload?
+    @State private var isPreparingProfileShareSheet = false
     private let scrollCoordinateSpace = "userProfileScrollCoordinateSpace"
     private var usesIOS17ScrollTuning: Bool {
         if #available(iOS 18.0, *) { return false }
@@ -43,6 +46,7 @@ struct UserProfileView: View {
 
 	    private let blockService: BlockServiceProtocol = BlockService()
 	    private let messageService: MessageServiceProtocol = MessageService()
+    private let userService: UserServiceProtocol = UserService()
 
     private let requestedBackendUserId: Int?
 
@@ -123,6 +127,9 @@ struct UserProfileView: View {
                     showChat = false
                     startedConversation = nil
                 }
+            }
+            .sheet(item: $profileShareSheetPayload) { payload in
+                ShareSheet(items: payload.items)
             }
             .alert(
                 "Couldn't start chat",
@@ -244,6 +251,13 @@ struct UserProfileView: View {
         if canShowActionMenu {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    if profileShareURL != nil {
+                        Button(action: shareProfile) {
+                            Label("Share Profile", systemImage: "square.and.arrow.up")
+                        }
+                        .disabled(profileShareURL == nil || profileShareSheetPayload != nil || isPreparingProfileShareSheet)
+                    }
+
                     if canBlockUser {
                         Button(role: isUserBlocked ? nil : .destructive) {
                             showBlockConfirm = true
@@ -486,6 +500,92 @@ struct UserProfileView: View {
 	        canBlockUser
 	    }
 
+        private var profileShareURL: URL? {
+            guard let id = viewModel.profile?.backendId else { return nil }
+            let isAnonymous = viewModel.isAnonymousProfile
+            var components = URLComponents()
+            components.scheme = "looped"
+            components.host = "user"
+            components.path = "/\(id)"
+            if isAnonymous {
+                components.queryItems = [URLQueryItem(name: "anon", value: "true")]
+            }
+            return components.url
+        }
+
+        private func shareProfile() {
+            guard !isPreparingProfileShareSheet else { return }
+            guard let backendId = viewModel.profile?.backendId else {
+                presentToast(ToastMessage(text: "Couldn't share this profile right now.", kind: .error))
+                return
+            }
+            guard let fallbackURL = profileShareURL else {
+                presentToast(ToastMessage(text: "Couldn't share this profile right now.", kind: .error))
+                return
+            }
+
+            if viewModel.isAnonymousProfile {
+                profileShareSheetPayload = ProfileShareSheetPayload(items: [fallbackURL])
+                return
+            }
+
+            isPreparingProfileShareSheet = true
+            Task { @MainActor in
+                defer { isPreparingProfileShareSheet = false }
+                do {
+                    let link = try await userService.fetchUserShareLink(userId: backendId)
+                    if let canonical = URL(string: link.canonicalUrl) {
+                        profileShareSheetPayload = ProfileShareSheetPayload(items: [canonical])
+                    } else {
+                        profileShareSheetPayload = ProfileShareSheetPayload(items: [fallbackURL])
+                    }
+                } catch {
+                    if shouldFallbackToProfileDeepLink(for: error) {
+                        profileShareSheetPayload = ProfileShareSheetPayload(items: [fallbackURL])
+                        return
+                    }
+
+                    presentToast(
+                        ToastMessage(
+                            text: profileShareErrorMessage(for: error),
+                            kind: .error
+                        )
+                    )
+                }
+            }
+        }
+
+        private func shouldFallbackToProfileDeepLink(for error: Error) -> Bool {
+            guard case let APIError.apiError(_, apiError, _) = error else { return true }
+            switch apiError {
+            case "user_not_provisioned", "unauthorized", "forbidden", "not_found", "profile_unavailable":
+                return false
+            default:
+                return true
+            }
+        }
+
+        private func profileShareErrorMessage(for error: Error) -> String {
+            guard case let APIError.apiError(_, apiError, message) = error else {
+                return "Couldn't share profile. \(error.localizedDescription)"
+            }
+
+            switch apiError {
+            case "user_not_provisioned":
+                return "Finish setting up your account to share profiles."
+            case "unauthorized":
+                return "Please sign in to share profiles."
+            case "forbidden":
+                return "You can’t share that profile."
+            case "not_found":
+                return "That profile no longer exists."
+            case "profile_unavailable":
+                return "That profile is unavailable."
+            default:
+                return message ?? apiError
+            }
+        }
+
 	    private var canBlockUser: Bool {
 	        guard let profileId = viewModel.profile?.backendId else { return false }
 	        if let currentUserId = authViewModel.currentUser?.backendId, currentUserId == profileId {
@@ -502,6 +602,11 @@ struct UserProfileView: View {
 	        }
         return profile.formattedHandle
     }
+
+        private struct ProfileShareSheetPayload: Identifiable {
+            let id = UUID()
+            let items: [Any]
+        }
 
 	    @MainActor
     private func toggleProfileBlock() async {

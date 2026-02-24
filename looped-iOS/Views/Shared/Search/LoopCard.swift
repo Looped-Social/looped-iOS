@@ -2,6 +2,8 @@ import SwiftUI
 import UIKit
 
 struct LoopCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let title: String
     let description: String
     let memberCount: Int
@@ -115,7 +117,14 @@ struct LoopCard: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.loopedBackground)
+        .background(imageBackdropColor)
+    }
+
+    private var imageBackdropColor: Color {
+        guard (kind ?? .unknown).usesContrastImageBackdrop else {
+            return .loopedBackground
+        }
+        return Color.loopedCommunityImageBackdrop(for: colorScheme)
     }
 
     private var placeholderImage: some View {

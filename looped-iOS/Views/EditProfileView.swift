@@ -24,6 +24,11 @@ struct EditProfileView: View {
     @State private var isShowingUnsavedChangesAlert = false
     @State private var isSaving = false
     @State private var toastMessage: ToastMessage?
+    private let bioCharacterLimit = 500
+
+    private var bioRemainingCharacters: Int {
+        bioCharacterLimit - bio.count
+    }
 
     var body: some View {
         let profileImageSnapshot = profileImage
@@ -118,9 +123,17 @@ struct EditProfileView: View {
 
                                 // Bio
                                 VStack(alignment: .leading, spacing: 8) {
-                                    Text("Bio")
-                                        .font(.loopedSubBodyMedium)
-                                        .foregroundColor(.loopedTextPrimary)
+                                    HStack(spacing: 8) {
+                                        Text("Bio")
+                                            .font(.loopedSubBodyMedium)
+                                            .foregroundColor(.loopedTextPrimary)
+
+                                        Spacer()
+
+                                        Text("\(bioRemainingCharacters) characters left")
+                                            .font(.loopedSmallText)
+                                            .foregroundColor(bioRemainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
+                                    }
 
                                     ZStack(alignment: .topLeading) {
                                         if bio.isEmpty {
@@ -145,10 +158,6 @@ struct EditProfileView: View {
                                     )
                                     .cornerRadius(12)
 
-                                    Text("\(bio.count)/150")
-                                        .font(.loopedSmallText)
-                                        .foregroundColor(.loopedTextSecondary)
-                                        .frame(maxWidth: .infinity, alignment: .trailing)
                                 }
 
                                 // Handle (editable)
@@ -242,7 +251,7 @@ struct EditProfileView: View {
                             // Save Button
                             PrimaryButton(
                                 title: "Save Changes",
-                                isEnabled: !displayName.isEmpty && !handle.isEmpty && bio.count <= 150,
+                                isEnabled: !displayName.isEmpty && !handle.isEmpty && bio.count <= bioCharacterLimit,
                                 isLoading: isSaving
                             ) {
                                 Task {
@@ -337,6 +346,13 @@ struct EditProfileView: View {
     }
 
     private func saveProfile(dismissOnSuccess: Bool = false) async -> Bool {
+        guard bio.count <= bioCharacterLimit else {
+            withAnimation(.easeOut(duration: 0.2)) {
+                toastMessage = ToastMessage(text: "Bio must be 500 characters or fewer.", kind: .error)
+            }
+            return false
+        }
+
         isSaving = true
 
         await viewModel.updateProfileWithPhoto(

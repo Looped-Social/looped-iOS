@@ -30,6 +30,8 @@ final class MockFeedService: FeedServiceProtocol {
     var fetchAnonContentHandler: ((Int, Int, String?, Bool) async throws -> UserContentPage)?
     var createPostCalls: [(content: String, isAnonymous: Bool, communityId: Int, mediaAssetId: Int?, mediaAssetIds: [Int]?, poll: PollDraft?)] = []
     var createPostHandler: ((String, Bool, Int, Int?, [Int]?, PollDraft?) async throws -> Post)?
+    var updatePostCalls: [(postId: Int, content: String, isAnonymous: Bool, communityId: Int?, removeMedia: Bool)] = []
+    var updatePostHandler: ((Int, String, Bool, Int?, Bool) async throws -> Post)?
 
     func fetchFeed(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode) async throws -> FeedPage {
         fetchFeedCalls.append((limit, cursor, communityId, mode))
@@ -63,8 +65,12 @@ final class MockFeedService: FeedServiceProtocol {
         throw TestError.unimplemented(#function)
     }
 
-    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?) async throws -> Post {
-        try unimplemented(#function)
+    func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?, removeMedia: Bool) async throws -> Post {
+        updatePostCalls.append((postId, content, isAnonymous, communityId, removeMedia))
+        if let handler = updatePostHandler {
+            return try await handler(postId, content, isAnonymous, communityId, removeMedia)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func reactToPost(postId: Int, communityId: Int?, reaction: ReactionType) async throws -> PostReactionResponse {

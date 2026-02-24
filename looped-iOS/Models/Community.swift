@@ -29,6 +29,12 @@ enum CommunityKind: String, Codable {
     }
 }
 
+extension CommunityKind {
+    var usesContrastImageBackdrop: Bool {
+        self == .company || self == .school
+    }
+}
+
 enum CommunitySpecializationType: String, Codable {
     case major
     case field

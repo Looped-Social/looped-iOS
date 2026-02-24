@@ -62,6 +62,7 @@ struct PostCard: View {
     @State private var deleteErrorMessage: String?
 		    @State private var showEditSheet = false
 		    @State private var editText = ""
+		    @State private var editRemoveMedia = false
 		    @State private var isEditing = false
 		    @State private var editErrorMessage: String?
 		    @State private var repostErrorMessage: String?
@@ -153,6 +154,29 @@ struct PostCard: View {
 
     private var imageUrls: [String] {
         post.attachments?.filter { $0.type == .image }.map { $0.url } ?? []
+    }
+
+    private var postHasEditableMedia: Bool {
+        if let mediaAssetId = post.mediaAssetId, mediaAssetId > 0 {
+            return true
+        }
+        if let mediaAssetIds = post.mediaAssetIds, mediaAssetIds.contains(where: { $0 > 0 }) {
+            return true
+        }
+        if let attachments = post.attachments, !attachments.isEmpty {
+            return true
+        }
+        return false
+    }
+
+    private var editSheetCommunityLabel: String {
+        if let name = post.communityDisplayName(preferShortNames: preferCommunityShortNames) {
+            return name
+        }
+        if let kind = post.communityKind, kind != .unknown {
+            return kind.rawValue.capitalized
+        }
+        return "Current community"
     }
 
     private var formattedTimeAgo: String {
@@ -684,6 +708,7 @@ struct PostCard: View {
 		        if canEditPost {
 		            Button("Edit Post") {
 		                editText = post.content
+                        editRemoveMedia = false
 		                showEditSheet = true
 		            }
 		        }
@@ -772,8 +797,15 @@ struct PostCard: View {
 		    private var editSheetContent: some View {
 		        EditPostSheet(
 		            text: $editText,
+                    removeMedia: $editRemoveMedia,
+                    hasMedia: postHasEditableMedia,
+                    hasPoll: post.poll != nil,
+                    communityLabel: editSheetCommunityLabel,
 		            isSaving: isEditing,
-		            onCancel: { showEditSheet = false },
+		            onCancel: {
+                        editRemoveMedia = false
+                        showEditSheet = false
+                    },
 		            onSave: { Task { await updatePost() } }
 		        )
 		    }
@@ -1281,9 +1313,11 @@ struct PostCard: View {
                 postId: postId,
                 content: trimmed,
                 isAnonymous: post.isAnonymous,
-                communityId: post.communityId
+                communityId: post.communityId,
+                removeMedia: editRemoveMedia && postHasEditableMedia
             )
             onUpdate?(updated)
+            editRemoveMedia = false
             showEditSheet = false
         } catch {
             if post.isAnonymous, isContentUnderReview(error) {
@@ -2352,11 +2386,15 @@ private extension PostCard {
 
 struct EditPostSheet: View {
     @Binding var text: String
+    @Binding var removeMedia: Bool
+    let hasMedia: Bool
+    let hasPoll: Bool
+    let communityLabel: String
     let isSaving: Bool
     let onCancel: () -> Void
     let onSave: () -> Void
 
-    private let characterLimit = 280
+    private let characterLimit = 500
 
     private var remainingCharacters: Int {
         characterLimit - text.count
@@ -2369,29 +2407,79 @@ struct EditPostSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Edit your post")
-                    .font(.loopedSubBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.3.fill")
+                            .font(.loopedCustom(size: 13))
+                            .foregroundColor(.loopedTextSecondary)
 
-                TextEditor(text: $text)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedTextPrimary)
-                    .padding(12)
-                    .frame(minHeight: 140)
-                    .background(Color.loopedMutedBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Text("Posted in \(communityLabel)")
+                            .font(.loopedSubBodyRegular)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
 
-                HStack {
-                    Spacer()
-                    Text("\(remainingCharacters)")
-                        .font(.loopedSmallText)
-                        .foregroundColor(remainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
+                    if hasPoll {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "chart.bar.xaxis")
+                                .font(.loopedCustom(size: 14))
+                                .foregroundColor(.loopedTextSecondary)
+
+                            Text("This post has a poll. Poll options can't be edited here.")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.loopedMutedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    if hasMedia {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle("Remove attached media", isOn: $removeMedia)
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedTextPrimary)
+                                .toggleStyle(SwitchToggleStyle(tint: .loopedPrimary))
+                                .disabled(isSaving)
+
+                            Text(removeMedia ? "Media will be removed when you save." : "Adding or replacing media isn't supported when editing.")
+                                .font(.loopedSmallText)
+                                .foregroundColor(.loopedTextSecondary)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.loopedMutedBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Text("What's happening?")
+                                .font(.loopedSubBodyMedium)
+                                .foregroundColor(.loopedTextSecondary)
+
+                            Spacer()
+
+                            Text("\(remainingCharacters) characters left")
+                                .font(.loopedSmallText)
+                                .foregroundColor(remainingCharacters < 20 ? .loopedError : .loopedTextSecondary)
+                        }
+
+                        TextField("Share your thoughts...", text: $text, axis: .vertical)
+                            .font(.loopedBody)
+                            .foregroundColor(.loopedTextPrimary)
+                            .lineLimit(6...10)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.loopedMutedBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
                 }
-
-                Spacer()
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(20)
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationTitle("Edit Post")
             .navigationBarTitleDisplayMode(.inline)

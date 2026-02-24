@@ -195,6 +195,7 @@ struct CreatePostRequestDTO: Codable {
 
 struct UpdatePostRequestDTO: Codable {
     let content: String
+    let removeMedia: Bool?
     let asAnon: Bool?
     let anonProfileId: Int?
     let anonCert: String?

@@ -168,6 +168,7 @@ struct CommunityProfileView: View {
         VStack(spacing: 12) {
             CommunityProfileBanner(
                 name: viewModel.community.name,
+                kind: viewModel.community.kind,
                 imageUrl: viewModel.community.bannerDisplayImageUrl
             )
 
@@ -909,6 +910,7 @@ struct CommunityProfileBanner: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let name: String
+    let kind: CommunityKind
     let imageUrl: String?
 
     var body: some View {
@@ -972,7 +974,10 @@ struct CommunityProfileBanner: View {
     }
 
     private var bannerBackdropColor: Color {
-        colorScheme == .dark ? .loopedWhite : .loopedBackground
+        if kind.usesContrastImageBackdrop {
+            return Color.loopedCommunityImageBackdrop(for: colorScheme)
+        }
+        return .loopedBackground
     }
 
     private var localBannerImage: UIImage? {

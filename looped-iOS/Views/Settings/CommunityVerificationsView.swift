@@ -3,6 +3,7 @@ import SwiftUI
 struct CommunityVerificationsView: View {
     @StateObject private var viewModel = CommunityVerificationsViewModel()
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedVerification: CommunityVerification?
     @State private var isShowingActions = false
     @State private var specializationSearchText = ""
@@ -742,6 +743,7 @@ struct CommunityVerificationsView: View {
                 verificationSearchPreviewFallback(for: result)
             }
         }
+        .background(imageBackdropColor(for: result.kind))
         .frame(width: 34, height: 34)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
@@ -755,6 +757,13 @@ struct CommunityVerificationsView: View {
                     .font(.loopedCustom(size: 13))
                     .foregroundColor(.loopedTextSecondary)
             )
+    }
+
+    private func imageBackdropColor(for kind: CommunityKind) -> Color {
+        if kind.usesContrastImageBackdrop {
+            return Color.loopedCommunityImageBackdrop(for: colorScheme)
+        }
+        return .loopedBackground
     }
 
     private func joinLimitRemainingText(_ limit: SpecializationJoinLimit) -> String {
