@@ -739,6 +739,7 @@ struct InlineVideoPlayer: View {
         let hasThumbnail = (thumbnailUrl ?? "").isEmpty == false
         let shouldShowPoster = hasThumbnail && !viewModel.isReadyForDisplay
         let isBuffering = hasAttemptedPlayback && !viewModel.isReadyForDisplay && viewModel.errorDescription == nil
+        let isInteractionEnabled = viewModel.isReadyForDisplay && !isBuffering
         let muteBottomPadding: CGFloat = (controlsVisible && onFullScreen == nil) ? 54 : 10
 
         ZStack {
@@ -816,7 +817,7 @@ struct InlineVideoPlayer: View {
                         }
                 }
             }
-            .allowsHitTesting(!isBuffering)
+            .allowsHitTesting(isInteractionEnabled)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .zIndex(3)
 
@@ -829,8 +830,9 @@ struct InlineVideoPlayer: View {
         .clipped()
         .clipShape(clipShape)
         .contentShape(clipShape)
+        .allowsHitTesting(isInteractionEnabled)
         .overlay(alignment: .bottom) {
-            if controlsVisible, onFullScreen == nil {
+            if controlsVisible, onFullScreen == nil, isInteractionEnabled {
                 controlsOverlay
                     .padding(.horizontal, 10)
                     .padding(.bottom, 8)
@@ -838,9 +840,11 @@ struct InlineVideoPlayer: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            muteButton
-                .padding(.bottom, muteBottomPadding)
-                .padding(.trailing, 10)
+            if isInteractionEnabled {
+                muteButton
+                    .padding(.bottom, muteBottomPadding)
+                    .padding(.trailing, 10)
+            }
         }
         .background(
             VisibilityProbeView { frame in

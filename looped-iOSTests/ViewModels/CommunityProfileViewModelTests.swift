@@ -6,6 +6,154 @@ import Testing
 @MainActor
 struct CommunityProfileViewModelTests {
     @Test
+    func loadMoreIfNeeded_onlyTriggersWhenCurrentPostIsLastPost() async {
+        let feedService = MockFeedService()
+        let communityService = MockCommunityService()
+        let verificationService = MockCommunityVerificationService()
+        verificationService.fetchCommunityVerificationsHandler = { [] }
+
+        let firstPagePosts = (1...10).map { TestFixtures.post(backendId: $0) }
+        let secondPagePosts = [TestFixtures.post(backendId: 11), TestFixtures.post(backendId: 12)]
+        feedService.fetchFeedHandler = { _, cursor, communityId, _ in
+            #expect(communityId == 11)
+            if cursor == nil {
+                return TestFixtures.feedPage(posts: firstPagePosts, nextCursor: "cursor-2")
+            }
+            #expect(cursor == "cursor-2")
+            return TestFixtures.feedPage(posts: secondPagePosts, nextCursor: nil)
+        }
+
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: feedService,
+            communityService: communityService,
+            verificationService: verificationService
+        )
+
+        await viewModel.loadIfNeeded()
+        #expect(viewModel.posts.count == 10)
+        #expect(feedService.fetchFeedCalls.count == 1)
+
+        if let firstPost = viewModel.posts.first {
+            await viewModel.loadMoreIfNeeded(currentPost: firstPost)
+        }
+        #expect(feedService.fetchFeedCalls.count == 1)
+
+        if let lastPost = viewModel.posts.last {
+            await viewModel.loadMoreIfNeeded(currentPost: lastPost)
+        }
+        #expect(feedService.fetchFeedCalls.count == 2)
+        #expect(viewModel.posts.count == 12)
+    }
+
+    @Test
+    func loadMoreIfNeeded_staleCursorWithNoNewPosts_stopsFurtherPagination() async {
+        let feedService = MockFeedService()
+        let communityService = MockCommunityService()
+        let verificationService = MockCommunityVerificationService()
+        verificationService.fetchCommunityVerificationsHandler = { [] }
+
+        let firstPagePosts = [TestFixtures.post(backendId: 1), TestFixtures.post(backendId: 2), TestFixtures.post(backendId: 3)]
+        let duplicatePagePosts = [TestFixtures.post(backendId: 3)]
+        feedService.fetchFeedHandler = { _, cursor, communityId, _ in
+            #expect(communityId == 11)
+            if cursor == nil {
+                return TestFixtures.feedPage(posts: firstPagePosts, nextCursor: "cursor-2")
+            }
+            #expect(cursor == "cursor-2")
+            return TestFixtures.feedPage(posts: duplicatePagePosts, nextCursor: "cursor-2")
+        }
+
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: feedService,
+            communityService: communityService,
+            verificationService: verificationService
+        )
+
+        await viewModel.loadIfNeeded()
+        #expect(viewModel.posts.compactMap(\.backendId) == [1, 2, 3])
+
+        if let lastPost = viewModel.posts.last {
+            await viewModel.loadMoreIfNeeded(currentPost: lastPost)
+        }
+        #expect(feedService.fetchFeedCalls.count == 2)
+        #expect(viewModel.posts.compactMap(\.backendId) == [1, 2, 3])
+
+        if let lastPost = viewModel.posts.last {
+            await viewModel.loadMoreIfNeeded(currentPost: lastPost)
+        }
+        #expect(feedService.fetchFeedCalls.count == 2)
+    }
+
+    @Test
+    func loadMoreIfNeeded_blankNextCursor_doesNotPaginate() async {
+        let feedService = MockFeedService()
+        let communityService = MockCommunityService()
+        let verificationService = MockCommunityVerificationService()
+        verificationService.fetchCommunityVerificationsHandler = { [] }
+
+        let firstPagePosts = [TestFixtures.post(backendId: 1), TestFixtures.post(backendId: 2)]
+        feedService.fetchFeedHandler = { _, cursor, communityId, _ in
+            #expect(communityId == 11)
+            #expect(cursor == nil)
+            return TestFixtures.feedPage(posts: firstPagePosts, nextCursor: "   ")
+        }
+
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: feedService,
+            communityService: communityService,
+            verificationService: verificationService
+        )
+
+        await viewModel.loadIfNeeded()
+        #expect(feedService.fetchFeedCalls.count == 1)
+        #expect(viewModel.posts.compactMap(\.backendId) == [1, 2])
+
+        if let lastPost = viewModel.posts.last {
+            await viewModel.loadMoreIfNeeded(currentPost: lastPost)
+        }
+        #expect(feedService.fetchFeedCalls.count == 1)
+    }
+
+    @Test
     func communityStateChanged_forSpecialization_refreshesJoinLimitEvenWhenDifferentCommunityChanges() async {
         let feedService = MockFeedService()
         let communityService = MockCommunityService()

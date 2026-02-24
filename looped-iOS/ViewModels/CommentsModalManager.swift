@@ -26,6 +26,8 @@ class CommentsModalManager: ObservableObject {
     private var nextCursor: String?
     private var currentPostBackendId: Int?
     private let pageSize = 20
+    private let presentAnimationDuration: Double = 0.20
+    private let dismissAnimationDuration: Double = 0.18
     private var cancellables = Set<AnyCancellable>()
     
     init(
@@ -76,7 +78,7 @@ class CommentsModalManager: ObservableObject {
         communityPermissions = nil
         self.focusCommentId = focusCommentId
         self.focusParentId = focusParentId
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(.easeInOut(duration: presentAnimationDuration)) {
             isPresented = true
         }
         Task { await loadComments(reset: true) }
@@ -84,11 +86,11 @@ class CommentsModalManager: ObservableObject {
     }
 
     func dismissComments() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+        withAnimation(.easeInOut(duration: dismissAnimationDuration)) {
             isPresented = false
         }
         // Delay clearing the data to allow for smooth animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + dismissAnimationDuration) {
             self.currentPost = nil
             self.currentComments = []
             self.currentPostBackendId = nil

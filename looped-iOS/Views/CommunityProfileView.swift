@@ -12,9 +12,9 @@ struct CommunityProfileView: View {
     @Environment(\.loopedSetTabBarVisible) private var setTabBarVisible
     @Environment(\.loopedPresentToast) private var presentToast
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var commentsManager: CommentsModalManager
     @StateObject private var viewModel: CommunityProfileViewModel
     @StateObject private var hashtagPostsViewModel: CommunityHashtagPostsViewModel
-    @StateObject private var commentsManager = CommentsModalManager()
     @State private var selectedTab: CommunityProfileTab = .posts
     @State private var verificationTargetCommunity: CommunityProfileData?
     @State private var specializationJoinInfoSheet: SpecializationJoinInfoSheetState?
@@ -39,7 +39,6 @@ struct CommunityProfileView: View {
                         .padding(.top, 12)
                     tabBar
                     tabContent
-                    Color.loopedClear.frame(height: 80)
                 }
                 .background(
                     GeometryReader { geo in
@@ -61,9 +60,21 @@ struct CommunityProfileView: View {
                     await viewModel.refresh()
                 }
             }
+            .overlay(alignment: .bottom) {
+                if isSelectedTabLoadingMore {
+                    LoopedInlineLoadingIndicator()
+                        .background(Color.loopedBackground.opacity(0.92))
+                        .padding(.bottom, bottomInsetHeight)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
             .task { await loadIfNeeded() }
         }
         .background(Color.loopedBackground.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            Color.loopedClear.frame(height: bottomInsetHeight)
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -94,17 +105,6 @@ struct CommunityProfileView: View {
         }
         .background(NavigationCanPopReader(canPop: $canPop))
         .environmentObject(commentsManager)
-        .overlay(
-            Group {
-                if commentsManager.isPresented, let post = commentsManager.currentPost {
-                    CommentsNavigationHost(post: post) {
-                        commentsManager.dismissComments()
-                    }
-                    .environmentObject(commentsManager)
-                    .transition(.move(edge: .trailing))
-                }
-            }
-        )
         .sheet(item: $verificationTargetCommunity) { community in
             CommunityVerificationFlowView(community: community) { _ in
                 Task {
@@ -425,7 +425,7 @@ struct CommunityProfileView: View {
     }
 
     private var postsSection: some View {
-        LazyVStack(spacing: 0) {
+        VStack(spacing: 0) {
             if viewModel.isLoading && viewModel.posts.isEmpty {
                 ForEach(0..<6, id: \.self) { index in
                     PostCardSkeleton(showsMedia: index % 3 != 0)
@@ -440,7 +440,8 @@ struct CommunityProfileView: View {
                     .foregroundColor(.loopedTextSecondary)
                     .padding(.top, 40)
             } else {
-                ForEach(viewModel.posts) { post in
+                let prefetchIndex = paginationPrefetchIndex(for: viewModel.posts.count)
+                ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
                     PostCard(
                         post: post,
                         showsCommunityLabel: true,
@@ -451,17 +452,16 @@ struct CommunityProfileView: View {
                             viewModel.removePost(backendId: deleted.backendId)
                         }
                     )
-                        .onAppear {
-                            Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
-                        }
+                    .onAppear {
+                        guard index == prefetchIndex else { return }
+                        guard !viewModel.isLoadingMore else { return }
+                        guard let lastPost = viewModel.posts.last else { return }
+                        Task { await viewModel.loadMoreIfNeeded(currentPost: lastPost) }
+                    }
 
                     Rectangle()
                         .frame(height: 1)
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                }
-
-                if viewModel.isLoadingMore {
-                    LoopedInlineLoadingIndicator()
                 }
             }
 
@@ -475,7 +475,7 @@ struct CommunityProfileView: View {
     }
 
     private var hashtagsSection: some View {
-        LazyVStack(spacing: 0) {
+        VStack(spacing: 0) {
             if hashtagPostsViewModel.isLoading && hashtagPostsViewModel.posts.isEmpty {
                 ForEach(0..<6, id: \.self) { index in
                     PostCardSkeleton(showsMedia: index % 3 != 0)
@@ -497,7 +497,8 @@ struct CommunityProfileView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
             } else {
-                ForEach(hashtagPostsViewModel.posts) { post in
+                let prefetchIndex = paginationPrefetchIndex(for: hashtagPostsViewModel.posts.count)
+                ForEach(Array(hashtagPostsViewModel.posts.enumerated()), id: \.element.id) { index, post in
                     PostCard(
                         post: post,
                         showsCommunityLabel: true,
@@ -508,17 +509,16 @@ struct CommunityProfileView: View {
                             hashtagPostsViewModel.removePost(backendId: deleted.backendId)
                         }
                     )
-                        .onAppear {
-                            Task { await hashtagPostsViewModel.loadMoreIfNeeded(currentPost: post) }
-                        }
+                    .onAppear {
+                        guard index == prefetchIndex else { return }
+                        guard !hashtagPostsViewModel.isLoadingMore else { return }
+                        guard let lastPost = hashtagPostsViewModel.posts.last else { return }
+                        Task { await hashtagPostsViewModel.loadMoreIfNeeded(currentPost: lastPost) }
+                    }
 
                     Rectangle()
                         .frame(height: 1)
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                }
-
-                if hashtagPostsViewModel.isLoadingMore {
-                    LoopedInlineLoadingIndicator()
                 }
             }
 
@@ -641,6 +641,20 @@ struct CommunityProfileView: View {
         guard !hasLoaded else { return }
         hasLoaded = true
         await viewModel.loadIfNeeded()
+    }
+
+    private var isSelectedTabLoadingMore: Bool {
+        selectedTab == .hashtags ? hashtagPostsViewModel.isLoadingMore : viewModel.isLoadingMore
+    }
+
+    private var bottomInsetHeight: CGFloat {
+        isTabBarVisible ? 72 : 12
+    }
+
+    private func paginationPrefetchIndex(for count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        let lookahead = min(3, max(0, count - 1))
+        return max(0, (count - 1) - lookahead)
     }
 
     private func shareCommunityPage() {

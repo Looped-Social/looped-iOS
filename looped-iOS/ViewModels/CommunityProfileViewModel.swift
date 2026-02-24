@@ -86,10 +86,9 @@ final class CommunityProfileViewModel: ObservableObject {
     }
 
     func loadMoreIfNeeded(currentPost: Post) async {
-        let prefetchThreshold = 6
-        guard nextCursor != nil else { return }
-        guard !posts.isEmpty else { return }
-        guard posts.suffix(prefetchThreshold).contains(where: { $0.id == currentPost.id }) else { return }
+        guard normalizedCursor(nextCursor) != nil else { return }
+        guard let lastPost = posts.last else { return }
+        guard currentPost.id == lastPost.id else { return }
         await loadPosts(reset: false)
     }
 
@@ -237,11 +236,12 @@ final class CommunityProfileViewModel: ObservableObject {
     }
 
     private func loadPosts(reset: Bool) async {
+        let requestCursor = reset ? nil : normalizedCursor(nextCursor)
         if reset {
             guard !isLoading else { return }
             isLoading = true
         } else {
-            guard !isLoadingMore, nextCursor != nil else { return }
+            guard !isLoadingMore, requestCursor != nil else { return }
             isLoadingMore = true
         }
         errorMessage = nil
@@ -250,16 +250,27 @@ final class CommunityProfileViewModel: ObservableObject {
         do {
             let page = try await feedService.fetchFeed(
                 limit: pageSize,
-                cursor: reset ? nil : nextCursor,
+                cursor: requestCursor,
                 communityId: community.id,
                 mode: .forYou
             )
+            let responseCursor = normalizedCursor(page.nextCursor)
             if reset {
-                posts = page.posts
+                posts = deduplicatedPosts(page.posts)
+                nextCursor = responseCursor
             } else {
-                posts.append(contentsOf: page.posts)
+                let merged = deduplicatedPosts(posts + page.posts)
+                let addedCount = merged.count - posts.count
+                if addedCount > 0 {
+                    posts = merged
+                }
+                let cursorDidAdvance = responseCursor != requestCursor
+                if addedCount == 0 || !cursorDidAdvance || page.posts.isEmpty {
+                    nextCursor = nil
+                } else {
+                    nextCursor = responseCursor
+                }
             }
-            nextCursor = page.nextCursor
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -287,6 +298,33 @@ final class CommunityProfileViewModel: ObservableObject {
         var next = community
         update(&next)
         community = next
+    }
+
+    private func deduplicatedPosts(_ input: [Post]) -> [Post] {
+        var seen = Set<String>()
+        var output: [Post] = []
+        output.reserveCapacity(input.count)
+
+        for post in input {
+            let key: String
+            if let backendId = post.backendId {
+                key = "b:\(backendId)"
+            } else {
+                key = "u:\(post.id.uuidString)"
+            }
+            if seen.insert(key).inserted {
+                output.append(post)
+            }
+        }
+
+        return output
+    }
+
+    private func normalizedCursor(_ cursor: String?) -> String? {
+        guard let trimmed = cursor?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 
     private func followErrorMessage(from error: Error, wasFollowing: Bool) -> String {
