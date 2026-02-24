@@ -298,6 +298,22 @@ extension Post {
 }
 
 extension Post {
+    func isOwnedByActiveActor(
+        currentUserId: Int?,
+        currentAnonProfileId: Int?,
+        isAnonymousMode: Bool
+    ) -> Bool {
+        if isAnonymousMode {
+            guard isAnonymous else { return false }
+            guard let anonProfileId, let currentAnonProfileId else { return false }
+            return anonProfileId == currentAnonProfileId
+        }
+
+        guard !isAnonymous else { return false }
+        guard let authorBackendId, let currentUserId else { return false }
+        return authorBackendId == currentUserId
+    }
+
     var resolvedAuthorName: String {
         if isAnonymous { return "Anonymous" }
         if let name = normalized(authorFirstName, authorLastName) {

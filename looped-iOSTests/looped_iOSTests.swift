@@ -46,6 +46,31 @@ private struct StaticTokenProvider: AuthTokenProvider {
     }
 }
 
+private func makeOwnershipPost(
+    authorBackendId: Int?,
+    anonProfileId: Int?,
+    isAnonymous: Bool
+) -> Post {
+    let now = Date()
+    let authorUUID = authorBackendId.map(UUID.fromBackendId) ?? UUID()
+    return Post(
+        id: UUID(),
+        backendId: 1,
+        authorBackendId: authorBackendId,
+        authorPrincipalId: authorBackendId,
+        anonProfileId: anonProfileId,
+        content: "Ownership test",
+        authorId: authorUUID,
+        company: "Looped",
+        isAnonymous: isAnonymous,
+        reactionCount: 0,
+        commentsCount: 0,
+        shareCount: 0,
+        createdAt: now,
+        updatedAt: now
+    )
+}
+
 @Suite(.serialized)
 struct looped_iOSTests {
 
@@ -133,6 +158,62 @@ struct looped_iOSTests {
         #expect(post.authorPrincipalId == 456)
         #expect(post.anonProfileId == 123)
         #expect(post.isAnonymous == true)
+    }
+
+    @Test func activeActorOwnership_nonAnonymousMode_ownsMatchingNonAnonymousPost() async throws {
+        let post = makeOwnershipPost(
+            authorBackendId: 42,
+            anonProfileId: nil,
+            isAnonymous: false
+        )
+
+        #expect(post.isOwnedByActiveActor(
+            currentUserId: 42,
+            currentAnonProfileId: nil,
+            isAnonymousMode: false
+        ))
+    }
+
+    @Test func activeActorOwnership_nonAnonymousMode_doesNotOwnAnonymousPost() async throws {
+        let post = makeOwnershipPost(
+            authorBackendId: nil,
+            anonProfileId: 9001,
+            isAnonymous: true
+        )
+
+        #expect(post.isOwnedByActiveActor(
+            currentUserId: 42,
+            currentAnonProfileId: 9001,
+            isAnonymousMode: false
+        ) == false)
+    }
+
+    @Test func activeActorOwnership_anonymousMode_ownsMatchingAnonymousPost() async throws {
+        let post = makeOwnershipPost(
+            authorBackendId: nil,
+            anonProfileId: 9001,
+            isAnonymous: true
+        )
+
+        #expect(post.isOwnedByActiveActor(
+            currentUserId: 42,
+            currentAnonProfileId: 9001,
+            isAnonymousMode: true
+        ))
+    }
+
+    @Test func activeActorOwnership_anonymousMode_doesNotOwnNonAnonymousPost() async throws {
+        let post = makeOwnershipPost(
+            authorBackendId: 42,
+            anonProfileId: nil,
+            isAnonymous: false
+        )
+
+        #expect(post.isOwnedByActiveActor(
+            currentUserId: 42,
+            currentAnonProfileId: 9001,
+            isAnonymousMode: true
+        ) == false)
     }
 
     @Test func blockedUserMapsPrincipalId() async throws {

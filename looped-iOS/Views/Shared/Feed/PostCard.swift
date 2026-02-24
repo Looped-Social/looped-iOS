@@ -2329,6 +2329,14 @@ private struct LockedActionToastState: Equatable {
 }
 
 private extension PostCard {
+    var isOwnedByActiveActor: Bool {
+        post.isOwnedByActiveActor(
+            currentUserId: authViewModel.currentUser?.backendId,
+            currentAnonProfileId: viewerAnonProfileId,
+            isAnonymousMode: isAnonymousMode
+        )
+    }
+
     enum ModerationSheet: String, Identifiable {
         case reportPost
         case reportUser
@@ -2346,10 +2354,12 @@ private extension PostCard {
     }
 
     var canReportPost: Bool {
-        post.backendId != nil
+        guard post.backendId != nil else { return false }
+        return !isOwnedByActiveActor
     }
 
     var canReportUser: Bool {
+        guard !isOwnedByActiveActor else { return false }
         guard let authorId = post.authorBackendId else { return false }
         if let currentUser = authViewModel.currentUser, currentUser.backendId == authorId {
             return false
@@ -2359,9 +2369,7 @@ private extension PostCard {
 
     var canDeletePost: Bool {
         guard post.backendId != nil else { return false }
-        guard let authorId = post.authorBackendId else { return false }
-        guard let currentUser = authViewModel.currentUser else { return false }
-        return currentUser.backendId == authorId
+        return isOwnedByActiveActor
     }
 
     var canEditPost: Bool {
@@ -2369,6 +2377,7 @@ private extension PostCard {
     }
 
     var canBlockUser: Bool {
+        guard !isOwnedByActiveActor else { return false }
         if let authorId = post.authorBackendId {
             if let currentUser = authViewModel.currentUser, currentUser.backendId == authorId {
                 return false
