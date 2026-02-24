@@ -59,12 +59,10 @@ struct PostCard: View {
     @State private var blockErrorMessage: String?
     @State private var isBlocking = false
     @State private var isDeleting = false
-    @State private var deleteErrorMessage: String?
 		    @State private var showEditSheet = false
 		    @State private var editText = ""
 		    @State private var editRemoveMedia = false
 		    @State private var isEditing = false
-		    @State private var editErrorMessage: String?
 		    @State private var repostErrorMessage: String?
 		    @State private var actionError: PostActionError?
 	        @State private var isJoiningSpecialization = false
@@ -832,20 +830,6 @@ struct PostCard: View {
         )
     }
 
-    private var deleteErrorAlertIsPresented: Binding<Bool> {
-        Binding(
-            get: { deleteErrorMessage != nil },
-            set: { if !$0 { deleteErrorMessage = nil } }
-        )
-    }
-
-    private var editErrorAlertIsPresented: Binding<Bool> {
-        Binding(
-            get: { editErrorMessage != nil },
-            set: { if !$0 { editErrorMessage = nil } }
-        )
-    }
-
     private var repostErrorAlertIsPresented: Binding<Bool> {
         Binding(
             get: { repostErrorMessage != nil },
@@ -1133,16 +1117,6 @@ struct PostCard: View {
             } message: {
                 Text(blockErrorMessage ?? "")
             }
-            .alert("Couldn't delete post", isPresented: deleteErrorAlertIsPresented) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(deleteErrorMessage ?? "")
-            }
-            .alert("Couldn't update post", isPresented: editErrorAlertIsPresented) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(editErrorMessage ?? "")
-            }
 	            .alert("Couldn't repost", isPresented: repostErrorAlertIsPresented) {
 	                Button("OK", role: .cancel) { }
 	            } message: {
@@ -1248,6 +1222,7 @@ struct PostCard: View {
                         let updated = post.updating(isSaved: false, updatedAt: Date())
                         onUpdate?(updated)
                         onBookmarkToggle?(false)
+                        presentToast(ToastMessage(text: "Removed from saved posts.", kind: .success))
                     }
                 } else {
                     let saved = try await feedService.savePost(
@@ -1259,6 +1234,7 @@ struct PostCard: View {
                         let updated = post.updating(isSaved: true, updatedAt: Date())
                         onUpdate?(updated)
                         onBookmarkToggle?(true)
+                        presentToast(ToastMessage(text: "Post saved.", kind: .success))
 	                    }
 	                }
 	            } catch {
@@ -1291,11 +1267,16 @@ struct PostCard: View {
             )
             if response.deleted {
                 onDelete?(post)
+                presentToast(ToastMessage(text: "Post deleted.", kind: .success))
             } else {
-                deleteErrorMessage = "Post could not be deleted."
+                presentToast(ToastMessage(text: "Couldn't delete post. Try again.", kind: .error))
             }
         } catch {
-            deleteErrorMessage = error.localizedDescription
+            if isNotFound(error) {
+                handleContentUnavailable()
+                return
+            }
+            presentToast(ToastMessage(text: "Couldn't delete post. \(error.localizedDescription)", kind: .error))
         }
     }
 
@@ -1320,6 +1301,7 @@ struct PostCard: View {
             onUpdate?(updated)
             editRemoveMedia = false
             showEditSheet = false
+            presentToast(ToastMessage(text: "Post updated.", kind: .success))
         } catch {
             if post.isAnonymous, isContentUnderReview(error) {
                 showEditSheet = false
@@ -1334,7 +1316,7 @@ struct PostCard: View {
                 handleContentUnavailable()
                 return
             }
-            editErrorMessage = error.localizedDescription
+            presentToast(ToastMessage(text: "Couldn't update post. \(error.localizedDescription)", kind: .error))
         }
     }
 
