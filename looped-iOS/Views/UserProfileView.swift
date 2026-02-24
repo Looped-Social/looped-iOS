@@ -346,7 +346,8 @@ struct UserProfileView: View {
                     userProfile: profile,
                     isAnonymousMode: $isAnonymousMode,
                     followConfig: followConfig,
-                    messageConfig: messageConfig
+                    messageConfig: messageConfig,
+                    onShareProfile: { shareProfile() }
                 )
                 UserProfileTabsView(selectedTab: $selectedTab, tabs: tabs)
                 if let state = refreshIndicatorState {
@@ -763,6 +764,7 @@ struct UserProfileInfoSection: View {
     @Binding var isAnonymousMode: Bool
     let followConfig: ProfileActionButtons.FollowConfig?
     let messageConfig: ProfileActionButtons.MessageConfig?
+    let onShareProfile: (() -> Void)?
     @State private var showAvatarViewer = false
 
     var body: some View {
@@ -782,7 +784,8 @@ struct UserProfileInfoSection: View {
                     FullScreenImageViewer(
                         imageUrls: [avatarViewerUrl],
                         initialIndex: 0,
-                        isPresented: $showAvatarViewer
+                        isPresented: $showAvatarViewer,
+                        onShare: onShareProfile
                     )
                 } else {
                     Color.loopedClear

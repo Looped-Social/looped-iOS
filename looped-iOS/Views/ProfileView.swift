@@ -577,6 +577,9 @@ struct ProfileHeaderView: View {
     let anonHandle: String?
     @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var showAvatarViewer = false
+    @State private var profileShareSheetPayload: ProfileShareSheetPayload?
+    @State private var isPreparingProfileShareSheet = false
+    private let userService: UserServiceProtocol = UserService()
 
     var body: some View {
         headerContent
@@ -586,12 +589,16 @@ struct ProfileHeaderView: View {
                         FullScreenImageViewer(
                             imageUrls: [avatarViewerUrl],
                             initialIndex: 0,
-                            isPresented: $showAvatarViewer
+                            isPresented: $showAvatarViewer,
+                            onShare: profileShareURL == nil ? nil : shareProfileFromAvatar
                         )
                     } else {
                         Color.loopedClear
                     }
                 }
+            }
+            .sheet(item: $profileShareSheetPayload) { payload in
+                ShareSheet(items: payload.items)
             }
     }
 
@@ -644,6 +651,41 @@ struct ProfileHeaderView: View {
         guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return nil }
         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return nil }
         return trimmed
+    }
+
+    private var profileShareURL: URL? {
+        guard !isAnonymous else { return nil }
+        guard let id = resolvedProfile?.backendId ?? authViewModel.currentUser?.backendId else { return nil }
+        var components = URLComponents()
+        components.scheme = "looped"
+        components.host = "user"
+        components.path = "/\(id)"
+        return components.url
+    }
+
+    private func shareProfileFromAvatar() {
+        guard !isPreparingProfileShareSheet else { return }
+        guard let fallbackURL = profileShareURL else { return }
+
+        isPreparingProfileShareSheet = true
+        Task { @MainActor in
+            defer { isPreparingProfileShareSheet = false }
+            do {
+                let link = try await userService.fetchMyShareLink()
+                if let canonical = URL(string: link.canonicalUrl) {
+                    profileShareSheetPayload = ProfileShareSheetPayload(items: [canonical])
+                } else {
+                    profileShareSheetPayload = ProfileShareSheetPayload(items: [fallbackURL])
+                }
+            } catch {
+                profileShareSheetPayload = ProfileShareSheetPayload(items: [fallbackURL])
+            }
+        }
+    }
+
+    private struct ProfileShareSheetPayload: Identifiable {
+        let id = UUID()
+        let items: [Any]
     }
 
     private var headerContent: some View {

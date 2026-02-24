@@ -6,6 +6,7 @@ struct FullScreenImageViewer: View {
     let initialIndex: Int
     @Binding var isPresented: Bool
     let postActionConfig: PostActionBarConfig?
+    let onShare: (() -> Void)?
 
     @State private var currentIndex: Int = 0
     @State private var scale: CGFloat = 1.0
@@ -15,11 +16,18 @@ struct FullScreenImageViewer: View {
     @State private var showControls = true
     @State private var showShareSheet = false
 
-    init(imageUrls: [String], initialIndex: Int = 0, isPresented: Binding<Bool>, postActionConfig: PostActionBarConfig? = nil) {
+    init(
+        imageUrls: [String],
+        initialIndex: Int = 0,
+        isPresented: Binding<Bool>,
+        postActionConfig: PostActionBarConfig? = nil,
+        onShare: (() -> Void)? = nil
+    ) {
         self.imageUrls = imageUrls
         self.initialIndex = initialIndex
         self._isPresented = isPresented
         self.postActionConfig = postActionConfig
+        self.onShare = onShare
         let clamped = min(max(initialIndex, 0), max(imageUrls.count - 1, 0))
         self._currentIndex = State(initialValue: clamped)
     }
@@ -85,9 +93,7 @@ struct FullScreenImageViewer: View {
 
                         Spacer()
 
-                        Button(action: {
-                            showShareSheet = true
-                        }) {
+                        Button(action: handleShareTap) {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.loopedCustom(.semibold, size: 20))
                                 .foregroundColor(.loopedWhite)
@@ -153,6 +159,17 @@ struct FullScreenImageViewer: View {
         offset = .zero
         lastOffset = .zero
         showControls = true
+    }
+
+    private func handleShareTap() {
+        if let onShare {
+            isPresented = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                onShare()
+            }
+            return
+        }
+        showShareSheet = true
     }
 }
 

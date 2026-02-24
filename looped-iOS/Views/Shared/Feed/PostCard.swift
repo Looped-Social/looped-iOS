@@ -662,7 +662,8 @@ struct PostCard: View {
                 imageUrls: imageUrls,
                 initialIndex: selectedImageIndex,
                 isPresented: $showImageViewer,
-                postActionConfig: postActionBarConfig
+                postActionConfig: postActionBarConfig,
+                onShare: prepareShareSheet
             )
         } else {
             Color.loopedBlack.ignoresSafeArea()

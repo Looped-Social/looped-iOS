@@ -275,7 +275,8 @@ struct CommentsView: View {
                 FullScreenImageViewer(
                     imageUrls: imageUrls,
                     initialIndex: selectedImageIndex,
-                    isPresented: $showImageViewer
+                    isPresented: $showImageViewer,
+                    onShare: preparePostShareSheet
                 )
             }
             .fullScreenCover(item: $selectedVideo) { selection in
