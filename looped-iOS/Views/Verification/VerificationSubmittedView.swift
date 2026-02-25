@@ -66,6 +66,7 @@ struct VerificationSubmittedView: View {
             .background(Color.loopedBackground.ignoresSafeArea())
         }
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -82,7 +83,8 @@ private extension VerificationSubmittedView {
     var header: some View {
         ZStack {
             HStack {
-                LoopedBackButton(action: onBack)
+                Color.loopedClear
+                    .frame(width: 44, height: 44)
                 Spacer()
             }
 

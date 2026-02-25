@@ -77,7 +77,9 @@ struct WaysToVerifyView: View {
                             Text("here")
                                 .font(.loopedSubBodyRegular)
                                 .foregroundColor(.loopedSecondary)
+                                .underline()
                         }
+                        .buttonStyle(.plain)
                     }
                 }
 

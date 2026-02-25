@@ -143,6 +143,26 @@ struct OnboardingRoutingResolverTests {
     }
 
     @Test
+    func resolveScreen_emailStage_approvedWithoutVerificationPath_routesToSpecialization() {
+        let resolved = OnboardingRoutingResolver.resolveScreen(
+            remoteStageV2: "email_verification",
+            remoteContext: makeContext(
+                selectedOrgKind: "company",
+                verificationPath: nil,
+                verificationStatus: "approved",
+                specializationRequired: true
+            ),
+            allowedNextStagesV2: nil,
+            remoteStep: .verification,
+            localStep: nil,
+            isStudent: false,
+            shouldEnterOnboardingFlow: true
+        )
+
+        #expect(resolved == .departmentSelection)
+    }
+
+    @Test
     func resolveScreen_emailStage_approvedWithoutSpecialization_routesToConfirmation() {
         let resolved = OnboardingRoutingResolver.resolveScreen(
             remoteStageV2: "email_verification",

@@ -362,17 +362,12 @@ private extension AuthView {
                         verificationContext = VerificationContext(isStudent: isStudent, method: .email)
                         onboardingStore.saveVerificationMethod("email")
                     }
-                    Task {
-                        await feedViewModel.loadFollowedCommunities(reset: true)
-                        let success = await authViewModel.markOnboardingV2EmailVerificationSuccess()
-                        guard success else {
-                            restoreOnboardingScreen()
-                            return
-                        }
-                        restoreOnboardingScreen()
-                    }
+                    return await completeOnboardingEmailVerification(isStudent: isStudent)
                 },
-                showsHeader: false
+                showsHeader: false,
+                ensureOnboardingVerificationStep: {
+                    _ = await authViewModel.setOnboardingV2VerificationChoice(path: VerificationMethod.email.v2Path)
+                }
             )
         case .verificationConfirmation:
             VerificationConfirmationView(
@@ -510,6 +505,65 @@ private extension AuthView {
             return
         }
         restoreOnboardingScreen()
+    }
+
+    @MainActor
+    func completeOnboardingEmailVerification(isStudent: Bool) async -> Bool {
+        var success = await authViewModel.markOnboardingV2EmailVerificationSuccess()
+
+        // If onboarding-v2 wasn't aligned yet, re-assert email path and retry once.
+        if !success {
+            let choiceSynced = await authViewModel.setOnboardingV2VerificationChoice(path: VerificationMethod.email.v2Path)
+            if choiceSynced {
+                success = await authViewModel.markOnboardingV2EmailVerificationSuccess()
+            }
+        }
+
+        if !success {
+            await authViewModel.loadCurrentUser()
+            restoreOnboardingScreen()
+            return false
+        }
+
+        restoreOnboardingScreen()
+
+        if path.last != .emailVerification(isStudent: isStudent) || authViewModel.onboardingComplete {
+            Task {
+                await feedViewModel.loadFollowedCommunities(reset: true)
+            }
+            return true
+        }
+
+        // Backend onboarding context can lag briefly after verification success.
+        if path.last == .emailVerification(isStudent: isStudent), !authViewModel.onboardingComplete {
+            for _ in 0..<2 {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                await authViewModel.loadCurrentUser()
+                restoreOnboardingScreen()
+                if path.last != .emailVerification(isStudent: isStudent) || authViewModel.onboardingComplete {
+                    break
+                }
+            }
+        }
+
+        if path.last == .emailVerification(isStudent: isStudent), !authViewModel.onboardingComplete {
+            let fallbackTarget: AuthScreen
+            if authViewModel.onboardingContextV2?.specializationId != nil
+                || authViewModel.onboardingContextV2?.specializationRequired == false {
+                fallbackTarget = .verificationConfirmation
+            } else {
+                fallbackTarget = isStudent ? .degreeSelection : .departmentSelection
+            }
+            setNavigationStack(for: fallbackTarget)
+        }
+
+        let advanced = path.last != .emailVerification(isStudent: isStudent) || authViewModel.onboardingComplete
+        if advanced {
+            Task {
+                await feedViewModel.loadFollowedCommunities(reset: true)
+            }
+        }
+        return advanced
     }
 
     func submitOnboardingSpecializations(_ selections: [CommunitySearchResult]) async {
@@ -865,7 +919,8 @@ struct OnboardingRoutingResolver {
             case "verification_choice", "ways_to_verify":
                 return resolvedIsStudent ? .waysToVerifyStudent : .waysToVerifyCompany
             case "email_verification":
-                if verificationPath == "email", isEmailVerificationApproved(verificationStatus) {
+                let isEmailCompatiblePath = verificationPath == nil || verificationPath == "email"
+                if isEmailCompatiblePath, isEmailVerificationApproved(verificationStatus) {
                     if hasSpecialization
                         || normalizedAllowedNextStages.contains("completed")
                         || normalizedAllowedNextStages.contains("finalized")
@@ -919,6 +974,15 @@ struct OnboardingRoutingResolver {
                 return (hasSpecialization ? .verificationConfirmation : (resolvedIsStudent ? .degreeSelection : .departmentSelection))
             }
             return .emailVerification(isStudent: resolvedIsStudent)
+        }
+        if verificationPath == nil, isEmailVerificationApproved(verificationStatus) {
+            if hasSpecialization {
+                return .verificationConfirmation
+            }
+            if requiresSpecialization {
+                return resolvedIsStudent ? .degreeSelection : .departmentSelection
+            }
+            return .verificationConfirmation
         }
 
         if let allowedNextFallback = resolveFromAllowedNextStages(

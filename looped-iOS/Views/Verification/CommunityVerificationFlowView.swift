@@ -73,7 +73,10 @@ struct CommunityVerificationFlowView: View {
                     currentStep: 3,
                     totalSteps: 4,
                     onBack: {},
-                    onComplete: { pushIfNeeded(.confirmation) },
+                    onComplete: {
+                        pushIfNeeded(.confirmation)
+                        return true
+                    },
                     showsHeader: false
                 )
             case .photoId:

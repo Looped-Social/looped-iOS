@@ -7,11 +7,12 @@ struct EmailVerificationView: View {
     let totalSteps: Int
     let onBack: () -> Void
     let onSkip: (() -> Void)?
-    let onComplete: () -> Void
+    let onComplete: () async -> Bool
     let showsHeader: Bool
 
     @StateObject private var viewModel: CommunityEmailVerificationViewModel
     @FocusState private var isVerificationCodeFieldFocused: Bool
+    @State private var isCompletingAfterVerification = false
 
     init(
         communityId: Int?,
@@ -20,7 +21,7 @@ struct EmailVerificationView: View {
         totalSteps: Int,
         onBack: @escaping () -> Void,
         onSkip: (() -> Void)? = nil,
-        onComplete: @escaping () -> Void,
+        onComplete: @escaping () async -> Bool,
         showsHeader: Bool = true,
         ensureOnboardingVerificationStep: (() async -> Void)? = nil
     ) {
@@ -196,11 +197,17 @@ struct EmailVerificationView: View {
                 if let onSkip {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Skip", action: onSkip)
+                            .disabled(isVerificationTransitionLocked)
                     }
                 }
             }
         }
         .loopedDisableKeyboardDismissOnTap(when: viewModel.stage == .enterCode)
+        .loadingOverlay(
+            isPresented: isVerificationTransitionLocked,
+            title: isCompletingAfterVerification ? "Code verified" : "Verifying code…",
+            subtitle: isCompletingAfterVerification ? "Taking you to the next step…" : nil
+        )
     }
 }
 
@@ -209,6 +216,7 @@ private extension EmailVerificationView {
         ZStack {
             HStack {
                 LoopedBackButton(action: onBack)
+                    .disabled(isVerificationTransitionLocked)
                 Spacer()
 
                 if let onSkip {
@@ -217,6 +225,7 @@ private extension EmailVerificationView {
                             .font(.loopedSubBodyMedium)
                             .foregroundColor(.loopedSecondary)
                     }
+                    .disabled(isVerificationTransitionLocked)
                     .padding(.trailing, 4)
                 }
             }
@@ -287,7 +296,7 @@ private extension EmailVerificationView {
         ViewThatFits {
             HStack(spacing: 4) {
                 Link("Contact us", destination: supportContactURL)
-                    .font(.loopedSubBodyBold)
+                    .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedSecondary)
                     .underline()
 
@@ -296,7 +305,7 @@ private extension EmailVerificationView {
                     .foregroundColor(.loopedTextSecondary)
 
                 Link("email us here", destination: supportEmailURL)
-                    .font(.loopedSubBodyBold)
+                    .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedSecondary)
                     .underline()
             }
@@ -304,12 +313,12 @@ private extension EmailVerificationView {
 
             VStack(alignment: .center, spacing: 4) {
                 Link("Contact us", destination: supportContactURL)
-                    .font(.loopedSubBodyBold)
+                    .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedSecondary)
                     .underline()
 
                 Link("Email us here", destination: supportEmailURL)
-                    .font(.loopedSubBodyBold)
+                    .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedSecondary)
                     .underline()
             }
@@ -390,6 +399,9 @@ private extension EmailVerificationView {
     }
 
     var primaryActionEnabled: Bool {
+        if isVerificationTransitionLocked {
+            return false
+        }
         switch viewModel.stage {
         case .enterEmail:
             return viewModel.canSendCode && !viewModel.isSendingCode
@@ -415,7 +427,9 @@ private extension EmailVerificationView {
     }
 
     var canResendCode: Bool {
-        viewModel.retryAfterSecondsRemaining == 0 && !viewModel.isSendingCode
+        !isVerificationTransitionLocked
+            && viewModel.retryAfterSecondsRemaining == 0
+            && !viewModel.isSendingCode
     }
 
     var displayStatusMessage: String? {
@@ -433,6 +447,7 @@ private extension EmailVerificationView {
         switch viewModel.stage {
         case .enterEmail:
             Task {
+                isCompletingAfterVerification = false
                 let success = await viewModel.sendCode()
                 if success {
                     focusCodeFieldSoon()
@@ -442,12 +457,22 @@ private extension EmailVerificationView {
             Task {
                 let success = await viewModel.submitCode()
                 if success {
-                    onComplete()
+                    isVerificationCodeFieldFocused = false
+                    isCompletingAfterVerification = true
+                    let advanced = await onComplete()
+                    if !advanced {
+                        isCompletingAfterVerification = false
+                        focusCodeFieldSoon()
+                    }
                 } else {
                     focusCodeFieldSoon()
                 }
             }
         }
+    }
+
+    var isVerificationTransitionLocked: Bool {
+        viewModel.isVerifyingCode || isCompletingAfterVerification
     }
 
     func focusCodeFieldSoon() {
@@ -573,6 +598,6 @@ private extension EmailVerificationView {
         currentStep: 3,
         totalSteps: 5,
         onBack: {},
-        onComplete: {}
+        onComplete: { true }
     )
 }
