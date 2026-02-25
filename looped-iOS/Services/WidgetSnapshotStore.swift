@@ -254,8 +254,8 @@ struct WidgetSnapshot: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
-        serverTime = try container.decodeIfPresent(Date.self, forKey: .serverTime)
+        updatedAt = try Self.decodeDateIfPresent(forKey: .updatedAt, in: container) ?? .distantPast
+        serverTime = try Self.decodeDateIfPresent(forKey: .serverTime, in: container)
         snapshotTTLSeconds = max(300, try container.decodeIfPresent(Int.self, forKey: .snapshotTTLSeconds) ?? 900)
         unreadMessageCount = try container.decodeIfPresent(Int.self, forKey: .unreadMessageCount) ?? 0
         messageRequestCount = try container.decodeIfPresent(Int.self, forKey: .messageRequestCount) ?? 0
@@ -266,6 +266,35 @@ struct WidgetSnapshot: Codable, Equatable {
         trendingPost = try container.decodeIfPresent(TrendingPost.self, forKey: .trendingPost)
         verifiedCommunities = try container.decodeIfPresent([VerifiedCommunity].self, forKey: .verifiedCommunities) ?? []
         selectedCommunityId = try container.decodeIfPresent(Int.self, forKey: .selectedCommunityId)
+    }
+
+    private static func decodeDateIfPresent(
+        forKey key: CodingKeys,
+        in container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> Date? {
+        if let date = try? container.decodeIfPresent(Date.self, forKey: key) {
+            return date
+        }
+        if let seconds = try? container.decodeIfPresent(Double.self, forKey: key) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        if let seconds = try? container.decodeIfPresent(Int.self, forKey: key) {
+            return Date(timeIntervalSince1970: TimeInterval(seconds))
+        }
+        guard let value = try? container.decodeIfPresent(String.self, forKey: key) else {
+            return nil
+        }
+        let iso8601WithFractional = ISO8601DateFormatter()
+        iso8601WithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso8601 = ISO8601DateFormatter()
+        iso8601.formatOptions = [.withInternetDateTime]
+        if let date = iso8601WithFractional.date(from: value) ?? iso8601.date(from: value) {
+            return date
+        }
+        if let seconds = TimeInterval(value) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        return nil
     }
 }
 

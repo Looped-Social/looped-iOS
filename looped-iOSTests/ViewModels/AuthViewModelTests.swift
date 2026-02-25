@@ -363,6 +363,188 @@ struct AuthViewModelTests {
         #expect(viewModel.isProvisioned == false)
         #expect(viewModel.shouldEnterOnboardingFlow == true)
     }
+
+    @Test
+    func loadCurrentUser_profileCompletionPayload_updatesPromptState() async {
+        let authService = MockAuthService()
+        authService.isAuthenticated = true
+        let userService = MockUserService()
+        userService.getIdentityHandler = {
+            TestFixtures.identityDTO(
+                provisioned: true,
+                onboardingComplete: true,
+                onboardingStep: nil,
+                user: TestFixtures.userDTO(id: 88),
+                profileCompletion: ProfileCompletionDTO(
+                    shouldPrompt: true,
+                    missingPhoto: true,
+                    missingBio: false,
+                    missingSpecialization: true,
+                    dismissedAt: nil,
+                    completedAt: nil
+                )
+            )
+        }
+        userService.getCurrentUserHandler = {
+            TestFixtures.user(backendId: 88, handle: "profile88", displayName: "Profile 88")
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        await viewModel.loadCurrentUser()
+
+        #expect(viewModel.profileCompletionStatus?.shouldPrompt == true)
+        #expect(viewModel.profileCompletionStatus?.missingPhoto == true)
+        #expect(viewModel.profileCompletionStatus?.missingBio == false)
+        #expect(viewModel.profileCompletionStatus?.missingSpecialization == true)
+        #expect(viewModel.shouldPromptProfileCompletion == true)
+    }
+
+    @Test
+    func dismissProfileCompletionPrompt_success_updatesLocalPromptState() async {
+        let authService = MockAuthService()
+        authService.isAuthenticated = true
+        let userService = MockUserService()
+        userService.getIdentityHandler = {
+            TestFixtures.identityDTO(
+                provisioned: true,
+                onboardingComplete: true,
+                onboardingStep: nil,
+                user: TestFixtures.userDTO(id: 111),
+                profileCompletion: ProfileCompletionDTO(
+                    shouldPrompt: true,
+                    missingPhoto: true,
+                    missingBio: true,
+                    missingSpecialization: false,
+                    dismissedAt: nil,
+                    completedAt: nil
+                )
+            )
+        }
+        userService.getCurrentUserHandler = {
+            TestFixtures.user(backendId: 111, handle: "ready", displayName: "Ready")
+        }
+        let dismissedAt = Date(timeIntervalSince1970: 1_700_123_456)
+        userService.dismissProfileCompletionPromptHandler = {
+            ProfileCompletionDTO(
+                shouldPrompt: false,
+                missingPhoto: true,
+                missingBio: true,
+                missingSpecialization: false,
+                dismissedAt: dismissedAt,
+                completedAt: nil
+            )
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        await viewModel.loadCurrentUser()
+        let dismissed = await viewModel.dismissProfileCompletionPrompt()
+
+        #expect(dismissed == true)
+        #expect(userService.dismissProfileCompletionPromptCallCount == 1)
+        #expect(viewModel.profileCompletionStatus?.shouldPrompt == false)
+        #expect(viewModel.profileCompletionStatus?.dismissedAt == dismissedAt)
+        #expect(viewModel.shouldPromptProfileCompletion == false)
+    }
+
+    @Test
+    func dismissProfileCompletionPrompt_successWithoutPayload_usesLocalFallbackState() async {
+        let authService = MockAuthService()
+        authService.isAuthenticated = true
+        let userService = MockUserService()
+        userService.getIdentityHandler = {
+            TestFixtures.identityDTO(
+                provisioned: true,
+                onboardingComplete: true,
+                onboardingStep: nil,
+                user: TestFixtures.userDTO(id: 113),
+                profileCompletion: ProfileCompletionDTO(
+                    shouldPrompt: true,
+                    missingPhoto: false,
+                    missingBio: true,
+                    missingSpecialization: false,
+                    dismissedAt: nil,
+                    completedAt: nil
+                )
+            )
+        }
+        userService.getCurrentUserHandler = {
+            TestFixtures.user(backendId: 113, handle: "localfallback", displayName: "Fallback")
+        }
+        userService.dismissProfileCompletionPromptHandler = {
+            nil
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        await viewModel.loadCurrentUser()
+        let dismissed = await viewModel.dismissProfileCompletionPrompt()
+
+        #expect(dismissed == true)
+        #expect(viewModel.profileCompletionStatus?.shouldPrompt == false)
+        #expect(viewModel.profileCompletionStatus?.dismissedAt != nil)
+    }
+
+    @Test
+    func dismissProfileCompletionPrompt_failure_keepsPromptAndSetsError() async {
+        let authService = MockAuthService()
+        authService.isAuthenticated = true
+        let userService = MockUserService()
+        userService.getIdentityHandler = {
+            TestFixtures.identityDTO(
+                provisioned: true,
+                onboardingComplete: true,
+                onboardingStep: nil,
+                user: TestFixtures.userDTO(id: 112),
+                profileCompletion: ProfileCompletionDTO(
+                    shouldPrompt: true,
+                    missingPhoto: false,
+                    missingBio: true,
+                    missingSpecialization: true,
+                    dismissedAt: nil,
+                    completedAt: nil
+                )
+            )
+        }
+        userService.getCurrentUserHandler = {
+            TestFixtures.user(backendId: 112, handle: "pending", displayName: "Pending")
+        }
+        userService.dismissProfileCompletionPromptHandler = {
+            throw TestError(message: "dismiss failed")
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(deviceService: MockDeviceService(), userDefaults: makeDefaults(prefix: "auth.registrar")),
+            notificationService: MockNotificationService()
+        )
+
+        await viewModel.loadCurrentUser()
+        let dismissed = await viewModel.dismissProfileCompletionPrompt()
+
+        #expect(dismissed == false)
+        #expect(userService.dismissProfileCompletionPromptCallCount == 1)
+        #expect(viewModel.profileCompletionStatus?.shouldPrompt == true)
+        #expect(viewModel.shouldPromptProfileCompletion == true)
+        #expect(viewModel.errorMessage == "dismiss failed")
+    }
 }
 
 private func makeOnboardingContext(

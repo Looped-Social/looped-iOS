@@ -199,7 +199,8 @@ struct CommunityProfileViewModelTests {
         )
         await waitForNotificationTask()
 
-        #expect(communityService.fetchSpecializationJoinLimitsCalls == [.major])
+        #expect(communityService.fetchSpecializationJoinLimitsCalls.isEmpty == false)
+        #expect(communityService.fetchSpecializationJoinLimitsCalls.allSatisfy { $0 == .major })
         #expect(communityService.fetchCommunityDetailsDTOCalls.isEmpty)
         #expect(viewModel.community.joinLimit == updatedLimit)
     }

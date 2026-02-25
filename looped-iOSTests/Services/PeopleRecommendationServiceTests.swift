@@ -152,8 +152,8 @@ struct PeopleRecommendationServiceTests {
             #expect(request.url?.path == "/v1/recommendations/people/feedback")
             #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
 
-            let data = request.httpBody ?? Data()
-            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let data = requestBodyData(from: request) ?? Data("{}".utf8)
+            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             let events = object?["events"] as? [[String: Any]]
             #expect(events?.count == 1)
             #expect(events?.first?["type"] as? String == "hide")
@@ -218,4 +218,30 @@ private func makeResponse(for request: URLRequest, body: String) -> (HTTPURLResp
         headerFields: ["Content-Type": "application/json"]
     )!
     return (response, Data(body.utf8))
+}
+
+private func requestBodyData(from request: URLRequest) -> Data? {
+    if let body = request.httpBody {
+        return body
+    }
+    guard let stream = request.httpBodyStream else {
+        return nil
+    }
+    stream.open()
+    defer { stream.close() }
+
+    var data = Data()
+    let bufferSize = 1024
+    var buffer = [UInt8](repeating: 0, count: bufferSize)
+    while stream.hasBytesAvailable {
+        let read = stream.read(&buffer, maxLength: bufferSize)
+        if read < 0 {
+            return nil
+        }
+        if read == 0 {
+            break
+        }
+        data.append(buffer, count: read)
+    }
+    return data
 }

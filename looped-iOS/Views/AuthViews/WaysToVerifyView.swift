@@ -68,14 +68,16 @@ struct WaysToVerifyView: View {
                 Spacer()
 
                 VStack(spacing: 6) {
-                    Text("Your information is never stored")
-                        .font(.loopedSubBodyRegular)
-                        .foregroundColor(.loopedTextSecondary)
-
-                    Button(action: onLearnMore) {
-                        Text("learn more here")
+                    HStack(spacing: 0) {
+                        Text("Learn more about verification ")
                             .font(.loopedSubBodyRegular)
-                            .foregroundColor(.loopedSecondary)
+                            .foregroundColor(.loopedTextSecondary)
+
+                        Button(action: onLearnMore) {
+                            Text("here")
+                                .font(.loopedSubBodyRegular)
+                                .foregroundColor(.loopedSecondary)
+                        }
                     }
                 }
 
@@ -83,18 +85,8 @@ struct WaysToVerifyView: View {
                 .padding(.top, 16)
                 .padding(.horizontal, 32)
 
-                if let onSkip {
-                    Button(action: onSkip) {
-                        Text("Skip For now")
-                            .font(.loopedBodyMedium)
-                            .foregroundColor(.loopedSecondary)
-                    }
-                    .padding(.top, 14)
-                    .padding(.bottom, 20)
-                } else {
-                    Spacer()
-                        .frame(height: 20)
-                }
+                Spacer()
+                    .frame(height: 20)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color.loopedBackground.ignoresSafeArea())
@@ -106,6 +98,12 @@ struct WaysToVerifyView: View {
             if !showsHeader {
                 ToolbarItem(placement: .principal) {
                     VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)
+                }
+
+                if let onSkip {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Skip", action: onSkip)
+                    }
                 }
             }
         }
@@ -124,6 +122,15 @@ private extension WaysToVerifyView {
                 LoopedBackButton(action: onBack)
 
                 Spacer()
+
+                if let onSkip {
+                    Button(action: onSkip) {
+                        Text("Skip")
+                            .font(.loopedSubBodyMedium)
+                            .foregroundColor(.loopedSecondary)
+                    }
+                    .padding(.trailing, 4)
+                }
             }
 
             VerificationProgressView(currentStep: currentStep, totalSteps: totalSteps)

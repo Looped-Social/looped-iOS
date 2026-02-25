@@ -380,18 +380,10 @@ private struct CommentsKeyboardDismissalModifier: ViewModifier {
         if #available(iOS 16.0, *) {
             content
                 .scrollDismissesKeyboard(.interactively)
-                .simultaneousGesture(
-                    TapGesture().onEnded { onDismiss() },
-                    including: .gesture
-                )
         } else {
             content
                 .simultaneousGesture(
                     DragGesture().onChanged { _ in onDismiss() },
-                    including: .gesture
-                )
-                .simultaneousGesture(
-                    TapGesture().onEnded { onDismiss() },
                     including: .gesture
                 )
         }

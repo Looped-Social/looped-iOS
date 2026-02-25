@@ -251,14 +251,9 @@ private struct PeopleRecommendationCard: View {
             x: 0,
             y: 1
         )
-        .background(
-            NavigationLink(isActive: $isProfileOpen) {
-                UserProfileView(userId: item.user.id)
-            } label: {
-                EmptyView()
-            }
-            .hidden()
-        )
+        .navigationDestination(isPresented: $isProfileOpen) {
+            UserProfileView(userId: item.user.id)
+        }
         .contentShape(RoundedRectangle(cornerRadius: 18))
         .onTapGesture {
             onProfileTap()

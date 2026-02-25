@@ -17,6 +17,7 @@ class AuthViewModel: ObservableObject {
     @Published var onboardingStep: RemoteOnboardingStep?
     @Published var onboardingStageV2: String?
     @Published var onboardingContextV2: OnboardingContextV2DTO?
+    @Published var profileCompletionStatus: ProfileCompletionStatus?
     @Published var onboardingAllowedNextStagesV2: [String] = []
     @Published private(set) var didLoadIdentity = false
     @Published private(set) var isProvisioned = false
@@ -66,6 +67,7 @@ class AuthViewModel: ObservableObject {
                     self.onboardingStep = nil
                     self.onboardingStageV2 = nil
                     self.onboardingContextV2 = nil
+                    self.profileCompletionStatus = nil
                     self.onboardingAllowedNextStagesV2 = []
                     self.isProvisioned = false
                     self.selectedOrganization = nil
@@ -266,6 +268,7 @@ class AuthViewModel: ObservableObject {
         onboardingStep = nil
         onboardingStageV2 = nil
         onboardingContextV2 = nil
+        profileCompletionStatus = nil
         onboardingAllowedNextStagesV2 = []
         isProvisioned = false
         shouldEnterOnboardingFlow = true
@@ -289,6 +292,7 @@ class AuthViewModel: ObservableObject {
             onboardingStep = onboardingComplete ? nil : (identity.onboardingStep ?? .profileSetup)
             onboardingStageV2 = identity.onboardingStageV2
             onboardingContextV2 = identity.onboardingContext
+            profileCompletionStatus = identity.profileCompletion.map(ProfileCompletionStatus.init(dto:))
             onboardingAllowedNextStagesV2 = []
             shouldEnterOnboardingFlow = !onboardingComplete
 
@@ -310,6 +314,7 @@ class AuthViewModel: ObservableObject {
             onboardingStep = .profileSetup
             onboardingStageV2 = nil
             onboardingContextV2 = nil
+            profileCompletionStatus = nil
             onboardingAllowedNextStagesV2 = []
             isProvisioned = false
             currentUser = nil
@@ -385,6 +390,29 @@ class AuthViewModel: ObservableObject {
     func markOnboardingInfoScreenViewed() async -> Bool {
         await performOnboardingV2Update {
             try await userService.markOnboardingInfoScreenViewed()
+        }
+    }
+
+    var shouldPromptProfileCompletion: Bool {
+        isAuthenticated && onboardingComplete && (profileCompletionStatus?.shouldPrompt ?? false)
+    }
+
+    func dismissProfileCompletionPrompt() async -> Bool {
+        guard isAuthenticated else { return false }
+        do {
+            let response = try await userService.dismissProfileCompletionPrompt()
+            if let response {
+                profileCompletionStatus = ProfileCompletionStatus(dto: response)
+            } else if let profileCompletionStatus {
+                self.profileCompletionStatus = profileCompletionStatus.dismissing()
+            }
+            errorMessage = nil
+            return true
+        } catch let apiError as APIError where apiError.isAuthGatingError {
+            return false
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
@@ -550,6 +578,8 @@ class AuthViewModel: ObservableObject {
 
         if state.onboardingComplete {
             await loadCurrentUser()
+        } else {
+            profileCompletionStatus = nil
         }
     }
 }
@@ -567,6 +597,7 @@ private extension AuthViewModel {
             onboardingStep = .profileSetup
             onboardingStageV2 = nil
             onboardingContextV2 = nil
+            profileCompletionStatus = nil
             onboardingAllowedNextStagesV2 = []
             isProvisioned = false
             currentUser = nil
@@ -579,6 +610,7 @@ private extension AuthViewModel {
             onboardingStep = context.onboardingStep ?? context.currentStep ?? .profileSetup
             onboardingStageV2 = context.currentStageV2
             onboardingAllowedNextStagesV2 = context.allowedNextStagesV2 ?? []
+            profileCompletionStatus = nil
             isProvisioned = true
             errorMessage = nil
         case .invalidOnboardingStep, .invalidOnboardingStage:
@@ -587,6 +619,7 @@ private extension AuthViewModel {
             onboardingStep = context.currentStep ?? context.onboardingStep ?? .profileSetup
             onboardingStageV2 = context.currentStageV2
             onboardingAllowedNextStagesV2 = context.allowedNextStagesV2 ?? []
+            profileCompletionStatus = nil
             isProvisioned = true
             errorMessage = nil
         case .accountDeleted:

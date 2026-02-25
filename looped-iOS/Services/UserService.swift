@@ -398,6 +398,14 @@ class UserService: UserServiceProtocol {
         return try await apiClient.put("/v1/users/me/onboarding", body: request)
     }
 
+    func dismissProfileCompletionPrompt() async throws -> ProfileCompletionDTO? {
+        let response: ProfileCompletionResponseDTO = try await apiClient.post(
+            "/v1/me/profile-completion/dismiss",
+            body: EmptyBody()
+        )
+        return response.profileCompletion
+    }
+
     func markOnboardingInfoScreenViewed() async throws -> OnboardingStateV2DTO {
         try await apiClient.post(
             "/v1/users/me/onboarding-v2/info-screen/viewed",
@@ -411,8 +419,14 @@ class UserService: UserServiceProtocol {
     }
 
     func setOnboardingV2VerificationChoice(path: String) async throws -> OnboardingStateV2DTO {
-        let request = OnboardingV2VerificationChoiceRequestDTO(verificationPath: path)
-        return try await apiClient.put("/v1/users/me/onboarding-v2/verification-choice", body: request)
+        let endpoint = "/v1/users/me/onboarding-v2/verification-choice"
+        let snakeRequest = OnboardingV2VerificationChoiceSnakeRequestDTO(verificationPath: path)
+        do {
+            return try await apiClient.put(endpoint, body: snakeRequest)
+        } catch let error as APIError where shouldRetryVerificationChoiceWithCamelCase(error) {
+            let camelRequest = OnboardingV2VerificationChoiceRequestDTO(verificationPath: path)
+            return try await apiClient.put(endpoint, body: camelRequest)
+        }
     }
 
     func markOnboardingV2EmailVerificationSuccess() async throws -> OnboardingStateV2DTO {
@@ -499,6 +513,17 @@ class UserService: UserServiceProtocol {
             return code == 404
         case APIError.apiError(let code, _, _):
             return code == 404
+        default:
+            return false
+        }
+    }
+
+    private func shouldRetryVerificationChoiceWithCamelCase(_ error: APIError) -> Bool {
+        switch error {
+        case .serverError(let code):
+            return code == 400 || code == 404 || code == 415 || code == 422
+        case .apiError(let code, _, _):
+            return code == 400 || code == 404 || code == 415 || code == 422
         default:
             return false
         }

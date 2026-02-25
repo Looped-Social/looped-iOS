@@ -11,6 +11,7 @@ struct IdentityResponseDTO: Codable {
     let onboardingStep: RemoteOnboardingStep?
     let onboardingStageV2: String?
     let onboardingContext: OnboardingContextV2DTO?
+    let profileCompletion: ProfileCompletionDTO?
 }
 
 struct UserDTO: Codable {

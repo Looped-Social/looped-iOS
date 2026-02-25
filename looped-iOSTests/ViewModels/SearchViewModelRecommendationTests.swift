@@ -79,10 +79,17 @@ struct SearchViewModelRecommendationTests {
 
         await viewModel.loadPeopleRecommendations()
 
-        #expect(recommendationService.fetchRailsCalls.contains(where: { $0.surface == .search && $0.communityId == nil }))
-        #expect(recommendationService.fetchRailsCalls.contains(where: { $0.surface == .search && $0.communityId == 222 }))
+        let initialSearchCallExists = recommendationService.fetchRailsCalls.contains { call in
+            call.surface == .search && call.communityId == nil
+        }
+        let retriedSearchCallExists = recommendationService.fetchRailsCalls.contains { call in
+            call.surface == .search && call.communityId == 222
+        }
+        #expect(initialSearchCallExists)
+        #expect(retriedSearchCallExists)
         #expect(communityService.fetchFollowedCommunitiesCalls.isEmpty == false)
-        #expect(viewModel.peopleRecommendationRails.contains(where: { !$0.items.isEmpty }))
+        let hasNonEmptyRail = viewModel.peopleRecommendationRails.contains { !$0.items.isEmpty }
+        #expect(hasNonEmptyRail)
     }
 
     @Test
@@ -161,8 +168,10 @@ struct SearchViewModelRecommendationTests {
         await viewModel.loadPeopleRecommendations()
         await viewModel.loadMorePeopleRecommendations(for: .pymk)
 
-        #expect(recommendationService.fetchRailCalls.contains(where: { $0.communityId == 77 }))
-        #expect(viewModel.peopleRecommendationRails.first(where: { $0.rail == .pymk })?.items.count == 2)
+        let usedResolvedCommunityId = recommendationService.fetchRailCalls.contains { $0.communityId == 77 }
+        #expect(usedResolvedCommunityId)
+        let pymkItemCount = viewModel.peopleRecommendationRails.first(where: { $0.rail == .pymk })?.items.count
+        #expect(pymkItemCount == 2)
     }
 }
 

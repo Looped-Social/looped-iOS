@@ -288,13 +288,12 @@ private extension AuthView {
                     let method = VerificationMethod.from(optionId: option.id)
                     verificationContext = VerificationContext(isStudent: false, method: method)
                     onboardingStore.saveVerificationMethod(method == .photoId ? "photo_id" : "email")
+                    let target: AuthScreen = method == .photoId
+                        ? .photoIdVerification(isStudent: false)
+                        : .emailVerification(isStudent: false)
+                    setNavigationStack(for: target)
                     Task {
-                        let success = await authViewModel.setOnboardingV2VerificationChoice(path: method.v2Path)
-                        guard success else {
-                            restoreOnboardingScreen()
-                            return
-                        }
-                        restoreOnboardingScreen()
+                        _ = await authViewModel.setOnboardingV2VerificationChoice(path: method.v2Path)
                     }
                 },
                 onSkip: { Task { await startSkipVerificationFlow() } },
@@ -317,13 +316,12 @@ private extension AuthView {
                     let method = VerificationMethod.from(optionId: option.id)
                     verificationContext = VerificationContext(isStudent: true, method: method)
                     onboardingStore.saveVerificationMethod(method == .photoId ? "photo_id" : "email")
+                    let target: AuthScreen = method == .photoId
+                        ? .photoIdVerification(isStudent: true)
+                        : .emailVerification(isStudent: true)
+                    setNavigationStack(for: target)
                     Task {
-                        let success = await authViewModel.setOnboardingV2VerificationChoice(path: method.v2Path)
-                        guard success else {
-                            restoreOnboardingScreen()
-                            return
-                        }
-                        restoreOnboardingScreen()
+                        _ = await authViewModel.setOnboardingV2VerificationChoice(path: method.v2Path)
                     }
                 },
                 onSkip: { Task { await startSkipVerificationFlow() } },
@@ -867,6 +865,20 @@ struct OnboardingRoutingResolver {
             case "verification_choice", "ways_to_verify":
                 return resolvedIsStudent ? .waysToVerifyStudent : .waysToVerifyCompany
             case "email_verification":
+                if verificationPath == "email", isEmailVerificationApproved(verificationStatus) {
+                    if hasSpecialization
+                        || normalizedAllowedNextStages.contains("completed")
+                        || normalizedAllowedNextStages.contains("finalized")
+                        || normalizedAllowedNextStages.contains("ready_to_finalize") {
+                        return .verificationConfirmation
+                    }
+                    if requiresSpecialization
+                        || normalizedAllowedNextStages.contains("specialization_selection")
+                        || normalizedAllowedNextStages.contains("specialization_required") {
+                        return resolvedIsStudent ? .degreeSelection : .departmentSelection
+                    }
+                    return .verificationConfirmation
+                }
                 return .emailVerification(isStudent: resolvedIsStudent)
             case "photo_id_verification", "photo_verification":
                 return .photoIdVerification(isStudent: resolvedIsStudent)
@@ -999,6 +1011,18 @@ struct OnboardingRoutingResolver {
         return nil
     }
 
+    private static func isEmailVerificationApproved(_ status: String?) -> Bool {
+        guard let normalized = status?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !normalized.isEmpty else {
+            return false
+        }
+        switch normalized {
+        case "approved", "verified", "active", "success", "completed":
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 private extension AuthScreen {

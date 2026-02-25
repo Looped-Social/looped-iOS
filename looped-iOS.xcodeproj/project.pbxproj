@@ -15,7 +15,7 @@
 		4F27D0442F47672500769FAD /* widgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F27D0322F47672400769FAD /* widgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4F27D04E2F47695400769FAD /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F27D0342F47672400769FAD /* WidgetKit.framework */; };
 		4F27D04F2F47695400769FAD /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F27D0362F47672400769FAD /* SwiftUI.framework */; };
-		4F27D05C2F47695500769FAD /* widgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F27D04D2F47695400769FAD /* widgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4F27D05C2F47695500769FAD /* widgetsExtensionStaging.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F27D04D2F47695400769FAD /* widgetsExtensionStaging.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4F5204902F23EA2400762196 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204892F23EA2400762196 /* BigInt */; };
 		4F5204912F23EA2400762196 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204832F23EA2400762196 /* FirebaseCore */; };
 		4F5204922F23EA2400762196 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4F5204852F23EA2400762196 /* FirebaseAuth */; };
@@ -42,7 +42,7 @@
 			containerPortal = 4F4C18862E6B3D150043DD49 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4F27D04C2F47695400769FAD;
-			remoteInfo = widgetsExtension;
+			remoteInfo = widgetsExtensionStaging;
 		};
 		4F4C189C2E6B3D160043DD49 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -74,7 +74,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				4F27D05C2F47695500769FAD /* widgetsExtension.appex in Embed Foundation Extensions */,
+				4F27D05C2F47695500769FAD /* widgetsExtensionStaging.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -96,7 +96,7 @@
 		4F27D0322F47672400769FAD /* widgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = widgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F27D0342F47672400769FAD /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		4F27D0362F47672400769FAD /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		4F27D04D2F47695400769FAD /* widgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = widgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F27D04D2F47695400769FAD /* widgetsExtensionStaging.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = widgetsExtensionStaging.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F4C188E2E6B3D150043DD49 /* looped-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "looped-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F4C189B2E6B3D160043DD49 /* looped-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "looped-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4F4C18A52E6B3D160043DD49 /* looped-iOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "looped-iOSUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -111,12 +111,12 @@
 			);
 			target = 4F27D0312F47672400769FAD /* widgetsExtension */;
 		};
-		4F27D0602F47695500769FAD /* Exceptions for "widgets" folder in "widgetsExtension" target */ = {
+		4F27D0602F47695500769FAD /* Exceptions for "widgets" folder in "widgetsExtensionStaging" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 4F27D04C2F47695400769FAD /* widgetsExtension */;
+			target = 4F27D04C2F47695400769FAD /* widgetsExtensionStaging */;
 		};
 		4F52049C2F23EA2500762196 /* Exceptions for "looped-iOS" folder in "looped-iOS Staging" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -148,7 +148,7 @@
 		4F27D0502F47695400769FAD /* widgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				4F27D0602F47695500769FAD /* Exceptions for "widgets" folder in "widgetsExtension" target */,
+				4F27D0602F47695500769FAD /* Exceptions for "widgets" folder in "widgetsExtensionStaging" target */,
 			);
 			path = widgets;
 			sourceTree = "<group>";
@@ -268,7 +268,7 @@
 				4F4C18A52E6B3D160043DD49 /* looped-iOSUITests.xctest */,
 				4F52049B2F23EA2400762196 /* looped-iOS Staging.app */,
 				4F27D0322F47672400769FAD /* widgetsExtension.appex */,
-				4F27D04D2F47695400769FAD /* widgetsExtension.appex */,
+				4F27D04D2F47695400769FAD /* widgetsExtensionStaging.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -298,9 +298,9 @@
 			productReference = 4F27D0322F47672400769FAD /* widgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		4F27D04C2F47695400769FAD /* widgetsExtension */ = {
+		4F27D04C2F47695400769FAD /* widgetsExtensionStaging */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4F27D05D2F47695500769FAD /* Build configuration list for PBXNativeTarget "widgetsExtension" */;
+			buildConfigurationList = 4F27D05D2F47695500769FAD /* Build configuration list for PBXNativeTarget "widgetsExtensionStaging" */;
 			buildPhases = (
 				4F27D0492F47695400769FAD /* Sources */,
 				4F27D04A2F47695400769FAD /* Frameworks */,
@@ -313,11 +313,11 @@
 			fileSystemSynchronizedGroups = (
 				4F27D0502F47695400769FAD /* widgets */,
 			);
-			name = widgetsExtension;
+			name = widgetsExtensionStaging;
 			packageProductDependencies = (
 			);
-			productName = widgetsExtension;
-			productReference = 4F27D04D2F47695400769FAD /* widgetsExtension.appex */;
+			productName = widgetsExtensionStaging;
+			productReference = 4F27D04D2F47695400769FAD /* widgetsExtensionStaging.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		4F4C188D2E6B3D150043DD49 /* looped-iOS */ = {
@@ -483,7 +483,7 @@
 				4F4C18A42E6B3D160043DD49 /* looped-iOSUITests */,
 				4F5204822F23EA2400762196 /* looped-iOS Staging */,
 				4F27D0312F47672400769FAD /* widgetsExtension */,
-				4F27D04C2F47695400769FAD /* widgetsExtension */,
+				4F27D04C2F47695400769FAD /* widgetsExtensionStaging */,
 			);
 		};
 /* End PBXProject section */
@@ -586,7 +586,7 @@
 		};
 		4F27D05B2F47695500769FAD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 4F27D04C2F47695400769FAD /* widgetsExtension */;
+			target = 4F27D04C2F47695400769FAD /* widgetsExtensionStaging */;
 			targetProxy = 4F27D05A2F47695500769FAD /* PBXContainerItemProxy */;
 		};
 		4F4C189D2E6B3D160043DD49 /* PBXTargetDependency */ = {
@@ -615,7 +615,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = widgets/widgetsExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = widgets/Info.plist;
@@ -648,7 +648,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = widgets/widgetsExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = widgets/Info.plist;
@@ -681,7 +681,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = widgets/widgetsExtension.staging.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = widgets/Info.plist;
@@ -695,7 +695,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mylooped.looped.staging.widgets;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = widgetsExtensionStaging;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -714,7 +714,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = widgets/widgetsExtension.staging.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = widgets/Info.plist;
@@ -728,7 +728,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mylooped.looped.staging.widgets;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = widgetsExtensionStaging;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -1018,7 +1018,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "looped-iOS/Staging/looped-iOS Staging.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1052,7 +1052,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "looped-iOS/Staging/looped-iOS Staging.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = RAB89P8X48;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1090,7 +1090,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		4F27D05D2F47695500769FAD /* Build configuration list for PBXNativeTarget "widgetsExtension" */ = {
+		4F27D05D2F47695500769FAD /* Build configuration list for PBXNativeTarget "widgetsExtensionStaging" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4F27D05E2F47695500769FAD /* Debug */,

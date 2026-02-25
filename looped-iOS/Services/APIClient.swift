@@ -379,6 +379,35 @@ class APIClient {
                 if httpResponse.statusCode == 401 {
                     throw APIError.unauthorized
                 }
+
+                // /v1/me may return 409 with a full identity payload for onboarding-incomplete users.
+                if httpResponse.statusCode == 409,
+                   request.url?.path == "/v1/me",
+                   T.self == IdentityResponseDTO.self {
+                    do {
+                        let decodedIdentity = try await decodeOnBackground(IdentityResponseDTO.self, from: data) { decoder in
+                            decoder.dateDecodingStrategy = .custom { decoder in
+                                let container = try decoder.singleValueContainer()
+                                let value = try container.decode(String.self)
+                                APIClient.dateFormatterLock.lock()
+                                defer { APIClient.dateFormatterLock.unlock() }
+                                if let date = APIClient.iso8601FormatterWithFractional.date(from: value)
+                                    ?? APIClient.iso8601Formatter.date(from: value) {
+                                    return date
+                                }
+                                throw DecodingError.dataCorruptedError(
+                                    in: container,
+                                    debugDescription: "Invalid ISO-8601 date: \(value)"
+                                )
+                            }
+                            decoder.keyDecodingStrategy = .convertFromSnakeCase
+                        }
+                        // swiftlint:disable:next force_cast
+                        return decodedIdentity as! T
+                    } catch {
+                        // Fall back to structured error parsing below.
+                    }
+                }
                 // Try to parse structured error
                 if let errorPayload = try? await decodeOnBackground(ServerError.self, from: data, configure: { _ in }) {
                     publishAuthGatingIfNeeded(statusCode: httpResponse.statusCode, payload: errorPayload)

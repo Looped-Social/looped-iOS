@@ -194,6 +194,7 @@ protocol UserServiceProtocol {
     func checkUsernameAvailability(_ username: String) async throws -> UsernameAvailabilityResponseDTO
     func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
     func updateOnboardingStep(_ step: RemoteOnboardingStep) async throws -> OnboardingStateDTO
+    func dismissProfileCompletionPrompt() async throws -> ProfileCompletionDTO?
     func markOnboardingInfoScreenViewed() async throws -> OnboardingStateV2DTO
     func setOnboardingV2Organization(orgId: Int) async throws -> OnboardingStateV2DTO
     func setOnboardingV2VerificationChoice(path: String) async throws -> OnboardingStateV2DTO

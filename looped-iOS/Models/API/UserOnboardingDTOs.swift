@@ -63,6 +63,14 @@ struct OnboardingV2VerificationChoiceRequestDTO: Codable {
     let verificationPath: String
 }
 
+struct OnboardingV2VerificationChoiceSnakeRequestDTO: Codable {
+    let verificationPath: String
+
+    private enum CodingKeys: String, CodingKey {
+        case verificationPath = "verification_path"
+    }
+}
+
 struct OnboardingV2SpecializationRequestDTO: Codable {
     let specializationId: Int
 }

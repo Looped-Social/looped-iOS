@@ -344,7 +344,7 @@ class SearchViewModel: ObservableObject {
 
         pendingImpressionTasks[item.recommendationId] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
-            await self?.commitImpressionIfStillVisible(for: item)
+            self?.commitImpressionIfStillVisible(for: item)
         }
     }
 

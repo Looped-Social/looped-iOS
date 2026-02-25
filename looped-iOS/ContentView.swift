@@ -46,6 +46,7 @@ struct ContentView: View {
     @StateObject private var feedViewModel = FeedViewModel()
     @State private var keepBootstrapVisible = false
     @State private var showNotificationPermissionPrompt = false
+    @State private var showProfileCompletionPrompt = false
     @State private var showMinimumSupportedVersionPrompt = false
     @State private var minimumSupportedVersionPromptMessage = ""
     @State private var minimumSupportedVersionPromptValue = ""
@@ -88,11 +89,23 @@ struct ContentView: View {
                 AuthView(authViewModel: authViewModel)
             }
         }
+        .loopedDismissKeyboardOnTap()
         .task {
             await fetchAppConfigAndEvaluateMinimumVersionPrompt()
         }
         .task(id: notificationPromptKey) {
             await evaluateNotificationPermissionPromptIfNeeded()
+        }
+        .task(id: profileCompletionPromptKey) {
+            await evaluateProfileCompletionPromptIfNeeded()
+        }
+        .fullScreenCover(isPresented: $showProfileCompletionPrompt) {
+            NavigationStack {
+                FinishProfileSetupView()
+            }
+            .environmentObject(authViewModel)
+            .environmentObject(feedViewModel)
+            .preferredColorScheme(preferredColorScheme)
         }
         .fullScreenCover(isPresented: $showNotificationPermissionPrompt) {
             NotificationPermissionPromptView {
@@ -107,12 +120,12 @@ struct ContentView: View {
         } message: {
             Text("Your account and anonymous profile have been deleted.")
         }
-        .alert("Account Deletion In Progress", isPresented: $showAccountDeletionPendingAlert) {
+        .alert("Account Deletion Requested", isPresented: $showAccountDeletionPendingAlert) {
             Button("OK", role: .cancel) {
                 showAccountDeletionPendingAlert = false
             }
         } message: {
-            Text("Your account deletion is in progress. You have been signed out.")
+            Text("Your request was accepted and deletion is still processing in the background. If it is still pending after 24 hours, contact support at mylooped.app/contact.")
         }
         .alert("Account Deactivated", isPresented: $showAccountDeactivatedAlert) {
             Button("OK", role: .cancel) {
@@ -159,6 +172,7 @@ struct ContentView: View {
         .onChange(of: authViewModel.isAuthenticated) { _, newValue in
             deepLinkRouter.setAuthenticationState(newValue)
             if !newValue {
+                showProfileCompletionPrompt = false
                 Task {
                     await spotlightIndexingService.removeAllPosts()
                 }
@@ -178,7 +192,18 @@ struct ContentView: View {
             authViewModel.isAuthenticated ? "auth" : "noauth",
             authViewModel.didLoadIdentity ? "id" : "noid",
             authViewModel.onboardingComplete ? "onboarded" : "notonboarded",
+            authViewModel.shouldPromptProfileCompletion ? "profileprompt" : "noprofileprompt",
+            showProfileCompletionPrompt ? "profilepromptshown" : "profileprompthidden",
             didShowNotificationPermissionPrompt ? "prompted" : "unprompted"
+        ].joined(separator: "|")
+    }
+
+    private var profileCompletionPromptKey: String {
+        [
+            authViewModel.isAuthenticated ? "auth" : "noauth",
+            authViewModel.didLoadIdentity ? "id" : "noid",
+            authViewModel.onboardingComplete ? "onboarded" : "notonboarded",
+            authViewModel.shouldPromptProfileCompletion ? "shouldprompt" : "noshouldprompt"
         ].joined(separator: "|")
     }
 
@@ -186,8 +211,10 @@ struct ContentView: View {
         guard authViewModel.isAuthenticated else { return }
         guard authViewModel.didLoadIdentity else { return }
         guard authViewModel.onboardingComplete else { return }
+        guard !authViewModel.shouldPromptProfileCompletion else { return }
         guard !didShowNotificationPermissionPrompt else { return }
         guard !showNotificationPermissionPrompt else { return }
+        guard !showProfileCompletionPrompt else { return }
 
         #if canImport(UserNotifications)
         let settings = await UNUserNotificationCenter.current().notificationSettings()
@@ -210,6 +237,25 @@ struct ContentView: View {
             didShowNotificationPermissionPrompt = true
         }
         #endif
+    }
+
+    private func evaluateProfileCompletionPromptIfNeeded() async {
+        guard authViewModel.isAuthenticated else {
+            await MainActor.run {
+                showProfileCompletionPrompt = false
+            }
+            return
+        }
+        guard authViewModel.didLoadIdentity else { return }
+        guard authViewModel.onboardingComplete else {
+            await MainActor.run {
+                showProfileCompletionPrompt = false
+            }
+            return
+        }
+        await MainActor.run {
+            showProfileCompletionPrompt = authViewModel.shouldPromptProfileCompletion
+        }
     }
 
     private func fetchAppConfigAndEvaluateMinimumVersionPrompt() async {

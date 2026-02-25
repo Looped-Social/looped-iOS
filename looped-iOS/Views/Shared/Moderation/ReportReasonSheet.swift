@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ReportReasonSheet: View {
+    private static let customReasonOption = "None of these apply (add custom reason)"
+
     let title: String
     let onSubmit: (String) async throws -> Void
     let onSuccess: (() -> Void)?
@@ -18,11 +20,11 @@ struct ReportReasonSheet: View {
         "Hate Speech",
         "Self-harm or Suicide",
         "Violence or Gore",
-        "Something Else"
+        Self.customReasonOption
     ]
 
     private var isOtherSelected: Bool {
-        selectedReason == "Something Else"
+        selectedReason == Self.customReasonOption
     }
 
     var body: some View {
@@ -51,7 +53,7 @@ struct ReportReasonSheet: View {
                 if isOtherSelected {
                     ZStack(alignment: .topLeading) {
                         if customReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Text("Add a short description...")
+                            Text("None of these apply? Add your custom reason...")
                                 .font(.loopedBody)
                                 .foregroundColor(.loopedTextSecondary.opacity(0.6))
                                 .padding(.horizontal, 14)
@@ -113,7 +115,7 @@ struct ReportReasonSheet: View {
 
     private var isSubmitEnabled: Bool {
         guard let selectedReason else { return false }
-        if selectedReason == "Something Else" {
+        if selectedReason == Self.customReasonOption {
             return !customReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return true
@@ -134,7 +136,7 @@ struct ReportReasonSheet: View {
         Task {
             defer { isSubmitting = false }
             do {
-                let reason = selectedReason == "Something Else"
+                let reason = selectedReason == Self.customReasonOption
                     ? customReason.trimmingCharacters(in: .whitespacesAndNewlines)
                     : (selectedReason ?? "")
                 try await onSubmit(reason)

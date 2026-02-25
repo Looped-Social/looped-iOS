@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import looped_iOS
 

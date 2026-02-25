@@ -14,6 +14,8 @@ struct AccountActionConfirmView: View {
     @State private var isProcessing = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var processingStatus: ProcessingStatus = .starting
+    @State private var processingStatusTask: Task<Void, Never>?
 
     var body: some View {
         ScrollView {
@@ -63,12 +65,22 @@ struct AccountActionConfirmView: View {
         .background(Color.loopedBackground.ignoresSafeArea())
         .navigationTitle(headerTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(isProcessing)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .loadingOverlay(
+            isPresented: isProcessing,
+            title: processingTitle,
+            subtitle: processingSubtitle
+        )
         .alert(alertTitle, isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage)
+        }
+        .onDisappear {
+            processingStatusTask?.cancel()
+            processingStatusTask = nil
         }
     }
 
@@ -94,8 +106,14 @@ struct AccountActionConfirmView: View {
     private func performAction() {
         guard isMatch, !isProcessing else { return }
         isProcessing = true
+        startProcessingStatusUpdates()
         Task {
-            defer { isProcessing = false }
+            defer {
+                isProcessing = false
+                processingStatusTask?.cancel()
+                processingStatusTask = nil
+                processingStatus = .starting
+            }
             do {
                 if action == .delete {
                     try await anonService.revokeIfPresent()
@@ -113,8 +131,21 @@ struct AccountActionConfirmView: View {
                 }
                 authViewModel.signOut()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = userFacingErrorMessage(for: error)
                 showErrorAlert = true
+            }
+        }
+    }
+
+    private func startProcessingStatusUpdates() {
+        processingStatusTask?.cancel()
+        processingStatus = .starting
+        processingStatusTask = Task {
+            try? await Task.sleep(nanoseconds: 15_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard isProcessing else { return }
+                processingStatus = .takingLongerThanExpected
             }
         }
     }
@@ -171,6 +202,46 @@ struct AccountActionConfirmView: View {
         case .deactivate:
             return "Deactivation Failed"
         }
+    }
+
+    private var processingTitle: String {
+        switch action {
+        case .delete:
+            return "Deleting Account..."
+        case .deactivate:
+            return "Deactivating Account..."
+        }
+    }
+
+    private var processingSubtitle: String {
+        switch processingStatus {
+        case .starting:
+            return "Please keep this screen open until the request finishes."
+        case .takingLongerThanExpected:
+            return "This is taking longer than expected. We are still processing your request."
+        }
+    }
+
+    private func userFacingErrorMessage(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            if case APIError.networkError(let underlyingError) = apiError,
+               let urlError = underlyingError as? URLError,
+               urlError.code == .timedOut {
+                return "The request timed out. This can happen during heavy load. Please try again in a minute."
+            }
+            if case APIError.networkError = apiError {
+                return "Network issue while processing your request. Please check your connection and try again."
+            }
+        }
+
+        return error.localizedDescription
+    }
+}
+
+private extension AccountActionConfirmView {
+    enum ProcessingStatus {
+        case starting
+        case takingLongerThanExpected
     }
 }
 

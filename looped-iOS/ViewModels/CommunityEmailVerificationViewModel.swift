@@ -37,7 +37,7 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
         verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService(),
         ensureOnboardingVerificationStep: (() async -> Void)? = nil,
         onboardingSyncRetryDelayNanoseconds: UInt64 = 250_000_000,
-        defaultResendCooldownSeconds: Int = 30
+        defaultResendCooldownSeconds: Int = 60
     ) {
         self.communityId = communityId
         self.communityName = communityName
@@ -253,7 +253,7 @@ final class CommunityEmailVerificationViewModel: ObservableObject {
             "too_many_attempts"
         ])
         guard fallbackCodes.contains(code) else { return }
-        startRetryCooldown(seconds: 30)
+        startRetryCooldown(seconds: max(defaultResendCooldownSeconds, 1))
     }
 
     private func clearRateLimitIfNeeded() {

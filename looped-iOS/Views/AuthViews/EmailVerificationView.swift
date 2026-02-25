@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct EmailVerificationView: View {
     let communityId: Int?
@@ -12,6 +11,7 @@ struct EmailVerificationView: View {
     let showsHeader: Bool
 
     @StateObject private var viewModel: CommunityEmailVerificationViewModel
+    @FocusState private var isVerificationCodeFieldFocused: Bool
 
     init(
         communityId: Int?,
@@ -47,9 +47,6 @@ struct EmailVerificationView: View {
                 Color.loopedBackground
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        dismissKeyboard()
-                    }
 
                 VStack(spacing: 0) {
                     if showsHeader {
@@ -106,12 +103,21 @@ struct EmailVerificationView: View {
                     }
 
                     if viewModel.stage == .enterCode {
-                        Button(action: { Task { await viewModel.resendCode() } }) {
+                        Button(action: {
+                            Task {
+                                await viewModel.resendCode()
+                                focusCodeFieldSoon()
+                            }
+                        }) {
                             Text("Resend email")
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedSecondary)
+                                .font(canResendCode ? .loopedSubBodyBold : .loopedSubBodyRegular)
+                                .foregroundColor(
+                                    canResendCode ? .loopedSecondary : .loopedTextSecondary
+                                )
+                                .underline(canResendCode)
                         }
-                        .disabled(viewModel.retryAfterSecondsRemaining > 0 || viewModel.isSendingCode)
+                        .buttonStyle(.plain)
+                        .disabled(!canResendCode)
                         .padding(.top, 12)
 
                         if let resendCooldownMessage {
@@ -167,6 +173,16 @@ struct EmailVerificationView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .task {
             await viewModel.loadDomains()
+            if viewModel.stage == .enterCode {
+                focusCodeFieldSoon()
+            }
+        }
+        .onChange(of: viewModel.stage) { _, newStage in
+            if newStage == .enterCode {
+                focusCodeFieldSoon()
+            } else {
+                isVerificationCodeFieldFocused = false
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
@@ -184,6 +200,7 @@ struct EmailVerificationView: View {
                 }
             }
         }
+        .loopedDisableKeyboardDismissOnTap(when: viewModel.stage == .enterCode)
     }
 }
 
@@ -248,63 +265,67 @@ private extension EmailVerificationView {
 	    }
 
     var domainSupportHint: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Don't see your email ending?")
-                .font(.loopedSubBodyMedium)
+        VStack(alignment: .center, spacing: 8) {
+            Text("Don't see your domain?")
+                .font(.loopedBodyMedium)
                 .foregroundColor(.loopedTextPrimary)
+                .multilineTextAlignment(.center)
 
             Text(emailEndingSupportText)
-                .font(.loopedSmallText)
+                .font(.loopedSubBodyRegular)
                 .foregroundColor(.loopedTextSecondary)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
             domainSupportActions
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     @ViewBuilder
     var domainSupportActions: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-                Link("Contact form", destination: supportContactURL)
-                    .font(.loopedSmallText)
+        ViewThatFits {
+            HStack(spacing: 4) {
+                Link("Contact us", destination: supportContactURL)
+                    .font(.loopedSubBodyBold)
                     .foregroundColor(.loopedSecondary)
                     .underline()
 
-                Text("•")
-                    .font(.loopedSmallText)
+                Text("or")
+                    .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedTextSecondary)
 
-                Link("Email support", destination: supportEmailURL)
-                    .font(.loopedSmallText)
+                Link("email us here", destination: supportEmailURL)
+                    .font(.loopedSubBodyBold)
                     .foregroundColor(.loopedSecondary)
                     .underline()
             }
+            .frame(maxWidth: .infinity, alignment: .center)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Link("Open contact form", destination: supportContactURL)
-                    .font(.loopedSmallText)
+            VStack(alignment: .center, spacing: 4) {
+                Link("Contact us", destination: supportContactURL)
+                    .font(.loopedSubBodyBold)
                     .foregroundColor(.loopedSecondary)
                     .underline()
 
-                Link("Email support@mylooped.app", destination: supportEmailURL)
-                    .font(.loopedSmallText)
+                Link("Email us here", destination: supportEmailURL)
+                    .font(.loopedSubBodyBold)
                     .foregroundColor(.loopedSecondary)
                     .underline()
             }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
     var emailEndingSupportText: String {
         let endings = viewModel.domains.map { "@\($0)" }
         guard let first = endings.first else {
-            return "No worries! Contact us here and we'll look into it."
+            return "No worries. We can help add your domain."
         }
         if endings.count == 1 {
-            return "If your email doesn't end in \"\(first)\", no worries! Contact us here and we'll look into it."
+            return "If your email doesn't end in \"\(first)\", no worries. We can help add your domain."
         }
-        return "If your email doesn't end in \"\(first)\" or one of our other options, no worries! Contact us here and we'll look into it."
+        return "If your email doesn't end in \"\(first)\" or one of our other options, no worries. We can help add your domain."
     }
 
     var supportContactURL: URL {
@@ -353,7 +374,10 @@ private extension EmailVerificationView {
     }
 
     var codeEntryCard: some View {
-        VerificationCodeEntryView(code: $viewModel.code)
+        VerificationCodeEntryView(
+            code: $viewModel.code,
+            isFocused: $isVerificationCodeFieldFocused
+        )
     }
 
     var primaryButtonTitle: String {
@@ -390,6 +414,10 @@ private extension EmailVerificationView {
         return nil
     }
 
+    var canResendCode: Bool {
+        viewModel.retryAfterSecondsRemaining == 0 && !viewModel.isSendingCode
+    }
+
     var displayStatusMessage: String? {
         guard let raw = viewModel.statusMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
               !raw.isEmpty else {
@@ -405,25 +433,28 @@ private extension EmailVerificationView {
         switch viewModel.stage {
         case .enterEmail:
             Task {
-                _ = await viewModel.sendCode()
+                let success = await viewModel.sendCode()
+                if success {
+                    focusCodeFieldSoon()
+                }
             }
         case .enterCode:
             Task {
                 let success = await viewModel.submitCode()
                 if success {
                     onComplete()
+                } else {
+                    focusCodeFieldSoon()
                 }
             }
         }
     }
 
-    func dismissKeyboard() {
-        UIApplication.shared.sendAction(
-            #selector(UIResponder.resignFirstResponder),
-            to: nil,
-            from: nil,
-            for: nil
-        )
+    func focusCodeFieldSoon() {
+        guard viewModel.stage == .enterCode else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            isVerificationCodeFieldFocused = true
+        }
     }
 
     var inboxDeliveryHintCard: some View {
@@ -456,7 +487,7 @@ private extension EmailVerificationView {
 
 	private struct VerificationCodeEntryView: View {
 	    @Binding var code: String
-	    @FocusState private var isFocused: Bool
+        @FocusState.Binding var isFocused: Bool
 
 	    private let digits = 6
 
@@ -487,6 +518,7 @@ private extension EmailVerificationView {
                 .focused($isFocused)
                 .foregroundColor(.loopedTextPrimary)
                 .tint(.loopedPrimary)
+                .frame(width: 1, height: 1)
                 .opacity(0.01)
                 .onChange(of: code) { _, newValue in
                     let filtered = newValue.filter { $0.isNumber }
@@ -515,6 +547,9 @@ private extension EmailVerificationView {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 isFocused = true
             }
+        }
+        .onDisappear {
+            isFocused = false
         }
     }
 

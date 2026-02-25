@@ -47,10 +47,13 @@ struct SettingsRowLabel: View {
     let icon: IconSource
     let title: String
     var subtitle: String? = nil
+    var titleColor: Color = .loopedTextPrimary
+    var subtitleColor: Color = .loopedTextSecondary
+    var iconTint: Color = .loopedTextSecondary
 
     var body: some View {
         HStack(spacing: 12) {
-            SettingsIconView(icon: icon)
+            SettingsIconView(icon: icon, tint: iconTint)
             labelText
             Spacer(minLength: 0)
         }
@@ -61,7 +64,7 @@ struct SettingsRowLabel: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.loopedBodyMedium)
-                .foregroundColor(.loopedTextPrimary)
+                .foregroundColor(titleColor)
             subtitleText
         }
     }
@@ -73,8 +76,7 @@ struct SettingsRowLabel: View {
         return AnyView(
             Text(subtitle)
                 .font(.loopedSubBodyRegular)
-                .foregroundColor(.loopedTextSecondary)
+                .foregroundColor(subtitleColor)
         )
     }
 }
-

@@ -642,12 +642,33 @@ final class MockNotificationService: NotificationServiceProtocol {
 
     var updateRequests: [NotificationPreferencesUpdateRequest] = []
     var updatePreferencesHandler: ((NotificationPreferencesUpdateRequest) async throws -> NotificationPreferencesDTO)?
+    var dismissCalls: [Int] = []
+    var dismissHandler: ((Int) async throws -> Void)?
+    var dismissAllCallCount = 0
+    var dismissAllHandler: (() async throws -> Int)?
 
     func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage {
         try unimplemented(#function)
     }
 
     func markRead(notificationId: Int) async throws {
+        throw TestError.unimplemented(#function)
+    }
+
+    func dismiss(notificationId: Int) async throws {
+        dismissCalls.append(notificationId)
+        if let handler = dismissHandler {
+            try await handler(notificationId)
+            return
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func dismissAll() async throws -> Int {
+        dismissAllCallCount += 1
+        if let handler = dismissAllHandler {
+            return try await handler()
+        }
         throw TestError.unimplemented(#function)
     }
 
@@ -832,6 +853,8 @@ final class MockUserService: UserServiceProtocol {
 
     var updateOnboardingStepCalls: [RemoteOnboardingStep] = []
     var updateOnboardingStepHandler: ((RemoteOnboardingStep) async throws -> OnboardingStateDTO)?
+    var dismissProfileCompletionPromptCallCount = 0
+    var dismissProfileCompletionPromptHandler: (() async throws -> ProfileCompletionDTO?)?
     var markOnboardingInfoScreenViewedCallCount = 0
     var markOnboardingInfoScreenViewedHandler: (() async throws -> OnboardingStateV2DTO)?
     var setOnboardingV2OrganizationCalls: [Int] = []
@@ -954,6 +977,14 @@ final class MockUserService: UserServiceProtocol {
         updateOnboardingStepCalls.append(step)
         if let handler = updateOnboardingStepHandler {
             return try await handler(step)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func dismissProfileCompletionPrompt() async throws -> ProfileCompletionDTO? {
+        dismissProfileCompletionPromptCallCount += 1
+        if let handler = dismissProfileCompletionPromptHandler {
+            return try await handler()
         }
         throw TestError.unimplemented(#function)
     }

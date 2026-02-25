@@ -462,10 +462,20 @@ private struct SettingsListContent: View {
     private var actionsSection: some View {
         Section("Actions") {
             NavigationLink(destination: DeactivateAccountIntroView()) {
-                SettingsRowLabel(icon: .system("pause.circle"), title: "Deactivate Account")
+                SettingsRowLabel(
+                    icon: .system("pause.circle"),
+                    title: "Deactivate Account",
+                    titleColor: .loopedError,
+                    iconTint: .loopedError
+                )
             }
             NavigationLink(destination: DeleteAccountIntroView()) {
-                SettingsRowLabel(icon: .system("trash"), title: "Delete Account")
+                SettingsRowLabel(
+                    icon: .system("trash"),
+                    title: "Delete Account",
+                    titleColor: .loopedError,
+                    iconTint: .loopedError
+                )
             }
             Button(action: onConfirmLogout) {
                 SettingsRowLabel(icon: .asset("log-out-icon"), title: "Log out")

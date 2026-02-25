@@ -1,6 +1,22 @@
 import SwiftUI
 import UIKit
 
+private enum LoopedKeyboardDismissTapGate {
+    private static var suppressionCount = 0
+
+    static var isSuppressed: Bool {
+        suppressionCount > 0
+    }
+
+    static func activateSuppression() {
+        suppressionCount += 1
+    }
+
+    static func deactivateSuppression() {
+        suppressionCount = max(0, suppressionCount - 1)
+    }
+}
+
 private struct LoopedKeyboardDismissOnTapModifier: ViewModifier {
     let action: () -> Void
 
@@ -24,7 +40,7 @@ private struct KeyboardDismissTapGestureInstaller: UIViewRepresentable {
 
     final class InstallerView: UIView, UIGestureRecognizerDelegate {
         var onTap: (() -> Void)?
-        private weak var installedOn: UIView?
+        private weak var installedOn: UIWindow?
 
         private lazy var tapRecognizer: UITapGestureRecognizer = {
             let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
@@ -46,19 +62,19 @@ private struct KeyboardDismissTapGestureInstaller: UIViewRepresentable {
             fatalError("init(coder:) has not been implemented")
         }
 
-        override func didMoveToSuperview() {
-            super.didMoveToSuperview()
-            installRecognizerIfNeeded()
-        }
-
         deinit {
             installedOn?.removeGestureRecognizer(tapRecognizer)
         }
 
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            installRecognizerIfNeeded()
+        }
+
         private func installRecognizerIfNeeded() {
-            guard installedOn !== superview else { return }
+            guard installedOn !== window else { return }
             installedOn?.removeGestureRecognizer(tapRecognizer)
-            installedOn = superview
+            installedOn = window
             installedOn?.addGestureRecognizer(tapRecognizer)
         }
 
@@ -74,6 +90,9 @@ private struct KeyboardDismissTapGestureInstaller: UIViewRepresentable {
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            if LoopedKeyboardDismissTapGate.isSuppressed {
+                return false
+            }
             guard let touchedView = touch.view else { return true }
             return !touchedView.isWithinTextInput
         }
@@ -94,8 +113,64 @@ private extension UIView {
 }
 
 extension View {
+    func loopedDismissKeyboardOnTap() -> some View {
+        modifier(
+            LoopedKeyboardDismissOnTapModifier(action: {
+                DispatchQueue.main.async {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil,
+                        from: nil,
+                        for: nil
+                    )
+                }
+            })
+        )
+    }
+
     func loopedDismissKeyboardOnTap(_ action: @escaping () -> Void) -> some View {
         modifier(LoopedKeyboardDismissOnTapModifier(action: action))
     }
+
+    func loopedDisableKeyboardDismissOnTap() -> some View {
+        modifier(LoopedKeyboardDismissTapSuppressionModifier(isSuppressed: true))
+    }
 }
 
+private struct LoopedKeyboardDismissTapSuppressionModifier: ViewModifier {
+    let isSuppressed: Bool
+    @State private var didActivate = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                synchronizeSuppressionState()
+            }
+            .onChange(of: isSuppressed) { _, _ in
+                synchronizeSuppressionState()
+            }
+            .onDisappear {
+                guard didActivate else { return }
+                didActivate = false
+                LoopedKeyboardDismissTapGate.deactivateSuppression()
+            }
+    }
+
+    private func synchronizeSuppressionState() {
+        if isSuppressed, !didActivate {
+            didActivate = true
+            LoopedKeyboardDismissTapGate.activateSuppression()
+            return
+        }
+        if !isSuppressed, didActivate {
+            didActivate = false
+            LoopedKeyboardDismissTapGate.deactivateSuppression()
+        }
+    }
+}
+
+extension View {
+    func loopedDisableKeyboardDismissOnTap(when isSuppressed: Bool) -> some View {
+        modifier(LoopedKeyboardDismissTapSuppressionModifier(isSuppressed: isSuppressed))
+    }
+}
