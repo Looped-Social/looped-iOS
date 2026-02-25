@@ -447,6 +447,15 @@ class APIClient {
                     decoder.keyDecodingStrategy = .convertFromSnakeCase
                 }
             } catch let decodingError as DecodingError {
+                #if DEBUG
+                let method = request.httpMethod ?? "GET"
+                let path = request.url?.absoluteString ?? "unknown"
+                let snippet = String(decoding: data, as: UTF8.self)
+                let body = snippet.count > 4000 ? String(snippet.prefix(4000)) + "..." : snippet
+                print("Decoding error: \(method) \(path)")
+                print("Decoding error details: \(decodingError)")
+                print("Decoding error body: \(body)")
+                #endif
                 throw APIError.decodingError(decodingError)
             }
         } catch let error as APIError {

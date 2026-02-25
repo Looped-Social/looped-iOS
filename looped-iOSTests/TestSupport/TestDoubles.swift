@@ -19,6 +19,8 @@ private func unimplemented<T>(_ function: String = #function) throws -> T {
 final class MockFeedService: FeedServiceProtocol {
     var fetchFeedCalls: [(limit: Int, cursor: String?, communityId: Int?, mode: FeedMode)] = []
     var fetchFeedHandler: ((Int, String?, Int?, FeedMode) async throws -> FeedPage)?
+    var fetchTrendingPostsCalls: [(limit: Int, communityId: Int?)] = []
+    var fetchTrendingPostsHandler: ((Int, Int?) async throws -> [TrendingPost])?
 
     var searchPostsCalls: [(query: String, limit: Int, cursor: String?)] = []
     var searchPostsHandler: ((String, Int, String?) async throws -> FeedPage)?
@@ -46,7 +48,11 @@ final class MockFeedService: FeedServiceProtocol {
     }
 
     func fetchTrendingPosts(limit: Int, communityId: Int?) async throws -> [TrendingPost] {
-        try unimplemented(#function)
+        fetchTrendingPostsCalls.append((limit, communityId))
+        if let handler = fetchTrendingPostsHandler {
+            return try await handler(limit, communityId)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func searchPosts(query: String, limit: Int, cursor: String?) async throws -> FeedPage {
@@ -175,6 +181,9 @@ final class MockFeedService: FeedServiceProtocol {
 }
 
 final class MockCommunityService: CommunityServiceProtocol {
+    var fetchFollowedCommunitiesCalls: [(limit: Int, cursor: String?, order: CommunityFollowOrder)] = []
+    var fetchFollowedCommunitiesHandler: ((Int, String?, CommunityFollowOrder) async throws -> CommunityPage)?
+
     var fetchRecommendedCalls: [(kind: CommunitySearchKind?, limit: Int, cursor: String?)] = []
     var fetchRecommendedHandler: ((CommunitySearchKind?, Int, String?) async throws -> SearchResultPage<CommunitySearchResult>)?
 
@@ -191,7 +200,11 @@ final class MockCommunityService: CommunityServiceProtocol {
     var fetchSpecializationJoinLimitsHandler: ((CommunitySpecializationType?) async throws -> [SpecializationJoinLimit])?
 
     func fetchFollowedCommunities(limit: Int, cursor: String?, order: CommunityFollowOrder) async throws -> CommunityPage {
-        try unimplemented(#function)
+        fetchFollowedCommunitiesCalls.append((limit, cursor, order))
+        if let handler = fetchFollowedCommunitiesHandler {
+            return try await handler(limit, cursor, order)
+        }
+        throw TestError.unimplemented(#function)
     }
 
     func fetchRecommendedCommunities(kind: CommunitySearchKind?, limit: Int, cursor: String?) async throws -> SearchResultPage<CommunitySearchResult> {
@@ -338,6 +351,52 @@ final class MockDiscoveryService: DiscoveryServiceProtocol {
         fetchFieldsIndexCallCount += 1
         if let handler = fetchFieldsIndexHandler {
             return try await handler()
+        }
+        throw TestError.unimplemented(#function)
+    }
+}
+
+final class MockPeopleRecommendationService: PeopleRecommendationServiceProtocol {
+    var fetchRailsCalls: [(surface: PeopleRecommendationSurface, communityId: Int?, rails: [PeopleRecommendationRail]?, limitPerRail: Int?)] = []
+    var fetchRailsHandler: ((PeopleRecommendationSurface, Int?, [PeopleRecommendationRail]?, Int?) async throws -> PeopleRecommendationRailsBundle)?
+
+    var fetchRailCalls: [(rail: PeopleRecommendationRail, surface: PeopleRecommendationSurface, communityId: Int?, limit: Int?, cursor: String?)] = []
+    var fetchRailHandler: ((PeopleRecommendationRail, PeopleRecommendationSurface, Int?, Int?, String?) async throws -> PeopleRecommendationRailPage)?
+
+    var sendFeedbackCalls: [[PeopleRecommendationFeedbackEvent]] = []
+    var sendFeedbackHandler: (([PeopleRecommendationFeedbackEvent]) async throws -> PeopleRecommendationFeedbackResponse)?
+
+    func fetchRails(
+        surface: PeopleRecommendationSurface,
+        communityId: Int?,
+        rails: [PeopleRecommendationRail]?,
+        limitPerRail: Int?
+    ) async throws -> PeopleRecommendationRailsBundle {
+        fetchRailsCalls.append((surface, communityId, rails, limitPerRail))
+        if let handler = fetchRailsHandler {
+            return try await handler(surface, communityId, rails, limitPerRail)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func fetchRail(
+        rail: PeopleRecommendationRail,
+        surface: PeopleRecommendationSurface,
+        communityId: Int?,
+        limit: Int?,
+        cursor: String?
+    ) async throws -> PeopleRecommendationRailPage {
+        fetchRailCalls.append((rail, surface, communityId, limit, cursor))
+        if let handler = fetchRailHandler {
+            return try await handler(rail, surface, communityId, limit, cursor)
+        }
+        throw TestError.unimplemented(#function)
+    }
+
+    func sendFeedback(events: [PeopleRecommendationFeedbackEvent]) async throws -> PeopleRecommendationFeedbackResponse {
+        sendFeedbackCalls.append(events)
+        if let handler = sendFeedbackHandler {
+            return try await handler(events)
         }
         throw TestError.unimplemented(#function)
     }

@@ -466,6 +466,42 @@ struct CommunityProfileView: View {
                     Rectangle()
                         .frame(height: 1)
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
+
+                    if index == 0, let rail = viewModel.peopleRecommendationsRail, !rail.items.isEmpty {
+                        PeopleRecommendationRailSection(
+                            rail: rail,
+                            isLoadingMore: false,
+                            canConnect: { item in
+                                viewModel.canConnect(toRecommendation: item)
+                            },
+                            isConnecting: { userId in
+                                viewModel.isConnectingRecommendationUser(userId)
+                            },
+                            onProfileTap: { item in
+                                viewModel.didTapRecommendationProfile(item)
+                            },
+                            onConnectTap: { item in
+                                Task { await viewModel.connectRecommendedUser(item) }
+                            },
+                            onHideTap: { item in
+                                viewModel.hideRecommendation(item)
+                            },
+                            onLessLikeThisTap: { item in
+                                viewModel.lessLikeThisRecommendation(item)
+                            },
+                            onItemAppear: { item in
+                                viewModel.didAppearRecommendation(item)
+                            },
+                            onItemDisappear: { item in
+                                viewModel.didDisappearRecommendation(item)
+                            }
+                        )
+                        .padding(.vertical, 10)
+
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    }
                 }
             }
 
@@ -554,7 +590,7 @@ struct CommunityProfileView: View {
                 title: "Verified",
                 subtitle: expiryText(for: verification, inactivePrefix: nil),
                 icon: "checkmark.seal.fill",
-                color: .loopedPrimary
+                color: .loopedVerifiedBadge
             )
         case .pending:
             return VerificationDisplay(
@@ -583,7 +619,7 @@ struct CommunityProfileView: View {
                     title: "Verified",
                     subtitle: expiryText(for: verification, inactivePrefix: nil),
                     icon: "checkmark.seal.fill",
-                    color: .loopedPrimary
+                    color: .loopedVerifiedBadge
                 )
             }
             return VerificationDisplay(

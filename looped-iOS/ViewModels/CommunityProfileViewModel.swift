@@ -15,13 +15,21 @@ final class CommunityProfileViewModel: ObservableObject {
     @Published var isFollowActionInFlight = false
     @Published var isJoinActionInFlight = false
     @Published var isLoadingDetails = false
+    @Published var peopleRecommendationsRail: PeopleRecommendationRailPage?
+    @Published var isLoadingPeopleRecommendations = false
+    @Published private var connectingRecommendationUserIds: Set<Int> = []
+    @Published private var connectedRecommendationUserIds: Set<Int> = []
 
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
     private let verificationService: CommunityVerificationServiceProtocol
+    private let peopleRecommendationService: PeopleRecommendationServiceProtocol
+    private let userService: UserServiceProtocol
+    private let followStateStore: FollowStateStore
     private var nextCursor: String?
     private let pageSize = 20
     private var hasLoadedDetails = false
+    private var hasLoadedPeopleRecommendations = false
     private var isLoadingJoinLimit = false
     private var cancellables = Set<AnyCancellable>()
 
@@ -29,12 +37,18 @@ final class CommunityProfileViewModel: ObservableObject {
         community: CommunityProfileData,
         feedService: FeedServiceProtocol = FeedService(),
         communityService: CommunityServiceProtocol = CommunityService(),
-        verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
+        verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService(),
+        peopleRecommendationService: PeopleRecommendationServiceProtocol = PeopleRecommendationService(),
+        userService: UserServiceProtocol = UserService(),
+        followStateStore: FollowStateStore? = nil
     ) {
         self.community = community
         self.feedService = feedService
         self.communityService = communityService
         self.verificationService = verificationService
+        self.peopleRecommendationService = peopleRecommendationService
+        self.userService = userService
+        self.followStateStore = followStateStore ?? .shared
         NotificationCenter.default.publisher(for: .contentPreferencesChanged)
             .sink { [weak self] _ in
                 guard let self else { return }
@@ -45,6 +59,12 @@ final class CommunityProfileViewModel: ObservableObject {
             .sink { [weak self] (notification: Foundation.Notification) in
                 guard let self else { return }
                 Task { await self.handleCommunityStateChanged(notification) }
+            }
+            .store(in: &cancellables)
+        self.followStateStore.$followingUserIds
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.syncConnectedRecommendationUserIds()
             }
             .store(in: &cancellables)
     }
@@ -74,6 +94,7 @@ final class CommunityProfileViewModel: ObservableObject {
         if posts.isEmpty {
             await loadPosts(reset: true)
         }
+        await loadPeopleRecommendations()
         await loadSpecializationJoinLimit()
         await loadVerification()
     }
@@ -81,6 +102,7 @@ final class CommunityProfileViewModel: ObservableObject {
     func refresh() async {
         await loadCommunityDetails(force: true)
         await loadPosts(reset: true)
+        await loadPeopleRecommendations(force: true)
         await loadSpecializationJoinLimit(force: true)
         await loadVerification()
     }
@@ -282,6 +304,87 @@ final class CommunityProfileViewModel: ObservableObject {
         }
     }
 
+    func loadPeopleRecommendations(force: Bool = false) async {
+        guard force || !hasLoadedPeopleRecommendations else { return }
+        guard !isLoadingPeopleRecommendations else { return }
+
+        isLoadingPeopleRecommendations = true
+        defer {
+            isLoadingPeopleRecommendations = false
+            hasLoadedPeopleRecommendations = true
+        }
+
+        do {
+            let bundle = try await peopleRecommendationService.fetchRails(
+                surface: .search,
+                communityId: community.id,
+                rails: [.community],
+                limitPerRail: 8
+            )
+            peopleRecommendationsRail = bundle.rails.first(where: { !$0.items.isEmpty })
+            syncConnectedRecommendationUserIds()
+        } catch {
+            peopleRecommendationsRail = nil
+        }
+    }
+
+    func canConnect(toRecommendation item: PeopleRecommendationItem) -> Bool {
+        item.actions.canConnect && !connectedRecommendationUserIds.contains(item.user.id)
+    }
+
+    func isConnectingRecommendationUser(_ userId: Int) -> Bool {
+        connectingRecommendationUserIds.contains(userId)
+    }
+
+    func connectRecommendedUser(_ item: PeopleRecommendationItem) async {
+        guard canConnect(toRecommendation: item) else { return }
+        guard !connectingRecommendationUserIds.contains(item.user.id) else { return }
+
+        connectingRecommendationUserIds.insert(item.user.id)
+        defer { connectingRecommendationUserIds.remove(item.user.id) }
+
+        do {
+            let result = try await userService.followUser(
+                userId: item.user.id,
+                asAnonymousActor: false,
+                communityId: nil
+            )
+            connectedRecommendationUserIds.insert(item.user.id)
+            followStateStore.setFollowing(result.following, userId: item.user.id)
+            await sendRecommendationFeedback(type: .connectRequestSent, for: item)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func hideRecommendation(_ item: PeopleRecommendationItem) {
+        removeRecommendationCandidate(userId: item.user.id)
+        Task {
+            await sendRecommendationFeedback(type: .hide, for: item)
+        }
+    }
+
+    func lessLikeThisRecommendation(_ item: PeopleRecommendationItem) {
+        removeRecommendationCandidate(userId: item.user.id)
+        Task {
+            await sendRecommendationFeedback(type: .lessLikeThis, for: item)
+        }
+    }
+
+    func didTapRecommendationProfile(_ item: PeopleRecommendationItem) {
+        Task {
+            await sendRecommendationFeedback(type: .profileOpen, for: item)
+        }
+    }
+
+    func didAppearRecommendation(_ item: PeopleRecommendationItem) {
+        _ = item
+    }
+
+    func didDisappearRecommendation(_ item: PeopleRecommendationItem) {
+        _ = item
+    }
+
     func removePost(backendId: Int?) {
         guard let backendId else { return }
         posts.removeAll { $0.backendId == backendId }
@@ -325,6 +428,31 @@ final class CommunityProfileViewModel: ObservableObject {
             return nil
         }
         return trimmed
+    }
+
+    private func removeRecommendationCandidate(userId: Int) {
+        guard var rail = peopleRecommendationsRail else { return }
+        rail.items.removeAll(where: { $0.user.id == userId })
+        peopleRecommendationsRail = rail
+        connectedRecommendationUserIds.remove(userId)
+    }
+
+    private func syncConnectedRecommendationUserIds() {
+        let recommendationUserIds = Set(peopleRecommendationsRail?.items.map(\.user.id) ?? [])
+        connectedRecommendationUserIds = recommendationUserIds.intersection(followStateStore.followingUserIds)
+    }
+
+    private func sendRecommendationFeedback(
+        type: PeopleRecommendationFeedbackType,
+        for item: PeopleRecommendationItem
+    ) async {
+        let event = PeopleRecommendationFeedbackEvent(
+            type: type,
+            recommendationId: item.recommendationId,
+            trackingToken: item.tracking.token,
+            position: item.tracking.position
+        )
+        _ = try? await peopleRecommendationService.sendFeedback(events: [event])
     }
 
     private func followErrorMessage(from error: Error, wasFollowing: Bool) -> String {

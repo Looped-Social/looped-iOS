@@ -113,6 +113,84 @@ struct SearchView: View {
                             }
                         }
 
+                        let visiblePeopleRecommendationRails = viewModel.peopleRecommendationRails.filter {
+                            $0.rail == .pymk && !$0.items.isEmpty
+                        }
+
+                        if viewModel.isLoadingPeopleRecommendations && viewModel.peopleRecommendationRails.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("People for You")
+                                    .font(.loopedSubheadMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                                    .padding(.horizontal, 16)
+                                HStack {
+                                    ProgressView()
+                                        .tint(.loopedPrimary)
+                                    Text("Loading recommendations...")
+                                        .font(.loopedSubBodyRegular)
+                                        .foregroundColor(.loopedTextSecondary)
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                        } else if !visiblePeopleRecommendationRails.isEmpty {
+                            ForEach(visiblePeopleRecommendationRails, id: \.rail) { rail in
+                                PeopleRecommendationRailSection(
+                                    rail: rail,
+                                    isLoadingMore: viewModel.isLoadingMoreRecommendations(for: rail.rail),
+                                    canConnect: { item in
+                                        viewModel.canConnect(to: item)
+                                    },
+                                    isConnecting: { userId in
+                                        viewModel.isConnectingRecommendationUser(userId)
+                                    },
+                                    onProfileTap: { item in
+                                        viewModel.didTapRecommendationProfile(item)
+                                    },
+                                    onConnectTap: { item in
+                                        Task { await viewModel.connectRecommendedUser(item) }
+                                    },
+                                    onHideTap: { item in
+                                        viewModel.hideRecommendation(item)
+                                    },
+                                    onLessLikeThisTap: { item in
+                                        viewModel.lessLikeThisRecommendation(item)
+                                    },
+                                    onItemAppear: { item in
+                                        viewModel.didAppearRecommendation(item)
+                                        if item.recommendationId == rail.items.last?.recommendationId {
+                                            Task { await viewModel.loadMorePeopleRecommendations(for: rail.rail) }
+                                        }
+                                    },
+                                    onItemDisappear: { item in
+                                        viewModel.didDisappearRecommendation(item)
+                                    }
+                                )
+                            }
+                        } else if viewModel.recommendationError != nil {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("People for You")
+                                    .font(.loopedSubheadMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                                Text("Recommendations are unavailable right now.")
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                            .padding(.horizontal, 16)
+                        } else {
+                            let emptyRecommendationMessage = viewModel.peopleRecommendationRails.isEmpty
+                                ? "Recommendations are currently unavailable."
+                                : "No recommendations yet."
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("People for You")
+                                    .font(.loopedSubheadMedium)
+                                    .foregroundColor(.loopedTextPrimary)
+                                Text(emptyRecommendationMessage)
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                            }
+                            .padding(.horizontal, 16)
+                        }
+
                         // Communities Section
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -163,6 +241,7 @@ struct SearchView: View {
                                     }
                                 }
                                 .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
                             }
                         }
 
@@ -184,6 +263,11 @@ struct SearchView: View {
             }
             .background(Color.loopedBackground.ignoresSafeArea())
             .navigationBarHidden(true)
+            .onAppear {
+                let hasVisibleRecommendationItems = viewModel.peopleRecommendationRails.contains { !$0.items.isEmpty }
+                let shouldForceRefresh = viewModel.recommendationError != nil || !hasVisibleRecommendationItems
+                Task { await viewModel.loadPeopleRecommendations(force: shouldForceRefresh) }
+            }
         }
         .fullScreenCover(isPresented: $showSearchResults) {
             SearchResultsView()
@@ -319,6 +403,8 @@ struct SearchView: View {
 }
 
 private struct LoadingLoopCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         VStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 10)
@@ -337,9 +423,26 @@ private struct LoadingLoopCard: View {
         .padding(12)
         .frame(width: 140)
         .background(Color.loopedBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.loopedMutedBackground, lineWidth: 1)
+                .stroke(
+                    Color.loopedWhite.opacity(colorScheme == .dark ? 0.22 : 0.78),
+                    lineWidth: 0.85
+                )
+                .blendMode(.overlay)
+        )
+        .shadow(
+            color: Color.loopedBlack.opacity(colorScheme == .dark ? 0.12 : 0.06),
+            radius: colorScheme == .dark ? 7 : 4,
+            x: 0,
+            y: colorScheme == .dark ? 4 : 2
+        )
+        .shadow(
+            color: Color.loopedBlack.opacity(colorScheme == .dark ? 0.05 : 0.025),
+            radius: 2,
+            x: 0,
+            y: 1
         )
     }
 }

@@ -39,9 +39,26 @@ struct LoopCard: View {
         .padding(12)
         .frame(width: 140)
         .background(Color.loopedBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.loopedMutedBackground, lineWidth: 1)
+                .stroke(
+                    Color.loopedWhite.opacity(colorScheme == .dark ? 0.22 : 0.78),
+                    lineWidth: 0.85
+                )
+                .blendMode(.overlay)
+        )
+        .shadow(
+            color: Color.loopedBlack.opacity(colorScheme == .dark ? 0.12 : 0.06),
+            radius: colorScheme == .dark ? 7 : 4,
+            x: 0,
+            y: colorScheme == .dark ? 4 : 2
+        )
+        .shadow(
+            color: Color.loopedBlack.opacity(colorScheme == .dark ? 0.05 : 0.025),
+            radius: 2,
+            x: 0,
+            y: 1
         )
     }
 

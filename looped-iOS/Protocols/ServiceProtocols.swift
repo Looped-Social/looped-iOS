@@ -372,6 +372,25 @@ protocol DiscoveryServiceProtocol {
     func fetchFieldsIndex() async throws -> [SpecializationIndexItem]
 }
 
+protocol PeopleRecommendationServiceProtocol {
+    func fetchRails(
+        surface: PeopleRecommendationSurface,
+        communityId: Int?,
+        rails: [PeopleRecommendationRail]?,
+        limitPerRail: Int?
+    ) async throws -> PeopleRecommendationRailsBundle
+
+    func fetchRail(
+        rail: PeopleRecommendationRail,
+        surface: PeopleRecommendationSurface,
+        communityId: Int?,
+        limit: Int?,
+        cursor: String?
+    ) async throws -> PeopleRecommendationRailPage
+
+    func sendFeedback(events: [PeopleRecommendationFeedbackEvent]) async throws -> PeopleRecommendationFeedbackResponse
+}
+
 protocol NotificationServiceProtocol {
     func fetchNotifications(limit: Int, cursor: String?) async throws -> NotificationPage
     func markRead(notificationId: Int) async throws
