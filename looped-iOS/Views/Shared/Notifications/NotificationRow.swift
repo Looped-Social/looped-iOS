@@ -62,6 +62,11 @@ struct NotificationRow: View {
                             .foregroundColor(.loopedTextSecondary)
                             .lineLimit(1)
 
+                        Image(systemName: "chevron.right")
+                            .font(.loopedCustom(.semibold, size: 12))
+                            .foregroundColor(.loopedTextSecondary)
+                            .accessibilityHidden(true)
+
                         if let onHideTapped {
                             Menu {
                                 Button {

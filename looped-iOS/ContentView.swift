@@ -265,7 +265,7 @@ struct ContentView: View {
             return backendMessage
         }
 
-        return "We have your best interests in mind and added important improvements to your Looped experience. Please update to version \(minimumVersion)."
+        return "Your Looped app version is below the minimum supported version (\(minimumVersion)). Please update to the latest version."
     }
 
     private func resolveMinimumSupportedVersionUpdateUrl(from config: AppConfigDTO) -> URL? {

@@ -158,9 +158,9 @@ private struct PeopleRecommendationCard: View {
                     }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.loopedSymbol(.semibold, size: 11))
+                        .font(.loopedSymbol(.semibold, size: 12))
                         .foregroundColor(.loopedTextSecondary)
-                        .frame(width: 22, height: 22)
+                        .frame(width: 24, height: 24)
                         .background(Color.loopedMutedBackground.opacity(0.7))
                         .clipShape(Circle())
                 }
