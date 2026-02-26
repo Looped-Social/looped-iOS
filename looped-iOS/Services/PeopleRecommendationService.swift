@@ -113,9 +113,16 @@ private extension PeopleRecommendationUser {
         id = dto.id
         handle = dto.handle
         let trimmedDisplayName = dto.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedFirstName = dto.firstName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedLastName = dto.lastName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedHandle = dto.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fullName = [trimmedFirstName, trimmedLastName]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
         if !trimmedDisplayName.isEmpty {
             displayName = trimmedDisplayName
+        } else if !fullName.isEmpty {
+            displayName = fullName
         } else if !trimmedHandle.isEmpty {
             displayName = trimmedHandle
         } else {

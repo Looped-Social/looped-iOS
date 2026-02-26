@@ -329,7 +329,11 @@ final class CommunityProfileViewModel: ObservableObject {
     }
 
     func canConnect(toRecommendation item: PeopleRecommendationItem) -> Bool {
-        item.actions.canConnect && !connectedRecommendationUserIds.contains(item.user.id)
+        connectedRecommendationUserIds.contains(item.user.id) || item.actions.canConnect
+    }
+
+    func isFollowingRecommendationUser(_ userId: Int) -> Bool {
+        connectedRecommendationUserIds.contains(userId)
     }
 
     func isConnectingRecommendationUser(_ userId: Int) -> Bool {
@@ -344,14 +348,31 @@ final class CommunityProfileViewModel: ObservableObject {
         defer { connectingRecommendationUserIds.remove(item.user.id) }
 
         do {
-            let result = try await userService.followUser(
-                userId: item.user.id,
-                asAnonymousActor: false,
-                communityId: nil
-            )
-            connectedRecommendationUserIds.insert(item.user.id)
+            let wasFollowing = connectedRecommendationUserIds.contains(item.user.id)
+            let result: UserFollowActionResult
+            if wasFollowing {
+                result = try await userService.unfollowUser(
+                    userId: item.user.id,
+                    asAnonymousActor: false,
+                    communityId: nil
+                )
+            } else {
+                result = try await userService.followUser(
+                    userId: item.user.id,
+                    asAnonymousActor: false,
+                    communityId: nil
+                )
+            }
+
+            if result.following {
+                connectedRecommendationUserIds.insert(item.user.id)
+            } else {
+                connectedRecommendationUserIds.remove(item.user.id)
+            }
             followStateStore.setFollowing(result.following, userId: item.user.id)
-            await sendRecommendationFeedback(type: .connectRequestSent, for: item)
+            if !wasFollowing, result.following {
+                await sendRecommendationFeedback(type: .connectRequestSent, for: item)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

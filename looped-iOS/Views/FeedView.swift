@@ -80,7 +80,7 @@ struct FeedView: View {
 
                         LazyVStack(spacing: 0) {
                             if viewModel.isLoading && viewModel.posts.isEmpty {
-                                if viewModel.showSkeleton {
+                                Group {
                                     ForEach(0..<6, id: \.self) { index in
                                         PostCardSkeleton(showsMedia: index % 3 != 0)
 
@@ -88,66 +88,68 @@ struct FeedView: View {
                                             .frame(height: 1)
                                             .foregroundColor(.loopedTextSecondary.opacity(0.1))
                                     }
-                                } else {
-                                    ProgressView()
-                                        .tint(.loopedPrimary)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 26)
                                 }
+                                .transition(.opacity)
                             } else if viewModel.posts.isEmpty {
                                 EmptyFeedView()
+                                    .transition(.opacity)
                             } else {
-                                ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
-                                    let telemetryContext = viewModel.feedTelemetryContext(for: post, position: index)
-                                    PostCard(
-                                        post: post,
-                                        showsCommunityLabel: true,
-                                        showsRepostBanner: true,
-                                        telemetryFeedContext: telemetryContext,
-                                        telemetryEntryPoint: "feed",
-                                        onUpdate: { updated in
-                                            viewModel.updatePost(updated)
-                                        },
-                                        onDelete: { deleted in
-                                            viewModel.removePost(backendId: deleted.backendId)
-                                        },
-                                        onBlockUser: { blockedUserId in
-                                            viewModel.removePosts(authorBackendId: blockedUserId)
-                                        },
-                                        onBlockPrincipal: { principalId in
-                                            viewModel.removePosts(authorPrincipalId: principalId)
-                                        },
-                                        onPresentLockedActionSheet: { request in
-                                            lockedActionSheetRequest = request
-                                            prepareForLockedActionPresentation()
-                                        },
-                                        onAuthorNavigationRequested: { profileId, isAnonymousProfile in
-                                            handleAuthorNavigationRequest(profileId: profileId, isAnonymousProfile: isAnonymousProfile)
-                                        },
-                                        onCommunityNavigationRequested: { community in
-                                            handleCommunityNavigationRequest(community)
-                                        }
-                                    )
-                                        .onAppear {
-                                            beginImpressionTracking(for: post, context: telemetryContext)
-                                            Task {
-                                                await viewModel.loadMoreIfNeeded(currentPost: post)
+                                Group {
+                                    ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
+                                        let telemetryContext = viewModel.feedTelemetryContext(for: post, position: index)
+                                        PostCard(
+                                            post: post,
+                                            showsCommunityLabel: true,
+                                            showsRepostBanner: true,
+                                            telemetryFeedContext: telemetryContext,
+                                            telemetryEntryPoint: "feed",
+                                            onUpdate: { updated in
+                                                viewModel.updatePost(updated)
+                                            },
+                                            onDelete: { deleted in
+                                                viewModel.removePost(backendId: deleted.backendId)
+                                            },
+                                            onBlockUser: { blockedUserId in
+                                                viewModel.removePosts(authorBackendId: blockedUserId)
+                                            },
+                                            onBlockPrincipal: { principalId in
+                                                viewModel.removePosts(authorPrincipalId: principalId)
+                                            },
+                                            onPresentLockedActionSheet: { request in
+                                                lockedActionSheetRequest = request
+                                                prepareForLockedActionPresentation()
+                                            },
+                                            onAuthorNavigationRequested: { profileId, isAnonymousProfile in
+                                                handleAuthorNavigationRequest(profileId: profileId, isAnonymousProfile: isAnonymousProfile)
+                                            },
+                                            onCommunityNavigationRequested: { community in
+                                                handleCommunityNavigationRequest(community)
                                             }
-                                        }
-                                        .onDisappear {
-                                            endImpressionTracking(for: post)
-                                        }
+                                        )
+                                            .onAppear {
+                                                beginImpressionTracking(for: post, context: telemetryContext)
+                                                Task {
+                                                    await viewModel.loadMoreIfNeeded(currentPost: post)
+                                                }
+                                            }
+                                            .onDisappear {
+                                                endImpressionTracking(for: post)
+                                            }
 
-                                    Rectangle()
-                                        .frame(height: 1)
-                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                }
+                                        Rectangle()
+                                            .frame(height: 1)
+                                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                    }
 
-                                if viewModel.isLoadingMore {
-                                    LoopedInlineLoadingIndicator()
+                                    if viewModel.isLoadingMore {
+                                        LoopedInlineLoadingIndicator()
+                                    }
                                 }
+                                .transition(.opacity)
                             }
                         }
+                        .animation(.easeInOut(duration: 0.22), value: viewModel.isLoading && viewModel.posts.isEmpty)
+                        .animation(.easeInOut(duration: 0.22), value: viewModel.posts.count)
                     }
                 }
                 .onChange(of: scrollToTopSignal) { _, _ in

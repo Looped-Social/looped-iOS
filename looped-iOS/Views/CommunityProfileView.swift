@@ -474,6 +474,9 @@ struct CommunityProfileView: View {
                             canConnect: { item in
                                 viewModel.canConnect(toRecommendation: item)
                             },
+                            isFollowing: { item in
+                                viewModel.isFollowingRecommendationUser(item.user.id)
+                            },
                             isConnecting: { userId in
                                 viewModel.isConnectingRecommendationUser(userId)
                             },

@@ -274,6 +274,83 @@ struct CommunityProfileViewModelTests {
         #expect(viewModel.verification?.communityId == 11)
         #expect(viewModel.verification?.status == .active)
     }
+
+    @Test
+    func connectRecommendedUser_whenAlreadyFollowing_unfollowsUserEvenWhenActionCannotConnect() async {
+        let feedService = MockFeedService()
+        let communityService = MockCommunityService()
+        let verificationService = MockCommunityVerificationService()
+        verificationService.fetchCommunityVerificationsHandler = { [] }
+
+        let recommendationService = MockPeopleRecommendationService()
+        recommendationService.fetchRailsHandler = { surface, communityId, rails, limitPerRail in
+            #expect(surface == .search)
+            #expect(communityId == 11)
+            #expect(rails == [.community])
+            #expect(limitPerRail == 8)
+            return PeopleRecommendationRailsBundle(
+                requestId: "req-community-toggle",
+                surface: .search,
+                community: PeopleRecommendationCommunity(id: 11, name: "UNC"),
+                rails: [
+                    PeopleRecommendationRailPage(
+                        requestId: "req-community-toggle",
+                        rail: .community,
+                        title: "People in UNC",
+                        items: [makeCommunityRecommendationItem(userId: 9901, canConnect: false)],
+                        nextCursor: nil,
+                        hasMore: false,
+                        degraded: false,
+                        community: nil,
+                        experiment: nil
+                    )
+                ],
+                experiment: nil,
+                degraded: false,
+                generatedAt: Date()
+            )
+        }
+
+        let userService = MockUserService()
+        userService.unfollowUserHandler = { userId, _, _ in
+            UserFollowActionResult(userId: userId, following: false)
+        }
+
+        let followStateStore = FollowStateStore(defaults: makeDefaults(prefix: "community.recommendation.toggle"))
+        followStateStore.setFollowing(true, userId: 9901)
+
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: feedService,
+            communityService: communityService,
+            verificationService: verificationService,
+            peopleRecommendationService: recommendationService,
+            userService: userService,
+            followStateStore: followStateStore
+        )
+
+        await viewModel.loadPeopleRecommendations(force: true)
+        let item = #require(viewModel.peopleRecommendationsRail?.items.first)
+
+        await viewModel.connectRecommendedUser(item)
+
+        #expect(userService.followUserCalls.isEmpty)
+        #expect(userService.unfollowUserCalls.count == 1)
+        #expect(followStateStore.isFollowing(userId: 9901) == false)
+        #expect(viewModel.isFollowingRecommendationUser(9901) == false)
+    }
 }
 
 private func waitForNotificationTask() async {
@@ -323,4 +400,28 @@ private func makeVerification(
         rejectReason: nil,
         verifiedEmail: "user\(communityId)@example.com"
     )
+}
+
+private func makeCommunityRecommendationItem(userId: Int, canConnect: Bool) -> PeopleRecommendationItem {
+    PeopleRecommendationItem(
+        recommendationId: "community-rec-\(userId)",
+        user: PeopleRecommendationUser(
+            id: userId,
+            handle: "user\(userId)",
+            displayName: "User \(userId)",
+            avatarURL: nil,
+            headline: nil,
+            community: nil
+        ),
+        reasons: [PeopleRecommendationReason(code: "community", text: "In your community")],
+        actions: PeopleRecommendationActions(canConnect: canConnect, canHide: true, canLessLikeThis: true),
+        tracking: PeopleRecommendationTracking(token: "trk-\(userId)", position: 1)
+    )
+}
+
+private func makeDefaults(prefix: String) -> UserDefaults {
+    let suite = "looped.tests.\(prefix).\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    return defaults
 }

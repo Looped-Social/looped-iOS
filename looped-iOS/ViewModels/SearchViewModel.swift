@@ -292,7 +292,11 @@ class SearchViewModel: ObservableObject {
     }
 
     func canConnect(to item: PeopleRecommendationItem) -> Bool {
-        item.actions.canConnect && !connectedRecommendationUserIds.contains(item.user.id)
+        connectedRecommendationUserIds.contains(item.user.id) || item.actions.canConnect
+    }
+
+    func isFollowingRecommendationUser(_ userId: Int) -> Bool {
+        connectedRecommendationUserIds.contains(userId)
     }
 
     func isConnectingRecommendationUser(_ userId: Int) -> Bool {
@@ -307,18 +311,40 @@ class SearchViewModel: ObservableObject {
         defer { connectingRecommendationUserIds.remove(userId) }
 
         do {
-            _ = try await userService.followUser(userId: userId, asAnonymousActor: false, communityId: nil)
-            connectedRecommendationUserIds.insert(userId)
-            followStateStore.setFollowing(true, userId: userId)
-            queueRecommendationFeedback(
-                .init(
-                    type: .connectRequestSent,
-                    recommendationId: item.recommendationId,
-                    trackingToken: item.tracking.token,
-                    position: item.tracking.position
-                ),
-                immediate: false
-            )
+            let wasFollowing = connectedRecommendationUserIds.contains(userId)
+            let result: UserFollowActionResult
+            if wasFollowing {
+                result = try await userService.unfollowUser(
+                    userId: userId,
+                    asAnonymousActor: false,
+                    communityId: nil
+                )
+            } else {
+                result = try await userService.followUser(
+                    userId: userId,
+                    asAnonymousActor: false,
+                    communityId: nil
+                )
+            }
+
+            if result.following {
+                connectedRecommendationUserIds.insert(userId)
+            } else {
+                connectedRecommendationUserIds.remove(userId)
+            }
+            followStateStore.setFollowing(result.following, userId: userId)
+
+            if !wasFollowing, result.following {
+                queueRecommendationFeedback(
+                    .init(
+                        type: .connectRequestSent,
+                        recommendationId: item.recommendationId,
+                        trackingToken: item.tracking.token,
+                        position: item.tracking.position
+                    ),
+                    immediate: false
+                )
+            }
         } catch {
             recommendationError = error.localizedDescription
         }

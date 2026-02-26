@@ -9,7 +9,6 @@ class FeedViewModel: ObservableObject {
     @Published var isLoadingMore = false
     @Published var errorMessage: String?
     @Published var feedMode: FeedMode = .forYou
-    @Published var showSkeleton = false
     @Published var followedCommunities: [CommunitySummary] = []
     @Published var selectedCommunity: CommunitySummary?
     @Published var isLoadingCommunities = false
@@ -41,7 +40,6 @@ class FeedViewModel: ObservableObject {
     private let communityPageSize = 50
     private var activeFeedRequestId = UUID()
     private var telemetryRequestIdByPostKey: [String: UUID] = [:]
-    private var skeletonDelayTask: Task<Void, Never>?
     private let lastPostedCommunityKey = "lastPostedCommunityId"
     private let lastSelectedCommunityKey = "lastSelectedCommunityId"
     private let feedActiveCommunityKey = "feedActiveCommunityId"
@@ -259,21 +257,8 @@ class FeedViewModel: ObservableObject {
             isLoading = true
             isLoadingMore = false
             newPostsToastCount = nil
-            showSkeleton = false
-            skeletonDelayTask?.cancel()
-            skeletonDelayTask = nil
             if clearExistingPosts {
                 posts = []
-            }
-            if posts.isEmpty {
-                let delayContextId = contextId
-                skeletonDelayTask = Task {
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    guard !Task.isCancelled else { return }
-                    guard activeFeedRequestId == delayContextId else { return }
-                    guard isLoading, posts.isEmpty else { return }
-                    showSkeleton = true
-                }
             }
         } else {
             if isLoadingMore || nextCursor == nil { return }
@@ -315,9 +300,6 @@ class FeedViewModel: ObservableObject {
         if reset {
             if activeFeedRequestId == contextId {
                 isLoading = false
-                showSkeleton = false
-                skeletonDelayTask?.cancel()
-                skeletonDelayTask = nil
             }
         } else {
             if activeFeedRequestId == contextId {

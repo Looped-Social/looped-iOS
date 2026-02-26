@@ -142,6 +142,9 @@ struct SearchView: View {
                                         canConnect: { item in
                                             viewModel.canConnect(to: item)
                                         },
+                                        isFollowing: { item in
+                                            viewModel.isFollowingRecommendationUser(item.user.id)
+                                        },
                                         isConnecting: { userId in
                                             viewModel.isConnectingRecommendationUser(userId)
                                         },

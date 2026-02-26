@@ -173,6 +173,68 @@ struct SearchViewModelRecommendationTests {
         let pymkItemCount = viewModel.peopleRecommendationRails.first(where: { $0.rail == .pymk })?.items.count
         #expect(pymkItemCount == 2)
     }
+
+    @Test
+    func connectRecommendedUser_whenAlreadyFollowing_unfollowsUserEvenWhenActionCannotConnect() async {
+        let communityService = MockCommunityService()
+        communityService.fetchRecommendedHandler = { _, _, _ in
+            SearchResultPage(items: [], nextCursor: nil)
+        }
+
+        let feedService = MockFeedService()
+        feedService.fetchTrendingPostsHandler = { _, _ in [] }
+
+        let discoveryService = MockDiscoveryService()
+        discoveryService.browseSpecializationsHandler = { _, _, _ in
+            SearchResultPage(items: [], nextCursor: nil)
+        }
+        discoveryService.fetchMajorsIndexHandler = { [] }
+        discoveryService.fetchFieldsIndexHandler = { [] }
+
+        let userService = MockUserService()
+        userService.getCurrentUserHandler = {
+            makeUser(backendId: 400, displayCommunityId: 88)
+        }
+        userService.unfollowUserHandler = { userId, _, _ in
+            UserFollowActionResult(userId: userId, following: false)
+        }
+
+        let recommendationService = MockPeopleRecommendationService()
+        recommendationService.fetchRailsHandler = { _, communityId, _, _ in
+            #expect(communityId == 88)
+            return PeopleRecommendationRailsBundle(
+                requestId: "req-toggle",
+                surface: .search,
+                community: PeopleRecommendationCommunity(id: 88, name: "Community 88"),
+                rails: [makeRecommendationRail(items: [makeRecommendationItem(userId: 9004, canConnect: false)])],
+                experiment: nil,
+                degraded: false,
+                generatedAt: Date()
+            )
+        }
+
+        let followStateStore = FollowStateStore(defaults: makeDefaults(prefix: "search.recommendation.toggle"))
+        followStateStore.setFollowing(true, userId: 9004)
+
+        let viewModel = SearchViewModel(
+            communityService: communityService,
+            feedService: feedService,
+            discoveryService: discoveryService,
+            peopleRecommendationService: recommendationService,
+            userService: userService,
+            followStateStore: followStateStore
+        )
+
+        await viewModel.loadPeopleRecommendations()
+        let item = #require(viewModel.peopleRecommendationRails.first?.items.first)
+
+        await viewModel.connectRecommendedUser(item)
+
+        #expect(userService.followUserCalls.isEmpty)
+        #expect(userService.unfollowUserCalls.count == 1)
+        #expect(followStateStore.isFollowing(userId: 9004) == false)
+        #expect(viewModel.isFollowingRecommendationUser(9004) == false)
+    }
 }
 
 private func makeRecommendationRail(items: [PeopleRecommendationItem]) -> PeopleRecommendationRailPage {
@@ -189,7 +251,7 @@ private func makeRecommendationRail(items: [PeopleRecommendationItem]) -> People
     )
 }
 
-private func makeRecommendationItem(userId: Int) -> PeopleRecommendationItem {
+private func makeRecommendationItem(userId: Int, canConnect: Bool = true) -> PeopleRecommendationItem {
     PeopleRecommendationItem(
         recommendationId: "rec-\(userId)",
         user: PeopleRecommendationUser(
@@ -201,7 +263,7 @@ private func makeRecommendationItem(userId: Int) -> PeopleRecommendationItem {
             community: nil
         ),
         reasons: [PeopleRecommendationReason(code: "community", text: "In your community")],
-        actions: PeopleRecommendationActions(canConnect: true, canHide: true, canLessLikeThis: true),
+        actions: PeopleRecommendationActions(canConnect: canConnect, canHide: true, canLessLikeThis: true),
         tracking: PeopleRecommendationTracking(token: "trk-\(userId)", position: 1)
     )
 }
@@ -243,4 +305,11 @@ private func makeUser(backendId: Int, displayCommunityId: Int) -> User {
         ),
         displaySpecialization: nil
     )
+}
+
+private func makeDefaults(prefix: String) -> UserDefaults {
+    let suite = "looped.tests.\(prefix).\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defaults.removePersistentDomain(forName: suite)
+    return defaults
 }

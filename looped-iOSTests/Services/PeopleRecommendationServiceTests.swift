@@ -146,6 +146,64 @@ struct PeopleRecommendationServiceTests {
     }
 
     @Test
+    func fetchRails_usesFirstAndLastNameWhenDisplayNameMissing() async throws {
+        PeopleRecommendationURLProtocol.requestHandler = { request in
+            #expect(request.httpMethod == "GET")
+            #expect(request.url?.path == "/v1/recommendations/people/rails")
+            return makeResponse(
+                for: request,
+                body: """
+                {
+                  "request_id": "req_rails_2",
+                  "surface": "search",
+                  "rails": [
+                    {
+                      "rail": "pymk",
+                      "title": "People You May Know",
+                      "items": [
+                        {
+                          "recommendation_id": "rec_2",
+                          "user": {
+                            "id": 902,
+                            "handle": "looped902",
+                            "display_name": null,
+                            "first_name": "Andre",
+                            "last_name": "Roberts",
+                            "avatar_url": null,
+                            "headline": null,
+                            "community": null
+                          },
+                          "reasons": [],
+                          "actions": { "can_connect": true, "can_hide": true, "can_less_like_this": true },
+                          "tracking": { "token": "trk_2", "position": 1 }
+                        }
+                      ],
+                      "next_cursor": null,
+                      "has_more": false,
+                      "degraded": false
+                    }
+                  ],
+                  "experiment": null,
+                  "degraded": false,
+                  "generated_at": "2026-02-24T12:00:00Z"
+                }
+                """
+            )
+        }
+        defer { PeopleRecommendationURLProtocol.requestHandler = nil }
+
+        let service = makeService()
+        let bundle = try await service.fetchRails(
+            surface: .search,
+            communityId: nil,
+            rails: [.pymk],
+            limitPerRail: 10
+        )
+
+        #expect(bundle.rails.first?.items.first?.user.displayName == "Andre Roberts")
+    }
+
+    @Test
     func sendFeedback_postsEventsAndReturnsSuppressedCandidateIds() async throws {
         PeopleRecommendationURLProtocol.requestHandler = { request in
             #expect(request.httpMethod == "POST")

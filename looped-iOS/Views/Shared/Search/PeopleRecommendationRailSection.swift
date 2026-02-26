@@ -7,6 +7,7 @@ struct PeopleRecommendationRailSection: View {
     let rail: PeopleRecommendationRailPage
     let isLoadingMore: Bool
     let canConnect: (PeopleRecommendationItem) -> Bool
+    let isFollowing: (PeopleRecommendationItem) -> Bool
     let isConnecting: (Int) -> Bool
     let onProfileTap: (PeopleRecommendationItem) -> Void
     let onConnectTap: (PeopleRecommendationItem) -> Void
@@ -32,6 +33,7 @@ struct PeopleRecommendationRailSection: View {
                             item: item,
                             fallbackReasonText: fallbackReasonText(for: item),
                             canConnect: canConnect(item),
+                            isFollowing: isFollowing(item),
                             isConnecting: isConnecting(item.user.id),
                             onProfileTap: {
                                 onProfileTap(item)
@@ -151,6 +153,7 @@ private struct PeopleRecommendationCard: View {
     let item: PeopleRecommendationItem
     let fallbackReasonText: String?
     let canConnect: Bool
+    let isFollowing: Bool
     let isConnecting: Bool
     let onProfileTap: () -> Void
     let onConnectTap: () -> Void
@@ -188,7 +191,7 @@ private struct PeopleRecommendationCard: View {
                 .padding(.bottom, 10)
 
             VStack(spacing: 0) {
-                Text(item.user.displayName)
+                Text(compactDisplayName)
                     .font(.loopedCustom(.semibold, size: 17))
                     .foregroundColor(.loopedTextPrimary)
                     .lineLimit(1)
@@ -332,11 +335,15 @@ private struct PeopleRecommendationCard: View {
     }
 
     private var followButtonTitle: String {
-        canConnect ? (isConnecting ? "Following" : "Follow") : "Following"
+        (isFollowing || isConnecting) ? "Following" : "Follow"
     }
 
     private var isFollowingVisualState: Bool {
-        (!canConnect) || (isConnecting && canConnect)
+        isFollowing || isConnecting
+    }
+
+    private var compactDisplayName: String {
+        item.user.displayName.compactRailPersonName(maxLength: 17)
     }
 
     private func isSuppressedReason(_ reason: PeopleRecommendationReason) -> Bool {

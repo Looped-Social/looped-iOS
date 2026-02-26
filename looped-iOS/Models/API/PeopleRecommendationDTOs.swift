@@ -34,6 +34,8 @@ struct PeopleRecommendationUserDTO: Decodable {
     let id: Int
     let handle: String
     let displayName: String?
+    let firstName: String?
+    let lastName: String?
     let avatarUrl: String?
     let headline: String?
     let community: PeopleRecommendationCommunityDTO?
