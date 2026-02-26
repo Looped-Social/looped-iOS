@@ -217,6 +217,7 @@ private struct PeopleRecommendationCard: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .top)
                 .padding(.top, 4)
+                .padding(.bottom, 4)
             }
 
             Spacer(minLength: 0)
