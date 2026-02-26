@@ -59,6 +59,7 @@ struct NotificationPermissionPromptView: View {
             Button("Open iOS Settings") {
                 guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                 UIApplication.shared.open(url)
+                onDismiss()
             }
             Button("Done", role: .cancel) {
                 onDismiss()
@@ -102,5 +103,5 @@ private extension NotificationPermissionPromptView {
 }
 
 #Preview {
-    NotificationPermissionPromptView { }
+    NotificationPermissionPromptView(onDismiss: {})
 }

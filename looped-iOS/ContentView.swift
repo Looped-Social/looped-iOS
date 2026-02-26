@@ -60,7 +60,7 @@ struct ContentView: View {
     @AppStorage("preferCommunityShortNames") private var preferCommunityShortNames = true
     @AppStorage("defaultProfileImageUrl") private var defaultProfileImageUrl = ""
     @AppStorage("defaultProfileImageUrlFetchedAt") private var defaultProfileImageUrlFetchedAt = 0.0
-    @AppStorage("didShowNotificationPermissionPrompt") private var didShowNotificationPermissionPrompt = false
+    @AppStorage("notificationPermissionPromptLastShownAt") private var notificationPermissionPromptLastShownAt = 0.0
     @AppStorage("dismissedMinimumSupportedVersion") private var dismissedMinimumSupportedVersion = ""
     @AppStorage("dismissedMinimumSupportedVersionAt") private var dismissedMinimumSupportedVersionAt = 0.0
     private let spotlightIndexingService: SpotlightIndexingServiceProtocol = SpotlightIndexingService()
@@ -109,8 +109,7 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showNotificationPermissionPrompt) {
             NotificationPermissionPromptView {
-                didShowNotificationPermissionPrompt = true
-                showNotificationPermissionPrompt = false
+                dismissNotificationPermissionPrompt()
             }
         }
         .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
@@ -194,7 +193,8 @@ struct ContentView: View {
             authViewModel.onboardingComplete ? "onboarded" : "notonboarded",
             authViewModel.shouldPromptProfileCompletion ? "profileprompt" : "noprofileprompt",
             showProfileCompletionPrompt ? "profilepromptshown" : "profileprompthidden",
-            didShowNotificationPermissionPrompt ? "prompted" : "unprompted"
+            "lastprompt:\(Int(notificationPermissionPromptLastShownAt))",
+            showNotificationPermissionPrompt ? "notifpromptshown" : "notifprompthidden"
         ].joined(separator: "|")
     }
 
@@ -212,7 +212,6 @@ struct ContentView: View {
         guard authViewModel.didLoadIdentity else { return }
         guard authViewModel.onboardingComplete else { return }
         guard !authViewModel.shouldPromptProfileCompletion else { return }
-        guard !didShowNotificationPermissionPrompt else { return }
         guard !showNotificationPermissionPrompt else { return }
         guard !showProfileCompletionPrompt else { return }
 
@@ -220,23 +219,31 @@ struct ContentView: View {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         switch settings.authorizationStatus {
         case .notDetermined, .denied:
+            let shouldPrompt = NotificationPermissionPromptPolicy.shouldPrompt(
+                authorizationStatus: settings.authorizationStatus,
+                lastPromptedAt: notificationPermissionPromptLastShownAt
+            )
+            guard shouldPrompt else { return }
             await MainActor.run {
-                showNotificationPermissionPrompt = true
+                presentNotificationPermissionPrompt()
             }
         case .authorized, .provisional, .ephemeral:
-            await MainActor.run {
-                didShowNotificationPermissionPrompt = true
-            }
+            return
         @unknown default:
-            await MainActor.run {
-                didShowNotificationPermissionPrompt = true
-            }
+            return
         }
         #else
-        await MainActor.run {
-            didShowNotificationPermissionPrompt = true
-        }
+        return
         #endif
+    }
+
+    private func presentNotificationPermissionPrompt() {
+        notificationPermissionPromptLastShownAt = Date().timeIntervalSince1970
+        showNotificationPermissionPrompt = true
+    }
+
+    private func dismissNotificationPermissionPrompt() {
+        showNotificationPermissionPrompt = false
     }
 
     private func evaluateProfileCompletionPromptIfNeeded() async {

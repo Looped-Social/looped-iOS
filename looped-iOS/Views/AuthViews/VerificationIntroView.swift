@@ -88,6 +88,7 @@ struct VerificationIntroView: View {
                         Text("How Verification Works")
                             .font(.loopedBodyMedium)
                             .foregroundColor(.loopedSecondary)
+                            .underline()
                     }
 
 	                    if currentStep > 1, let onSkip {

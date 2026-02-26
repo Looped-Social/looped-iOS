@@ -56,16 +56,17 @@ struct NotificationRow: View {
                                 .padding(.top, 4)
                         }
 
+                        Image(systemName: "chevron.right")
+                            .font(.loopedSymbol(.semibold, size: 14))
+                            .foregroundColor(.loopedTextSecondary)
+                            .frame(width: 14, height: 14)
+                            .accessibilityHidden(true)
+
                         // Timestamp
                         Text(notification.relativeTimeString)
                             .font(.loopedSmallText)
                             .foregroundColor(.loopedTextSecondary)
                             .lineLimit(1)
-
-                        Image(systemName: "chevron.right")
-                            .font(.loopedCustom(.semibold, size: 12))
-                            .foregroundColor(.loopedTextSecondary)
-                            .accessibilityHidden(true)
 
                         if let onHideTapped {
                             Menu {
@@ -76,9 +77,9 @@ struct NotificationRow: View {
                                 }
                             } label: {
                                 Image(systemName: "ellipsis")
-                                    .font(.loopedCustom(.medium, size: 16))
+                                    .font(.loopedSymbol(.semibold, size: 20))
                                     .foregroundColor(.loopedTextSecondary)
-                                    .frame(width: 24, height: 24)
+                                    .frame(width: 30, height: 30)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Notification options")

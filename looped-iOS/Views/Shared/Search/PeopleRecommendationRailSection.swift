@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PeopleRecommendationRailSection: View {
     @Environment(\.colorScheme) private var colorScheme
+    @State private var selectedProfileUserId: Int?
 
     let rail: PeopleRecommendationRailPage
     let isLoadingMore: Bool
@@ -34,6 +35,7 @@ struct PeopleRecommendationRailSection: View {
                             isConnecting: isConnecting(item.user.id),
                             onProfileTap: {
                                 onProfileTap(item)
+                                selectedProfileUserId = item.user.id
                             },
                             onConnectTap: {
                                 onConnectTap(item)
@@ -59,6 +61,18 @@ struct PeopleRecommendationRailSection: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+            }
+        }
+        .navigationDestination(
+            isPresented: Binding(
+                get: { selectedProfileUserId != nil },
+                set: { if !$0 { selectedProfileUserId = nil } }
+            )
+        ) {
+            if let selectedProfileUserId {
+                UserProfileView(userId: selectedProfileUserId)
+            } else {
+                EmptyView()
             }
         }
     }
@@ -143,8 +157,6 @@ private struct PeopleRecommendationCard: View {
     let onHideTap: () -> Void
     let onLessLikeThisTap: () -> Void
 
-    @State private var isProfileOpen = false
-
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -212,7 +224,7 @@ private struct PeopleRecommendationCard: View {
                 FollowPillButtonLabel(
                     title: followButtonTitle,
                     isFollowing: isFollowingVisualState,
-                    size: .compact,
+                    size: .regular,
                     fillWidth: true,
                     isEnabled: true,
                     showsLoadingIndicator: isConnecting
@@ -220,7 +232,7 @@ private struct PeopleRecommendationCard: View {
             }
             .buttonStyle(.plain)
             .disabled(!canConnect || isConnecting)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44)
             .padding(.top, 0)
         }
         .padding(.horizontal, 8)
@@ -251,13 +263,9 @@ private struct PeopleRecommendationCard: View {
             x: 0,
             y: 1
         )
-        .navigationDestination(isPresented: $isProfileOpen) {
-            UserProfileView(userId: item.user.id)
-        }
         .contentShape(RoundedRectangle(cornerRadius: 18))
         .onTapGesture {
             onProfileTap()
-            isProfileOpen = true
         }
     }
 
@@ -290,7 +298,12 @@ private struct PeopleRecommendationCard: View {
     }
 
     private var reasonIconSize: CGFloat {
-        reasonIconName == "checkmark.seal.fill" ? 15 : 10
+        switch reasonIconName {
+        case "checkmark.seal.fill", "person.2.fill":
+            return 15
+        default:
+            return 10
+        }
     }
 
     private var selectedReason: PeopleRecommendationReason? {
