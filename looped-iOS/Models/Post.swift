@@ -3,6 +3,7 @@ import Foundation
 struct Post: Codable, Identifiable {
     let id: UUID
     let backendId: Int?
+    let awardedMilestones: [String]?
     let authorBackendId: Int?
     let authorPrincipalId: Int?
     let anonProfileId: Int?
@@ -26,6 +27,7 @@ struct Post: Codable, Identifiable {
     let reactionCount: Int
     let commentsCount: Int
     let shareCount: Int
+    let viewCount: Int?
     let viewerHasReposted: Bool
     let repostedByFollowedUsers: [RepostBannerUser]?
     let repostedByFollowedUsersCount: Int?
@@ -43,6 +45,7 @@ struct Post: Codable, Identifiable {
     init(
         id: UUID,
         backendId: Int? = nil,
+        awardedMilestones: [String]? = nil,
         authorBackendId: Int? = nil,
         authorPrincipalId: Int? = nil,
         anonProfileId: Int? = nil,
@@ -66,6 +69,7 @@ struct Post: Codable, Identifiable {
         reactionCount: Int,
         commentsCount: Int = 0,
         shareCount: Int = 0,
+        viewCount: Int? = nil,
         viewerHasReposted: Bool = false,
         repostedByFollowedUsers: [RepostBannerUser]? = nil,
         repostedByFollowedUsersCount: Int? = nil,
@@ -82,6 +86,7 @@ struct Post: Codable, Identifiable {
     ) {
         self.id = id
         self.backendId = backendId
+        self.awardedMilestones = awardedMilestones
         self.authorBackendId = authorBackendId
         self.authorPrincipalId = authorPrincipalId
         self.anonProfileId = anonProfileId
@@ -105,6 +110,7 @@ struct Post: Codable, Identifiable {
         self.reactionCount = reactionCount
         self.commentsCount = commentsCount
         self.shareCount = shareCount
+        self.viewCount = viewCount
         self.viewerHasReposted = viewerHasReposted
         self.repostedByFollowedUsers = repostedByFollowedUsers
         self.repostedByFollowedUsersCount = repostedByFollowedUsersCount
@@ -174,9 +180,13 @@ extension Post {
         let resolvedAuthorDisplaySpecialization = dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:))
         let resolvedIsUnderReview = dto.isUnderReview ?? false
         let resolvedViewerCapabilities = dto.viewerCapabilities.map(PostViewerCapabilities.init(dto:))
+        let resolvedAwardedMilestones = dto.milestonesAwarded?
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         self.init(
             id: UUID.fromBackendId(dto.id),
             backendId: dto.id,
+            awardedMilestones: resolvedAwardedMilestones?.isEmpty == false ? resolvedAwardedMilestones : nil,
             authorBackendId: dto.authorId,
             authorPrincipalId: dto.authorPrincipalId,
             anonProfileId: dto.anonProfileId,
@@ -200,6 +210,7 @@ extension Post {
             reactionCount: dto.likesCount ?? 0,
             commentsCount: dto.commentsCount ?? 0,
             shareCount: dto.shareCount ?? 0,
+            viewCount: dto.viewCount,
             viewerHasReposted: dto.viewerHasReposted ?? false,
             repostedByFollowedUsers: bannerUsers,
             repostedByFollowedUsersCount: bannerCount,
@@ -218,6 +229,7 @@ extension Post {
 
     func updating(
         backendId: Int? = nil,
+        awardedMilestones: [String]?? = nil,
         reactionCount: Int? = nil,
         commentsCount: Int? = nil,
         shareCount: Int? = nil,
@@ -236,6 +248,7 @@ extension Post {
         updatedAt: Date? = nil
     ) -> Post {
         let resolvedBackendId = backendId ?? self.backendId
+        let resolvedAwardedMilestones: [String]? = awardedMilestones ?? self.awardedMilestones
         let resolvedPoll: Poll? = poll ?? self.poll
         let resolvedCommunityName = communityName ?? self.communityName
         let resolvedCommunityShortName = communityShortName ?? self.communityShortName
@@ -243,6 +256,7 @@ extension Post {
         let resolvedReactionCount = reactionCount ?? self.reactionCount
         let resolvedCommentsCount = commentsCount ?? self.commentsCount
         let resolvedShareCount = shareCount ?? self.shareCount
+        let resolvedViewCount = self.viewCount
         let resolvedViewerHasReposted = viewerHasReposted ?? self.viewerHasReposted
         let resolvedRepostedByFollowedUsers: [RepostBannerUser]? = repostedByFollowedUsers ?? self.repostedByFollowedUsers
         let resolvedRepostedByFollowedUsersCount: Int? = repostedByFollowedUsersCount ?? self.repostedByFollowedUsersCount
@@ -257,6 +271,7 @@ extension Post {
         return Post(
             id: id,
             backendId: resolvedBackendId,
+            awardedMilestones: resolvedAwardedMilestones,
             authorBackendId: authorBackendId,
             authorPrincipalId: authorPrincipalId,
             anonProfileId: anonProfileId,
@@ -280,6 +295,7 @@ extension Post {
             reactionCount: resolvedReactionCount,
             commentsCount: resolvedCommentsCount,
             shareCount: resolvedShareCount,
+            viewCount: resolvedViewCount,
             viewerHasReposted: resolvedViewerHasReposted,
             repostedByFollowedUsers: resolvedRepostedByFollowedUsers,
             repostedByFollowedUsersCount: resolvedRepostedByFollowedUsersCount,

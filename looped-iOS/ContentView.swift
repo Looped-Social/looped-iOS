@@ -51,6 +51,8 @@ struct ContentView: View {
     @State private var minimumSupportedVersionPromptMessage = ""
     @State private var minimumSupportedVersionPromptValue = ""
     @State private var minimumSupportedVersionUpdateUrl: URL?
+    @State private var showFirstPostCongrats = false
+    @State private var firstPostCongratsPostId: Int?
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeletionPendingAlert") private var showAccountDeletionPendingAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
@@ -112,6 +114,10 @@ struct ContentView: View {
                 dismissNotificationPermissionPrompt()
             }
         }
+        .sheet(isPresented: $showFirstPostCongrats) {
+            FirstPostCongratsSheetView(postId: firstPostCongratsPostId)
+                .presentationDetents([.medium])
+        }
         .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
             Button("OK", role: .cancel) {
                 showAccountDeletedAlert = false
@@ -172,10 +178,21 @@ struct ContentView: View {
             deepLinkRouter.setAuthenticationState(newValue)
             if !newValue {
                 showProfileCompletionPrompt = false
+                showFirstPostCongrats = false
+                firstPostCongratsPostId = nil
                 Task {
                     await spotlightIndexingService.removeAllPosts()
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .firstPostEverMilestoneAwarded)) { notification in
+            guard showFirstPostCongrats == false else { return }
+            if let post = notification.object as? Post {
+                firstPostCongratsPostId = post.backendId
+            } else {
+                firstPostCongratsPostId = nil
+            }
+            showFirstPostCongrats = true
         }
         .onChange(of: preferCommunityShortNames) { _, _ in
             Task { await feedViewModel.loadFollowedCommunities(reset: true) }

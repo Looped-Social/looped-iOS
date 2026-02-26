@@ -32,7 +32,6 @@ struct ConversationRowSkeleton: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color.loopedBackground)
-        .shimmering()
         .accessibilityHidden(true)
     }
 }
@@ -49,4 +48,3 @@ struct ConversationRowSkeleton: View {
     }
     .background(Color.loopedBackground)
 }
-

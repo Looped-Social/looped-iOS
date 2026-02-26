@@ -55,6 +55,7 @@ struct TrendingPostDTO: Codable {
     let likesCount: Int?
     let commentsCount: Int?
     let shareCount: Int?
+    var viewCount: Int? = nil
     let userLiked: Bool?
     let createdAt: Date?
     let isSaved: Bool?
@@ -97,6 +98,7 @@ struct PostDTO: Codable {
     let userLiked: Bool?
     let commentsCount: Int?
     let shareCount: Int?
+    var viewCount: Int? = nil
     let repostCount: Int?
     let viewerHasReposted: Bool?
     let repostedByFollowedUsers: [RepostedByUserDTO]?
@@ -109,6 +111,7 @@ struct PostDTO: Codable {
     let poll: PollDTO?
     let isUnderReview: Bool?
     let viewerCapabilities: PostViewerCapabilitiesDTO?
+    let milestonesAwarded: [String]?
 }
 
 struct PostViewerCapabilitiesDTO: Codable {

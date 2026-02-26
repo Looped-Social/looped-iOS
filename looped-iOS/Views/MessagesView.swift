@@ -193,9 +193,16 @@ struct MessagesView: View {
                         }
                     } else if selectedTab == .requests {
                         if viewModel.isLoadingRequests && viewModel.messageRequests.isEmpty {
-                            ProgressView("Loading requests...")
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 24)
+                            Group {
+                                ForEach(0..<8, id: \.self) { _ in
+                                    ConversationRowSkeleton()
+                                    Rectangle()
+                                        .frame(height: 1)
+                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                        .padding(.leading, 78)
+                                }
+                            }
+                            .transition(.opacity)
                         } else if let error = viewModel.errorMessage,
                                   !error.isEmpty,
                                   viewModel.messageRequests.isEmpty
@@ -206,6 +213,7 @@ struct MessagesView: View {
                                 buttonTitle: "Retry",
                                 onButtonTap: { Task { await viewModel.loadMessageRequests() } }
                             )
+                            .transition(.opacity)
                         } else if filteredRequests.isEmpty {
                             if searchText.isEmpty {
                                 EmptyMessagesView(
@@ -214,6 +222,7 @@ struct MessagesView: View {
                                     buttonTitle: "Refresh",
                                     onButtonTap: { Task { await viewModel.loadMessageRequests() } }
                                 )
+                                .transition(.opacity)
                             } else {
                                 EmptyMessagesView(
                                     title: "No matches",
@@ -221,39 +230,43 @@ struct MessagesView: View {
                                     buttonTitle: "Clear search",
                                     onButtonTap: { searchText = "" }
                                 )
+                                .transition(.opacity)
                             }
                         } else {
-                            Text("Approve or reject people you don't follow before chatting.")
-                                .font(.loopedSubBodyRegular)
-                                .foregroundColor(.loopedTextSecondary)
-                                .padding(.horizontal, 16)
-                                .padding(.top, 8)
+                            Group {
+                                Text("Approve or reject people you don't follow before chatting.")
+                                    .font(.loopedSubBodyRegular)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.top, 8)
 
-                            ForEach(filteredRequests) { request in
-                                MessageRequestRow(
-                                    request: request,
-                                    isProcessing: viewModel.processingRequestIds.contains(request.backendId),
-                                    onPreview: { previewingRequest = request },
-                                    onProfileTap: { backendId in
-                                        selectedProfileDestination = .user(backendId)
-                                    },
-                                    onApprove: {
-                                        Task {
-                                            let conversation = await viewModel.approveMessageRequest(request)
-                                            await MainActor.run {
-                                                searchText = ""
-                                                selectedTab = .messages
-                                                if let conversation {
-                                                    onChatSelected(conversation, nil)
+                                ForEach(filteredRequests) { request in
+                                    MessageRequestRow(
+                                        request: request,
+                                        isProcessing: viewModel.processingRequestIds.contains(request.backendId),
+                                        onPreview: { previewingRequest = request },
+                                        onProfileTap: { backendId in
+                                            selectedProfileDestination = .user(backendId)
+                                        },
+                                        onApprove: {
+                                            Task {
+                                                let conversation = await viewModel.approveMessageRequest(request)
+                                                await MainActor.run {
+                                                    searchText = ""
+                                                    selectedTab = .messages
+                                                    if let conversation {
+                                                        onChatSelected(conversation, nil)
+                                                    }
                                                 }
                                             }
-                                        }
-                                    },
-                                    onReject: { Task { await viewModel.rejectMessageRequest(request) } }
-                                )
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
+                                        },
+                                        onReject: { Task { await viewModel.rejectMessageRequest(request) } }
+                                    )
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                                }
                             }
+                            .transition(.opacity)
                         }
                     } else {
                         let resolvedError = [viewModel.errorMessage, viewModel.channelErrorMessage]
@@ -262,13 +275,16 @@ struct MessagesView: View {
                         let isMessagingEmpty = filteredConversations.isEmpty && filteredChannels.isEmpty
 
                         if viewModel.isLoading && viewModel.conversations.isEmpty && viewModel.channels.isEmpty {
-                            ForEach(0..<10, id: \.self) { _ in
-                                ConversationRowSkeleton()
-                                Rectangle()
-                                    .frame(height: 1)
-                                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                    .padding(.leading, 78)
+                            Group {
+                                ForEach(0..<10, id: \.self) { _ in
+                                    ConversationRowSkeleton()
+                                    Rectangle()
+                                        .frame(height: 1)
+                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                        .padding(.leading, 78)
+                                }
                             }
+                            .transition(.opacity)
                         } else if let resolvedError,
                                   !resolvedError.isEmpty,
                                   viewModel.conversations.isEmpty,
@@ -280,6 +296,7 @@ struct MessagesView: View {
                                 buttonTitle: "Retry",
                                 onButtonTap: { Task { await viewModel.loadInbox() } }
                             )
+                            .transition(.opacity)
                         } else if isMessagingEmpty {
                             EmptyMessagesView(
                                 title: "No messages yet",
@@ -287,41 +304,61 @@ struct MessagesView: View {
                                 buttonTitle: "Start a new chat",
                                 onButtonTap: { showNewMessage = true }
                             )
+                            .transition(.opacity)
                         } else {
-                            if !filteredChannels.isEmpty {
-                                ForEach(filteredChannels) { channel in
-                                    Button(action: {
-                                        onChatSelected(nil, channel)
-                                    }) {
-                                        GroupChannelRow(channel: channel)
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
+                            Group {
+                                if !filteredChannels.isEmpty {
+                                    ForEach(filteredChannels) { channel in
+                                        Button(action: {
+                                            onChatSelected(nil, channel)
+                                        }) {
+                                            GroupChannelRow(channel: channel)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
 
-                                    Rectangle()
-                                        .frame(height: 1)
-                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                        .padding(.leading, 78)
+                                        Rectangle()
+                                            .frame(height: 1)
+                                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                            .padding(.leading, 78)
+                                    }
+                                }
+
+                                if !filteredConversations.isEmpty {
+                                    ForEach(filteredConversations) { conversation in
+                                        Button(action: {
+                                            onChatSelected(conversation, nil)
+                                        }) {
+                                            ConversationRow(conversation: conversation)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+
+                                        Rectangle()
+                                            .frame(height: 1)
+                                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                                            .padding(.leading, 78)
+                                    }
                                 }
                             }
-
-                            if !filteredConversations.isEmpty {
-                                ForEach(filteredConversations) { conversation in
-                                    Button(action: {
-                                        onChatSelected(conversation, nil)
-                                    }) {
-                                        ConversationRow(conversation: conversation)
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-
-                                    Rectangle()
-                                        .frame(height: 1)
-                                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
-                                        .padding(.leading, 78)
-                                }
-                            }
+                            .transition(.opacity)
                         }
                     }
                 }
+                .animation(
+                    .easeInOut(duration: 0.22),
+                    value: viewModel.isLoading && viewModel.conversations.isEmpty && viewModel.channels.isEmpty
+                )
+                .animation(
+                    .easeInOut(duration: 0.22),
+                    value: viewModel.isLoadingRequests && viewModel.messageRequests.isEmpty
+                )
+                .animation(
+                    .easeInOut(duration: 0.22),
+                    value: filteredConversations.count + filteredChannels.count
+                )
+                .animation(
+                    .easeInOut(duration: 0.22),
+                    value: filteredRequests.count
+                )
                 .background(
                     GeometryReader { geo in
                         Color.loopedClear

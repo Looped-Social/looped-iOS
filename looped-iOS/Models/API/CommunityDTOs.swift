@@ -74,6 +74,33 @@ struct CommunityDetailsDTO: Codable {
     let isFollowing: Bool?
     let isJoined: Bool?
     let joinLimit: SpecializationJoinLimitDTO?
+    let viewer: CommunityViewerDTO?
+}
+
+struct CommunityViewerDTO: Codable {
+    let verificationStatus: CommunityViewerVerificationStatusDTO?
+    let verificationVerifiedAt: Date?
+    let verificationExpiresAt: Date?
+    let canPost: Bool?
+    let cannotPostReason: CommunityViewerCannotPostReasonDTO?
+}
+
+enum CommunityViewerVerificationStatusDTO: String, Codable {
+    case active
+    case pending
+    case rejected
+    case expired
+    case none
+    case unknown
+}
+
+enum CommunityViewerCannotPostReasonDTO: String, Codable {
+    case notVerified = "not_verified"
+    case notJoined = "not_joined"
+    case suspended
+    case readOnly = "read_only"
+    case rateLimited = "rate_limited"
+    case unknown
 }
 
 struct CommunityDomainsResponseDTO: Codable {

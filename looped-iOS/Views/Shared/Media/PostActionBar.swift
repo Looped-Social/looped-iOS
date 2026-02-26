@@ -3,6 +3,7 @@ import SwiftUI
 final class PostActionBarState: ObservableObject {
     @Published var likeCount: Int = 0
     @Published var commentCount: Int = 0
+    @Published var viewCount: Int? = nil
     @Published var isLiked: Bool = false
     @Published var isReposted: Bool = false
     @Published var isSaved: Bool = false
@@ -84,6 +85,10 @@ struct PostActionBarCompact: View {
                 action: onShare
             )
 
+            if let viewCount = state.viewCount {
+                viewCountLabel(count: viewCount)
+            }
+
             Spacer(minLength: 0)
 
             actionButton(
@@ -96,6 +101,22 @@ struct PostActionBarCompact: View {
         }
         .font(.loopedSmallText)
         .foregroundColor(.loopedWhite)
+    }
+
+    private func viewCountLabel(count: Int) -> some View {
+        HStack(spacing: labelSpacing) {
+            Image("eye-icon")
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: iconSize, height: iconSize)
+                .foregroundColor(.loopedWhite.opacity(0.9))
+            Text("\(max(count, 0))")
+                .font(.loopedCustom(size: countFontSize))
+                .foregroundColor(.loopedWhite.opacity(0.9))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Views \(max(count, 0))")
     }
 
     @ViewBuilder

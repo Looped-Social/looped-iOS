@@ -29,6 +29,8 @@ class FeedViewModel: ObservableObject {
         case failed
     }
 
+    static let firstPostEverMilestone = "first_post_ever"
+
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
     private let mediaService: MediaServiceProtocol
@@ -607,6 +609,9 @@ class FeedViewModel: ObservableObject {
             indexPostsInSpotlight([resolvedPost])
             lastPostedCommunityId = communityId
             UserDefaults.standard.set(communityId, forKey: lastSelectedCommunityKey)
+            if resolvedPost.awardedMilestones?.contains(FeedViewModel.firstPostEverMilestone) == true {
+                NotificationCenter.default.post(name: .firstPostEverMilestoneAwarded, object: resolvedPost)
+            }
             return resolvedPost.isUnderReview ? .createdUnderReview : .created
         } catch {
             if isAnonymous,

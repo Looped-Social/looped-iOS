@@ -9,8 +9,6 @@ struct CommunityProfileViewModelTests {
     func loadMoreIfNeeded_onlyTriggersWhenCurrentPostIsLastPost() async {
         let feedService = MockFeedService()
         let communityService = MockCommunityService()
-        let verificationService = MockCommunityVerificationService()
-        verificationService.fetchCommunityVerificationsHandler = { [] }
 
         let firstPagePosts = (1...10).map { TestFixtures.post(backendId: $0) }
         let secondPagePosts = [TestFixtures.post(backendId: 11), TestFixtures.post(backendId: 12)]
@@ -38,8 +36,7 @@ struct CommunityProfileViewModelTests {
                 joinLimit: nil
             ),
             feedService: feedService,
-            communityService: communityService,
-            verificationService: verificationService
+            communityService: communityService
         )
 
         await viewModel.loadIfNeeded()
@@ -62,8 +59,6 @@ struct CommunityProfileViewModelTests {
     func loadMoreIfNeeded_staleCursorWithNoNewPosts_stopsFurtherPagination() async {
         let feedService = MockFeedService()
         let communityService = MockCommunityService()
-        let verificationService = MockCommunityVerificationService()
-        verificationService.fetchCommunityVerificationsHandler = { [] }
 
         let firstPagePosts = [TestFixtures.post(backendId: 1), TestFixtures.post(backendId: 2), TestFixtures.post(backendId: 3)]
         let duplicatePagePosts = [TestFixtures.post(backendId: 3)]
@@ -91,8 +86,7 @@ struct CommunityProfileViewModelTests {
                 joinLimit: nil
             ),
             feedService: feedService,
-            communityService: communityService,
-            verificationService: verificationService
+            communityService: communityService
         )
 
         await viewModel.loadIfNeeded()
@@ -114,8 +108,6 @@ struct CommunityProfileViewModelTests {
     func loadMoreIfNeeded_blankNextCursor_doesNotPaginate() async {
         let feedService = MockFeedService()
         let communityService = MockCommunityService()
-        let verificationService = MockCommunityVerificationService()
-        verificationService.fetchCommunityVerificationsHandler = { [] }
 
         let firstPagePosts = [TestFixtures.post(backendId: 1), TestFixtures.post(backendId: 2)]
         feedService.fetchFeedHandler = { _, cursor, communityId, _ in
@@ -139,8 +131,7 @@ struct CommunityProfileViewModelTests {
                 joinLimit: nil
             ),
             feedService: feedService,
-            communityService: communityService,
-            verificationService: verificationService
+            communityService: communityService
         )
 
         await viewModel.loadIfNeeded()
@@ -157,7 +148,6 @@ struct CommunityProfileViewModelTests {
     func communityStateChanged_forSpecialization_refreshesJoinLimitEvenWhenDifferentCommunityChanges() async {
         let feedService = MockFeedService()
         let communityService = MockCommunityService()
-        let verificationService = MockCommunityVerificationService()
 
         let initialLimit = makeJoinLimit(
             type: .major,
@@ -188,8 +178,7 @@ struct CommunityProfileViewModelTests {
                 joinLimit: initialLimit
             ),
             feedService: feedService,
-            communityService: communityService,
-            verificationService: verificationService
+            communityService: communityService
         )
 
         NotificationCenter.default.post(
@@ -206,10 +195,9 @@ struct CommunityProfileViewModelTests {
     }
 
     @Test
-    func communityStateChanged_forMatchingCompany_refreshesDetailsAndVerification() async {
+    func communityStateChanged_forMatchingCompany_refreshesDetailsAndViewerState() async {
         let feedService = MockFeedService()
         let communityService = MockCommunityService()
-        let verificationService = MockCommunityVerificationService()
 
         let refreshedDetails = CommunityDetailsDTO(
             id: 11,
@@ -225,19 +213,18 @@ struct CommunityProfileViewModelTests {
             icon: nil,
             isFollowing: true,
             isJoined: false,
-            joinLimit: nil
+            joinLimit: nil,
+            viewer: CommunityViewerDTO(
+                verificationStatus: .active,
+                canPost: true,
+                cannotPostReason: nil
+            )
         )
 
         communityService.fetchCommunityDetailsDTOHandler = { communityId, kind in
             #expect(communityId == 11)
             #expect(kind == .school)
             return refreshedDetails
-        }
-
-        verificationService.fetchCommunityVerificationsHandler = {
-            [
-                makeVerification(communityId: 11, kind: .school, status: .active)
-            ]
         }
 
         let viewModel = CommunityProfileViewModel(
@@ -255,8 +242,7 @@ struct CommunityProfileViewModelTests {
                 joinLimit: nil
             ),
             feedService: feedService,
-            communityService: communityService,
-            verificationService: verificationService
+            communityService: communityService
         )
 
         NotificationCenter.default.post(
@@ -269,18 +255,15 @@ struct CommunityProfileViewModelTests {
         #expect(communityService.fetchCommunityDetailsDTOCalls.count == 1)
         #expect(communityService.fetchCommunityDetailsDTOCalls.first?.communityId == 11)
         #expect(communityService.fetchCommunityDetailsDTOCalls.first?.kind == .school)
-        #expect(verificationService.fetchCommunityVerificationsCallCount == 1)
         #expect(viewModel.community.name == "UNC")
-        #expect(viewModel.verification?.communityId == 11)
-        #expect(viewModel.verification?.status == .active)
+        #expect(viewModel.viewerState?.verificationStatus == .active)
+        #expect(viewModel.viewerState?.canPost == true)
     }
 
     @Test
     func connectRecommendedUser_whenAlreadyFollowing_unfollowsUserEvenWhenActionCannotConnect() async {
         let feedService = MockFeedService()
         let communityService = MockCommunityService()
-        let verificationService = MockCommunityVerificationService()
-        verificationService.fetchCommunityVerificationsHandler = { [] }
 
         let recommendationService = MockPeopleRecommendationService()
         recommendationService.fetchRailsHandler = { surface, communityId, rails, limitPerRail in
@@ -335,7 +318,6 @@ struct CommunityProfileViewModelTests {
             ),
             feedService: feedService,
             communityService: communityService,
-            verificationService: verificationService,
             peopleRecommendationService: recommendationService,
             userService: userService,
             followStateStore: followStateStore
@@ -350,6 +332,226 @@ struct CommunityProfileViewModelTests {
         #expect(userService.unfollowUserCalls.count == 1)
         #expect(followStateStore.isFollowing(userId: 9901) == false)
         #expect(viewModel.isFollowingRecommendationUser(9901) == false)
+    }
+
+    @Test
+    func shouldShowEmptyPostsNudge_requiresNotLoadingAndNoPosts() {
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: MockFeedService(),
+            communityService: MockCommunityService()
+        )
+
+        viewModel.posts = []
+        viewModel.isLoading = false
+        viewModel.hasLoadedInitialPosts = true
+        #expect(viewModel.shouldShowEmptyPostsNudge)
+
+        viewModel.isLoading = true
+        #expect(!viewModel.shouldShowEmptyPostsNudge)
+
+        viewModel.isLoading = false
+        viewModel.posts = [TestFixtures.post(backendId: 1)]
+        #expect(!viewModel.shouldShowEmptyPostsNudge)
+    }
+
+    @Test
+    func emptyPostsNudgeMode_unverified_requiresVerificationOnceLoaded() async {
+        let communityService = MockCommunityService()
+        communityService.fetchCommunityDetailsDTOHandler = { _, _ in
+            CommunityDetailsDTO(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: "school",
+                specializationType: nil,
+                memberCount: 1234,
+                bannerImageUrl: nil,
+                profileImageUrl: nil,
+                imageUrl: nil,
+                icon: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil,
+                viewer: CommunityViewerDTO(
+                    verificationStatus: .none,
+                    canPost: false,
+                    cannotPostReason: .notVerified
+                )
+            )
+        }
+
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: MockFeedService(),
+            communityService: communityService
+        )
+
+        viewModel.posts = []
+        viewModel.isLoading = false
+        viewModel.hasLoadedInitialPosts = true
+        #expect(viewModel.emptyPostsNudgeMode == .loadingVerification)
+
+        await viewModel.loadCommunityDetails(force: true)
+        #expect(viewModel.emptyPostsNudgeMode == .needsVerification)
+    }
+
+    @Test
+    func emptyPostsNudgeMode_loadingVerification_whenNotYetLoaded() {
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: MockFeedService(),
+            communityService: MockCommunityService()
+        )
+
+        viewModel.posts = []
+        viewModel.isLoading = false
+        #expect(viewModel.emptyPostsNudgeMode == .loadingVerification)
+    }
+
+    @Test
+    func emptyPostsNudgeMode_verified_afterViewerStateLoads() async {
+        let communityService = MockCommunityService()
+        communityService.fetchCommunityDetailsDTOHandler = { _, _ in
+            CommunityDetailsDTO(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: "school",
+                specializationType: nil,
+                memberCount: 1234,
+                bannerImageUrl: nil,
+                profileImageUrl: nil,
+                imageUrl: nil,
+                icon: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil,
+                viewer: CommunityViewerDTO(
+                    verificationStatus: .active,
+                    canPost: true,
+                    cannotPostReason: nil
+                )
+            )
+        }
+
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 11,
+                name: "UNC",
+                shortName: "UNC",
+                description: "",
+                kind: .school,
+                specializationType: .unknown,
+                memberCount: 1234,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: MockFeedService(),
+            communityService: communityService
+        )
+
+        viewModel.posts = []
+        viewModel.isLoading = false
+        viewModel.hasLoadedInitialPosts = true
+        #expect(viewModel.emptyPostsNudgeMode == .loadingVerification)
+
+        await viewModel.loadCommunityDetails(force: true)
+        #expect(viewModel.emptyPostsNudgeMode == .verified)
+    }
+
+    @Test
+    func emptyPostsNudgeMode_needsJoin_whenViewerStateRequiresJoin() async {
+        let communityService = MockCommunityService()
+        communityService.fetchCommunityDetailsDTOHandler = { _, _ in
+            CommunityDetailsDTO(
+                id: 300,
+                name: "Computer Science",
+                shortName: "CS",
+                description: "",
+                kind: "specialization",
+                specializationType: "major",
+                memberCount: 42,
+                bannerImageUrl: nil,
+                profileImageUrl: nil,
+                imageUrl: nil,
+                icon: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil,
+                viewer: CommunityViewerDTO(
+                    verificationStatus: .active,
+                    canPost: false,
+                    cannotPostReason: .notJoined
+                )
+            )
+        }
+
+        let viewModel = CommunityProfileViewModel(
+            community: CommunityProfileData(
+                id: 300,
+                name: "Computer Science",
+                shortName: "CS",
+                description: "",
+                kind: .specialization,
+                specializationType: .major,
+                memberCount: 42,
+                imageUrl: nil,
+                isFollowing: false,
+                isJoined: false,
+                joinLimit: nil
+            ),
+            feedService: MockFeedService(),
+            communityService: communityService
+        )
+
+        viewModel.posts = []
+        viewModel.isLoading = false
+        viewModel.hasLoadedInitialPosts = true
+        #expect(viewModel.emptyPostsNudgeMode == .loadingVerification)
+
+        await viewModel.loadCommunityDetails(force: true)
+        #expect(viewModel.emptyPostsNudgeMode == .needsJoin)
     }
 }
 

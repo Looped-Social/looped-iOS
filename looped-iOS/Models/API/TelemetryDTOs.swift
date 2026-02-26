@@ -8,6 +8,10 @@ enum TelemetryEventType: String, Codable, Sendable {
     case interactionBlocked = "interaction_blocked"
     case communityJoinIntent = "community_join_intent"
     case communityVerifyIntent = "community_verify_intent"
+    case milestoneFirstPostSheetShown = "milestone.first_post.sheet_shown"
+    case milestoneFirstPostDismissed = "milestone.first_post.dismissed"
+    case milestoneFirstPostShareAttempted = "milestone.first_post.share_attempted"
+    case milestoneFirstPostShareCompleted = "milestone.first_post.share_completed"
 }
 
 enum TelemetryInteractionAction: String, Codable, Sendable {

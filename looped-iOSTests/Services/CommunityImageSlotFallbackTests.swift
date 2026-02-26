@@ -123,7 +123,8 @@ struct CommunityImageSlotFallbackTests {
             icon: nil,
             isFollowing: true,
             isJoined: false,
-            joinLimit: nil
+            joinLimit: nil,
+            viewer: nil
         )
 
         let merged = CommunityProfileData(details: details, fallback: fallback)
@@ -166,7 +167,8 @@ struct CommunityImageSlotFallbackTests {
             icon: nil,
             isFollowing: nil,
             isJoined: nil,
-            joinLimit: nil
+            joinLimit: nil,
+            viewer: nil
         )
 
         let merged = CommunityProfileData(details: details, fallback: fallback)

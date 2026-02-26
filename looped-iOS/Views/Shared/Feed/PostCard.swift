@@ -450,12 +450,32 @@ struct PostCard: View {
         .disabled(isBookmarkLoading)
     }
 
+    @ViewBuilder
+    private var viewCountIndicator: some View {
+        if let viewCount = post.viewCount {
+            HStack(spacing: actionLabelSpacing) {
+                Image("eye-icon")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: actionIconSize, height: actionIconSize)
+                    .foregroundColor(.loopedTextSecondary)
+                Text("\(max(viewCount, 0))")
+                    .font(.loopedSubheadlineScaled)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Views \(max(viewCount, 0))")
+        }
+    }
+
 		    private var engagementBar: some View {
 		        HStack(spacing: engagementBarSpacing) {
 		            likeButton
 		            commentButton
 		            repostButton
 		            shareButton
+                    viewCountIndicator
 		            Spacer()
 		            bookmarkButton
 		        }
@@ -917,6 +937,9 @@ struct PostCard: View {
                 syncActionBarState()
             }
             .onChange(of: post.commentsCount) { _, _ in
+                syncActionBarState()
+            }
+            .onChange(of: post.viewCount) { _, _ in
                 syncActionBarState()
             }
 
@@ -1466,6 +1489,7 @@ struct PostCard: View {
     private func syncActionBarState() {
         postActionState.likeCount = displayedReactionCount
         postActionState.commentCount = post.commentsCount
+        postActionState.viewCount = post.viewCount
         postActionState.isLiked = isLiked
         postActionState.isReposted = isReposted
         postActionState.isSaved = isBookmarked

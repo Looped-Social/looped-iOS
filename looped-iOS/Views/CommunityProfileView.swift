@@ -12,6 +12,7 @@ struct CommunityProfileView: View {
     @Environment(\.loopedSetTabBarVisible) private var setTabBarVisible
     @Environment(\.loopedPresentToast) private var presentToast
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var feedViewModel: FeedViewModel
     @EnvironmentObject private var commentsManager: CommentsModalManager
     @StateObject private var viewModel: CommunityProfileViewModel
     @StateObject private var hashtagPostsViewModel: CommunityHashtagPostsViewModel
@@ -25,6 +26,8 @@ struct CommunityProfileView: View {
     @State private var isAtTop = true
     @State private var specializationInfoCachedTabBarVisible: Bool?
     @State private var communityShareSheetPayload: CommunityShareSheetPayload?
+    @State private var createPostDraft: PostDraft?
+    @State private var pendingCreatePostDraftAfterVerification: PostDraft?
 
     init(community: CommunityProfileData) {
         _viewModel = StateObject(wrappedValue: CommunityProfileViewModel(community: community))
@@ -108,16 +111,38 @@ struct CommunityProfileView: View {
         }
         .background(NavigationCanPopReader(canPop: $canPop))
         .environmentObject(commentsManager)
-        .sheet(item: $verificationTargetCommunity) { community in
+        .sheet(item: $verificationTargetCommunity, onDismiss: {
+            pendingCreatePostDraftAfterVerification = nil
+        }) { community in
             CommunityVerificationFlowView(community: community) { _ in
                 Task {
                     await authViewModel.loadCurrentUser()
-                    await viewModel.loadVerification()
+                    await viewModel.loadCommunityDetails(force: true)
+                    if viewModel.canPostInCommunity, let pending = pendingCreatePostDraftAfterVerification {
+                        pendingCreatePostDraftAfterVerification = nil
+                        createPostDraft = pending
+                    }
                 }
             }
         }
         .sheet(item: $communityShareSheetPayload) { payload in
             ShareSheet(items: payload.items)
+        }
+        .sheet(item: $createPostDraft) { draft in
+            CreatePostView(
+                feedViewModel: feedViewModel,
+                draft: draft,
+                onPostCreated: {
+                    createPostDraft = nil
+                },
+                onPostStatus: { message in
+                    presentToast(message)
+                    if message.kind == .success {
+                        Task { await viewModel.refresh() }
+                    }
+                }
+            )
+            .presentationDetents([.large])
         }
         .alert(
             "Update Failed",
@@ -203,7 +228,9 @@ struct CommunityProfileView: View {
                     verificationPill
                 }
 
-                if viewModel.verificationError != nil && viewModel.community.kind != .specialization {
+                if viewModel.community.kind != .specialization,
+                   viewModel.hasLoadedViewerState,
+                   viewModel.viewerState == nil {
                     Text("Verification status unavailable.")
                         .font(.loopedSmallText)
                         .foregroundColor(.loopedTextSecondary)
@@ -262,7 +289,7 @@ struct CommunityProfileView: View {
 
                 Spacer()
 
-                if viewModel.isLoadingVerification {
+                if !viewModel.hasLoadedViewerState {
                     ProgressView()
                         .tint(.loopedSecondary)
                 } else {
@@ -283,11 +310,10 @@ struct CommunityProfileView: View {
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(viewModel.isLoadingVerification)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity((viewModel.isFollowActionInFlight || viewModel.isJoinActionInFlight || viewModel.isLoadingVerification) ? 0.7 : 1)
+        .opacity((viewModel.isFollowActionInFlight || viewModel.isJoinActionInFlight || viewModel.isLoadingDetails) ? 0.7 : 1)
     }
 
     private var specializationJoinPill: some View {
@@ -430,7 +456,10 @@ struct CommunityProfileView: View {
 
     private var postsSection: some View {
         LazyVStack(spacing: 0) {
-            if viewModel.isLoading && viewModel.posts.isEmpty {
+            let isShowingSkeleton = (viewModel.isLoading && viewModel.posts.isEmpty)
+                || (!viewModel.hasLoadedInitialPosts && viewModel.posts.isEmpty)
+
+            if isShowingSkeleton {
                 ForEach(0..<6, id: \.self) { index in
                     PostCardSkeleton(showsMedia: index % 3 != 0)
 
@@ -438,11 +467,85 @@ struct CommunityProfileView: View {
                         .frame(height: 1)
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
                 }
-            } else if viewModel.posts.isEmpty {
-                Text("No posts yet.")
-                    .font(.loopedSubBodyRegular)
-                    .foregroundColor(.loopedTextSecondary)
-                    .padding(.top, 40)
+                .transition(.opacity)
+            } else if viewModel.shouldShowEmptyPostsNudge {
+                Group {
+                    switch viewModel.emptyPostsNudgeMode {
+                    case .verified:
+                        CommunityEmptyPostsCard(
+                            onCreatePost: {
+                                createPostDraft = PostDraft(
+                                    content: "",
+                                    communityId: viewModel.community.id,
+                                    communityName: viewModel.community.name
+                                )
+                            },
+                            onShareCommunity: {
+                                shareCommunityPage()
+                            }
+                        )
+                    case .needsVerification:
+                        CommunityEmptyPostsCard(
+                            illustrationName: "kick-off",
+                            title: "Verify to start posting",
+                            message: "Verify to join the conversation, or share this community with someone who belongs here.",
+                            primaryButtonTitle: "Verify",
+                            onCreatePost: {
+                                pendingCreatePostDraftAfterVerification = PostDraft(
+                                    content: "",
+                                    communityId: viewModel.community.id,
+                                    communityName: viewModel.community.name
+                                )
+                                verificationTargetCommunity = viewModel.community
+                            },
+                            onShareCommunity: {
+                                shareCommunityPage()
+                            }
+                        )
+                    case .loadingVerification:
+                        CommunityEmptyPostsCard(
+                            title: "Checking your verification…",
+                            message: "Hang tight for a moment.",
+                            primaryButtonTitle: "Checking…",
+                            isPrimaryButtonEnabled: false,
+                            isPrimaryButtonLoading: true,
+                            onCreatePost: {},
+                            onShareCommunity: {
+                                shareCommunityPage()
+                            }
+                        )
+                    case .needsJoin:
+                        CommunityEmptyPostsCard(
+                            illustrationName: "community-find",
+                            title: "Join to start the conversation",
+                            message: "Join this specialization to post, comment, and like.",
+                            primaryButtonTitle: "Join",
+                            isPrimaryButtonEnabled: !viewModel.isJoinActionInFlight,
+                            isPrimaryButtonLoading: viewModel.isJoinActionInFlight,
+                            onCreatePost: {
+                                Task { await viewModel.toggleJoin() }
+                            },
+                            onShareCommunity: {
+                                shareCommunityPage()
+                            }
+                        )
+                    case .unavailable:
+                        CommunityEmptyPostsCard(
+                            illustrationName: "community-find",
+                            title: "Posting unavailable",
+                            message: "You can’t post here right now, but you can still share this community with someone who’d jump in.",
+                            primaryButtonTitle: "Can’t post right now",
+                            isPrimaryButtonEnabled: false,
+                            onCreatePost: {},
+                            onShareCommunity: {
+                                shareCommunityPage()
+                            }
+                        )
+                    }
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 12)
+                .transition(.opacity)
             } else {
                 let prefetchIndex = paginationPrefetchIndex(for: viewModel.posts.count)
                 ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
@@ -506,6 +609,7 @@ struct CommunityProfileView: View {
                             .foregroundColor(.loopedTextSecondary.opacity(0.1))
                     }
                 }
+                .transition(.opacity)
             }
 
             if let errorMessage = viewModel.errorMessage, viewModel.posts.isEmpty {
@@ -515,18 +619,24 @@ struct CommunityProfileView: View {
                     .padding(.top, 16)
             }
         }
+        .animation(.easeInOut(duration: 0.22), value: viewModel.posts.count)
+        .animation(.easeInOut(duration: 0.22), value: viewModel.isLoading && viewModel.posts.isEmpty)
+        .animation(.easeInOut(duration: 0.22), value: viewModel.hasLoadedInitialPosts)
     }
 
     private var hashtagsSection: some View {
         LazyVStack(spacing: 0) {
             if hashtagPostsViewModel.isLoading && hashtagPostsViewModel.posts.isEmpty {
-                ForEach(0..<6, id: \.self) { index in
-                    PostCardSkeleton(showsMedia: index % 3 != 0)
+                Group {
+                    ForEach(0..<6, id: \.self) { index in
+                        PostCardSkeleton(showsMedia: index % 3 != 0)
 
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    }
                 }
+                .transition(.opacity)
             } else if hashtagPostsViewModel.posts.isEmpty {
                 VStack(spacing: 12) {
                     Text("No posts with hashtags yet.")
@@ -539,6 +649,7 @@ struct CommunityProfileView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
+                .transition(.opacity)
             } else {
                 let prefetchIndex = paginationPrefetchIndex(for: hashtagPostsViewModel.posts.count)
                 ForEach(Array(hashtagPostsViewModel.posts.enumerated()), id: \.element.id) { index, post in
@@ -563,6 +674,7 @@ struct CommunityProfileView: View {
                         .frame(height: 1)
                         .foregroundColor(.loopedTextSecondary.opacity(0.1))
                 }
+                .transition(.opacity)
             }
 
             if let errorMessage = hashtagPostsViewModel.errorMessage, hashtagPostsViewModel.posts.isEmpty {
@@ -572,13 +684,54 @@ struct CommunityProfileView: View {
                     .padding(.top, 16)
             }
         }
+        .animation(.easeInOut(duration: 0.22), value: hashtagPostsViewModel.isLoading && hashtagPostsViewModel.posts.isEmpty)
+        .animation(.easeInOut(duration: 0.22), value: hashtagPostsViewModel.posts.count)
         .task {
             await hashtagPostsViewModel.loadIfNeeded()
         }
     }
 
     private var verificationDisplay: VerificationDisplay {
-        guard let verification = viewModel.verification else {
+        switch viewModel.viewerVerificationStatus {
+        case .some(.active):
+            return VerificationDisplay(
+                title: "Verified",
+                subtitle: viewModel.community.kind == .specialization
+                    ? nil
+                    : verificationExpiryText(
+                        expiresAt: viewModel.viewerState?.verificationExpiresAt,
+                        inactivePrefix: nil
+                    ),
+                icon: "checkmark.seal.fill",
+                color: .loopedVerifiedBadge
+            )
+        case .some(.pending):
+            return VerificationDisplay(
+                title: "Pending",
+                subtitle: "Awaiting approval",
+                icon: "clock.fill",
+                color: .loopedSecondary
+            )
+        case .some(.rejected):
+            return VerificationDisplay(
+                title: "Rejected",
+                subtitle: "Tap to verify again",
+                icon: "xmark.octagon.fill",
+                color: .loopedError
+            )
+        case .some(.expired):
+            return VerificationDisplay(
+                title: "Expired",
+                subtitle: viewModel.community.kind == .specialization
+                    ? "Tap to verify"
+                    : (verificationExpiryText(
+                        expiresAt: viewModel.viewerState?.verificationExpiresAt,
+                        inactivePrefix: "Expired"
+                    ) ?? "Tap to verify"),
+                icon: "exclamationmark.circle",
+                color: .loopedSecondary
+            )
+        case .some(.none), .some(.unknown), .none:
             return VerificationDisplay(
                 title: "Unverified",
                 subtitle: "Tap to verify",
@@ -586,60 +739,11 @@ struct CommunityProfileView: View {
                 color: .loopedSecondary
             )
         }
-
-        switch verification.status {
-        case .active:
-            return VerificationDisplay(
-                title: "Verified",
-                subtitle: expiryText(for: verification, inactivePrefix: nil),
-                icon: "checkmark.seal.fill",
-                color: .loopedVerifiedBadge
-            )
-        case .pending:
-            return VerificationDisplay(
-                title: "Pending",
-                subtitle: "Awaiting approval",
-                icon: "clock.fill",
-                color: .loopedSecondary
-            )
-        case .rejected:
-            return VerificationDisplay(
-                title: "Rejected",
-                subtitle: "Tap to verify again",
-                icon: "xmark.octagon.fill",
-                color: .loopedError
-            )
-        case .expired:
-            return VerificationDisplay(
-                title: "Expired",
-                subtitle: expiryText(for: verification, inactivePrefix: "Expired") ?? "Tap to verify",
-                icon: "exclamationmark.circle",
-                color: .loopedSecondary
-            )
-        case .unknown:
-            if verification.isActive {
-                return VerificationDisplay(
-                    title: "Verified",
-                    subtitle: expiryText(for: verification, inactivePrefix: nil),
-                    icon: "checkmark.seal.fill",
-                    color: .loopedVerifiedBadge
-                )
-            }
-            return VerificationDisplay(
-                title: "Unverified",
-                subtitle: expiryText(for: verification, inactivePrefix: "Expired") ?? "Tap to verify",
-                icon: "exclamationmark.circle",
-                color: .loopedSecondary
-            )
-        }
     }
 
-    private func expiryText(for verification: CommunityVerification, inactivePrefix: String?) -> String? {
-        guard verification.verified || verification.status == .expired else { return nil }
-        guard let expiresAt = verification.expiresAt else {
-            if let inactivePrefix {
-                return inactivePrefix
-            }
+    private func verificationExpiryText(expiresAt: Date?, inactivePrefix: String?) -> String? {
+        guard let expiresAt else {
+            if let inactivePrefix { return inactivePrefix }
             return "Never expires"
         }
         let dateText = Self.expiryFormatter.string(from: expiresAt)

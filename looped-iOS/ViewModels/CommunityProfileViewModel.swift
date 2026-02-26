@@ -3,15 +3,23 @@ import Combine
 
 @MainActor
 final class CommunityProfileViewModel: ObservableObject {
+    enum EmptyPostsNudgeMode: Equatable {
+        case verified
+        case needsVerification
+        case needsJoin
+        case loadingVerification
+        case unavailable
+    }
+
     @Published private(set) var community: CommunityProfileData
     @Published var posts: [Post] = []
     @Published var isLoading = false
     @Published var isLoadingMore = false
+    @Published var hasLoadedInitialPosts = false
     @Published var errorMessage: String?
     @Published var followErrorMessage: String?
-    @Published var verification: CommunityVerification?
-    @Published var isLoadingVerification = false
-    @Published var verificationError: String?
+    @Published private(set) var viewerState: CommunityViewerState?
+    @Published private(set) var hasLoadedViewerState = false
     @Published var isFollowActionInFlight = false
     @Published var isJoinActionInFlight = false
     @Published var isLoadingDetails = false
@@ -22,7 +30,6 @@ final class CommunityProfileViewModel: ObservableObject {
 
     private let feedService: FeedServiceProtocol
     private let communityService: CommunityServiceProtocol
-    private let verificationService: CommunityVerificationServiceProtocol
     private let peopleRecommendationService: PeopleRecommendationServiceProtocol
     private let userService: UserServiceProtocol
     private let followStateStore: FollowStateStore
@@ -33,11 +40,44 @@ final class CommunityProfileViewModel: ObservableObject {
     private var isLoadingJoinLimit = false
     private var cancellables = Set<AnyCancellable>()
 
+    var shouldShowEmptyPostsNudge: Bool {
+        !isLoading && hasLoadedInitialPosts && posts.isEmpty
+    }
+
+    var canPostInCommunity: Bool {
+        if let canPost = viewerState?.canPost { return canPost }
+        if community.kind == .specialization { return community.isJoined }
+        return false
+    }
+
+    var emptyPostsNudgeMode: EmptyPostsNudgeMode {
+        guard shouldShowEmptyPostsNudge else { return .unavailable }
+
+        guard hasLoadedViewerState else { return .loadingVerification }
+        guard let viewerState else { return .unavailable }
+
+        if viewerState.canPost == true {
+            return .verified
+        }
+
+        switch viewerState.cannotPostReason {
+        case .notVerified:
+            return .needsVerification
+        case .notJoined:
+            return .needsJoin
+        case .suspended, .readOnly, .rateLimited, .unknown, .none:
+            return .unavailable
+        }
+    }
+
+    var viewerVerificationStatus: CommunityViewerVerificationStatusDTO? {
+        viewerState?.verificationStatus
+    }
+
     init(
         community: CommunityProfileData,
         feedService: FeedServiceProtocol = FeedService(),
         communityService: CommunityServiceProtocol = CommunityService(),
-        verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService(),
         peopleRecommendationService: PeopleRecommendationServiceProtocol = PeopleRecommendationService(),
         userService: UserServiceProtocol = UserService(),
         followStateStore: FollowStateStore? = nil
@@ -45,7 +85,6 @@ final class CommunityProfileViewModel: ObservableObject {
         self.community = community
         self.feedService = feedService
         self.communityService = communityService
-        self.verificationService = verificationService
         self.peopleRecommendationService = peopleRecommendationService
         self.userService = userService
         self.followStateStore = followStateStore ?? .shared
@@ -86,7 +125,6 @@ final class CommunityProfileViewModel: ObservableObject {
 
         guard let changedCommunityId, changedCommunityId == community.id else { return }
         await loadCommunityDetails(force: true)
-        await loadVerification()
     }
 
     func loadIfNeeded() async {
@@ -96,7 +134,6 @@ final class CommunityProfileViewModel: ObservableObject {
         }
         await loadPeopleRecommendations()
         await loadSpecializationJoinLimit()
-        await loadVerification()
     }
 
     func refresh() async {
@@ -104,7 +141,6 @@ final class CommunityProfileViewModel: ObservableObject {
         await loadPosts(reset: true)
         await loadPeopleRecommendations(force: true)
         await loadSpecializationJoinLimit(force: true)
-        await loadVerification()
     }
 
     func loadMoreIfNeeded(currentPost: Post) async {
@@ -223,25 +259,6 @@ final class CommunityProfileViewModel: ObservableObject {
         }
     }
 
-    func loadVerification() async {
-        guard community.kind != .specialization else {
-            verification = nil
-            verificationError = nil
-            return
-        }
-        guard !isLoadingVerification else { return }
-        isLoadingVerification = true
-        defer { isLoadingVerification = false }
-        verificationError = nil
-        do {
-            let items = try await verificationService.fetchCommunityVerifications()
-            verification = items.first(where: { $0.communityId == community.id })
-        } catch {
-            verification = nil
-            verificationError = error.localizedDescription
-        }
-    }
-
     func loadCommunityDetails(force: Bool = false) async {
         guard force || !hasLoadedDetails else { return }
         guard !isLoadingDetails else { return }
@@ -252,8 +269,12 @@ final class CommunityProfileViewModel: ObservableObject {
             let details = try await communityService.fetchCommunityDetailsDTO(communityId: fallback.id, kind: fallback.kind)
             hasLoadedDetails = true
             community = CommunityProfileData(details: details, fallback: fallback)
+            viewerState = details.viewer.map(CommunityViewerState.init(dto:))
+            hasLoadedViewerState = true
         } catch {
             // Keep placeholders if details fetch fails.
+            viewerState = nil
+            hasLoadedViewerState = true
         }
     }
 
@@ -297,6 +318,9 @@ final class CommunityProfileViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
 
+        if reset {
+            hasLoadedInitialPosts = true
+        }
         if reset {
             isLoading = false
         } else {

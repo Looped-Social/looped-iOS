@@ -78,6 +78,7 @@ class FeedService: FeedServiceProtocol {
         mediaAssetIds: [Int]?,
         poll: PollDraft?
     ) async throws -> Post {
+        let awardedMilestones: [String]
         let pollRequest = poll.flatMap(makePollRequest(from:))
         let normalizedMediaAssetIds = (mediaAssetIds ?? []).prefix(4)
         let resolvedMediaAssetId = normalizedMediaAssetIds.isEmpty ? mediaAssetId : nil
@@ -122,8 +123,12 @@ class FeedService: FeedServiceProtocol {
             headers: headers,
             requiresAuth: !isAnonymous
         )
+        awardedMilestones = ((try? decode(AwardedMilestonesDTO.self, from: data).milestonesAwarded) ?? [])
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         if let dto = tryDecodePost(from: data) {
-            return Post(dto: dto, isAnonymousOverride: isAnonymous)
+            let post = Post(dto: dto, isAnonymousOverride: isAnonymous)
+            return awardedMilestones.isEmpty ? post : post.updating(awardedMilestones: .some(awardedMilestones))
         }
         let response = try decode(CreatePostResponseDTO.self, from: data)
         let postData = try await apiClient.getData(
@@ -131,7 +136,8 @@ class FeedService: FeedServiceProtocol {
             requiresAuth: !isAnonymous
         )
         let dto = try decode(PostDTO.self, from: postData)
-        return Post(dto: dto, isAnonymousOverride: isAnonymous)
+        let post = Post(dto: dto, isAnonymousOverride: isAnonymous)
+        return awardedMilestones.isEmpty ? post : post.updating(awardedMilestones: .some(awardedMilestones))
     }
 
     func updatePost(postId: Int, content: String, isAnonymous: Bool, communityId: Int?, removeMedia: Bool) async throws -> Post {
@@ -622,6 +628,10 @@ class FeedService: FeedServiceProtocol {
         ]
         return endpoint + "&" + params.joined(separator: "&")
     }
+}
+
+private struct AwardedMilestonesDTO: Decodable {
+    let milestonesAwarded: [String]?
 }
 
 private extension FeedService {
