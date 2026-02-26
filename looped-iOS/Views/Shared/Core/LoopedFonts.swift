@@ -23,6 +23,7 @@ extension Font {
     static let loopedLogo = Font.custom("Poppins-Bold", size: 24)
     
     static let loopedSubheadMedium = Font.custom("Poppins-Medium", size: 20)
+    static let loopedSubheadSemibold = Font.custom("Poppins-SemiBold", size: 20)
     
     static let loopedHeadingMedium = Font.custom("Poppins-Medium", size: 24)
     

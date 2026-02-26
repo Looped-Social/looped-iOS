@@ -67,7 +67,6 @@ struct PostCardSkeleton: View {
         }
         .padding(16)
         .background(Color.loopedBackground)
-        .shimmering()
         .accessibilityHidden(true)
     }
 
@@ -88,4 +87,3 @@ struct PostCardSkeleton: View {
     }
     .background(Color.loopedBackground)
 }
-

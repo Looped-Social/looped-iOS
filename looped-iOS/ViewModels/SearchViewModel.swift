@@ -10,6 +10,7 @@ class SearchViewModel: ObservableObject {
     @Published var majors: [CommunitySearchResult] = []
     @Published var fields: [CommunitySearchResult] = []
     @Published var peopleRecommendationRails: [PeopleRecommendationRailPage] = []
+    @Published var isLoadingTrendingPosts = false
     @Published var isLoadingSpecializations = false
     @Published var isLoadingMoreRecommendedCommunities = false
     @Published var isLoadingMoreMajors = false
@@ -83,12 +84,6 @@ class SearchViewModel: ObservableObject {
         }
         Task {
             await loadRecommendedCommunities()
-        }
-        Task {
-            await loadTrendingPosts()
-        }
-        Task {
-            await loadPeopleRecommendations()
         }
     }
 
@@ -191,6 +186,10 @@ class SearchViewModel: ObservableObject {
     }
 
     func loadTrendingPosts() async {
+        guard !isLoadingTrendingPosts else { return }
+        isLoadingTrendingPosts = true
+        defer { isLoadingTrendingPosts = false }
+
         do {
             trendingPosts = try await feedService.fetchTrendingPosts(limit: trendingPostsLimit, communityId: nil)
             selectedTrendingIndex = 0

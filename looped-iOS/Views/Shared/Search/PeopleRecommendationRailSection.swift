@@ -19,7 +19,7 @@ struct PeopleRecommendationRailSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(rail.title)
-                    .font(.loopedSubheadMedium)
+                    .font(.loopedSubheadSemibold)
                     .foregroundColor(.loopedTextPrimary)
                 Spacer()
             }
