@@ -111,11 +111,13 @@ private extension PeopleRecommendationItem {
 private extension PeopleRecommendationUser {
     init(dto: PeopleRecommendationUserDTO) {
         id = dto.id
-        handle = dto.handle
+        let trimmedUsername = dto.username?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedRawHandle = dto.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        handle = trimmedUsername.isEmpty ? trimmedRawHandle : trimmedUsername
         let trimmedDisplayName = dto.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedFirstName = dto.firstName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedLastName = dto.lastName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let trimmedHandle = dto.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedHandle = handle.trimmingCharacters(in: .whitespacesAndNewlines)
         let fullName = [trimmedFirstName, trimmedLastName]
             .filter { !$0.isEmpty }
             .joined(separator: " ")

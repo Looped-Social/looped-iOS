@@ -33,6 +33,7 @@ struct PeopleRecommendationItemDTO: Decodable {
 struct PeopleRecommendationUserDTO: Decodable {
     let id: Int
     let handle: String
+    let username: String?
     let displayName: String?
     let firstName: String?
     let lastName: String?

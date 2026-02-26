@@ -235,6 +235,7 @@ struct SearchViewModelRecommendationTests {
         #expect(followStateStore.isFollowing(userId: 9004) == false)
         #expect(viewModel.isFollowingRecommendationUser(9004) == false)
     }
+
 }
 
 private func makeRecommendationRail(items: [PeopleRecommendationItem]) -> PeopleRecommendationRailPage {
