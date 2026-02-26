@@ -207,14 +207,15 @@ private struct PeopleRecommendationCard: View {
                         .font(.loopedSymbol(.medium, size: reasonIconSize))
                         .foregroundColor(reasonIconColor)
                     Text(reasonText)
-                        .font(.loopedSmallText)
+                        .font(.loopedCustom(size: 11))
                         .foregroundColor(.loopedTextSecondary)
                         .lineLimit(2)
+                        .minimumScaleFactor(0.9)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .layoutPriority(1)
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .top)
                 .padding(.top, 4)
             }
 
