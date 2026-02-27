@@ -142,6 +142,21 @@ class NotificationsViewModel: ObservableObject {
             if openDeeplink(notification.actionDeeplink) { return }
             if openDeeplink(notification.deeplink) { return }
             toastMessage = ToastMessage(text: "Message request isn't available yet.", kind: .info)
+        case .sinceAwayHighlights:
+            if openDeeplink(notification.deeplink) { return }
+            if openDeeplink(notification.actionDeeplink) { return }
+            toastMessage = ToastMessage(text: "Highlights aren't available right now.", kind: .info)
+        case .trendingToday:
+            let fallback = notification.fallbackDeeplink
+                ?? notification.actionDeeplink
+                ?? notification.deeplink
+            if notification.targetId != nil {
+                navigateToPost(notification.targetId, fallbackDeeplink: fallback)
+                return
+            }
+            if openDeeplink(notification.deeplink) { return }
+            if openDeeplink(fallback) { return }
+            toastMessage = ToastMessage(text: "This post isn't available right now.", kind: .info)
         case .announcement, .system:
             if openDeeplink(notification.actionDeeplink) { return }
             _ = openDeeplink(notification.deeplink)
@@ -286,17 +301,18 @@ class NotificationsViewModel: ObservableObject {
     }
 
     // MARK: - Navigation Helpers
-    private func navigateToPost(_ postId: UUID?, commentId: UUID? = nil) {
+    private func navigateToPost(_ postId: UUID?, commentId: UUID? = nil, fallbackDeeplink: String? = nil) {
         guard let postId = postId?.backendInt else { return }
         if let commentId = commentId?.backendInt {
             _ = openInternalDeepLink(
                 host: "comment",
                 path: "/\(commentId)",
-                queryItems: [URLQueryItem(name: "post_id", value: String(postId))]
+                queryItems: [URLQueryItem(name: "post_id", value: String(postId))],
+                fallbackDeeplink: fallbackDeeplink
             )
             return
         }
-        _ = openInternalDeepLink(host: "post", path: "/\(postId)", queryItems: [])
+        _ = openInternalDeepLink(host: "post", path: "/\(postId)", queryItems: [], fallbackDeeplink: fallbackDeeplink)
     }
 
     private func navigateToUserProfile(_ userId: UUID, isAnonymous: Bool) {
@@ -305,7 +321,7 @@ class NotificationsViewModel: ObservableObject {
         if isAnonymous {
             queryItems.append(URLQueryItem(name: "anon", value: "true"))
         }
-        _ = openInternalDeepLink(host: "user", path: "/\(backendId)", queryItems: queryItems)
+        _ = openInternalDeepLink(host: "user", path: "/\(backendId)", queryItems: queryItems, fallbackDeeplink: nil)
     }
 
     private func navigateToGroup(_ groupId: UUID?) {
@@ -384,7 +400,12 @@ class NotificationsViewModel: ObservableObject {
         return true
     }
 
-    private func openInternalDeepLink(host: String, path: String, queryItems: [URLQueryItem]) -> Bool {
+    private func openInternalDeepLink(
+        host: String,
+        path: String,
+        queryItems: [URLQueryItem],
+        fallbackDeeplink: String?
+    ) -> Bool {
         var components = URLComponents()
         components.scheme = "looped"
         components.host = host
@@ -393,7 +414,8 @@ class NotificationsViewModel: ObservableObject {
             components.queryItems = queryItems
         }
         guard let url = components.url else { return false }
-        return DeepLinkRouter.shared.handleIncomingURL(url)
+        let fallbackURL = fallbackDeeplink.flatMap(URL.init(string:))
+        return DeepLinkRouter.shared.handleIncomingURL(url, fallbackURL: fallbackURL)
     }
 
     private func hydrateActorProfiles(for notifications: [Notification]) async {

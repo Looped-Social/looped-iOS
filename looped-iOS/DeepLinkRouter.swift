@@ -91,6 +91,7 @@ struct DeepLinkNavigationRequest: Identifiable, Equatable {
     let id = UUID()
     let destination: DeepLinkDestination
     let originalURL: URL
+    let fallbackURL: URL?
     let pathType: DeepLinkPathType
     let resumedAfterLogin: Bool
 }
@@ -126,7 +127,8 @@ final class DeepLinkRouter: ObservableObject {
             destination: queuedDeepLink.destination,
             url: queuedDeepLink.url,
             pathType: queuedDeepLink.pathType,
-            resumedAfterLogin: true
+            resumedAfterLogin: true,
+            fallbackURL: queuedDeepLink.fallbackURL
         )
     }
 
@@ -145,7 +147,7 @@ final class DeepLinkRouter: ObservableObject {
     }
 
     @discardableResult
-    func handleIncomingURL(_ url: URL) -> Bool {
+    func handleIncomingURL(_ url: URL, fallbackURL: URL? = nil) -> Bool {
         guard let parsed = parse(url) else { return false }
 
         emit(
@@ -173,7 +175,12 @@ final class DeepLinkRouter: ObservableObject {
         }
 
         if parsed.destination.requiresAuthentication, !isAuthenticated {
-            queuedDeepLink = QueuedDeepLink(url: url, destination: parsed.destination, pathType: parsed.pathType)
+            queuedDeepLink = QueuedDeepLink(
+                url: url,
+                destination: parsed.destination,
+                pathType: parsed.pathType,
+                fallbackURL: fallbackURL
+            )
             emit(
                 "deeplink_failed",
                 [
@@ -185,7 +192,13 @@ final class DeepLinkRouter: ObservableObject {
             return true
         }
 
-        route(destination: parsed.destination, url: url, pathType: parsed.pathType, resumedAfterLogin: false)
+        route(
+            destination: parsed.destination,
+            url: url,
+            pathType: parsed.pathType,
+            resumedAfterLogin: false,
+            fallbackURL: fallbackURL
+        )
         return true
     }
 
@@ -205,10 +218,17 @@ final class DeepLinkRouter: ObservableObject {
         )
     }
 
-    private func route(destination: DeepLinkDestination, url: URL, pathType: DeepLinkPathType, resumedAfterLogin: Bool) {
+    private func route(
+        destination: DeepLinkDestination,
+        url: URL,
+        pathType: DeepLinkPathType,
+        resumedAfterLogin: Bool,
+        fallbackURL: URL?
+    ) {
         let request = DeepLinkNavigationRequest(
             destination: destination,
             originalURL: url,
+            fallbackURL: fallbackURL,
             pathType: pathType,
             resumedAfterLogin: resumedAfterLogin
         )
@@ -299,10 +319,17 @@ final class DeepLinkRouter: ObservableObject {
         let idValue = pathComponents.first.flatMap(Int.init)
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let postId = components?.queryItems?.first(where: { $0.name == "post_id" })?.value.flatMap(Int.init)
+        let tab = components?.queryItems?.first(where: { $0.name == "tab" })?.value?.lowercased()
         let isAnonymous = components?.queryItems?.first(where: { $0.name == "anon" })?.value == "true"
 
         switch host {
         case "home":
+            return ParsedDeepLink(destination: .home, pathType: .home)
+        case "feed":
+            // Backend may use looped://feed for highlights or looped://feed?tab=trending for trending fallback.
+            if tab == "trending" {
+                return ParsedDeepLink(destination: .search, pathType: .search)
+            }
             return ParsedDeepLink(destination: .home, pathType: .home)
         case "messages":
             return ParsedDeepLink(destination: .messages, pathType: .messages)
@@ -407,6 +434,7 @@ private struct QueuedDeepLink {
     let url: URL
     let destination: DeepLinkDestination
     let pathType: DeepLinkPathType
+    let fallbackURL: URL?
 }
 
 private enum DeepLinkAppState: String {

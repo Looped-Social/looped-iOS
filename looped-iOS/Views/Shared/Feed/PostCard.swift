@@ -366,7 +366,7 @@ struct PostCard: View {
                             .renderingMode(.template)
                             .scaledToFit()
                             .frame(width: actionIconSize, height: actionIconSize)
-                            .foregroundColor(isLiked ? .loopedError : .loopedTextSecondary)
+                            .foregroundColor(isLiked ? .loopedLike : .loopedTextSecondary)
 
                         if isReactionLocked {
                             Image(systemName: "lock.fill")
@@ -883,7 +883,7 @@ struct PostCard: View {
             if showHeartBurst {
                 Image(systemName: "heart.fill")
                     .font(.loopedCustom(.bold, size: 72))
-                    .foregroundColor(.loopedError)
+                    .foregroundColor(.loopedLike)
                     .scaleEffect(heartScale)
                     .opacity(heartOpacity)
                     .allowsHitTesting(false)

@@ -99,6 +99,27 @@ struct NotificationPreferencesViewModelTests {
         #expect(viewModel.errorMessage == nil)
         #expect(viewModel.preferences?.channels.push.types.value(for: .dmMessage) == false)
     }
+
+    @Test
+    func setPrivacyMode_success_updatesServerAndLocal() async {
+        let service = MockNotificationService()
+        let base = TestFixtures.notificationPreferences(allEnabled: true)
+        let server = updating(base) { prefs in
+            prefs.privacyMode = .detailed
+        }
+
+        let viewModel = NotificationPreferencesViewModel(notificationService: service)
+        viewModel.preferences = base
+        service.updatePreferencesHandler = { update in
+            #expect(update.privacyMode == .detailed)
+            return server
+        }
+
+        await viewModel.setPrivacyMode(.detailed)
+
+        #expect(viewModel.preferences?.privacyMode == .detailed)
+        #expect(viewModel.errorMessage == nil)
+    }
 }
 
 private func updating(

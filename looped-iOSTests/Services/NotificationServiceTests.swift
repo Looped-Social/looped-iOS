@@ -78,6 +78,7 @@ struct NotificationServiceTests {
 
         let notification = page.notifications[0]
         #expect(notification.id.backendInt == 991)
+        #expect(notification.notificationUUID == nil)
         #expect(notification.type == .announcement)
         #expect(notification.actorId == nil)
         #expect(notification.actorAnonProfileId == nil)
@@ -125,6 +126,85 @@ struct NotificationServiceTests {
             verificationStatus: "approved"
         )
         #expect(systemWithVerificationMetadata.notificationText == "System notification")
+    }
+
+    @Test
+    func fetchNotifications_mapsNewTypesAndUuidAndFallbackDeeplink() async throws {
+        let requestBox = NotificationRequestBox()
+        NotificationRequestCaptureURLProtocol.requestHandler = { request in
+            requestBox.request = request
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let data = Data(
+                """
+                {
+                  "items": [
+                    {
+                      "id": 123,
+                      "notification_id": "00000000-0000-0000-0000-000000000001",
+                      "type": "since_away_highlights",
+                      "created_at": "2026-02-27T18:14:00Z",
+                      "unread": true,
+                      "payload": {
+                        "deeplink": "looped://feed",
+                        "privacy_level": "generic",
+                        "new_posts_count": 7,
+                        "since": "2026-02-27T17:00:00Z"
+                      }
+                    },
+                    {
+                      "id": 124,
+                      "notification_id": "00000000-0000-0000-0000-000000000002",
+                      "type": "trending_today",
+                      "created_at": "2026-02-27T18:15:00Z",
+                      "unread": true,
+                      "payload": {
+                        "post_id": 55,
+                        "community_id": 42,
+                        "deeplink": "looped://post/55",
+                        "fallback_deeplink": "looped://feed?tab=trending&community_id=42",
+                        "privacy_level": "detailed",
+                        "reason": { "score": 1.2, "window": "today" }
+                      }
+                    }
+                  ],
+                  "next_cursor": null
+                }
+                """.utf8
+            )
+            return (response, data)
+        }
+        defer { NotificationRequestCaptureURLProtocol.requestHandler = nil }
+
+        let apiClient = APIClient(
+            baseURL: "https://example.com",
+            session: makeNotificationsSession(),
+            tokenStorage: TokenStorage(),
+            tokenProvider: NotificationStaticTokenProvider(token: "jwt-token")
+        )
+        let service = NotificationService(apiClient: apiClient)
+
+        let page = try await service.fetchNotifications(limit: 50, cursor: nil)
+        #expect(page.notifications.count == 2)
+
+        let highlights = page.notifications[0]
+        #expect(highlights.type == .sinceAwayHighlights)
+        #expect(highlights.notificationUUID?.uuidString.lowercased() == "00000000-0000-0000-0000-000000000001")
+        #expect(highlights.deeplink == "looped://feed")
+        #expect(highlights.newPostsCount == 7)
+        #expect(highlights.privacyLevel == .generic)
+
+        let trending = page.notifications[1]
+        #expect(trending.type == .trendingToday)
+        #expect(trending.notificationUUID?.uuidString.lowercased() == "00000000-0000-0000-0000-000000000002")
+        #expect(trending.targetId?.backendInt == 55)
+        #expect(trending.communityId == 42)
+        #expect(trending.fallbackDeeplink == "looped://feed?tab=trending&community_id=42")
+        #expect(trending.privacyLevel == .detailed)
     }
 }
 

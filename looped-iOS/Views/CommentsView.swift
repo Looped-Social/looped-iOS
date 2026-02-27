@@ -521,7 +521,7 @@ private extension CommentsView {
                             .renderingMode(.template)
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundColor(isPostLiked ? .loopedError : .loopedTextSecondary)
+                            .foregroundColor(isPostLiked ? .loopedLike : .loopedTextSecondary)
 
                         if !canLikePost {
                             Image(systemName: "lock.fill")

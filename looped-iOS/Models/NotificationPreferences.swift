@@ -14,6 +14,8 @@ enum NotificationPreferenceType: String, CaseIterable {
     case mention
     case postFromFollowed = "post_from_followed"
     case repost
+    case sinceAwayHighlights = "since_away_highlights"
+    case trendingToday = "trending_today"
     case announcement
     case system
     case messageRequest = "message_request"
@@ -75,6 +77,10 @@ extension NotificationTypePreferencesDTO {
             return postFromFollowed
         case .repost:
             return repost
+        case .sinceAwayHighlights:
+            return sinceAwayHighlights
+        case .trendingToday:
+            return trendingToday
         case .announcement:
             return announcement
         case .system:
@@ -104,6 +110,10 @@ extension NotificationTypePreferencesDTO {
             postFromFollowed = value
         case .repost:
             repost = value
+        case .sinceAwayHighlights:
+            sinceAwayHighlights = value
+        case .trendingToday:
+            trendingToday = value
         case .announcement:
             announcement = value
         case .system:
@@ -135,6 +145,10 @@ extension NotificationTypePreferencesUpdateDTO {
             postFromFollowed = value
         case .repost:
             repost = value
+        case .sinceAwayHighlights:
+            sinceAwayHighlights = value
+        case .trendingToday:
+            trendingToday = value
         case .announcement:
             announcement = value
         case .system:

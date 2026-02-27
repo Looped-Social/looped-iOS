@@ -24,6 +24,8 @@ import GoogleSignIn
 
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+  private let allowlistedUniversalHost = "mylooped.app"
+
   func application(_ application: UIApplication,
                    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
     FirebaseApp.configure()
@@ -145,13 +147,37 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
   private func handleDeeplink(userInfo: [AnyHashable: Any]) {
       markNotificationRead(userInfo: userInfo)
-      guard let deeplink = userInfo["deeplink"] as? String,
-            let url = URL(string: deeplink) else { return }
+      let type = (userInfo["type"] as? String)?
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+          .lowercased()
+      let primaryURL = allowlistedDeeplinkURL(userInfo["deeplink"])
+      let fallbackURL: URL? = {
+          guard type == "trending_today" else { return nil }
+          return allowlistedDeeplinkURL(userInfo["fallback_deeplink"])
+      }()
+
       DispatchQueue.main.async {
-          if !DeepLinkRouter.shared.handleIncomingURL(url) {
-              UIApplication.shared.open(url)
+          if let primaryURL, DeepLinkRouter.shared.handleIncomingURL(primaryURL, fallbackURL: fallbackURL) {
+              return
           }
+          if let fallbackURL, DeepLinkRouter.shared.handleIncomingURL(fallbackURL) {
+              return
+          }
+          _ = DeepLinkRouter.shared.handleIncomingURL(URL(string: "looped://home")!)
       }
+  }
+
+  private func allowlistedDeeplinkURL(_ rawValue: Any?) -> URL? {
+      guard let raw = rawValue as? String else { return nil }
+      guard let url = URL(string: raw) else { return nil }
+      let scheme = (url.scheme ?? "").lowercased()
+      if scheme == "looped" {
+          return url
+      }
+      if scheme == "https", (url.host ?? "").lowercased() == allowlistedUniversalHost {
+          return url
+      }
+      return nil
   }
 
   private func markNotificationRead(userInfo: [AnyHashable: Any]) {

@@ -89,7 +89,7 @@ struct PostGridCell: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "heart.fill")
                                     .font(.loopedCustom(size: 10))
-                                    .foregroundColor(.loopedError)
+                                    .foregroundColor(.loopedLike)
                                 Text("\(post.reactionCount)")
                                     .font(.loopedCustom(.medium, size: 10))
                                     .foregroundColor(.loopedWhite)

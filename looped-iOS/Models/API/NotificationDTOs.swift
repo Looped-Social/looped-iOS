@@ -7,6 +7,7 @@ struct NotificationListResponseDTO: Codable {
 
 struct NotificationDTO: Codable {
     let id: Int
+    let notificationId: UUID?
     let type: String
     let createdAt: Date
     let unread: Bool
@@ -14,6 +15,7 @@ struct NotificationDTO: Codable {
 }
 
 struct NotificationPayloadDTO: Codable {
+    let notificationId: UUID?
     let category: String?
     let kind: String?
     let status: String?
@@ -34,6 +36,11 @@ struct NotificationPayloadDTO: Codable {
     let years: Int?
     let deeplink: String?
     let actionDeeplink: String?
+    let fallbackDeeplink: String?
+    let privacyLevel: String?
+    let reason: JSONValue?
+    let newPostsCount: Int?
+    let since: Date?
     let companyId: Int?
     let communityId: Int?
     let communityName: String?

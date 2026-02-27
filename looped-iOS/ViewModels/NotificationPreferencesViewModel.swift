@@ -60,6 +60,13 @@ class NotificationPreferencesViewModel: ObservableObject {
         }
     }
 
+    func setPrivacyMode(_ mode: NotificationPrivacyMode) async {
+        let update = makePrivacyModeUpdate(mode: mode)
+        await applyUpdate(update) { preferences in
+            preferences.privacyMode = mode
+        }
+    }
+
     private func applyUpdate(
         _ update: NotificationPreferencesUpdateRequest,
         applyLocal: (inout NotificationPreferencesDTO) -> Void
@@ -112,5 +119,9 @@ class NotificationPreferencesViewModel: ObservableObject {
             channels.setChannel(channel, update: channelUpdate)
         }
         return NotificationPreferencesUpdateRequest(channels: channels)
+    }
+
+    private func makePrivacyModeUpdate(mode: NotificationPrivacyMode) -> NotificationPreferencesUpdateRequest {
+        NotificationPreferencesUpdateRequest(privacyMode: mode, channels: NotificationChannelsUpdateDTO())
     }
 }

@@ -53,7 +53,7 @@ struct PostActionBarCompact: View {
             actionButton(
                 icon: Image(systemName: state.isLiked ? "heart.fill" : "heart"),
                 count: state.likeCount,
-                tint: state.isLiked ? .loopedError : .loopedWhite,
+                tint: state.isLiked ? .loopedLike : .loopedWhite,
                 disabled: false,
                 action: onLike,
                 showsLock: state.isReactionLocked

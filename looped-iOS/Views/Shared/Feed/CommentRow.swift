@@ -244,7 +244,7 @@ struct CommentRow: View {
         ZStack(alignment: .topTrailing) {
             Image(systemName: comment.userLiked ? "heart.fill" : "heart")
                 .font(.loopedSymbol(.regular, size: likeIconSize))
-                .foregroundColor(comment.userLiked ? .loopedError : .loopedTextSecondary)
+                .foregroundColor(comment.userLiked ? .loopedLike : .loopedTextSecondary)
 
             if isLikeLocked {
                 Image(systemName: "lock.fill")

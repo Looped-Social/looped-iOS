@@ -186,7 +186,7 @@ private struct HeartsRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "heart.fill")
-                .foregroundColor(.loopedError)
+                .foregroundColor(.loopedLike)
             Text(text)
                 .font(.loopedSubBodyMedium)
                 .foregroundColor(.loopedTextSecondary)

@@ -3,6 +3,8 @@ import Foundation
 // MARK: - Notification Model
 struct Notification: Codable, Identifiable {
     let id: UUID
+    /// Canonical UUID for analytics/dedupe (distinct from the numeric backend id used for mark-read/dismiss).
+    let notificationUUID: UUID?
     let type: NotificationType
     let actorId: UUID?
     let actorAnonProfileId: UUID?
@@ -29,12 +31,19 @@ struct Notification: Codable, Identifiable {
     let announcementYears: Int?
     let deeplink: String?
     let actionDeeplink: String?
+    let fallbackDeeplink: String?
+    let privacyLevel: NotificationPrivacyLevel?
+    let reason: JSONValue?
+    let newPostsCount: Int?
+    let since: Date?
+    let communityId: Int?
     let mentionContext: NotificationMentionContext?
     let isRead: Bool
     let createdAt: Date
 
     init(
         id: UUID = UUID(),
+        notificationUUID: UUID? = nil,
         type: NotificationType,
         actorId: UUID? = nil,
         actorAnonProfileId: UUID? = nil,
@@ -61,11 +70,18 @@ struct Notification: Codable, Identifiable {
         announcementYears: Int? = nil,
         deeplink: String? = nil,
         actionDeeplink: String? = nil,
+        fallbackDeeplink: String? = nil,
+        privacyLevel: NotificationPrivacyLevel? = nil,
+        reason: JSONValue? = nil,
+        newPostsCount: Int? = nil,
+        since: Date? = nil,
+        communityId: Int? = nil,
         mentionContext: NotificationMentionContext? = nil,
         isRead: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
+        self.notificationUUID = notificationUUID
         self.type = type
         self.actorId = actorId
         self.actorAnonProfileId = actorAnonProfileId
@@ -92,6 +108,12 @@ struct Notification: Codable, Identifiable {
         self.announcementYears = announcementYears
         self.deeplink = deeplink
         self.actionDeeplink = actionDeeplink
+        self.fallbackDeeplink = fallbackDeeplink
+        self.privacyLevel = privacyLevel
+        self.reason = reason
+        self.newPostsCount = newPostsCount
+        self.since = since
+        self.communityId = communityId
         self.mentionContext = mentionContext
         self.isRead = isRead
         self.createdAt = createdAt
@@ -107,11 +129,18 @@ enum NotificationType: String, Codable {
     case follow         // Someone followed you
     case postFromFollowed = "post_from_followed"
     case messageRequest = "message_request"
+    case sinceAwayHighlights = "since_away_highlights"
+    case trendingToday = "trending_today"
     case announcement
     case system
     case loopInvite     // Someone invited you to a loop
     case groupInvite    // Someone added you to a group
     case repost         // Someone reposted your post
+}
+
+enum NotificationPrivacyLevel: String, Codable {
+    case generic
+    case detailed
 }
 
 enum NotificationMentionContext: String, Codable {
@@ -183,6 +212,16 @@ extension Notification {
             return "\(actorText) shared a new post"
         case .messageRequest:
             return "\(actorText) sent you a message request"
+        case .sinceAwayHighlights:
+            if let title = trimmedTitle, !title.isEmpty {
+                return title
+            }
+            return "Top posts since you were away"
+        case .trendingToday:
+            if let title = trimmedTitle, !title.isEmpty {
+                return title
+            }
+            return "Trending right now"
         case .announcement:
             if isVerificationNotification {
                 return resolvedVerificationTitle
@@ -248,6 +287,10 @@ extension Notification {
             return "person.2.fill"
         case .messageRequest:
             return "tray.fill"
+        case .sinceAwayHighlights:
+            return "sparkles"
+        case .trendingToday:
+            return "flame.fill"
         case .announcement:
             return "megaphone.fill"
         case .system:
@@ -303,6 +346,7 @@ extension Notification {
     func updatingActor(name: String, profileImageUrl: String?) -> Notification {
         Notification(
             id: id,
+            notificationUUID: notificationUUID,
             type: type,
             actorId: actorId,
             actorAnonProfileId: actorAnonProfileId,
@@ -329,6 +373,12 @@ extension Notification {
             announcementYears: announcementYears,
             deeplink: deeplink,
             actionDeeplink: actionDeeplink,
+            fallbackDeeplink: fallbackDeeplink,
+            privacyLevel: privacyLevel,
+            reason: reason,
+            newPostsCount: newPostsCount,
+            since: since,
+            communityId: communityId,
             mentionContext: mentionContext,
             isRead: isRead,
             createdAt: createdAt
@@ -338,6 +388,7 @@ extension Notification {
     func markingRead() -> Notification {
         Notification(
             id: id,
+            notificationUUID: notificationUUID,
             type: type,
             actorId: actorId,
             actorAnonProfileId: actorAnonProfileId,
@@ -364,6 +415,12 @@ extension Notification {
             announcementYears: announcementYears,
             deeplink: deeplink,
             actionDeeplink: actionDeeplink,
+            fallbackDeeplink: fallbackDeeplink,
+            privacyLevel: privacyLevel,
+            reason: reason,
+            newPostsCount: newPostsCount,
+            since: since,
+            communityId: communityId,
             mentionContext: mentionContext,
             isRead: true,
             createdAt: createdAt

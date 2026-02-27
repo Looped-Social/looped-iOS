@@ -408,6 +408,14 @@ extension NotificationServiceProtocol {
     }
 }
 
+protocol AppOpenServiceProtocol {
+    func reportOpen(
+        openedAt: Date?,
+        activeCommunityId: Int?,
+        seenCommunityIds: [Int]?
+    ) async throws -> AppOpenResponseDTO
+}
+
 protocol ContentPreferencesServiceProtocol {
     func getPreferences() async throws -> ContentPreferencesResponseDTO
     func updateHideAnonymousPosts(_ hideAnonymousPosts: Bool) async throws -> ContentPreferencesResponseDTO

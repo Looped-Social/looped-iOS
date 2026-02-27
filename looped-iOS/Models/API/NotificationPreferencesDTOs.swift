@@ -4,8 +4,30 @@ struct NotificationPreferencesResponseDTO: Codable {
     let notifications: NotificationPreferencesDTO
 }
 
+enum NotificationPrivacyMode: String, Codable, CaseIterable {
+    case generic
+    case detailed
+}
+
 struct NotificationPreferencesDTO: Codable {
+    var privacyMode: NotificationPrivacyMode
     var channels: NotificationChannelsDTO
+
+    init(privacyMode: NotificationPrivacyMode = .generic, channels: NotificationChannelsDTO) {
+        self.privacyMode = privacyMode
+        self.channels = channels
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        privacyMode = try container.decodeIfPresent(NotificationPrivacyMode.self, forKey: .privacyMode) ?? .generic
+        channels = try container.decode(NotificationChannelsDTO.self, forKey: .channels)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case privacyMode
+        case channels
+    }
 }
 
 struct NotificationChannelsDTO: Codable {
@@ -27,6 +49,8 @@ struct NotificationTypePreferencesDTO: Codable {
     var mention: Bool
     var postFromFollowed: Bool
     var repost: Bool
+    var sinceAwayHighlights: Bool
+    var trendingToday: Bool
     var announcement: Bool
     var system: Bool
     var messageRequest: Bool
@@ -41,6 +65,8 @@ struct NotificationTypePreferencesDTO: Codable {
         case mention
         case postFromFollowed
         case repost
+        case sinceAwayHighlights
+        case trendingToday
         case announcement
         case system
         case messageRequest
@@ -58,6 +84,8 @@ struct NotificationTypePreferencesDTO: Codable {
         mention = try container.decodeIfPresent(Bool.self, forKey: .mention) ?? true
         postFromFollowed = try container.decodeIfPresent(Bool.self, forKey: .postFromFollowed) ?? true
         repost = try container.decodeIfPresent(Bool.self, forKey: .repost) ?? true
+        sinceAwayHighlights = try container.decodeIfPresent(Bool.self, forKey: .sinceAwayHighlights) ?? true
+        trendingToday = try container.decodeIfPresent(Bool.self, forKey: .trendingToday) ?? true
         announcement = try container.decodeIfPresent(Bool.self, forKey: .announcement) ?? true
         system = try container.decodeIfPresent(Bool.self, forKey: .system) ?? true
         messageRequest = try container.decodeIfPresent(Bool.self, forKey: .messageRequest) ?? true
@@ -67,7 +95,18 @@ struct NotificationTypePreferencesDTO: Codable {
 }
 
 struct NotificationPreferencesUpdateRequest: Codable {
+    var privacyMode: NotificationPrivacyMode? = nil
     let channels: NotificationChannelsUpdateDTO
+
+    init(privacyMode: NotificationPrivacyMode? = nil, channels: NotificationChannelsUpdateDTO) {
+        self.privacyMode = privacyMode
+        self.channels = channels
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case privacyMode = "privacy_mode"
+        case channels
+    }
 }
 
 struct NotificationChannelsUpdateDTO: Codable {
@@ -95,6 +134,8 @@ struct NotificationTypePreferencesUpdateDTO: Codable {
     var mention: Bool? = nil
     var postFromFollowed: Bool? = nil
     var repost: Bool? = nil
+    var sinceAwayHighlights: Bool? = nil
+    var trendingToday: Bool? = nil
     var announcement: Bool? = nil
     var system: Bool? = nil
     var messageRequest: Bool? = nil
@@ -109,6 +150,8 @@ struct NotificationTypePreferencesUpdateDTO: Codable {
         case mention
         case postFromFollowed = "post_from_followed"
         case repost
+        case sinceAwayHighlights = "since_away_highlights"
+        case trendingToday = "trending_today"
         case announcement
         case system
         case messageRequest = "message_request"

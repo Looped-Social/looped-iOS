@@ -37,6 +37,12 @@ class NotificationService: NotificationServiceProtocol {
             let mentionContext = payload?.context.flatMap(NotificationMentionContext.init(rawValue:))
             let deeplink = payload?.deeplink ?? payload?.actionDeeplink
             let actionDeeplink = payload?.actionDeeplink ?? payload?.deeplink
+            let fallbackDeeplink = payload?.fallbackDeeplink
+            let privacyLevel: NotificationPrivacyLevel? = {
+                let trimmed = (payload?.privacyLevel ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                guard !trimmed.isEmpty else { return nil }
+                return NotificationPrivacyLevel(rawValue: trimmed)
+            }()
             let announcementKind: NotificationAnnouncementKind? = {
                 guard let rawKind = payload?.kind?.trimmingCharacters(in: .whitespacesAndNewlines), !rawKind.isEmpty else {
                     return nil
@@ -45,6 +51,7 @@ class NotificationService: NotificationServiceProtocol {
             }()
             return Notification(
                 id: UUID.fromBackendId(dto.id),
+                notificationUUID: dto.notificationId ?? payload?.notificationId,
                 type: type,
                 actorId: actorId,
                 actorAnonProfileId: actorAnonProfileId,
@@ -71,6 +78,12 @@ class NotificationService: NotificationServiceProtocol {
                 announcementYears: payload?.years,
                 deeplink: deeplink,
                 actionDeeplink: actionDeeplink,
+                fallbackDeeplink: fallbackDeeplink,
+                privacyLevel: privacyLevel,
+                reason: payload?.reason,
+                newPostsCount: payload?.newPostsCount,
+                since: payload?.since,
+                communityId: payload?.communityId,
                 mentionContext: mentionContext,
                 isRead: !dto.unread,
                 createdAt: dto.createdAt

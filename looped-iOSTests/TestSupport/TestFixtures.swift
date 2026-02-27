@@ -331,6 +331,7 @@ enum TestFixtures {
         NotificationPreferenceType.allCases.forEach { types.set(allEnabled, for: $0) }
         let channel = NotificationChannelDTO(enabled: allEnabled, types: types)
         return NotificationPreferencesDTO(
+            privacyMode: .generic,
             channels: NotificationChannelsDTO(inApp: channel, push: channel, email: channel)
         )
     }

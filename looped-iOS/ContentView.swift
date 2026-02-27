@@ -653,8 +653,13 @@ struct MainTabView: View {
         .onReceive(feedViewModel.$followedCommunities) { _ in
             syncWidgetSnapshot()
         }
-        .onReceive(feedViewModel.$selectedCommunity) { _ in
+        .onReceive(feedViewModel.$selectedCommunity) { community in
             syncWidgetSnapshot()
+            if let communityId = community?.id {
+                Task {
+                    await AppOpenReporter.shared.markCommunitySeen(communityId)
+                }
+            }
         }
         .onReceive(feedViewModel.$posts) { _ in
             syncWidgetSnapshot()
@@ -667,6 +672,20 @@ struct MainTabView: View {
             Task {
                 await widgetSummaryService.refreshSharedSnapshot()
                 syncWidgetSnapshot()
+                await AppOpenReporter.shared.reportIfNeeded(
+                    isAuthenticated: authViewModel.isAuthenticated,
+                    activeCommunityId: feedViewModel.selectedCommunity?.id
+                )
+            }
+        }
+        .onReceive(authViewModel.$isAuthenticated.removeDuplicates()) { isAuthenticated in
+            guard isAuthenticated else { return }
+            guard scenePhase == .active else { return }
+            Task {
+                await AppOpenReporter.shared.reportIfNeeded(
+                    isAuthenticated: true,
+                    activeCommunityId: feedViewModel.selectedCommunity?.id
+                )
             }
         }
         .environmentObject(feedViewModel)
@@ -1451,10 +1470,15 @@ struct MainTabView: View {
             let reason = deepLinkFailureReason(from: error)
             await MainActor.run {
                 deepLinkRouter.reportNavigationFailure(for: request, reason: reason)
-                deepLinkUnavailable = DeepLinkUnavailableState(
-                    title: "Post unavailable",
-                    message: "This post may have been removed or is no longer available."
-                )
+                if let fallbackURL = request.fallbackURL {
+                    // Used for push routing (ex: trending_today) when the target post is unavailable.
+                    _ = deepLinkRouter.handleIncomingURL(fallbackURL)
+                } else {
+                    deepLinkUnavailable = DeepLinkUnavailableState(
+                        title: "Post unavailable",
+                        message: "This post may have been removed or is no longer available."
+                    )
+                }
             }
         }
     }

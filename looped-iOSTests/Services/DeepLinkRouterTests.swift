@@ -154,6 +154,40 @@ struct DeepLinkRouterTests {
         }
     }
 
+    @Test
+    func feedDeepLinkRoutesToHome() {
+        let router = DeepLinkRouter.shared
+        resetRouter(router)
+        defer { resetRouter(router) }
+        router.setAuthenticationState(true)
+
+        let handled = router.handleIncomingURL(URL(string: "looped://feed")!)
+        #expect(handled)
+        #expect(router.pendingNavigation?.destination == .home)
+        #expect(router.pendingNavigation?.pathType == .home)
+
+        if let request = router.pendingNavigation {
+            router.consumeNavigation(request)
+        }
+    }
+
+    @Test
+    func feedTrendingDeepLinkRoutesToSearch() {
+        let router = DeepLinkRouter.shared
+        resetRouter(router)
+        defer { resetRouter(router) }
+        router.setAuthenticationState(true)
+
+        let handled = router.handleIncomingURL(URL(string: "looped://feed?tab=trending&community_id=42")!)
+        #expect(handled)
+        #expect(router.pendingNavigation?.destination == .search)
+        #expect(router.pendingNavigation?.pathType == .search)
+
+        if let request = router.pendingNavigation {
+            router.consumeNavigation(request)
+        }
+    }
+
     private func resetRouter(_ router: DeepLinkRouter) {
         router.setAuthenticationState(true)
         if let request = router.pendingNavigation {

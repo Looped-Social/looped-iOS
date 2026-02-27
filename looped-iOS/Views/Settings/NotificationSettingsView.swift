@@ -25,6 +25,7 @@ struct NotificationSettingsView: View {
             }
 
             if viewModel.preferences != nil {
+                privacySection
                 deliverySection
                 notificationTypesSection
             }
@@ -60,8 +61,8 @@ private extension NotificationSettingsView {
         let isSystem: Bool
     }
 
-		    var typeDescriptors: [NotificationTypeDescriptor] {
-		        [
+    var typeDescriptors: [NotificationTypeDescriptor] {
+        [
 	            NotificationTypeDescriptor(
 	                id: .messageRequest,
 	                icon: "tray.fill",
@@ -133,6 +134,20 @@ private extension NotificationSettingsView {
                 isSystem: false
             ),
             NotificationTypeDescriptor(
+                id: .sinceAwayHighlights,
+                icon: "sparkles",
+                title: "Highlights",
+                subtitle: "Top posts since you were away",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
+                id: .trendingToday,
+                icon: "flame.fill",
+                title: "Trending",
+                subtitle: "When something is trending right now",
+                isSystem: false
+            ),
+            NotificationTypeDescriptor(
                 id: .announcement,
                 icon: "megaphone.fill",
                 title: "Announcements",
@@ -147,7 +162,22 @@ private extension NotificationSettingsView {
                 isSystem: true
             )
         ]
-	    }
+    }
+
+    var privacySection: some View {
+        let isLoaded = viewModel.preferences != nil
+        return Section("Privacy") {
+            Toggle(isOn: privacyModeBinding) {
+                SettingsRowLabel(
+                    icon: .system("lock.fill"),
+                    title: "Show Details on Lock Screen",
+                    subtitle: "If off, push notifications use generic copy by default"
+                )
+            }
+            .tint(.loopedSecondary)
+            .disabled(!isLoaded)
+        }
+    }
 
     var deliverySection: some View {
         let isLoaded = viewModel.preferences != nil
@@ -215,7 +245,7 @@ private extension NotificationSettingsView {
     }
 
     func typeBinding(type: NotificationPreferenceType) -> Binding<Bool> {
-        let deliveryChannels: [NotificationPreferenceChannel] = [.inApp, .push]
+        let deliveryChannels: [NotificationPreferenceChannel] = channelsForType(type)
         return Binding(
             get: {
                 guard let preferences = viewModel.preferences else { return false }
@@ -227,6 +257,26 @@ private extension NotificationSettingsView {
                 Task { await viewModel.setTypeEnabled(type: type, isOn: newValue, channels: deliveryChannels) }
             }
         )
+    }
+
+    var privacyModeBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.preferences?.privacyMode == .detailed },
+            set: { newValue in
+                Task {
+                    await viewModel.setPrivacyMode(newValue ? .detailed : .generic)
+                }
+            }
+        )
+    }
+
+    func channelsForType(_ type: NotificationPreferenceType) -> [NotificationPreferenceChannel] {
+        switch type {
+        case .sinceAwayHighlights, .trendingToday:
+            return [.push]
+        default:
+            return [.inApp, .push]
+        }
     }
 }
 
