@@ -112,6 +112,14 @@ struct PostDTO: Codable {
     let isUnderReview: Bool?
     let viewerCapabilities: PostViewerCapabilitiesDTO?
     let milestonesAwarded: [String]?
+    let shareNudge: PostShareNudgeDTO?
+}
+
+struct PostShareNudgeDTO: Codable {
+    let id: String?
+    let variant: String?
+    let messageKey: String?
+    let ctaKey: String?
 }
 
 struct PostViewerCapabilitiesDTO: Codable {
@@ -229,6 +237,31 @@ struct PostRepostResponseDTO: Codable {
 struct PostDeleteResponseDTO: Codable {
     let id: Int
     let deleted: Bool
+}
+
+struct ShareNudgeServeResponseDTO: Codable {
+    let postId: Int
+    let served: Bool
+    let shareNudge: PostShareNudgeDTO?
+}
+
+struct ShareNudgeDismissResponseDTO: Codable {
+    let postId: Int?
+    let servedAt: Date?
+    let firstServedAt: Date?
+    let dismissedAt: Date?
+    let shareTappedAt: Date?
+}
+
+struct ShareNudgeShareTapResponseDTO: Codable {
+    let postId: Int
+    let sharePayload: ShareNudgeSharePayloadDTO?
+}
+
+struct ShareNudgeSharePayloadDTO: Codable {
+    let deepLink: String?
+    let requiresAuth: Bool?
+    let textKey: String?
 }
 
 struct AnonActionRequestDTO: Codable {

@@ -62,6 +62,9 @@ protocol FeedServiceProtocol {
     func savePost(postId: Int, communityId: Int?) async throws -> Bool
     func removeSavedPost(postId: Int, communityId: Int?) async throws -> Bool
     func deletePost(postId: Int, communityId: Int?, asAnon: Bool) async throws -> PostDeleteResponse
+    func serveShareNudge(postId: Int) async throws -> ShareNudgeServeResponse
+    func dismissShareNudge(postId: Int) async throws -> ShareNudgeDismissResponse
+    func trackShareNudgeTap(postId: Int) async throws -> ShareNudgeShareTapResponse
 }
 
 struct PostReactionResponse {
@@ -84,6 +87,31 @@ struct PostDeleteResponse {
     let deleted: Bool
 }
 
+struct ShareNudgeServeResponse {
+    let postId: Int
+    let served: Bool
+    let shareNudge: PostShareNudge?
+}
+
+struct ShareNudgeDismissResponse {
+    let postId: Int?
+    let servedAt: Date?
+    let firstServedAt: Date?
+    let dismissedAt: Date?
+    let shareTappedAt: Date?
+}
+
+struct ShareNudgeShareTapResponse {
+    let postId: Int
+    let sharePayload: ShareNudgePayload?
+}
+
+struct ShareNudgePayload {
+    let deepLink: String?
+    let requiresAuth: Bool
+    let textKey: String?
+}
+
 struct RepostersPage {
     let items: [RepostBannerUser]
     let nextCursor: String?
@@ -98,6 +126,18 @@ extension FeedServiceProtocol {
             communityId: communityId,
             removeMedia: false
         )
+    }
+
+    func serveShareNudge(postId: Int) async throws -> ShareNudgeServeResponse {
+        throw APIError.invalidResponse
+    }
+
+    func dismissShareNudge(postId: Int) async throws -> ShareNudgeDismissResponse {
+        throw APIError.invalidResponse
+    }
+
+    func trackShareNudgeTap(postId: Int) async throws -> ShareNudgeShareTapResponse {
+        throw APIError.invalidResponse
     }
 }
 

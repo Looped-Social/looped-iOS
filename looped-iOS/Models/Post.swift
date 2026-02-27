@@ -39,6 +39,7 @@ struct Post: Codable, Identifiable {
     let viewerCapabilities: PostViewerCapabilities?
     let authorDisplayCommunity: DisplayCommunity?
     let authorDisplaySpecialization: DisplayCommunity?
+    let shareNudge: PostShareNudge?
     let createdAt: Date
     let updatedAt: Date
 
@@ -81,6 +82,7 @@ struct Post: Codable, Identifiable {
         viewerCapabilities: PostViewerCapabilities? = nil,
         authorDisplayCommunity: DisplayCommunity? = nil,
         authorDisplaySpecialization: DisplayCommunity? = nil,
+        shareNudge: PostShareNudge? = nil,
         createdAt: Date,
         updatedAt: Date
     ) {
@@ -122,6 +124,7 @@ struct Post: Codable, Identifiable {
         self.viewerCapabilities = viewerCapabilities
         self.authorDisplayCommunity = authorDisplayCommunity
         self.authorDisplaySpecialization = authorDisplaySpecialization
+        self.shareNudge = shareNudge
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -180,6 +183,7 @@ extension Post {
         let resolvedAuthorDisplaySpecialization = dto.authorDisplaySpecialization.map(DisplayCommunity.init(dto:))
         let resolvedIsUnderReview = dto.isUnderReview ?? false
         let resolvedViewerCapabilities = dto.viewerCapabilities.map(PostViewerCapabilities.init(dto:))
+        let resolvedShareNudge = dto.shareNudge.flatMap(PostShareNudge.init(dto:))
         let resolvedAwardedMilestones = dto.milestonesAwarded?
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -222,6 +226,7 @@ extension Post {
             viewerCapabilities: resolvedViewerCapabilities,
             authorDisplayCommunity: resolvedAuthorDisplayCommunity,
             authorDisplaySpecialization: resolvedAuthorDisplaySpecialization,
+            shareNudge: resolvedShareNudge,
             createdAt: dto.createdAt,
             updatedAt: dto.createdAt
         )
@@ -244,6 +249,7 @@ extension Post {
         communityKind: CommunityKind? = nil,
         authorDisplayCommunity: DisplayCommunity? = nil,
         authorDisplaySpecialization: DisplayCommunity? = nil,
+        shareNudge: PostShareNudge?? = nil,
         poll: Poll?? = nil,
         updatedAt: Date? = nil
     ) -> Post {
@@ -266,6 +272,7 @@ extension Post {
         let resolvedViewerCapabilities = self.viewerCapabilities
         let resolvedAuthorDisplayCommunity = authorDisplayCommunity ?? self.authorDisplayCommunity
         let resolvedAuthorDisplaySpecialization = authorDisplaySpecialization ?? self.authorDisplaySpecialization
+        let resolvedShareNudge: PostShareNudge? = shareNudge ?? self.shareNudge
         let resolvedUpdatedAt = updatedAt ?? self.updatedAt
 
         return Post(
@@ -307,6 +314,7 @@ extension Post {
             viewerCapabilities: resolvedViewerCapabilities,
             authorDisplayCommunity: resolvedAuthorDisplayCommunity,
             authorDisplaySpecialization: resolvedAuthorDisplaySpecialization,
+            shareNudge: resolvedShareNudge,
             createdAt: createdAt,
             updatedAt: resolvedUpdatedAt
         )
@@ -459,5 +467,32 @@ struct RepostBannerUser: Codable, Identifiable, Hashable {
         self.displayName = dto.displayName
         self.handle = dto.handle
         self.profileImageURL = dto.profileImageUrl
+    }
+}
+
+struct PostShareNudge: Codable, Equatable {
+    let id: String
+    let variant: String
+    let messageKey: String
+    let ctaKey: String
+
+    init(
+        id: String,
+        variant: String = "v1",
+        messageKey: String = "share_nudge.low_traction",
+        ctaKey: String = "share_nudge.cta_share"
+    ) {
+        self.id = id
+        self.variant = variant
+        self.messageKey = messageKey
+        self.ctaKey = ctaKey
+    }
+
+    init?(dto: PostShareNudgeDTO) {
+        guard let resolvedId = dto.id?.trimmedNonEmpty else { return nil }
+        self.id = resolvedId
+        self.variant = dto.variant?.trimmedNonEmpty ?? "v1"
+        self.messageKey = dto.messageKey?.trimmedNonEmpty ?? "share_nudge.low_traction"
+        self.ctaKey = dto.ctaKey?.trimmedNonEmpty ?? "share_nudge.cta_share"
     }
 }

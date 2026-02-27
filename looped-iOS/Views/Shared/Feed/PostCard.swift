@@ -25,15 +25,20 @@ struct PostCard: View {
     @State private var isLikeLoading = false
     @State private var isRepostLoading = false
     @State private var likeIconScale: CGFloat = 1
-    @State private var likeRingScale: CGFloat = 0.7
-    @State private var likeRingOpacity: Double = 0
+    @State private var likeParticleProgress: CGFloat = 0
+    @State private var likeParticleOpacity: Double = 0
+    @State private var likeGlowScale: CGFloat = 0.6
+    @State private var likeGlowOpacity: Double = 0
+    @State private var hasPrimedLikeAnimation = false
     @State private var communityPermissions: CommunityPermissions?
     @State private var hasRequestedCommunityPermissions = false
 	    @State private var viewerAnonProfileId: Int?
-	    @State private var showShareSheet = false
+    @State private var showShareSheet = false
         @State private var isPreparingShareSheet = false
         @State private var shareItems: [Any] = []
 	    @State private var isShareTracking = false
+    @State private var isShareNudgeHiddenLocally = false
+    @State private var isShareNudgeActionLoading = false
     @State private var selectedImageUrl: String?
     @State private var selectedImageIndex: Int = 0
     @State private var showImageViewer = false
@@ -82,6 +87,8 @@ struct PostCard: View {
     @State private var lockedActionSheetDismissalIntent: LockedActionSheetDismissalIntent = .none
 
     private static let lockedActionDefaultDetent: PresentationDetent = .height(292)
+    // Temporary UI-tuning override. Set false before production rollout.
+    private static let forceShowShareNudgeForPreview = true
 
     private enum LockedActionSheetDismissalIntent {
         case none
@@ -149,6 +156,37 @@ struct PostCard: View {
             return "\(first) and \(remaining) others reposted this"
         }
         return "Reposted by \(count) people"
+    }
+
+    private var activeShareNudge: PostShareNudge? {
+        if let shareNudge = post.shareNudge {
+            return shareNudge
+        }
+        guard Self.forceShowShareNudgeForPreview else { return nil }
+        guard let backendId = post.backendId else { return nil }
+        return PostShareNudge(id: "preview:\(backendId)")
+    }
+
+    private var shouldShowShareNudge: Bool {
+        !isShareNudgeHiddenLocally && activeShareNudge != nil
+    }
+
+    private var shareNudgeMessageText: String {
+        switch activeShareNudge?.messageKey {
+        case "share_nudge.low_traction":
+            return "Boost your post by sharing"
+        default:
+            return "Want more eyes on this post?"
+        }
+    }
+
+    private var shareNudgeCTAButtonText: String {
+        switch activeShareNudge?.ctaKey {
+        case "share_nudge.cta_share":
+            return "Share"
+        default:
+            return "Share"
+        }
     }
 
     private var imageUrls: [String] {
@@ -357,30 +395,75 @@ struct PostCard: View {
 		        }
 		    }
 
+    @ViewBuilder
+    private var shareNudgeBanner: some View {
+        if shouldShowShareNudge {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.up.forward.square")
+                    .font(.loopedCustom(.medium, size: 14))
+                    .foregroundColor(.loopedTextSecondary)
+
+                Text(shareNudgeMessageText)
+                    .font(.loopedSmallText)
+                    .foregroundColor(.loopedTextSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Spacer(minLength: 0)
+
+                Button(action: handleShareNudgeShareTap) {
+                    if isShareNudgeActionLoading {
+                        ProgressView()
+                            .tint(.loopedPrimary)
+                    } else {
+                        Text(shareNudgeCTAButtonText)
+                            .font(.loopedSmallText)
+                            .foregroundColor(.loopedPrimary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isShareNudgeActionLoading)
+
+                Button(action: dismissShareNudge) {
+                    Image(systemName: "xmark")
+                        .font(.loopedCustom(.bold, size: 11))
+                        .foregroundColor(.loopedTextSecondary)
+                        .padding(6)
+                }
+                .buttonStyle(.plain)
+                .disabled(isShareNudgeActionLoading)
+            }
+            .contentShape(Rectangle())
+            .padding(.bottom, 2)
+        }
+    }
+
     private var likeButton: some View {
         Button(action: { handleLikeToggle() }) {
-            HStack(spacing: actionLabelSpacing) {
+                HStack(spacing: actionLabelSpacing) {
                     ZStack(alignment: .topTrailing) {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.loopedLike.opacity(0.35), lineWidth: 1.8)
-                                .frame(width: actionIconSize + 8, height: actionIconSize + 8)
-                                .scaleEffect(likeRingScale)
-                                .opacity(likeRingOpacity)
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: actionIconSize, height: actionIconSize)
+                            .foregroundColor(isLiked ? .loopedLike : .loopedTextSecondary)
+                            .overlay {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.loopedLike.opacity(0.24))
+                                        .frame(width: actionIconSize + 6, height: actionIconSize + 6)
+                                        .scaleEffect(likeGlowScale)
+                                        .opacity(likeGlowOpacity)
 
-                            Circle()
-                                .stroke(Color.loopedLike.opacity(0.8), lineWidth: 1.4)
-                                .frame(width: actionIconSize + 2, height: actionIconSize + 2)
-                                .scaleEffect(likeRingScale * 0.92)
-                                .opacity(likeRingOpacity * 0.95)
-
-                            Image(systemName: isLiked ? "heart.fill" : "heart")
-                                .resizable()
-                                .renderingMode(.template)
-                                .scaledToFit()
-                                .frame(width: actionIconSize, height: actionIconSize)
-                                .foregroundColor(isLiked ? .loopedLike : .loopedTextSecondary)
-                        }
+                                    LikeCelebrationParticles(
+                                        progress: likeParticleProgress,
+                                        opacity: likeParticleOpacity,
+                                        baseRadius: actionIconSize * 0.34
+                                    )
+                                }
+                                .allowsHitTesting(false)
+                            }
                         .scaleEffect(likeIconScale)
 
                         if isReactionLocked {
@@ -885,6 +968,7 @@ struct PostCard: View {
     private var postCardContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             repostBanner
+            shareNudgeBanner
             underReviewBanner
             headerSection
             postTextSection
@@ -912,6 +996,7 @@ struct PostCard: View {
                 syncLikeState()
                 syncRepostState()
                 syncActionBarState()
+                primeLikeAnimationIfNeeded()
                 Task { await syncViewerAnonProfileId() }
                 Task { await loadCommunityPermissionsIfNeeded() }
             }
@@ -948,6 +1033,11 @@ struct PostCard: View {
             }
             .onChange(of: post.commentsCount) { _, _ in
                 syncActionBarState()
+            }
+            .onChange(of: post.shareNudge?.id) { _, newValue in
+                if newValue != nil {
+                    isShareNudgeHiddenLocally = false
+                }
             }
 
         let localChanges = postChanges
@@ -1188,16 +1278,92 @@ struct PostCard: View {
         return ["Check this out on Looped"]
     }
 
-        private func prepareShareSheet() {
-            guard !isPreparingShareSheet else { return }
-            isPreparingShareSheet = true
+    private func resolvedShareItems(for payload: ShareNudgePayload?) -> [Any] {
+        guard let payload else { return defaultShareItems }
+        var items: [Any] = []
+        if let text = localizedShareText(for: payload.textKey) {
+            items.append(text)
+        }
+        if let deepLink = payload.deepLink,
+           let deepLinkURL = URL(string: deepLink) {
+            items.append(deepLinkURL)
+        } else if let canonicalPostURL {
+            items.append(canonicalPostURL)
+        }
+        return items.isEmpty ? defaultShareItems : items
+    }
 
-            Task { @MainActor in
-                defer { isPreparingShareSheet = false }
-                shareItems = defaultShareItems
-                showShareSheet = true
+    private func localizedShareText(for textKey: String?) -> String? {
+        switch textKey {
+        case "share.post.generic":
+            return "Check this out on Looped"
+        case .none:
+            return nil
+        default:
+            return "Check this out on Looped"
+        }
+    }
+
+    private func prepareShareSheet() {
+        prepareShareSheet(with: defaultShareItems)
+    }
+
+    private func prepareShareSheet(with preparedItems: [Any]) {
+        guard !isPreparingShareSheet else { return }
+        isPreparingShareSheet = true
+
+        Task { @MainActor in
+            defer { isPreparingShareSheet = false }
+            shareItems = preparedItems
+            showShareSheet = true
+        }
+    }
+
+    private func dismissShareNudge() {
+        guard !isShareNudgeActionLoading else { return }
+        isShareNudgeHiddenLocally = true
+        if post.shareNudge != nil {
+            onUpdate?(post.updating(shareNudge: .some(nil), updatedAt: Date()))
+        }
+
+        guard post.shareNudge != nil, let postId = post.backendId else { return }
+        Task {
+            do {
+                _ = try await feedService.dismissShareNudge(postId: postId)
+            } catch {
+                if isNotFound(error) {
+                    handleContentUnavailable()
+                }
             }
         }
+    }
+
+    private func handleShareNudgeShareTap() {
+        guard !isPreparingShareSheet, !isShareNudgeActionLoading else { return }
+        isShareNudgeActionLoading = true
+        Task { @MainActor in
+            defer { isShareNudgeActionLoading = false }
+            var preparedItems = defaultShareItems
+
+            if post.shareNudge != nil, let postId = post.backendId {
+                do {
+                    let response = try await feedService.trackShareNudgeTap(postId: postId)
+                    preparedItems = resolvedShareItems(for: response.sharePayload)
+                } catch {
+                    if isNotFound(error) {
+                        handleContentUnavailable()
+                        return
+                    }
+                }
+            }
+
+            isShareNudgeHiddenLocally = true
+            if post.shareNudge != nil {
+                onUpdate?(post.updating(shareNudge: .some(nil), updatedAt: Date()))
+            }
+            prepareShareSheet(with: preparedItems)
+        }
+    }
 
     private func shouldTrackShare(completed: Bool, activityType: UIActivity.ActivityType?) -> Bool {
         guard completed else { return false }
@@ -1465,7 +1631,6 @@ struct PostCard: View {
                     updatedAt: Date()
                 )
                 onUpdate?(updated)
-                LoopedHaptics.success()
             } catch {
                 isLiked = false
                 if isNotFound(error) {
@@ -2299,26 +2464,100 @@ struct PostCard: View {
     }
 
     private func triggerLikeIconAnimation() {
-        likeIconScale = 0.86
-        likeRingScale = 0.72
-        likeRingOpacity = 0
+        likeIconScale = 0.82
+        likeParticleProgress = 0
+        likeParticleOpacity = 1
+        likeGlowScale = 0.62
+        likeGlowOpacity = 0.75
 
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.62)) {
-            likeIconScale = 1.16
+        withAnimation(.spring(response: 0.18, dampingFraction: 0.56, blendDuration: 0.08)) {
+            likeIconScale = 1.22
         }
 
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.72).delay(0.06)) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.74).delay(0.06)) {
             likeIconScale = 1
         }
 
-        withAnimation(.easeOut(duration: 0.28)) {
-            likeRingScale = 1.65
-            likeRingOpacity = 0.46
+        withAnimation(.easeOut(duration: 0.38)) {
+            likeParticleProgress = 1
         }
 
-        withAnimation(.easeOut(duration: 0.22).delay(0.12)) {
-            likeRingScale = 2.05
-            likeRingOpacity = 0
+        withAnimation(.easeOut(duration: 0.26).delay(0.1)) {
+            likeParticleOpacity = 0
+        }
+
+        withAnimation(.easeOut(duration: 0.2)) {
+            likeGlowScale = 1.65
+        }
+
+        withAnimation(.easeOut(duration: 0.22).delay(0.08)) {
+            likeGlowOpacity = 0
+        }
+    }
+
+    private func primeLikeAnimationIfNeeded() {
+        guard !hasPrimedLikeAnimation else { return }
+        hasPrimedLikeAnimation = true
+
+        // Warm up initial render paths so the first real tap does not stutter.
+        likeIconScale = 1
+        likeParticleProgress = 1
+        likeParticleOpacity = 0
+        likeGlowScale = 1
+        likeGlowOpacity = 0
+
+        DispatchQueue.main.async {
+            likeParticleProgress = 0
+        }
+    }
+}
+
+private struct LikeCelebrationParticles: View {
+    let progress: CGFloat
+    let opacity: Double
+    let baseRadius: CGFloat
+
+    private let particleColors: [Color] = [.loopedLike, .loopedPrimary, .loopedSecondary]
+    private let directionVectors: [CGSize] = [
+        CGSize(width: 0.00, height: -1.00),
+        CGSize(width: 0.50, height: -0.86),
+        CGSize(width: 0.86, height: -0.50),
+        CGSize(width: 1.00, height: 0.00),
+        CGSize(width: 0.86, height: 0.50),
+        CGSize(width: 0.50, height: 0.86),
+        CGSize(width: 0.00, height: 1.00),
+        CGSize(width: -0.50, height: 0.86),
+        CGSize(width: -0.86, height: 0.50),
+        CGSize(width: -1.00, height: 0.00),
+        CGSize(width: -0.86, height: -0.50),
+        CGSize(width: -0.50, height: -0.86)
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(directionVectors.indices, id: \.self) { index in
+                let vector = directionVectors[index]
+                let distance = baseRadius + (baseRadius * 1.65 * progress)
+                let size = particleSize(for: index)
+
+                Circle()
+                    .fill(particleColors[index % particleColors.count])
+                    .frame(width: size, height: size)
+                    .offset(
+                        x: vector.width * distance,
+                        y: vector.height * distance
+                    )
+                    .scaleEffect(0.75 + (0.55 * progress))
+                    .opacity(opacity * Double(max(0.2, 1 - (progress * 0.65))))
+            }
+        }
+    }
+
+    private func particleSize(for index: Int) -> CGFloat {
+        switch index % 3 {
+        case 0: return 4.2
+        case 1: return 5.2
+        default: return 3.4
         }
     }
 }

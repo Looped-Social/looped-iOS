@@ -235,6 +235,47 @@ class FeedService: FeedServiceProtocol {
         return PostShareResponse(postId: response.postId, shareCount: response.shareCount)
     }
 
+    func serveShareNudge(postId: Int) async throws -> ShareNudgeServeResponse {
+        let response: ShareNudgeServeResponseDTO = try await apiClient.post(
+            "/v1/posts/\(postId)/share-nudge/serve",
+            body: EmptyBody()
+        )
+        return ShareNudgeServeResponse(
+            postId: response.postId,
+            served: response.served,
+            shareNudge: response.shareNudge.flatMap(PostShareNudge.init(dto:))
+        )
+    }
+
+    func dismissShareNudge(postId: Int) async throws -> ShareNudgeDismissResponse {
+        let response: ShareNudgeDismissResponseDTO = try await apiClient.post(
+            "/v1/posts/\(postId)/share-nudge/dismiss",
+            body: EmptyBody()
+        )
+        return ShareNudgeDismissResponse(
+            postId: response.postId,
+            servedAt: response.servedAt,
+            firstServedAt: response.firstServedAt,
+            dismissedAt: response.dismissedAt,
+            shareTappedAt: response.shareTappedAt
+        )
+    }
+
+    func trackShareNudgeTap(postId: Int) async throws -> ShareNudgeShareTapResponse {
+        let response: ShareNudgeShareTapResponseDTO = try await apiClient.post(
+            "/v1/posts/\(postId)/share-nudge/share-tap",
+            body: EmptyBody()
+        )
+        let payload = response.sharePayload.map { dto in
+            ShareNudgePayload(
+                deepLink: dto.deepLink?.trimmedNonEmpty,
+                requiresAuth: dto.requiresAuth ?? true,
+                textKey: dto.textKey?.trimmedNonEmpty
+            )
+        }
+        return ShareNudgeShareTapResponse(postId: response.postId, sharePayload: payload)
+    }
+
     func repostPost(postId: Int) async throws -> PostRepostResponse {
         let response: PostRepostResponseDTO
         if anonService.isAnonymousEnabled {
