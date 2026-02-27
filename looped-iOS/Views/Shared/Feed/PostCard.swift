@@ -87,8 +87,6 @@ struct PostCard: View {
     @State private var lockedActionSheetDismissalIntent: LockedActionSheetDismissalIntent = .none
 
     private static let lockedActionDefaultDetent: PresentationDetent = .height(292)
-    // Temporary UI-tuning override. Set false before production rollout.
-    private static let forceShowShareNudgeForPreview = true
 
     private enum LockedActionSheetDismissalIntent {
         case none
@@ -158,21 +156,12 @@ struct PostCard: View {
         return "Reposted by \(count) people"
     }
 
-    private var activeShareNudge: PostShareNudge? {
-        if let shareNudge = post.shareNudge {
-            return shareNudge
-        }
-        guard Self.forceShowShareNudgeForPreview else { return nil }
-        guard let backendId = post.backendId else { return nil }
-        return PostShareNudge(id: "preview:\(backendId)")
-    }
-
     private var shouldShowShareNudge: Bool {
-        !isShareNudgeHiddenLocally && activeShareNudge != nil
+        isOwnedByActiveActor && !isShareNudgeHiddenLocally && post.shareNudge != nil
     }
 
     private var shareNudgeMessageText: String {
-        switch activeShareNudge?.messageKey {
+        switch post.shareNudge?.messageKey {
         case "share_nudge.low_traction":
             return "Boost your post by sharing"
         default:
@@ -181,7 +170,7 @@ struct PostCard: View {
     }
 
     private var shareNudgeCTAButtonText: String {
-        switch activeShareNudge?.ctaKey {
+        switch post.shareNudge?.ctaKey {
         case "share_nudge.cta_share":
             return "Share"
         default:
@@ -412,14 +401,23 @@ struct PostCard: View {
                 Spacer(minLength: 0)
 
                 Button(action: handleShareNudgeShareTap) {
-                    if isShareNudgeActionLoading {
-                        ProgressView()
-                            .tint(.loopedPrimary)
-                    } else {
-                        Text(shareNudgeCTAButtonText)
-                            .font(.loopedSmallText)
-                            .foregroundColor(.loopedPrimary)
+                    HStack(spacing: 6) {
+                        if isShareNudgeActionLoading {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.loopedWhite)
+                        } else {
+                            Text(shareNudgeCTAButtonText)
+                                .font(.loopedSmallTextMedium)
+                                .foregroundColor(.loopedWhite)
+                        }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.loopedPrimary)
+                    )
                 }
                 .buttonStyle(.plain)
                 .disabled(isShareNudgeActionLoading)
