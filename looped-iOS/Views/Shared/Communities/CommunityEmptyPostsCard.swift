@@ -4,6 +4,7 @@ struct CommunityEmptyPostsCard: View {
     let illustrationName: String
     let title: String
     let message: String
+    let showsPrimaryButton: Bool
     let primaryButtonTitle: String
     let isPrimaryButtonEnabled: Bool
     let isPrimaryButtonLoading: Bool
@@ -23,6 +24,7 @@ struct CommunityEmptyPostsCard: View {
         illustrationName: String = "community-confirm",
         title: String = "Plant the first seed",
         message: String = "Ask a question, share a win, or post a tip. The first post makes it easy for others to join in.",
+        showsPrimaryButton: Bool = true,
         primaryButtonTitle: String = "Create a post",
         isPrimaryButtonEnabled: Bool = true,
         isPrimaryButtonLoading: Bool = false,
@@ -32,6 +34,7 @@ struct CommunityEmptyPostsCard: View {
         self.illustrationName = illustrationName
         self.title = title
         self.message = message
+        self.showsPrimaryButton = showsPrimaryButton
         self.primaryButtonTitle = primaryButtonTitle
         self.isPrimaryButtonEnabled = isPrimaryButtonEnabled
         self.isPrimaryButtonLoading = isPrimaryButtonLoading
@@ -61,15 +64,22 @@ struct CommunityEmptyPostsCard: View {
             }
             .padding(.horizontal, 12)
 
-            HStack(spacing: 12) {
-                PrimaryButton(
-                    title: primaryButtonTitle,
-                    isEnabled: isPrimaryButtonEnabled,
-                    isLoading: isPrimaryButtonLoading
-                ) {
-                    onCreatePost()
-                }
+            if showsPrimaryButton {
+                HStack(spacing: 12) {
+                    PrimaryButton(
+                        title: primaryButtonTitle,
+                        isEnabled: isPrimaryButtonEnabled,
+                        isLoading: isPrimaryButtonLoading
+                    ) {
+                        onCreatePost()
+                    }
 
+                    StyledButton(title: "Share", style: BorderlessSecondaryButtonStyle()) {
+                        onShareCommunity()
+                    }
+                    .accessibilityLabel("Share community")
+                }
+            } else {
                 StyledButton(title: "Share", style: BorderlessSecondaryButtonStyle()) {
                     onShareCommunity()
                 }

@@ -610,7 +610,7 @@ struct PostCard: View {
             .contentShape(Rectangle().inset(by: -14))
             .accessibilityLabel("Post options")
 
-            if let viewCount = post.viewCount {
+            if let viewCount = post.viewCount, viewCount >= 5 {
                 Button(action: { showViewCountInfoAlert = true }) {
                     HStack(spacing: actionLabelSpacing) {
                         Text("\(max(viewCount, 0))")

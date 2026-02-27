@@ -48,6 +48,9 @@ struct EmailVerificationView: View {
                 Color.loopedBackground
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
+                    .onTapGesture {
+                        dismissCodeKeyboardIfNeeded()
+                    }
 
                 VStack(spacing: 0) {
                     if showsHeader {
@@ -482,6 +485,11 @@ private extension EmailVerificationView {
         }
     }
 
+    func dismissCodeKeyboardIfNeeded() {
+        guard viewModel.stage == .enterCode else { return }
+        isVerificationCodeFieldFocused = false
+    }
+
     var inboxDeliveryHintCard: some View {
         VStack(spacing: 6) {
             Text("Check spam and junk folders")
@@ -560,7 +568,7 @@ private extension EmailVerificationView {
                             isFocused = false
                         }
                         .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedSecondary)
+                        .foregroundColor(.loopedBlack)
                     }
                 }
         }

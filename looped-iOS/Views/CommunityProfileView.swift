@@ -534,8 +534,7 @@ struct CommunityProfileView: View {
                             illustrationName: "community-find",
                             title: "Posting unavailable",
                             message: "You can’t post here right now, but you can still share this community with someone who’d jump in.",
-                            primaryButtonTitle: "Can’t post right now",
-                            isPrimaryButtonEnabled: false,
+                            showsPrimaryButton: false,
                             onCreatePost: {},
                             onShareCommunity: {
                                 shareCommunityPage()
@@ -612,7 +611,9 @@ struct CommunityProfileView: View {
                 .transition(.opacity)
             }
 
-            if let errorMessage = viewModel.errorMessage, viewModel.posts.isEmpty {
+            if let errorMessage = viewModel.errorMessage,
+               viewModel.posts.isEmpty,
+               !viewModel.shouldShowEmptyPostsNudge {
                 Text(errorMessage)
                     .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedTextSecondary)
