@@ -408,7 +408,7 @@ struct SearchView: View {
             defer { openingTrendingPostId = nil }
             do {
                 let post = try await feedService.fetchPost(postId: postId)
-                commentsManager.showComments(for: post)
+                commentsManager.showComments(for: post, telemetryEntryPoint: "search_trending")
             } catch {
                 trendingOpenError = error.localizedDescription
             }

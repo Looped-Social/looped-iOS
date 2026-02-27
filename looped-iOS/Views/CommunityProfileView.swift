@@ -731,7 +731,7 @@ struct CommunityProfileView: View {
                 icon: "exclamationmark.circle",
                 color: .loopedSecondary
             )
-        case .some(.none), .some(.unknown), .none:
+        case .some(.none), .some(.unknown), Optional.none:
             return VerificationDisplay(
                 title: "Unverified",
                 subtitle: "Tap to verify",

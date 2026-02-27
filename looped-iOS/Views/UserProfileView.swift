@@ -1113,15 +1113,34 @@ struct UserProfileContentView: View {
 	    let userProfile: UserProfile
 	    @ObservedObject var viewModel: UserContentViewModel
 	    var showsLoadMoreIndicator: Bool = true
+        var skeletonDelayNanoseconds: UInt64 = 0
 	    @EnvironmentObject var commentsManager: CommentsModalManager
 	    @State private var showPostUnavailableAlert = false
+        @State private var showDelayedSkeleton = false
+        @State private var skeletonDelayTask: Task<Void, Never>?
+
+    private var shouldShowSkeleton: Bool {
+        guard viewModel.isLoading && viewModel.items.isEmpty else { return false }
+        if skeletonDelayNanoseconds == 0 { return true }
+        return showDelayedSkeleton
+    }
 
     var body: some View {
         Group {
-            if viewModel.isLoading && viewModel.items.isEmpty {
-                ProgressView()
-                    .scaleEffect(1.1)
-                    .padding(.top, 32)
+            if shouldShowSkeleton {
+                Group {
+                    ForEach(0..<6, id: \.self) { index in
+                        PostCardSkeleton(showsMedia: index % 3 != 0)
+
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    }
+                }
+                .transition(.opacity)
+            } else if viewModel.isLoading && viewModel.items.isEmpty {
+                Color.loopedClear
+                    .frame(height: 1)
             } else if !viewModel.items.isEmpty {
                 LazyVStack(spacing: 0) {
                     ForEach(viewModel.items) { item in
@@ -1131,6 +1150,7 @@ struct UserProfileContentView: View {
                                 PostCard(
                                     post: post,
                                     showsCommunityLabel: true,
+                                    telemetryEntryPoint: "user_profile_content",
                                     onUpdate: { updated in
                                         viewModel.updatePost(updated)
                                     },
@@ -1160,6 +1180,7 @@ struct UserProfileContentView: View {
 	                        LoopedInlineLoadingIndicator()
 	                    }
 	                }
+                    .transition(.opacity)
 	            } else if let error = viewModel.errorMessage {
 	                VStack(spacing: 8) {
 	                    Text(error)
@@ -1175,6 +1196,7 @@ struct UserProfileContentView: View {
                 }
                 .padding(.top, 32)
                 .padding(.horizontal, 24)
+                .transition(.opacity)
             } else {
                 VStack(spacing: 16) {
                     Image(systemName: "text.bubble")
@@ -1186,13 +1208,55 @@ struct UserProfileContentView: View {
                         .foregroundColor(.loopedTextSecondary)
                 }
                 .padding(.top, 60)
+                .transition(.opacity)
             }
         }
+        .onAppear {
+            updateSkeletonVisibility()
+        }
+        .onChange(of: viewModel.isLoading) { _, _ in
+            updateSkeletonVisibility()
+        }
+        .onChange(of: viewModel.items.count) { _, _ in
+            updateSkeletonVisibility()
+        }
+        .onDisappear {
+            skeletonDelayTask?.cancel()
+            skeletonDelayTask = nil
+            showDelayedSkeleton = false
+        }
+        .animation(.easeInOut(duration: 0.22), value: viewModel.isLoading && viewModel.items.isEmpty)
+        .animation(.easeInOut(duration: 0.22), value: viewModel.items.count)
         .padding(.bottom, 100)
         .alert("Post unavailable", isPresented: $showPostUnavailableAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text("This post is no longer available.")
+        }
+    }
+
+    private func updateSkeletonVisibility() {
+        let isInitialLoading = viewModel.isLoading && viewModel.items.isEmpty
+        guard isInitialLoading else {
+            skeletonDelayTask?.cancel()
+            skeletonDelayTask = nil
+            showDelayedSkeleton = false
+            return
+        }
+
+        if skeletonDelayNanoseconds == 0 {
+            showDelayedSkeleton = true
+            return
+        }
+
+        guard skeletonDelayTask == nil else { return }
+        skeletonDelayTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: skeletonDelayNanoseconds)
+            guard !Task.isCancelled else { return }
+            if viewModel.isLoading && viewModel.items.isEmpty {
+                showDelayedSkeleton = true
+            }
+            skeletonDelayTask = nil
         }
     }
 
@@ -1209,12 +1273,12 @@ struct UserProfileContentView: View {
 
     private func openReply(_ reply: UserContentReply) async {
         if let post = viewModel.postPreview(for: reply) {
-            commentsManager.showComments(for: post)
+            commentsManager.showComments(for: post, telemetryEntryPoint: "user_profile_content_reply")
             return
         }
         await viewModel.loadPostPreview(for: reply)
         if let post = viewModel.postPreview(for: reply) {
-            commentsManager.showComments(for: post)
+            commentsManager.showComments(for: post, telemetryEntryPoint: "user_profile_content_reply")
             return
         }
         guard viewModel.isPostUnavailable(postId: reply.postId) else { return }
@@ -1240,6 +1304,7 @@ struct UserPostsList: View {
                         PostCard(
                             post: post,
                             showsCommunityLabel: true,
+                            telemetryEntryPoint: "user_profile_posts",
                             onBookmarkToggle: { isSaved in
                                 viewModel.handleBookmarkChange(for: post, isSaved: isSaved)
                             },
@@ -1380,7 +1445,8 @@ struct UserCommentsList: View {
             commentsManager.showComments(
                 for: post,
                 focusCommentId: comment.backendId,
-                focusParentId: comment.replyToBackendId
+                focusParentId: comment.replyToBackendId,
+                telemetryEntryPoint: "user_profile_replies"
             )
             return
         }

@@ -52,6 +52,7 @@ struct PostCard: View {
     @AppStorage("anonymousMode") private var isAnonymousMode = false
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var showActionMenu = false
+    @State private var showViewCountInfoAlert = false
     @State private var showBlockConfirm = false
     @State private var activeModerationSheet: ModerationSheet?
     @State private var moderationAlertMessage: String?
@@ -450,32 +451,12 @@ struct PostCard: View {
         .disabled(isBookmarkLoading)
     }
 
-    @ViewBuilder
-    private var viewCountIndicator: some View {
-        if let viewCount = post.viewCount {
-            HStack(spacing: actionLabelSpacing) {
-                Image("eye-icon")
-                    .resizable()
-                    .renderingMode(.template)
-                    .scaledToFit()
-                    .frame(width: actionIconSize, height: actionIconSize)
-                    .foregroundColor(.loopedTextSecondary)
-                Text("\(max(viewCount, 0))")
-                    .font(.loopedSubheadlineScaled)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Views \(max(viewCount, 0))")
-        }
-    }
-
 		    private var engagementBar: some View {
 		        HStack(spacing: engagementBarSpacing) {
 		            likeButton
 		            commentButton
 		            repostButton
 		            shareButton
-                    viewCountIndicator
 		            Spacer()
 		            bookmarkButton
 		        }
@@ -495,10 +476,10 @@ struct PostCard: View {
 		                    authorName
                                 .layoutPriority(1)
 
-		                    if let authorDisplayLine {
-		                        Text("•")
-		                            .font(.loopedSubheadlineScaled)
-		                            .foregroundColor(.loopedTextSecondary)
+			                    if let authorDisplayLine {
+			                        Text("•")
+			                            .font(.loopedSubheadlineScaled)
+			                            .foregroundColor(.loopedTextSecondary)
 		                        Text(authorDisplayLine)
 		                            .font(.loopedSubheadlineScaled)
 		                            .foregroundColor(.loopedTextSecondary)
@@ -506,17 +487,9 @@ struct PostCard: View {
 		                            .truncationMode(.tail)
 		                    }
 
-		                    Spacer()
-
-		                    Button(action: { showActionMenu = true }) {
-		                        Image(systemName: "ellipsis")
-                                    .font(.loopedSymbol(.regular, size: 17))
-                                    .scaleEffect(1.5)
-		                            .foregroundColor(.loopedTextSecondary)
-		                    }
-                            .contentShape(Rectangle().inset(by: -14))
-                            .accessibilityLabel("Post options")
-		                }
+			                    Spacer()
+                                headerTrailingMeta
+			                }
 
 		                if let communityContextText {
 			                    if let communityProfileData, let onCommunityNavigationRequested {
@@ -625,6 +598,39 @@ struct PostCard: View {
                             .clipped()
 				        }
 				    }
+
+    private var headerTrailingMeta: some View {
+        VStack(alignment: .trailing, spacing: 10) {
+            Button(action: { showActionMenu = true }) {
+                Image(systemName: "ellipsis")
+                    .font(.loopedSymbol(.regular, size: 17))
+                    .scaleEffect(1.5)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+            .contentShape(Rectangle().inset(by: -14))
+            .accessibilityLabel("Post options")
+
+            if let viewCount = post.viewCount {
+                Button(action: { showViewCountInfoAlert = true }) {
+                    HStack(spacing: actionLabelSpacing) {
+                        Text("\(max(viewCount, 0))")
+                            .font(.loopedSubheadlineScaled)
+                            .foregroundColor(.loopedTextSecondary)
+                        Image("eye-icon")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: actionIconSize, height: actionIconSize)
+                            .foregroundColor(.loopedTextSecondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle().inset(by: -8))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Views \(max(viewCount, 0)). Shows info")
+            }
+        }
+    }
 
 			    private func handlePostedImageTap(_ url: String) {
 			        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -939,9 +945,6 @@ struct PostCard: View {
             .onChange(of: post.commentsCount) { _, _ in
                 syncActionBarState()
             }
-            .onChange(of: post.viewCount) { _, _ in
-                syncActionBarState()
-            }
 
         let localChanges = postChanges
             .onChange(of: isLiked) { _, _ in
@@ -1140,14 +1143,19 @@ struct PostCard: View {
             } message: {
                 Text(blockErrorMessage ?? "")
             }
-	            .alert("Couldn't repost", isPresented: repostErrorAlertIsPresented) {
-	                Button("OK", role: .cancel) { }
-	            } message: {
-	                Text(repostErrorMessage ?? "")
-	            }
-		            .alert(item: $actionError) { error in
-	                    if let action = error.primaryAction {
-	                        return Alert(
+            .alert("Couldn't repost", isPresented: repostErrorAlertIsPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(repostErrorMessage ?? "")
+            }
+            .alert("View count", isPresented: $showViewCountInfoAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("This is your view count. It updates whenever someone opens your post comments.")
+            }
+            .alert(item: $actionError) { error in
+                    if let action = error.primaryAction {
+                        return Alert(
 	                            title: Text(error.title),
 	                            message: Text(error.message),
                             primaryButton: .default(Text("Join")) {
@@ -1489,7 +1497,6 @@ struct PostCard: View {
     private func syncActionBarState() {
         postActionState.likeCount = displayedReactionCount
         postActionState.commentCount = post.commentsCount
-        postActionState.viewCount = post.viewCount
         postActionState.isLiked = isLiked
         postActionState.isReposted = isReposted
         postActionState.isSaved = isBookmarked

@@ -37,6 +37,7 @@ struct ProfileView: View {
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
     private let anonService: AnonService = .shared
     private let scrollCoordinateSpace = "profileScrollCoordinateSpace"
+    private let profileSkeletonDelayNanoseconds: UInt64 = 220_000_000
     private var usesIOS17ScrollTuning: Bool {
         if #available(iOS 18.0, *) { return false }
         return true
@@ -58,26 +59,36 @@ struct ProfileView: View {
                         }
 
 			                    // Content based on selected tab
-			                    switch selectedTab {
+		                    switch selectedTab {
 		                        case .content:
 		                            if let profile = displayProfile {
 		                                UserContentList(
 		                                    userProfile: profile,
 		                                    viewModel: contentViewModel,
-		                                    showsLoadMoreIndicator: false
+		                                    showsLoadMoreIndicator: false,
+                                            skeletonDelayNanoseconds: profileSkeletonDelayNanoseconds
 		                                )
 		                            } else if viewModel.isLoading {
-		                                ProgressView()
-		                                    .padding(.top, 60)
+		                                Color.loopedClear
+                                            .frame(height: 1)
 		                            } else {
                                 EmptyPostsListView(message: "No content yet")
                                     .padding(.top, 60)
+                                    .transition(.opacity)
                             }
 		                    case .saved:
-		                        SavedPostsList(viewModel: savedViewModel, showsLoadMoreIndicator: false)
+		                        SavedPostsList(
+                                    viewModel: savedViewModel,
+                                    showsLoadMoreIndicator: false,
+                                    skeletonDelayNanoseconds: profileSkeletonDelayNanoseconds
+                                )
 		                            .padding(.top, 20)
 		                    case .reposts:
-		                        RepostedPostsList(viewModel: repostsViewModel, showsLoadMoreIndicator: false)
+		                        RepostedPostsList(
+                                    viewModel: repostsViewModel,
+                                    showsLoadMoreIndicator: false,
+                                    skeletonDelayNanoseconds: profileSkeletonDelayNanoseconds
+                                )
 		                            .padding(.top, 20)
 		                    }
 
@@ -1182,26 +1193,35 @@ struct PostsList: View {
     }
 
     var body: some View {
-        if isLoading {
-            ProgressView()
-                .padding(.top, 60)
-        } else if posts.isEmpty {
-            EmptyPostsListView()
-                .padding(.top, 60)
-        } else {
-            ForEach(posts) { post in
-                PostCard(
-                    post: post,
-                    showsCommunityLabel: true,
-                    onUpdate: onUpdate,
-                    onDelete: onDelete
-                )
+        Group {
+            if isLoading && posts.isEmpty {
+                ProfilePostSkeletonList()
+                    .transition(.opacity)
+            } else if posts.isEmpty {
+                EmptyPostsListView()
+                    .padding(.top, 60)
+                    .transition(.opacity)
+            } else {
+                Group {
+                    ForEach(posts) { post in
+                        PostCard(
+                            post: post,
+                            showsCommunityLabel: true,
+                            telemetryEntryPoint: "profile_posts",
+                            onUpdate: onUpdate,
+                            onDelete: onDelete
+                        )
 
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    }
+                }
+                .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.22), value: isLoading && posts.isEmpty)
+        .animation(.easeInOut(duration: 0.22), value: posts.count)
     }
 }
 
@@ -1209,124 +1229,256 @@ struct SavedPostsList: View {
     @ObservedObject var viewModel: CollectionPostsViewModel
     @EnvironmentObject var commentsManager: CommentsModalManager
     var showsLoadMoreIndicator: Bool = true
+    var skeletonDelayNanoseconds: UInt64 = 0
+    @State private var showDelayedSkeleton = false
+    @State private var skeletonDelayTask: Task<Void, Never>?
+
+    private var shouldShowSkeleton: Bool {
+        guard viewModel.isLoading && viewModel.posts.isEmpty else { return false }
+        if skeletonDelayNanoseconds == 0 { return true }
+        return showDelayedSkeleton
+    }
 
     var body: some View {
-        if viewModel.isLoading && viewModel.posts.isEmpty {
-            ProgressView()
-                .padding(.top, 60)
-        } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
-            VStack(spacing: 12) {
-                Text(error)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedError)
-                Button("Retry") {
-                    Task { await viewModel.loadInitial() }
+        Group {
+            if shouldShowSkeleton {
+                ProfilePostSkeletonList()
+                    .transition(.opacity)
+            } else if viewModel.isLoading && viewModel.posts.isEmpty {
+                Color.loopedClear
+                    .frame(height: 1)
+            } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
+                VStack(spacing: 12) {
+                    Text(error)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedError)
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
-            }
-            .padding(.top, 60)
-        } else if viewModel.posts.isEmpty {
-            VStack(spacing: 16) {
-                Image(systemName: "bookmark")
-                    .font(.loopedCustom(size: 48))
-                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
-                Text("No saved posts yet")
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .padding(.top, 60)
-        } else {
-            LazyVStack(spacing: 0) {
-                ForEach(viewModel.posts) { post in
-                    PostCard(
-                        post: post,
-                        showsCommunityLabel: true,
-                        onBookmarkToggle: { saved in
-                            viewModel.handleBookmarkChange(for: post, isSaved: saved)
-                        },
-                        onUpdate: { updated in
-                            viewModel.updatePost(updated)
-                        },
-                        onDelete: { deleted in
-                            viewModel.removePost(backendId: deleted.backendId)
+                .padding(.top, 60)
+                .transition(.opacity)
+            } else if viewModel.posts.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "bookmark")
+                        .font(.loopedCustom(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                    Text("No saved posts yet")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.top, 60)
+                .transition(.opacity)
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(viewModel.posts) { post in
+                        PostCard(
+                            post: post,
+                            showsCommunityLabel: true,
+                            telemetryEntryPoint: "profile_saved_posts",
+                            onBookmarkToggle: { saved in
+                                viewModel.handleBookmarkChange(for: post, isSaved: saved)
+                            },
+                            onUpdate: { updated in
+                                viewModel.updatePost(updated)
+                            },
+                            onDelete: { deleted in
+                                viewModel.removePost(backendId: deleted.backendId)
+                            }
+                        )
+                        .onAppear {
+                            Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                         }
-                    )
-                    .onAppear {
-                        Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
+
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
                     }
 
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    if showsLoadMoreIndicator, viewModel.isLoadingMore {
+                        LoopedInlineLoadingIndicator()
+                    }
                 }
+                .transition(.opacity)
+            }
+        }
+        .onAppear {
+            updateSkeletonVisibility()
+        }
+        .onChange(of: viewModel.isLoading) { _, _ in
+            updateSkeletonVisibility()
+        }
+        .onChange(of: viewModel.posts.count) { _, _ in
+            updateSkeletonVisibility()
+        }
+        .onDisappear {
+            skeletonDelayTask?.cancel()
+            skeletonDelayTask = nil
+            showDelayedSkeleton = false
+        }
+        .animation(.easeInOut(duration: 0.22), value: viewModel.isLoading && viewModel.posts.isEmpty)
+        .animation(.easeInOut(duration: 0.22), value: viewModel.posts.count)
+    }
 
-	                if showsLoadMoreIndicator, viewModel.isLoadingMore {
-	                    LoopedInlineLoadingIndicator()
-	                }
-	            }
-	        }
-	    }
-	}
+    private func updateSkeletonVisibility() {
+        let isInitialLoading = viewModel.isLoading && viewModel.posts.isEmpty
+        guard isInitialLoading else {
+            skeletonDelayTask?.cancel()
+            skeletonDelayTask = nil
+            showDelayedSkeleton = false
+            return
+        }
+
+        if skeletonDelayNanoseconds == 0 {
+            showDelayedSkeleton = true
+            return
+        }
+
+        guard skeletonDelayTask == nil else { return }
+        skeletonDelayTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: skeletonDelayNanoseconds)
+            guard !Task.isCancelled else { return }
+            if viewModel.isLoading && viewModel.posts.isEmpty {
+                showDelayedSkeleton = true
+            }
+            skeletonDelayTask = nil
+        }
+    }
+}
 
 struct RepostedPostsList: View {
     @ObservedObject var viewModel: CollectionPostsViewModel
     @EnvironmentObject var commentsManager: CommentsModalManager
     var showsLoadMoreIndicator: Bool = true
+    var skeletonDelayNanoseconds: UInt64 = 0
+    @State private var showDelayedSkeleton = false
+    @State private var skeletonDelayTask: Task<Void, Never>?
+
+    private var shouldShowSkeleton: Bool {
+        guard viewModel.isLoading && viewModel.posts.isEmpty else { return false }
+        if skeletonDelayNanoseconds == 0 { return true }
+        return showDelayedSkeleton
+    }
 
     var body: some View {
-        if viewModel.isLoading && viewModel.posts.isEmpty {
-            ProgressView()
-                .padding(.top, 60)
-        } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
-            VStack(spacing: 12) {
-                Text(error)
-                    .font(.loopedBody)
-                    .foregroundColor(.loopedError)
-                Button("Retry") {
-                    Task { await viewModel.loadInitial() }
+        Group {
+            if shouldShowSkeleton {
+                ProfilePostSkeletonList()
+                    .transition(.opacity)
+            } else if viewModel.isLoading && viewModel.posts.isEmpty {
+                Color.loopedClear
+                    .frame(height: 1)
+            } else if let error = viewModel.errorMessage, viewModel.posts.isEmpty {
+                VStack(spacing: 12) {
+                    Text(error)
+                        .font(.loopedBody)
+                        .foregroundColor(.loopedError)
+                    Button("Retry") {
+                        Task { await viewModel.loadInitial() }
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
-            }
-            .padding(.top, 60)
-        } else if viewModel.posts.isEmpty {
-            VStack(spacing: 16) {
-                Image(systemName: "arrow.2.squarepath")
-                    .font(.loopedCustom(size: 48))
-                    .foregroundColor(.loopedTextSecondary.opacity(0.5))
-                Text("No reposts yet")
-                    .font(.loopedBodyMedium)
-                    .foregroundColor(.loopedTextSecondary)
-            }
-            .padding(.top, 60)
-        } else {
-            LazyVStack(spacing: 0) {
-                ForEach(viewModel.posts) { post in
-                    PostCard(
-                        post: post,
-                        showsCommunityLabel: true,
-                        onUpdate: { updated in
-                            viewModel.updatePost(updated)
-                        },
-                        onDelete: { deleted in
-                            viewModel.removePost(backendId: deleted.backendId)
+                .padding(.top, 60)
+                .transition(.opacity)
+            } else if viewModel.posts.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "arrow.2.squarepath")
+                        .font(.loopedCustom(size: 48))
+                        .foregroundColor(.loopedTextSecondary.opacity(0.5))
+                    Text("No reposts yet")
+                        .font(.loopedBodyMedium)
+                        .foregroundColor(.loopedTextSecondary)
+                }
+                .padding(.top, 60)
+                .transition(.opacity)
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(viewModel.posts) { post in
+                        PostCard(
+                            post: post,
+                            showsCommunityLabel: true,
+                            telemetryEntryPoint: "profile_reposts",
+                            onUpdate: { updated in
+                                viewModel.updatePost(updated)
+                            },
+                            onDelete: { deleted in
+                                viewModel.removePost(backendId: deleted.backendId)
+                            }
+                        )
+                        .onAppear {
+                            Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
                         }
-                    )
-                    .onAppear {
-                        Task { await viewModel.loadMoreIfNeeded(currentPost: post) }
+
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.loopedTextSecondary.opacity(0.1))
                     }
 
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.loopedTextSecondary.opacity(0.1))
+                    if showsLoadMoreIndicator, viewModel.isLoadingMore {
+                        LoopedInlineLoadingIndicator()
+                    }
                 }
+                .transition(.opacity)
+            }
+        }
+        .onAppear {
+            updateSkeletonVisibility()
+        }
+        .onChange(of: viewModel.isLoading) { _, _ in
+            updateSkeletonVisibility()
+        }
+        .onChange(of: viewModel.posts.count) { _, _ in
+            updateSkeletonVisibility()
+        }
+        .onDisappear {
+            skeletonDelayTask?.cancel()
+            skeletonDelayTask = nil
+            showDelayedSkeleton = false
+        }
+        .animation(.easeInOut(duration: 0.22), value: viewModel.isLoading && viewModel.posts.isEmpty)
+        .animation(.easeInOut(duration: 0.22), value: viewModel.posts.count)
+    }
 
-	                if showsLoadMoreIndicator, viewModel.isLoadingMore {
-	                    LoopedInlineLoadingIndicator()
-	                }
-	            }
-	        }
-	    }
-	}
+    private func updateSkeletonVisibility() {
+        let isInitialLoading = viewModel.isLoading && viewModel.posts.isEmpty
+        guard isInitialLoading else {
+            skeletonDelayTask?.cancel()
+            skeletonDelayTask = nil
+            showDelayedSkeleton = false
+            return
+        }
+
+        if skeletonDelayNanoseconds == 0 {
+            showDelayedSkeleton = true
+            return
+        }
+
+        guard skeletonDelayTask == nil else { return }
+        skeletonDelayTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: skeletonDelayNanoseconds)
+            guard !Task.isCancelled else { return }
+            if viewModel.isLoading && viewModel.posts.isEmpty {
+                showDelayedSkeleton = true
+            }
+            skeletonDelayTask = nil
+        }
+    }
+}
+
+private struct ProfilePostSkeletonList: View {
+    var count: Int = 6
+
+    var body: some View {
+        ForEach(0..<count, id: \.self) { index in
+            PostCardSkeleton(showsMedia: index % 3 != 0)
+
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(.loopedTextSecondary.opacity(0.1))
+        }
+    }
+}
 
 struct EmptyPostsListView: View {
     var message: String = "No posts yet"
@@ -1510,7 +1662,8 @@ private struct ProfileCombinedContentList: View {
             commentsManager.showComments(
                 for: post,
                 focusCommentId: reply.backendId,
-                focusParentId: reply.replyToBackendId
+                focusParentId: reply.replyToBackendId,
+                telemetryEntryPoint: "profile_replies"
             )
             return
         }
@@ -1606,7 +1759,8 @@ struct UserRepliesList: View {
             commentsManager.showComments(
                 for: post,
                 focusCommentId: reply.backendId,
-                focusParentId: reply.replyToBackendId
+                focusParentId: reply.replyToBackendId,
+                telemetryEntryPoint: "profile_replies"
             )
             return
         }

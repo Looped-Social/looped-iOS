@@ -150,7 +150,7 @@ struct SearchResultsView: View {
                 results: viewModel.searchResults,
                 onPostTap: { searchPost in
                     searchFieldFocused = false
-                    commentsManager.showComments(for: searchPost.post)
+                    commentsManager.showComments(for: searchPost.post, telemetryEntryPoint: "search_results")
                 },
                 onLoopTap: { loop in
                     if let community = CommunityProfileData(loop: loop) {

@@ -256,10 +256,11 @@ private extension TelemetryManager {
             guard let batch = makeBatch(limit: batchSize) else { return }
 
             do {
-                _ = try await service.sendBatch(
+                let response = try await service.sendBatch(
                     sessionId: batch.sessionId,
                     events: batch.events.map(\.event)
                 )
+                logBatchResponseIfNeeded(response, attemptedCount: batch.events.count)
                 queue.removeFirst(batch.events.count)
                 persistQueue()
                 retryAttempt = 0
@@ -300,6 +301,16 @@ private extension TelemetryManager {
                 }
             }
         }
+    }
+
+    private func logBatchResponseIfNeeded(_ response: TelemetryBatchResponse, attemptedCount: Int) {
+        let isMismatched = response.accepted + response.dropped != attemptedCount
+        guard response.accepted == 0 || response.dropped > 0 || isMismatched else { return }
+        #if DEBUG
+        print(
+            "Telemetry batch accepted=\(response.accepted) dropped=\(response.dropped) attempted=\(attemptedCount) status=\(response.status)"
+        )
+        #endif
     }
 
     private func scheduleBackoff(for kind: BackoffKind) {

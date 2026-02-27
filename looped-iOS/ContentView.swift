@@ -114,9 +114,20 @@ struct ContentView: View {
                 dismissNotificationPermissionPrompt()
             }
         }
-        .sheet(isPresented: $showFirstPostCongrats) {
-            FirstPostCongratsSheetView(postId: firstPostCongratsPostId)
-                .presentationDetents([.medium])
+        .overlay {
+            LoopedBottomDrawer(
+                isPresented: showFirstPostCongrats,
+                onDismiss: {
+                    dismissFirstPostCongrats()
+                }
+            ) {
+                FirstPostCongratsSheetView(
+                    postId: firstPostCongratsPostId,
+                    onDismiss: {
+                        dismissFirstPostCongrats()
+                    }
+                )
+            }
         }
         .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
             Button("OK", role: .cancel) {
@@ -261,6 +272,20 @@ struct ContentView: View {
 
     private func dismissNotificationPermissionPrompt() {
         showNotificationPermissionPrompt = false
+    }
+
+    private func dismissFirstPostCongrats() {
+        guard showFirstPostCongrats else { return }
+        let dismissedPostId = firstPostCongratsPostId
+        showFirstPostCongrats = false
+        firstPostCongratsPostId = nil
+        Task {
+            await TelemetryManager.shared.track(
+                type: .milestoneFirstPostDismissed,
+                postId: dismissedPostId,
+                data: ["milestone_type": .string(FeedViewModel.firstPostEverMilestone)]
+            )
+        }
     }
 
     private func evaluateProfileCompletionPromptIfNeeded() async {
@@ -1416,7 +1441,11 @@ struct MainTabView: View {
             let post = try await deepLinkFeedService.fetchPost(postId: postId)
             await MainActor.run {
                 selectedTab = .home
-                commentsManager.showComments(for: post, focusCommentId: focusCommentId)
+                commentsManager.showComments(
+                    for: post,
+                    focusCommentId: focusCommentId,
+                    telemetryEntryPoint: telemetryEntryPoint(for: request)
+                )
             }
         } catch {
             let reason = deepLinkFailureReason(from: error)
@@ -1427,6 +1456,17 @@ struct MainTabView: View {
                     message: "This post may have been removed or is no longer available."
                 )
             }
+        }
+    }
+
+    private func telemetryEntryPoint(for request: DeepLinkNavigationRequest) -> String {
+        switch request.pathType {
+        case .comment:
+            return "deep_link_comment"
+        case .post:
+            return "deep_link_post"
+        default:
+            return "deep_link"
         }
     }
 
