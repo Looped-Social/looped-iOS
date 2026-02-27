@@ -16,7 +16,7 @@ enum LoopedHaptics {
 
     static func success() {
         Task { @MainActor in
-            impact(style: .soft, intensity: 0.65)
+            impact(style: .rigid, intensity: 1.0)
         }
     }
 

@@ -1265,6 +1265,7 @@ struct PostCard: View {
                         let updated = post.updating(isSaved: true, updatedAt: Date())
                         onUpdate?(updated)
                         onBookmarkToggle?(true)
+                        LoopedHaptics.success()
                         presentToast(ToastMessage(text: "Post saved.", kind: .success))
 	                    }
 	                }
@@ -1532,6 +1533,9 @@ struct PostCard: View {
                 )
                 onUpdate?(updated)
                 isReposted = response.viewerHasReposted
+                if !previousValue && response.viewerHasReposted {
+                    LoopedHaptics.success()
+                }
             } catch {
                 isReposted = previousValue
                 if isNotFound(error) {

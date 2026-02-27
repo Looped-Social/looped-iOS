@@ -973,6 +973,9 @@ private extension CommentsView {
                         updatedAt: Date()
                     )
                 }
+                if shouldLike {
+                    LoopedHaptics.success()
+                }
             } catch {
                 if isNotFound(error) {
                     commentsManager.toastMessage = ToastMessage(text: "Content unavailable", kind: .info)
@@ -1020,6 +1023,9 @@ private extension CommentsView {
                         viewerHasReposted: response.viewerHasReposted,
                         updatedAt: Date()
                     )
+                }
+                if !previousValue && response.viewerHasReposted {
+                    LoopedHaptics.success()
                 }
             } catch {
                 if isNotFound(error) {
