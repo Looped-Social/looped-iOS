@@ -24,9 +24,9 @@ struct PostCard: View {
     @State private var isBookmarkLoading = false
     @State private var isLikeLoading = false
     @State private var isRepostLoading = false
-    @State private var showHeartBurst = false
-    @State private var heartScale: CGFloat = 0.6
-    @State private var heartOpacity: Double = 0
+    @State private var likeIconScale: CGFloat = 1
+    @State private var likeRingScale: CGFloat = 0.7
+    @State private var likeRingOpacity: Double = 0
     @State private var communityPermissions: CommunityPermissions?
     @State private var hasRequestedCommunityPermissions = false
 	    @State private var viewerAnonProfileId: Int?
@@ -361,12 +361,27 @@ struct PostCard: View {
         Button(action: { handleLikeToggle() }) {
             HStack(spacing: actionLabelSpacing) {
                     ZStack(alignment: .topTrailing) {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .resizable()
-                            .renderingMode(.template)
-                            .scaledToFit()
-                            .frame(width: actionIconSize, height: actionIconSize)
-                            .foregroundColor(isLiked ? .loopedLike : .loopedTextSecondary)
+                        ZStack {
+                            Circle()
+                                .stroke(Color.loopedLike.opacity(0.35), lineWidth: 1.8)
+                                .frame(width: actionIconSize + 8, height: actionIconSize + 8)
+                                .scaleEffect(likeRingScale)
+                                .opacity(likeRingOpacity)
+
+                            Circle()
+                                .stroke(Color.loopedLike.opacity(0.8), lineWidth: 1.4)
+                                .frame(width: actionIconSize + 2, height: actionIconSize + 2)
+                                .scaleEffect(likeRingScale * 0.92)
+                                .opacity(likeRingOpacity * 0.95)
+
+                            Image(systemName: isLiked ? "heart.fill" : "heart")
+                                .resizable()
+                                .renderingMode(.template)
+                                .scaledToFit()
+                                .frame(width: actionIconSize, height: actionIconSize)
+                                .foregroundColor(isLiked ? .loopedLike : .loopedTextSecondary)
+                        }
+                        .scaleEffect(likeIconScale)
 
                         if isReactionLocked {
                             Image(systemName: "lock.fill")
@@ -867,27 +882,16 @@ struct PostCard: View {
         postCardAlerts
     }
 
-			    private var postCardContent: some View {
-			        ZStack {
-			            VStack(alignment: .leading, spacing: 12) {
-			                repostBanner
-			                underReviewBanner
-			                headerSection
-			                postTextSection
-			                pollSection
-			                attachmentsSection
-			                engagementBar
-			                timestampSection
-			            }
-
-            if showHeartBurst {
-                Image(systemName: "heart.fill")
-                    .font(.loopedCustom(.bold, size: 72))
-                    .foregroundColor(.loopedLike)
-                    .scaleEffect(heartScale)
-                    .opacity(heartOpacity)
-                    .allowsHitTesting(false)
-            }
+    private var postCardContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            repostBanner
+            underReviewBanner
+            headerSection
+            postTextSection
+            pollSection
+            attachmentsSection
+            engagementBar
+            timestampSection
         }
     }
 
@@ -1445,7 +1449,7 @@ struct PostCard: View {
         }
 
         isLiked = true
-        triggerHeartBurst()
+        triggerLikeIconAnimation()
         isLikeLoading = true
         Task {
             defer { isLikeLoading = false }
@@ -1475,7 +1479,7 @@ struct PostCard: View {
 
     private func handleDoubleTapLike() {
         if isLiked {
-            triggerHeartBurst()
+            triggerLikeIconAnimation()
         } else {
             handleLikeToggle()
         }
@@ -2294,25 +2298,27 @@ struct PostCard: View {
         }
     }
 
-    private func triggerHeartBurst() {
-        showHeartBurst = true
-        heartScale = 0.6
-        heartOpacity = 0
+    private func triggerLikeIconAnimation() {
+        likeIconScale = 0.86
+        likeRingScale = 0.72
+        likeRingOpacity = 0
 
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
-            heartScale = 1.2
-            heartOpacity = 1
+        withAnimation(.spring(response: 0.2, dampingFraction: 0.62)) {
+            likeIconScale = 1.16
         }
 
-        withAnimation(.easeOut(duration: 0.25).delay(0.2)) {
-            heartScale = 1.4
-            heartOpacity = 0
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.72).delay(0.06)) {
+            likeIconScale = 1
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            showHeartBurst = false
-            heartScale = 0.6
-            heartOpacity = 0
+        withAnimation(.easeOut(duration: 0.28)) {
+            likeRingScale = 1.65
+            likeRingOpacity = 0.46
+        }
+
+        withAnimation(.easeOut(duration: 0.22).delay(0.12)) {
+            likeRingScale = 2.05
+            likeRingOpacity = 0
         }
     }
 }
