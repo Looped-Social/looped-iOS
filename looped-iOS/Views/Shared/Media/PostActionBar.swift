@@ -68,7 +68,7 @@ struct PostActionBarCompact: View {
             )
 
             actionButton(
-                icon: Image(systemName: "arrow.2.squarepath"),
+                icon: Image("repost-icon"),
                 count: nil,
                 tint: state.isReposted ? .loopedPrimary : .loopedWhite,
                 disabled: state.isRepostLoading,
@@ -77,7 +77,7 @@ struct PostActionBarCompact: View {
             )
 
             actionButton(
-                icon: Image("send-icon-fab"),
+                icon: Image("share-icon"),
                 count: nil,
                 tint: .loopedWhite,
                 disabled: state.isPreparingShareSheet,
