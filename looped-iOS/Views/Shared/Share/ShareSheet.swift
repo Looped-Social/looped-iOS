@@ -1,6 +1,36 @@
 import SwiftUI
 import UIKit
 
+private let shareSheetColumnCount = 4
+
+private let shareSheetVisibleActions: [SharePrimaryAction] = [
+    .copyLink,
+    .mail,
+    .messages,
+    .external(.instagram),
+    .external(.reddit),
+    .external(.linkedin),
+    .external(.whatsapp),
+    .external(.x),
+    .external(.threads),
+    .external(.facebook),
+    .shareTo
+]
+
+@MainActor
+private func preloadShareSheetAssets() {
+    for action in shareSheetVisibleActions {
+        guard let brandAssetName = action.brandAssetName else { continue }
+        _ = UIImage(named: brandAssetName)
+    }
+}
+
+private func shareSheetRows(for actions: [SharePrimaryAction]) -> [[SharePrimaryAction]] {
+    stride(from: 0, to: actions.count, by: shareSheetColumnCount).map { start in
+        Array(actions[start..<min(start + shareSheetColumnCount, actions.count)])
+    }
+}
+
 @MainActor
 struct ShareSheet: View {
     @Environment(\.loopedPresentToast) private var presentToast
@@ -13,27 +43,8 @@ struct ShareSheet: View {
         ShareSheetPayload(items: items)
     }
 
-    private var curatedTargets: [ShareExternalTarget] {
-        [
-            .instagram,
-            .reddit,
-            .linkedin,
-            .whatsapp,
-            .x,
-            .threads,
-            .facebook
-        ]
-    }
-
     private var visibleActions: [SharePrimaryAction] {
-        var actions: [SharePrimaryAction] = [.copyLink, .mail, .messages]
-        actions.append(contentsOf: curatedTargets.map(SharePrimaryAction.external))
-        actions.append(.shareTo)
-        return actions
-    }
-
-    private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: 4)
+        shareSheetVisibleActions
     }
 
     var body: some View {
@@ -53,12 +64,21 @@ struct ShareSheet: View {
     }
 
     private func shareActionGrid(actions: [SharePrimaryAction]) -> some View {
-        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 18) {
-            ForEach(actions) { action in
-                ShareCircleActionButton(action: action) {
-                    handleAction(action)
+        VStack(alignment: .leading, spacing: 18) {
+            ForEach(Array(shareSheetRows(for: actions).enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(row) { action in
+                        ShareCircleActionButton(action: action) {
+                            handleAction(action)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .top)
+                    }
+
+                    ForEach(0..<max(0, shareSheetColumnCount - row.count), id: \.self) { _ in
+                        Spacer(minLength: 0)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .top)
             }
         }
     }
@@ -245,6 +265,7 @@ final class ShareDrawerPresenter: ObservableObject {
         onComplete: ((Bool, UIActivity.ActivityType?) -> Void)?,
         onDismiss: @escaping () -> Void
     ) {
+        preloadShareSheetAssets()
         presentation = ShareDrawerPresentation(
             sourceID: sourceID,
             items: items,
