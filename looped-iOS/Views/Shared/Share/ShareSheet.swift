@@ -1,3 +1,4 @@
+import MessageUI
 import SwiftUI
 import UIKit
 
@@ -111,17 +112,36 @@ struct ShareSheet: View {
     }
 
     private func handleMessages() {
-        guard let body = payload.messageBody else { return }
-        guard let url = makeSMSURL(body: body) else { return }
+        guard MFMessageComposeViewController.canSendText() else {
+            presentNativeShareSheet()
+            return
+        }
 
-        UIApplication.shared.open(url, options: [:]) { success in
-            Task { @MainActor in
-                if success {
-                    onComplete?(true, nil)
-                    onDismiss()
-                }
+        guard let body = payload.primaryURL?.absoluteString ?? payload.messageBody else {
+            presentNativeShareSheet()
+            return
+        }
+
+        let toastPresenter = presentToast
+        let composer = MFMessageComposeViewController()
+        composer.body = body
+
+        let delegate = MessageComposeDelegateProxy { result in
+            switch result {
+            case .sent:
+                onComplete?(true, .message)
+            case .cancelled, .failed:
+                onComplete?(false, nil)
+            @unknown default:
+                onComplete?(false, nil)
             }
         }
+        composer.messageComposeDelegate = delegate
+        MessageComposeDelegateStore.shared.retain(delegate)
+
+        toastPresenter(ToastMessage(text: "Opening Messages…", kind: .loading))
+        onDismiss()
+        presentMessageComposeController(composer, toastPresenter: toastPresenter)
     }
 
     private func handleMail() {
@@ -140,14 +160,6 @@ struct ShareSheet: View {
                 }
             }
         }
-    }
-
-    private func makeSMSURL(body: String) -> URL? {
-        let allowed = CharacterSet.urlQueryAllowed
-        guard let encodedBody = body.addingPercentEncoding(withAllowedCharacters: allowed) else {
-            return URL(string: "sms:")
-        }
-        return URL(string: "sms:&body=\(encodedBody)")
     }
 
     private func makeMailURL() -> URL? {
@@ -247,6 +259,81 @@ struct ShareSheet: View {
                     toastPresenter(nil)
                 }
             }
+        }
+    }
+
+    private func presentMessageComposeController(
+        _ composer: MFMessageComposeViewController,
+        toastPresenter: @escaping (ToastMessage?) -> Void,
+        attempt: Int = 0
+    ) {
+        let maxAttempts = 8
+        let retryDelay: TimeInterval = 0.05
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + (attempt == 0 ? 0.04 : retryDelay)) {
+            Task { @MainActor in
+                guard let topViewController = UIHelpers.topViewController() else {
+                    if attempt < maxAttempts {
+                        presentMessageComposeController(
+                            composer,
+                            toastPresenter: toastPresenter,
+                            attempt: attempt + 1
+                        )
+                        return
+                    }
+                    toastPresenter(nil)
+                    return
+                }
+
+                guard topViewController.presentedViewController == nil else {
+                    if attempt < maxAttempts {
+                        presentMessageComposeController(
+                            composer,
+                            toastPresenter: toastPresenter,
+                            attempt: attempt + 1
+                        )
+                        return
+                    }
+                    toastPresenter(nil)
+                    return
+                }
+
+                topViewController.present(composer, animated: true) {
+                    toastPresenter(nil)
+                }
+            }
+        }
+    }
+}
+
+private final class MessageComposeDelegateStore {
+    static let shared = MessageComposeDelegateStore()
+
+    private var delegates: [MessageComposeDelegateProxy] = []
+
+    func retain(_ delegate: MessageComposeDelegateProxy) {
+        delegates.append(delegate)
+    }
+
+    func release(_ delegate: MessageComposeDelegateProxy) {
+        delegates.removeAll { $0 === delegate }
+    }
+}
+
+private final class MessageComposeDelegateProxy: NSObject, MFMessageComposeViewControllerDelegate {
+    private let onFinish: (MessageComposeResult) -> Void
+
+    init(onFinish: @escaping (MessageComposeResult) -> Void) {
+        self.onFinish = onFinish
+    }
+
+    func messageComposeViewController(
+        _ controller: MFMessageComposeViewController,
+        didFinishWith result: MessageComposeResult
+    ) {
+        controller.dismiss(animated: true) { [onFinish] in
+            onFinish(result)
+            MessageComposeDelegateStore.shared.release(self)
         }
     }
 }
