@@ -53,6 +53,7 @@ struct ContentView: View {
     @State private var minimumSupportedVersionUpdateUrl: URL?
     @State private var showFirstPostCongrats = false
     @State private var firstPostCongratsPostId: Int?
+    @State private var globalToastMessage: ToastMessage?
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeletionPendingAlert") private var showAccountDeletionPendingAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
@@ -192,6 +193,8 @@ struct ContentView: View {
 
     private var configuredContent: some View {
         alertContent
+        .environment(\.loopedPresentToast) { globalToastMessage = $0 }
+        .toast($globalToastMessage)
         .environmentObject(authViewModel)
         .environmentObject(feedViewModel)
         .environment(\.preferCommunityShortNames, preferCommunityShortNames)

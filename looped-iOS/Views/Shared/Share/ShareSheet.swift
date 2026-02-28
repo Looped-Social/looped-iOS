@@ -169,6 +169,7 @@ struct ShareSheet: View {
     }
 
     private func presentNativeShareSheet() {
+        let toastPresenter = presentToast
         let activityController = UIActivityViewController(
             activityItems: items,
             applicationActivities: nil
@@ -176,14 +177,56 @@ struct ShareSheet: View {
         activityController.excludedActivityTypes = excludedActivityTypes
         activityController.completionWithItemsHandler = { activityType, completed, _, _ in
             Task { @MainActor in
+                toastPresenter(nil)
                 onComplete?(completed, activityType)
             }
         }
 
+        toastPresenter(ToastMessage(text: "Opening share options…", kind: .loading))
         onDismiss()
+        presentNativeShareSheetController(activityController, toastPresenter: toastPresenter)
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            UIHelpers.topViewController()?.present(activityController, animated: true)
+    private func presentNativeShareSheetController(
+        _ activityController: UIActivityViewController,
+        toastPresenter: @escaping (ToastMessage?) -> Void,
+        attempt: Int = 0
+    ) {
+        let maxAttempts = 8
+        let retryDelay: TimeInterval = 0.05
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + (attempt == 0 ? 0.04 : retryDelay)) {
+            Task { @MainActor in
+                guard let topViewController = UIHelpers.topViewController() else {
+                    if attempt < maxAttempts {
+                        presentNativeShareSheetController(
+                            activityController,
+                            toastPresenter: toastPresenter,
+                            attempt: attempt + 1
+                        )
+                        return
+                    }
+                    toastPresenter(nil)
+                    return
+                }
+
+                guard topViewController.presentedViewController == nil else {
+                    if attempt < maxAttempts {
+                        presentNativeShareSheetController(
+                            activityController,
+                            toastPresenter: toastPresenter,
+                            attempt: attempt + 1
+                        )
+                        return
+                    }
+                    toastPresenter(nil)
+                    return
+                }
+
+                topViewController.present(activityController, animated: true) {
+                    toastPresenter(nil)
+                }
+            }
         }
     }
 }
@@ -229,15 +272,18 @@ struct ShareDrawerPresentation {
 
 struct GlobalShareDrawerHost: View {
     @ObservedObject private var presenter = ShareDrawerPresenter.shared
+    @State private var activePresentation: ShareDrawerPresentation?
+    @State private var isDrawerPresented = false
+    @State private var clearPresentationTask: Task<Void, Never>?
 
     var body: some View {
         LoopedBottomDrawer(
-            isPresented: presenter.presentation != nil,
+            isPresented: isDrawerPresented,
             onDismiss: {
                 presenter.dismiss()
             }
         ) {
-            if let presentation = presenter.presentation {
+            if let presentation = activePresentation {
                 ShareSheet(
                     items: presentation.items,
                     onComplete: presentation.onComplete,
@@ -246,6 +292,34 @@ struct GlobalShareDrawerHost: View {
                     }
                 )
             }
+        }
+        .onAppear {
+            syncPresentation(presenter.presentation)
+        }
+        .onReceive(presenter.$presentation) { presentation in
+            syncPresentation(presentation)
+        }
+    }
+
+    private func syncPresentation(_ presentation: ShareDrawerPresentation?) {
+        clearPresentationTask?.cancel()
+
+        guard let presentation else {
+            isDrawerPresented = false
+            clearPresentationTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 240_000_000)
+                guard isDrawerPresented == false else { return }
+                activePresentation = nil
+            }
+            return
+        }
+
+        activePresentation = presentation
+
+        guard isDrawerPresented == false else { return }
+
+        DispatchQueue.main.async {
+            isDrawerPresented = true
         }
     }
 }
@@ -512,7 +586,7 @@ private enum SharePrimaryAction: Identifiable {
         case .messages:
             return "imessage-icon"
         case .shareTo:
-            return "share-secondary"
+            return "share-icon"
         }
     }
 
@@ -540,7 +614,7 @@ private enum SharePrimaryAction: Identifiable {
     var brandImageOffset: CGSize {
         switch self {
         case .external(.linkedin):
-            return CGSize(width: 0, height: 1)
+            return CGSize(width: 2, height: 1)
         case .copyLink, .mail, .messages, .external, .shareTo:
             return .zero
         }
@@ -557,18 +631,18 @@ private enum SharePrimaryAction: Identifiable {
 
     var rendersBrandAsTemplate: Bool {
         switch self {
-        case .copyLink, .mail, .messages:
+        case .copyLink, .mail, .messages, .shareTo:
             return true
-        case .external, .shareTo:
+        case .external:
             return false
         }
     }
 
     var brandTemplateTintColor: Color {
         switch self {
-        case .copyLink, .mail, .messages:
+        case .copyLink, .mail, .messages, .shareTo:
             return .loopedWhite
-        case .external, .shareTo:
+        case .external:
             return .loopedTextPrimary
         }
     }
@@ -599,25 +673,27 @@ private enum SharePrimaryAction: Identifiable {
         case .external(.linkedin):
             return .loopedWhite
         case .external(.instagram):
-            return .loopedContrast
+            return .loopedInstagramBubbleBackground
         case .external(.whatsapp):
             return .loopedWhatsAppGreen
         case .messages:
             return .loopedMessagesGreen
-        case .copyLink, .mail, .external, .shareTo:
+        case .shareTo:
+            return .loopedShareToYellow
+        case .copyLink, .mail, .external:
             return .loopedMutedBackground
         }
     }
 
     var bubbleContentColor: Color {
         switch self {
-        case .copyLink, .mail:
+        case .copyLink, .mail, .shareTo:
             return .loopedWhite
         case .external(.x), .external(.threads):
             return .loopedWhite
         case .messages:
             return .loopedWhite
-        case .external, .shareTo:
+        case .external:
             return .loopedTextPrimary
         }
     }

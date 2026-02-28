@@ -38,6 +38,8 @@ extension Color {
     static let loopedShareSheetBackground = Color("ShareSheetBackgroundColor")
     static let loopedCopyLinkBlue = Color("CopyLinkBlue")
     static let loopedMailCyan = Color("MailCyan")
+    static let loopedShareToYellow = Color("ShareToYellow")
+    static let loopedInstagramBubbleBackground = Color("InstagramBubbleBackground")
 
     // Contrast-safe backdrop for community images with transparency.
     static func loopedCommunityImageBackdrop(for colorScheme: ColorScheme) -> Color {
