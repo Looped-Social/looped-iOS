@@ -364,7 +364,7 @@ struct UserSettingsView: View {
                                 .disabled(userShareLink == nil || isLoadingShareLink || isSaving)
 
                                 profileLinkIconButton(
-                                    iconName: "send-icon-fab",
+                                    iconName: "share-icon",
                                     accessibilityLabel: "Share profile link",
                                     action: shareProfileLink
                                 )
