@@ -45,7 +45,9 @@ struct CommentsView: View {
     @State private var showPostShareSheet = false
     @State private var postShareItems: [Any] = []
     @State private var isPostShareTracking = false
-	@FocusState private var isCommentFieldFocused: Bool
+    @ScaledMetric private var threadActionIconSize: CGFloat = 25
+    @ScaledMetric private var threadEmphasizedActionIconSize: CGFloat = 27
+    @FocusState private var isCommentFieldFocused: Bool
 
     private let moderationService: ModerationServiceProtocol = ModerationService()
     private let feedService: FeedServiceProtocol = FeedService()
@@ -521,7 +523,7 @@ private extension CommentsView {
                             .resizable()
                             .renderingMode(.template)
                             .scaledToFit()
-                            .frame(width: 24, height: 24)
+                            .frame(width: threadActionIconSize, height: threadActionIconSize)
                             .foregroundColor(isPostLiked ? .loopedLike : .loopedTextSecondary)
 
                         if !canLikePost {
@@ -548,7 +550,7 @@ private extension CommentsView {
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
-                        .frame(width: 27, height: 27)
+                        .frame(width: threadEmphasizedActionIconSize, height: threadEmphasizedActionIconSize)
                         .foregroundColor(isPostReposted ? .loopedPrimary : .loopedTextSecondary)
                 }
             }
@@ -561,7 +563,7 @@ private extension CommentsView {
                     .resizable()
                     .renderingMode(.template)
                     .scaledToFit()
-                    .frame(width: 24, height: 24)
+                    .frame(width: threadEmphasizedActionIconSize, height: threadEmphasizedActionIconSize)
                     .foregroundColor(.loopedTextSecondary)
             }
             .buttonStyle(PlainButtonStyle())

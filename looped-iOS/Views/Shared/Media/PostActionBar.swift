@@ -31,6 +31,8 @@ struct PostActionBarCompact: View {
     private let sizeScale: CGFloat
 
     private var iconSize: CGFloat { 16 * sizeScale }
+    private var standardActionIconScale: CGFloat { 1.2 }
+    private var emphasizedActionIconScale: CGFloat { 1.25 }
     private var itemSpacing: CGFloat { 12 * sizeScale }
     private var labelSpacing: CGFloat { 4 * sizeScale }
     private var countFontSize: CGFloat { 12 * sizeScale }
@@ -56,7 +58,8 @@ struct PostActionBarCompact: View {
                 tint: state.isLiked ? .loopedLike : .loopedWhite,
                 disabled: false,
                 action: onLike,
-                showsLock: state.isReactionLocked
+                showsLock: state.isReactionLocked,
+                iconScale: standardActionIconScale
             )
 
             actionButton(
@@ -64,7 +67,8 @@ struct PostActionBarCompact: View {
                 count: state.commentCount,
                 tint: .loopedWhite,
                 disabled: false,
-                action: onComment
+                action: onComment,
+                iconScale: standardActionIconScale
             )
 
             actionButton(
@@ -73,7 +77,7 @@ struct PostActionBarCompact: View {
                 tint: state.isReposted ? .loopedPrimary : .loopedWhite,
                 disabled: state.isRepostLoading,
                 action: onRepost,
-                iconScale: 1.12
+                iconScale: emphasizedActionIconScale
             )
 
             actionButton(
@@ -81,7 +85,8 @@ struct PostActionBarCompact: View {
                 count: nil,
                 tint: .loopedWhite,
                 disabled: state.isPreparingShareSheet,
-                action: onShare
+                action: onShare,
+                iconScale: emphasizedActionIconScale
             )
 
             Spacer(minLength: 0)
@@ -91,7 +96,8 @@ struct PostActionBarCompact: View {
                 count: nil,
                 tint: state.isSaved ? .loopedPrimary : .loopedWhite,
                 disabled: state.isBookmarkLoading,
-                action: onSave
+                action: onSave,
+                iconScale: standardActionIconScale
             )
         }
         .font(.loopedSmallText)

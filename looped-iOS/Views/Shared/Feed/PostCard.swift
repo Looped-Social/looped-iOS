@@ -44,8 +44,8 @@ struct PostCard: View {
     @State private var showImageViewer = false
     @State private var selectedVideo: VideoSelection?
     @StateObject private var postActionState = PostActionBarState()
-    @ScaledMetric private var actionIconSize: CGFloat = 22
-    @ScaledMetric private var compactActionIconSize: CGFloat = 20
+    @ScaledMetric private var actionIconSize: CGFloat = 24
+    @ScaledMetric private var compactActionIconSize: CGFloat = 21
     @ScaledMetric private var bookmarkIconSize: CGFloat = 24
     @ScaledMetric private var actionLabelSpacing: CGFloat = 4
     @ScaledMetric private var engagementBarSpacing: CGFloat = 10
