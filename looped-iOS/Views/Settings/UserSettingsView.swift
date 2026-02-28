@@ -691,9 +691,7 @@ struct UserSettingsView: View {
                 EmptyView()
             }
         }
-        .sheet(item: $profileShareSheetPayload) { payload in
-            ShareSheet(items: payload.items)
-        }
+        .loopedShareDrawer(item: $profileShareSheetPayload, items: { $0.items })
         .onAppear {
             hydrateFromUser()
             Task { await loadVerifiedCommunities() }

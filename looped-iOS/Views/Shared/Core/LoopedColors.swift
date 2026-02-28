@@ -33,6 +33,11 @@ extension Color {
     static let loopedWarning = Color("WarningColor")
     static let loopedLike = Color("LikeColor")
     static let loopedVerifiedBadge = Color("VerifiedBadgeColor")
+    static let loopedWhatsAppGreen = Color("WhatsAppGreen")
+    static let loopedMessagesGreen = Color("MessagesGreen")
+    static let loopedShareSheetBackground = Color("ShareSheetBackgroundColor")
+    static let loopedCopyLinkBlue = Color("CopyLinkBlue")
+    static let loopedMailCyan = Color("MailCyan")
 
     // Contrast-safe backdrop for community images with transparency.
     static func loopedCommunityImageBackdrop(for colorScheme: ColorScheme) -> Color {

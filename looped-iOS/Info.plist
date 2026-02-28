@@ -27,6 +27,19 @@
 	<string>Looped needs camera access to take photos and record videos you choose to share.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Looped needs microphone access to record audio when capturing videos.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram</string>
+		<string>reddit</string>
+		<string>linkedin</string>
+		<string>tiktok</string>
+		<string>twitter</string>
+		<string>fb</string>
+		<string>whatsapp</string>
+		<string>tg</string>
+		<string>snapchat</string>
+		<string>threads</string>
+	</array>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 	<key>UILaunchScreen</key>

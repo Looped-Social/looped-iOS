@@ -318,11 +318,12 @@ struct CommentsView: View {
                     )
                 )
             }
-            .sheet(isPresented: $showPostShareSheet) {
-                ShareSheet(items: postShareItems.isEmpty ? defaultPostShareItems : postShareItems) { completed, activityType in
-                    if shouldTrackPostShare(completed: completed, activityType: activityType) {
-                        trackPostShare()
-                    }
+            .loopedShareDrawer(
+                isPresented: $showPostShareSheet,
+                items: postShareItems.isEmpty ? defaultPostShareItems : postShareItems
+            ) { completed, activityType in
+                if shouldTrackPostShare(completed: completed, activityType: activityType) {
+                    trackPostShare()
                 }
             }
             .sheet(item: $activeModerationSheet, onDismiss: {
@@ -543,7 +544,7 @@ private extension CommentsView {
 
             Button(action: togglePostRepost) {
                 HStack(spacing: 4) {
-                    Image(systemName: "arrow.2.squarepath")
+                    Image("repost-icon")
                         .resizable()
                         .renderingMode(.template)
                         .scaledToFit()
@@ -556,7 +557,7 @@ private extension CommentsView {
             .opacity(isPostRepostLoading ? 0.6 : 1.0)
 
             Button(action: preparePostShareSheet) {
-                Image("send-icon-fab")
+                Image("share-icon")
                     .resizable()
                     .renderingMode(.template)
                     .scaledToFit()

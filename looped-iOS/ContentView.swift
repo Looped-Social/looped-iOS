@@ -71,6 +71,10 @@ struct ContentView: View {
     }
 
     var body: some View {
+        configuredContent
+    }
+
+    private var primaryContent: some View {
         Group {
             if uiTestBypassAuth {
                 MainTabView()
@@ -91,6 +95,10 @@ struct ContentView: View {
                 AuthView(authViewModel: authViewModel)
             }
         }
+    }
+
+    private var modalLayerContent: some View {
+        primaryContent
         .loopedDismissKeyboardOnTap()
         .task {
             await fetchAppConfigAndEvaluateMinimumVersionPrompt()
@@ -129,6 +137,13 @@ struct ContentView: View {
                 )
             }
         }
+        .overlay {
+            GlobalShareDrawerHost()
+        }
+    }
+
+    private var alertContent: some View {
+        modalLayerContent
         .alert("Accounts Deleted", isPresented: $showAccountDeletedAlert) {
             Button("OK", role: .cancel) {
                 showAccountDeletedAlert = false
@@ -173,6 +188,10 @@ struct ContentView: View {
         } message: {
             Text(minimumSupportedVersionPromptMessage)
         }
+    }
+
+    private var configuredContent: some View {
+        alertContent
         .environmentObject(authViewModel)
         .environmentObject(feedViewModel)
         .environment(\.preferCommunityShortNames, preferCommunityShortNames)

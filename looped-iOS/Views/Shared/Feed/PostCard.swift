@@ -45,7 +45,8 @@ struct PostCard: View {
     @State private var selectedVideo: VideoSelection?
     @StateObject private var postActionState = PostActionBarState()
     @ScaledMetric private var actionIconSize: CGFloat = 22
-    @ScaledMetric private var repostIconSize: CGFloat = 26
+    @ScaledMetric private var compactActionIconSize: CGFloat = 20
+    @ScaledMetric private var bookmarkIconSize: CGFloat = 24
     @ScaledMetric private var actionLabelSpacing: CGFloat = 4
     @ScaledMetric private var engagementBarSpacing: CGFloat = 10
     @EnvironmentObject var commentsManager: CommentsModalManager
@@ -356,9 +357,12 @@ struct PostCard: View {
 		        if let repostBannerText {
 		            Button(action: { showRepostersSheet = true }) {
 		                HStack(spacing: 8) {
-		                    Image(systemName: "arrow.2.squarepath")
-		                        .font(.loopedCustom(.medium, size: 14))
-		                        .foregroundColor(.loopedTextSecondary)
+                    Image("repost-icon")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .foregroundColor(.loopedTextSecondary)
 
 		                    Text(repostBannerText)
 		                        .font(.loopedSmallText)
@@ -444,20 +448,20 @@ struct PostCard: View {
                             .resizable()
                             .renderingMode(.template)
                             .scaledToFit()
-                            .frame(width: actionIconSize, height: actionIconSize)
+                            .frame(width: compactActionIconSize, height: compactActionIconSize)
                             .foregroundColor(isLiked ? .loopedLike : .loopedTextSecondary)
                             .overlay {
                                 ZStack {
                                     Circle()
                                         .fill(Color.loopedLike.opacity(0.24))
-                                        .frame(width: actionIconSize + 6, height: actionIconSize + 6)
+                                        .frame(width: compactActionIconSize + 6, height: compactActionIconSize + 6)
                                         .scaleEffect(likeGlowScale)
                                         .opacity(likeGlowOpacity)
 
                                     LikeCelebrationParticles(
                                         progress: likeParticleProgress,
                                         opacity: likeParticleOpacity,
-                                        baseRadius: actionIconSize * 0.34
+                                        baseRadius: compactActionIconSize * 0.34
                                     )
                                 }
                                 .allowsHitTesting(false)
@@ -470,7 +474,7 @@ struct PostCard: View {
                                 .foregroundColor(.loopedTextSecondary)
                                 .padding(3)
                                 .background(Circle().fill(Color.loopedBackground))
-                                .offset(x: 7, y: -7)
+                                .offset(x: 6, y: -6)
                         }
                     }
 	                Text("\(displayedReactionCount)")
@@ -484,7 +488,7 @@ struct PostCard: View {
 
     private var shareButton: some View {
         Button(action: { prepareShareSheet() }) {
-            Image("send-icon-fab")
+            Image("share-icon")
                 .resizable()
                 .renderingMode(.template)
                 .scaledToFit()
@@ -499,48 +503,48 @@ struct PostCard: View {
 
     private var repostButton: some View {
         Button(action: { toggleRepost() }) {
-	            HStack(spacing: actionLabelSpacing) {
-                    Image(systemName: "arrow.2.squarepath")
-                        .resizable()
-                        .renderingMode(.template)
-                        .scaledToFit()
-                        .frame(width: repostIconSize, height: repostIconSize)
-                        .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
-                        .opacity(isRepostLoading ? 0.6 : 1)
-	            }
+            HStack(spacing: actionLabelSpacing) {
+                Image("repost-icon")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: actionIconSize, height: actionIconSize)
+                    .foregroundColor(isReposted ? .loopedPrimary : .loopedTextSecondary)
+                    .opacity(isRepostLoading ? 0.6 : 1)
+            }
         }
         .buttonStyle(PlainButtonStyle())
         .contentShape(Rectangle())
         .disabled(isRepostLoading)
     }
 
-	    private var commentButton: some View {
-	        Button(action: { openCommentsIfPossible() }) {
-	            HStack(spacing: actionLabelSpacing) {
-	                Image("comment-icon")
-	                    .resizable()
-	                    .renderingMode(.template)
-	                    .scaledToFit()
-	                    .frame(width: actionIconSize, height: actionIconSize)
-	                    .foregroundColor(.loopedTextSecondary)
-	                Text("\(post.commentsCount)")
-	                    .font(.loopedSubheadlineScaled)
-	                    .foregroundColor(.loopedTextSecondary)
-	            }
-	        }
+    private var commentButton: some View {
+        Button(action: { openCommentsIfPossible() }) {
+            HStack(spacing: actionLabelSpacing) {
+                Image("comment-icon")
+                    .resizable()
+                    .renderingMode(.template)
+                    .scaledToFit()
+                    .frame(width: compactActionIconSize, height: compactActionIconSize)
+                    .foregroundColor(.loopedTextSecondary)
+                Text("\(post.commentsCount)")
+                    .font(.loopedSubheadlineScaled)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+        }
         .buttonStyle(PlainButtonStyle())
         .contentShape(Rectangle())
-	    }
+    }
 
     private var bookmarkButton: some View {
         Button(action: { toggleBookmark() }) {
-	            Image(isBookmarked ? "saved-icon" : "save-icon")
-	                .resizable()
-	                .renderingMode(.template)
-	                .scaledToFit()
-	                .frame(width: actionIconSize, height: actionIconSize)
-	                .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
-	                .opacity(isBookmarkLoading ? 0.6 : 1)
+            Image(isBookmarked ? "saved-icon" : "save-icon")
+                .resizable()
+                .renderingMode(.template)
+                .scaledToFit()
+                .frame(width: bookmarkIconSize, height: bookmarkIconSize)
+                .foregroundColor(isBookmarked ? .loopedPrimary : .loopedTextSecondary)
+                .opacity(isBookmarkLoading ? 0.6 : 1)
         }
         .buttonStyle(PlainButtonStyle())
         .contentShape(Rectangle())
@@ -764,17 +768,6 @@ struct PostCard: View {
 		            Spacer()
 		        }
 		    }
-
-				    private var shareSheetContent: some View {
-				        ShareSheet(
-	                        items: shareItems.isEmpty ? defaultShareItems : shareItems
-	                    ) { completed, activityType in
-				            if shouldTrackShare(completed: completed, activityType: activityType) {
-				                trackShare()
-				            }
-				        }
-				    }
-
     @ViewBuilder
     private var imageViewerContent: some View {
         if !imageUrls.isEmpty {
@@ -1078,11 +1071,15 @@ struct PostCard: View {
 
     private var postCardPresentation: some View {
         postCardLifecycle
-            .sheet(isPresented: $showShareSheet, onDismiss: {
-                    shareItems = []
-                }) {
-	                shareSheetContent
-	            }
+            .loopedShareDrawer(
+                isPresented: $showShareSheet,
+                onDismiss: { shareItems = [] },
+                items: shareItems.isEmpty ? defaultShareItems : shareItems
+            ) { completed, activityType in
+                if shouldTrackShare(completed: completed, activityType: activityType) {
+                    trackShare()
+                }
+            }
 	            .fullScreenCover(isPresented: $showImageViewer, onDismiss: {
 	                selectedImageUrl = nil
             }) {
@@ -1629,6 +1626,7 @@ struct PostCard: View {
                     updatedAt: Date()
                 )
                 onUpdate?(updated)
+                LoopedHaptics.success()
             } catch {
                 isLiked = false
                 if isNotFound(error) {
@@ -2765,24 +2763,6 @@ struct EditPostSheet: View {
             }
         }
     }
-}
-
-// MARK: - Share Sheet
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    var excludedActivityTypes: [UIActivity.ActivityType] = []
-    var onComplete: ((Bool, UIActivity.ActivityType?) -> Void)? = nil
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        controller.excludedActivityTypes = excludedActivityTypes
-        controller.completionWithItemsHandler = { activityType, completed, _, _ in
-            onComplete?(completed, activityType)
-        }
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

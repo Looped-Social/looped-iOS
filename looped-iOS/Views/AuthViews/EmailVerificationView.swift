@@ -568,7 +568,7 @@ private extension EmailVerificationView {
                             isFocused = false
                         }
                         .font(.loopedSubBodyMedium)
-                        .foregroundColor(.loopedBlack)
+                        .foregroundColor(.loopedContrast)
                     }
                 }
         }

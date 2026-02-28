@@ -5,6 +5,7 @@ import SwiftUI
 struct LoopedBottomDrawer<Content: View>: View {
     let isPresented: Bool
     let onDismiss: () -> Void
+    let backgroundColor: Color
     let content: Content
 
     @GestureState private var dragTranslation: CGFloat = 0
@@ -12,27 +13,38 @@ struct LoopedBottomDrawer<Content: View>: View {
     init(
         isPresented: Bool,
         onDismiss: @escaping () -> Void,
+        backgroundColor: Color = .loopedShareSheetBackground,
         @ViewBuilder content: () -> Content
     ) {
         self.isPresented = isPresented
         self.onDismiss = onDismiss
+        self.backgroundColor = backgroundColor
         self.content = content()
     }
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .bottom) {
-                if isPresented {
-                    Color.loopedBlack.opacity(0.45)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                        .onTapGesture(perform: onDismiss)
+                Color.loopedBlack
+                    .opacity(isPresented ? 0.45 : 0)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        guard isPresented else { return }
+                        onDismiss()
+                    }
+                    .animation(.easeOut(duration: 0.16), value: isPresented)
 
-                    drawer(bottomInset: proxy.safeAreaInsets.bottom)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+                drawer(bottomInset: proxy.safeAreaInsets.bottom)
+                    .offset(y: drawerOffset(for: proxy))
+                    .animation(
+                        .interactiveSpring(
+                            response: 0.22,
+                            dampingFraction: 0.94,
+                            blendDuration: 0.06
+                        ),
+                        value: isPresented
+                    )
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.88), value: isPresented)
             .allowsHitTesting(isPresented)
             // Ensure the drawer can fully cover the home-indicator safe area.
             .ignoresSafeArea(edges: .bottom)
@@ -54,7 +66,7 @@ struct LoopedBottomDrawer<Content: View>: View {
                 .padding(.bottom, max(12, bottomInset))
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .background(Color.loopedBackground)
+        .background(backgroundColor)
         .ignoresSafeArea(edges: .bottom)
         .clipShape(
             UnevenRoundedRectangle(
@@ -64,8 +76,12 @@ struct LoopedBottomDrawer<Content: View>: View {
                 topTrailingRadius: 24
             )
         )
-        .offset(y: max(0, dragTranslation))
         .gesture(dismissDragGesture)
+    }
+
+    private func drawerOffset(for proxy: GeometryProxy) -> CGFloat {
+        let hiddenOffset = proxy.size.height + proxy.safeAreaInsets.bottom + 32
+        return (isPresented ? 0 : hiddenOffset) + max(0, dragTranslation)
     }
 
     private var dismissDragGesture: some Gesture {

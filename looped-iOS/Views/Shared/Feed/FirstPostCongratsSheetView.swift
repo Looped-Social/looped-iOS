@@ -55,10 +55,8 @@ struct FirstPostCongratsSheetView: View {
         .background(Color.loopedBackground)
         .accessibilityIdentifier("firstPostCongratsSheet")
         .onAppear { trackShown() }
-        .sheet(item: $sharePayload) { payload in
-            ShareSheet(items: payload.items) { completed, _ in
-                if completed { trackShareCompleted() }
-            }
+        .loopedShareDrawer(item: $sharePayload, items: { $0.items }) { completed, _ in
+            if completed { trackShareCompleted() }
         }
     }
 

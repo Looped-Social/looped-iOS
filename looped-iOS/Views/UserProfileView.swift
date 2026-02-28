@@ -128,9 +128,7 @@ struct UserProfileView: View {
                     startedConversation = nil
                 }
             }
-            .sheet(item: $profileShareSheetPayload) { payload in
-                ShareSheet(items: payload.items)
-            }
+            .loopedShareDrawer(item: $profileShareSheetPayload, items: { $0.items })
             .alert(
                 "Couldn't start chat",
                 isPresented: Binding(

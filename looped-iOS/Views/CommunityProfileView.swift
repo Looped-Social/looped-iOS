@@ -100,9 +100,12 @@ struct CommunityProfileView: View {
 
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: shareCommunityPage) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.loopedCustom(.medium, size: 18))
-                        .foregroundColor(.loopedTextSecondary)
+                    Image("share-icon")
+                        .resizable()
+                        .renderingMode(.template)
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .foregroundColor(.loopedContrast)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
@@ -125,9 +128,7 @@ struct CommunityProfileView: View {
                 }
             }
         }
-        .sheet(item: $communityShareSheetPayload) { payload in
-            ShareSheet(items: payload.items)
-        }
+        .loopedShareDrawer(item: $communityShareSheetPayload, items: { $0.items })
         .sheet(item: $createPostDraft) { draft in
             CreatePostView(
                 feedViewModel: feedViewModel,

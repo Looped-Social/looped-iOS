@@ -121,11 +121,10 @@ struct FullScreenImageViewer: View {
         .onChange(of: initialIndex) { _, _ in
             syncToInitialIndex()
         }
-        .sheet(isPresented: $showShareSheet) {
-            if let url = URL(string: imageUrls[currentIndex]) {
-                ShareSheet(items: [url])
-            }
-        }
+        .loopedShareDrawer(
+            isPresented: $showShareSheet,
+            items: URL(string: imageUrls[currentIndex]).map { [$0] } ?? []
+        )
     }
 
     private var actionBarConfig: PostActionBarConfig? {

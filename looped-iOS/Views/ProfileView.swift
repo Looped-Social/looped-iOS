@@ -608,9 +608,7 @@ struct ProfileHeaderView: View {
                     }
                 }
             }
-            .sheet(item: $profileShareSheetPayload) { payload in
-                ShareSheet(items: payload.items)
-            }
+            .loopedShareDrawer(item: $profileShareSheetPayload, items: { $0.items })
     }
 
     private var displayName: String {
