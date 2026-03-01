@@ -126,6 +126,7 @@ private extension MenuContent {
             }
             AnonCommunityResolver.cacheSelectedCommunityId(communityId)
             _ = try await anonService.ensureIdentity(communityId: communityId)
+            AppAttestRegistrar.shared.appDidBecomeActive()
         } catch {
             anonErrorMessage = error.localizedDescription
             showAnonError = true

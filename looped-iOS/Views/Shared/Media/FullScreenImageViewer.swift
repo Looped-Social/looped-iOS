@@ -140,7 +140,7 @@ struct FullScreenImageViewer: View {
                 }
             },
             onRepost: base.onRepost,
-            onShare: base.onShare,
+            onShare: handleShareTap,
             onSave: base.onSave
         )
     }
@@ -161,14 +161,11 @@ struct FullScreenImageViewer: View {
     }
 
     private func handleShareTap() {
-        if let onShare {
-            isPresented = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                onShare()
-            }
-            return
-        }
-        showShareSheet = true
+        FullScreenMediaShareAction.perform(
+            dismiss: { isPresented = false },
+            externalShare: onShare,
+            presentInlineShareSheet: { showShareSheet = true }
+        )
     }
 }
 

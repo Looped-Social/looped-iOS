@@ -344,6 +344,9 @@ struct PollCard: View {
                 if apiError == "issue_token_required" || apiError == "issue_token_invalid" {
                     return "Anonymous session expired. Turn anonymous mode off and back on, then try again."
                 }
+                if apiError == "app_attest_required" {
+                    return "Anonymous mode now requires trusted device verification. Update the app and try again."
+                }
                 return message ?? apiError
             default:
                 return apiError.localizedDescription

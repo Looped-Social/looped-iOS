@@ -227,6 +227,14 @@ private struct VideoPlayerSheetBody: View {
         isPresented = false
     }
 
+    private func handleShareTap(_ externalShare: @escaping () -> Void) {
+        FullScreenMediaShareAction.perform(
+            dismiss: dismiss,
+            externalShare: externalShare,
+            presentInlineShareSheet: { }
+        )
+    }
+
     private var actionBarConfig: PostActionBarConfig? {
         guard let base = selection.postActionConfig else { return nil }
         return PostActionBarConfig(
@@ -240,7 +248,7 @@ private struct VideoPlayerSheetBody: View {
                 }
             },
             onRepost: base.onRepost,
-            onShare: base.onShare,
+            onShare: { handleShareTap(base.onShare) },
             onSave: base.onSave
         )
     }

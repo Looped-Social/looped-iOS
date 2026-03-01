@@ -58,6 +58,7 @@ enum AnonServiceError: Error, LocalizedError {
     case membershipExpiredSoon
     case issueTokenRequired
     case issueTokenInvalid
+    case appAttestRequired
 
     var errorDescription: String? {
         switch self {
@@ -75,6 +76,8 @@ enum AnonServiceError: Error, LocalizedError {
             return "Anonymous enrollment token is required. Please try again."
         case .issueTokenInvalid:
             return "Anonymous enrollment token expired. Please try again."
+        case .appAttestRequired:
+            return "This action now requires trusted device verification. Update Looped and try again."
         }
     }
 }
@@ -94,17 +97,20 @@ actor AnonService {
     private let store: AnonIdentityStore
     private let signer: RSABlindSigner
     private let backupStore: AnonBackupStore
+    private let appAttestService: any AppAttestServiceProtocol
 
     init(
         apiClient: APIClient = APIClient(),
         store: AnonIdentityStore = AnonIdentityStore(),
         signer: RSABlindSigner = RSABlindSigner(),
-        backupStore: AnonBackupStore = AnonBackupStore()
+        backupStore: AnonBackupStore = AnonBackupStore(),
+        appAttestService: any AppAttestServiceProtocol = AppAttestService()
     ) {
         self.apiClient = apiClient
         self.store = store
         self.signer = signer
         self.backupStore = backupStore
+        self.appAttestService = appAttestService
     }
 
     func currentIdentity() -> AnonIdentity? {
@@ -497,20 +503,10 @@ actor AnonService {
             communityId: communityId,
             blindedMessage: blindResult.blinded.base64EncodedString()
         )
-        let issueResponse: AnonIssueResponseDTO
-        do {
-            issueResponse = try await apiClient.post(
-                "/anon/issue",
-                body: issueRequest,
-                headers: anonHeaders
-            )
-        } catch let apiError as APIError {
-            if case let .apiError(_, errorCode, message) = apiError,
-               errorCode == "specialization_not_joined" {
-                throw AnonServiceError.specializationNotJoined(message: message)
-            }
-            throw apiError
-        }
+        let issueResponse = try await issueAnonymousCertificate(
+            request: issueRequest,
+            allowAppAttestRetry: true
+        )
         if isNearExpiry(issueResponse.expiresAt) {
             throw AnonServiceError.membershipExpiredSoon
         }
@@ -594,6 +590,57 @@ actor AnonService {
         return pem
     }
 
+    private func issueAnonymousCertificate(
+        request: AnonIssueRequestDTO,
+        allowAppAttestRetry: Bool
+    ) async throws -> AnonIssueResponseDTO {
+        let initialKeyId = await appAttestService.prepareForAnonymousEnrollment(forceRefresh: false)
+        do {
+            return try await apiClient.post(
+                "/anon/issue",
+                body: request,
+                headers: issueHeaders(appAttestKeyId: initialKeyId)
+            )
+        } catch let apiError as APIError {
+            if isAppAttestRequired(error: apiError), allowAppAttestRetry {
+                let refreshedKeyId = await appAttestService.prepareForAnonymousEnrollment(forceRefresh: true)
+                do {
+                    return try await apiClient.post(
+                        "/anon/issue",
+                        body: request,
+                        headers: issueHeaders(appAttestKeyId: refreshedKeyId)
+                    )
+                } catch let retryError as APIError {
+                    try throwMappedIssueError(retryError)
+                } catch {
+                    throw error
+                }
+            }
+            try throwMappedIssueError(apiError)
+        } catch {
+            throw error
+        }
+    }
+
+    private func issueHeaders(appAttestKeyId: String?) -> [String: String] {
+        var headers = anonHeaders
+        if let appAttestKeyId, !appAttestKeyId.isEmpty {
+            headers["X-App-Attest-Key-Id"] = appAttestKeyId
+        }
+        return headers
+    }
+
+    private func throwMappedIssueError(_ apiError: APIError) throws -> Never {
+        if isAppAttestRequired(error: apiError) {
+            throw AnonServiceError.appAttestRequired
+        }
+        if case let .apiError(_, errorCode, message) = apiError,
+           errorCode == "specialization_not_joined" {
+            throw AnonServiceError.specializationNotJoined(message: message)
+        }
+        throw apiError
+    }
+
     private func isRegisterRetryable(error: APIError) -> Bool {
         guard case let .apiError(code, errorCode, _) = error else { return false }
         guard code == 409 else { return false }
@@ -608,6 +655,11 @@ actor AnonService {
     private func isIssueTokenRequired(error: APIError) -> Bool {
         guard case let .apiError(code, errorCode, _) = error else { return false }
         return code == 400 && errorCode == "issue_token_required"
+    }
+
+    private func isAppAttestRequired(error: APIError) -> Bool {
+        guard case let .apiError(code, errorCode, _) = error else { return false }
+        return code == 403 && errorCode == "app_attest_required"
     }
 
     private func isNearExpiry(_ expiration: Date) -> Bool {

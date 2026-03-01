@@ -11,6 +11,9 @@ struct AnonIssueResponseDTO: Decodable {
     let expiresAt: Date
     let issueToken: String?
     let issueTokenExpiresAt: Date?
+    let appAttestMode: String?
+    let appAttestRequired: Bool?
+    let appAttestTrusted: Bool?
 }
 
 struct AnonRegisterRequestDTO: Encodable {

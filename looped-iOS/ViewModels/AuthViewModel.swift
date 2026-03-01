@@ -30,6 +30,7 @@ class AuthViewModel: ObservableObject {
     private let authService: AuthServiceProtocol
     private let userService: UserServiceProtocol
     private let deviceRegistrar: NotificationDeviceRegistrar
+    private let appAttestRegistrar: AppAttestRegistrar
     private let notificationService: NotificationServiceProtocol
     private let onboardingStore = OnboardingProgressStore()
     private let onboardingScopeUserDefaultsKey = "looped.onboarding.lastAuthUID"
@@ -39,15 +40,18 @@ class AuthViewModel: ObservableObject {
         authService: AuthServiceProtocol = AuthService(),
         userService: UserServiceProtocol = UserService(),
         deviceRegistrar: NotificationDeviceRegistrar = .shared,
+        appAttestRegistrar: AppAttestRegistrar = .shared,
         notificationService: NotificationServiceProtocol = NotificationService()
     ) {
         self.authService = authService
         self.userService = userService
         self.deviceRegistrar = deviceRegistrar
+        self.appAttestRegistrar = appAttestRegistrar
         self.notificationService = notificationService
         self.isAuthenticated = authService.isAuthenticated
         self.didLoadIdentity = !authService.isAuthenticated
         self.deviceRegistrar.updateAuthState(isAuthenticated: authService.isAuthenticated)
+        self.appAttestRegistrar.updateAuthState(isAuthenticated: authService.isAuthenticated)
         syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
         syncTelemetryAuthState()
         
@@ -58,6 +62,7 @@ class AuthViewModel: ObservableObject {
                 self.syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
                 self.isAuthenticated = isAuthenticated
                 self.deviceRegistrar.updateAuthState(isAuthenticated: isAuthenticated)
+                self.appAttestRegistrar.updateAuthState(isAuthenticated: isAuthenticated)
                 if isAuthenticated {
                     self.didLoadIdentity = false
                     Task { await self.bootstrapIdentity() }
@@ -88,6 +93,10 @@ class AuthViewModel: ObservableObject {
             .store(in: &cancellables)
 
         updateLinkedProviders()
+    }
+
+    func appDidBecomeActive() {
+        appAttestRegistrar.appDidBecomeActive()
     }
     
     func login(email: String, password: String) async {

@@ -557,6 +557,9 @@ class APIClient {
         return path.hasSuffix("/anon/issuer")
             || path.hasSuffix("/anon/issue")
             || path.hasSuffix("/anon/register")
+            || path.hasSuffix("/v1/devices/app-attest/challenge")
+            || path.hasSuffix("/v1/devices/app-attest/complete")
+            || path.hasSuffix("/v1/devices/app-attest/status")
     }
 
     private func logAnonEnrollmentRequestIdIfNeeded(request: URLRequest, response: HTTPURLResponse) {
