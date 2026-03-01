@@ -17,6 +17,6 @@
 		<string>group.com.mylooped.looped</string>
 	</array>
 	<key>com.apple.developer.devicecheck.appattest-environment</key>
-	<string>development</string>
+	<string>production</string>
 </dict>
 </plist>
