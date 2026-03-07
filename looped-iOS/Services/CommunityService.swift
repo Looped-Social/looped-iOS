@@ -20,7 +20,9 @@ class CommunityService: CommunityServiceProtocol {
             endpoint += "&cursor=\(encoded)"
         }
         let response: CommunityFollowResponseDTO = try await apiClient.get(endpoint)
-        let items = response.items.map(CommunitySummary.init(dto:))
+        let items = response.items
+            .map(CommunitySummary.init(dto:))
+            .filter { isSupportedUserFacing(kind: $0.kind) }
         return CommunityPage(items: items, nextCursor: response.nextCursor)
     }
 
@@ -37,7 +39,9 @@ class CommunityService: CommunityServiceProtocol {
             endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
         }
         let response: CommunityRecommendedResponseDTO = try await apiClient.get(endpoint)
-        let items = response.items.map(CommunitySearchResult.init(dto:))
+        let items = response.items
+            .map(CommunitySearchResult.init(dto:))
+            .filter(isSupportedUserFacing)
         return SearchResultPage(items: items, nextCursor: response.nextCursor)
     }
 
@@ -70,16 +74,17 @@ class CommunityService: CommunityServiceProtocol {
 
     func fetchPostableCommunities() async throws -> [CommunitySummary] {
         let response: CommunityFollowResponseDTO = try await apiClient.get("/v1/me/postable-communities")
-        return response.items.map(CommunitySummary.init(dto:))
+        return response.items
+            .map(CommunitySummary.init(dto:))
+            .filter { isSupportedUserFacing(kind: $0.kind) }
     }
 
     func fetchJoinedSpecializations(type: CommunitySpecializationType?) async throws -> [DisplayCommunity] {
-        let filterType = type ?? .unknown
+        let requestedFilterType = type ?? .unknown
+        let filterType: CommunitySpecializationType = requestedFilterType == .major ? .field : requestedFilterType
         let typeQuery: String = {
             switch filterType {
-            case .major:
-                return "major"
-            case .field:
+            case .field, .major:
                 return "field"
             case .unknown:
                 return "all"
@@ -127,9 +132,8 @@ class CommunityService: CommunityServiceProtocol {
             let leftType = lhs.specializationType ?? .unknown
             let rightType = rhs.specializationType ?? .unknown
             if leftType != rightType {
-                // Keep majors before fields for pickers.
-                if leftType == .major { return true }
-                if rightType == .major { return false }
+                if leftType == .field { return true }
+                if rightType == .field { return false }
                 return leftType.rawValue < rightType.rawValue
             }
             return lhs.displayText.localizedCaseInsensitiveCompare(rhs.displayText) == .orderedAscending
@@ -139,7 +143,8 @@ class CommunityService: CommunityServiceProtocol {
     func fetchSpecializationJoinLimits(type: CommunitySpecializationType?) async throws -> [SpecializationJoinLimit] {
         var endpoint = "/v1/me/specializations/join-limits"
         if let type, type != .unknown {
-            endpoint += "?type=\(type.rawValue)"
+            let resolvedType: CommunitySpecializationType = type == .major ? .field : type
+            endpoint += "?type=\(resolvedType.rawValue)"
         }
         let response: SpecializationJoinLimitListResponseDTO = try await apiClient.get(endpoint)
         return response.items.map(SpecializationJoinLimit.init(dto:))
@@ -155,7 +160,9 @@ class CommunityService: CommunityServiceProtocol {
             endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
         }
         let response: CommunitySearchResponseDTO = try await apiClient.get(endpoint)
-        let items = response.items.map(CommunitySearchResult.init(dto:))
+        let items = response.items
+            .map(CommunitySearchResult.init(dto:))
+            .filter(isSupportedUserFacing)
         return SearchResultPage(items: items, nextCursor: response.nextCursor)
     }
 
@@ -212,6 +219,26 @@ class CommunityService: CommunityServiceProtocol {
             return code == 404
         }
         return false
+    }
+
+    private func isSupportedUserFacing(_ result: CommunitySearchResult) -> Bool {
+        switch result.kind {
+        case .company:
+            return true
+        case .specialization:
+            return result.specializationType == .field
+        case .school, .unknown:
+            return false
+        }
+    }
+
+    private func isSupportedUserFacing(kind: CommunityKind) -> Bool {
+        switch kind {
+        case .company, .specialization:
+            return true
+        case .school, .unknown:
+            return false
+        }
     }
 }
 

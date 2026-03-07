@@ -98,8 +98,8 @@ struct SpecializationIcon: View {
 
 #Preview {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-        SpecializationIcon(name: "Computer Science", memberCount: 1800, specializationType: .major, icon: CommunityIcon(kind: .emoji, value: "💻"))
-        SpecializationIcon(name: "Business", memberCount: 2500, specializationType: .major, icon: CommunityIcon(kind: .sfSymbol, value: "graduationcap.fill"))
+        SpecializationIcon(name: "Computer Science", memberCount: 1800, specializationType: .field, icon: CommunityIcon(kind: .emoji, value: "💻"))
+        SpecializationIcon(name: "Business", memberCount: 2500, specializationType: .field, icon: CommunityIcon(kind: .sfSymbol, value: "graduationcap.fill"))
         SpecializationIcon(name: "Marketing", memberCount: 1200, specializationType: .field, icon: CommunityIcon(kind: .emoji, value: "📣"))
         SpecializationIcon(name: "Design", memberCount: 760, specializationType: .field, icon: nil)
     }

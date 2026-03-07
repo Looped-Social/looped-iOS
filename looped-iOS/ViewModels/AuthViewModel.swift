@@ -17,6 +17,7 @@ class AuthViewModel: ObservableObject {
     @Published var onboardingStep: RemoteOnboardingStep?
     @Published var onboardingStageV2: String?
     @Published var onboardingContextV2: OnboardingContextV2DTO?
+    @Published var notices: [UserNotice] = []
     @Published var profileCompletionStatus: ProfileCompletionStatus?
     @Published var onboardingAllowedNextStagesV2: [String] = []
     @Published private(set) var didLoadIdentity = false
@@ -68,6 +69,7 @@ class AuthViewModel: ObservableObject {
                     Task { await self.bootstrapIdentity() }
                 } else {
                     self.currentUser = nil
+                    self.notices = []
                     self.onboardingComplete = false
                     self.onboardingStep = nil
                     self.onboardingStageV2 = nil
@@ -273,6 +275,7 @@ class AuthViewModel: ObservableObject {
         authService.signOut()
         syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
         currentUser = nil
+        notices = []
         onboardingComplete = false
         onboardingStep = nil
         onboardingStageV2 = nil
@@ -301,6 +304,7 @@ class AuthViewModel: ObservableObject {
             onboardingStep = onboardingComplete ? nil : (identity.onboardingStep ?? .profileSetup)
             onboardingStageV2 = identity.onboardingStageV2
             onboardingContextV2 = identity.onboardingContext
+            notices = (identity.notices ?? []).map(UserNotice.init(dto:))
             profileCompletionStatus = identity.profileCompletion.map(ProfileCompletionStatus.init(dto:))
             onboardingAllowedNextStagesV2 = []
             shouldEnterOnboardingFlow = !onboardingComplete
@@ -323,6 +327,7 @@ class AuthViewModel: ObservableObject {
             onboardingStep = .profileSetup
             onboardingStageV2 = nil
             onboardingContextV2 = nil
+            notices = []
             profileCompletionStatus = nil
             onboardingAllowedNextStagesV2 = []
             isProvisioned = false
@@ -336,8 +341,23 @@ class AuthViewModel: ObservableObject {
             errorMessage = nil
             syncTelemetryAuthState()
         } catch {
+            notices = []
             errorMessage = error.localizedDescription
             syncTelemetryAuthState()
+        }
+    }
+
+    func acknowledgeNotice(_ notice: UserNotice, action: UserNoticeAckAction) async -> Bool {
+        guard isAuthenticated else { return false }
+        do {
+            try await userService.acknowledgeNotice(noticeKey: notice.key, action: action)
+            notices.removeAll { $0.key == notice.key }
+            return true
+        } catch let apiError as APIError where apiError.isAuthGatingError {
+            return false
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
@@ -606,6 +626,7 @@ private extension AuthViewModel {
             onboardingStep = .profileSetup
             onboardingStageV2 = nil
             onboardingContextV2 = nil
+            notices = []
             profileCompletionStatus = nil
             onboardingAllowedNextStagesV2 = []
             isProvisioned = false

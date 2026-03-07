@@ -1,6 +1,6 @@
 import Foundation
 
-struct IdentityResponseDTO: Codable {
+struct IdentityResponseDTO: Decodable {
     let sub: String
     let iss: String
     let aud: [String]
@@ -12,6 +12,7 @@ struct IdentityResponseDTO: Codable {
     let onboardingStageV2: String?
     let onboardingContext: OnboardingContextV2DTO?
     let profileCompletion: ProfileCompletionDTO?
+    let notices: [UserNoticeDTO]?
 }
 
 struct UserDTO: Codable {
@@ -103,4 +104,34 @@ struct UserSlugAvailabilityDTO: Decodable {
 
 struct UpdateShareLinkRequestDTO: Encodable {
     let customSlug: String?
+}
+
+struct UserNoticeDTO: Decodable {
+    let key: String
+    let title: String
+    let body: String
+    let dismissible: Bool?
+    let ctaLabel: String?
+
+    enum CodingKeys: String, CodingKey {
+        case key
+        case title
+        case body
+        case dismissible
+        case ctaLabel
+        case ctaLabelSnake = "cta_label"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        key = try container.decode(String.self, forKey: .key)
+        title = try container.decode(String.self, forKey: .title)
+        body = try container.decode(String.self, forKey: .body)
+        dismissible = try container.decodeIfPresent(Bool.self, forKey: .dismissible)
+
+        let camelLabel = try container.decodeIfPresent(String.self, forKey: .ctaLabel)
+        let snakeLabel = try container.decodeIfPresent(String.self, forKey: .ctaLabelSnake)
+        ctaLabel = (camelLabel ?? snakeLabel)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }

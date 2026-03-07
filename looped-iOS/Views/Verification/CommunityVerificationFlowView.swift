@@ -14,7 +14,7 @@ struct CommunityVerificationFlowView: View {
 
     @State private var path: [VerificationStep] = []
     @State private var selectedOptionId: String?
-    private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
+    private let verificationInfoURL = URL(string: "https://looped-social.com/privacy")!
 
     init(community: CommunityProfileData, onComplete: @escaping (CommunityVerificationCompletion) -> Void) {
         self.community = community
@@ -123,9 +123,8 @@ struct CommunityVerificationFlowView: View {
     }
 
     private var verificationOptions: [VerificationOption] {
-        let emailTitle = community.kind == .school ? "Student Email" : "Company Email"
         return [
-            VerificationOption(id: "email", title: emailTitle),
+            VerificationOption(id: "email", title: "Company Email"),
             VerificationOption(id: "photo_id", title: "Work ID / Work Badge")
         ]
     }

@@ -46,6 +46,11 @@ final class CommunityRequestFlowViewModel: ObservableObject {
             errorMessage = "Select a community type."
             return false
         }
+        let resolvedKind = normalizedRequestKind(kind)
+        guard resolvedKind != .unknown else {
+            errorMessage = "Select a community type."
+            return false
+        }
 
         isSubmitting = true
         errorMessage = nil
@@ -74,7 +79,7 @@ final class CommunityRequestFlowViewModel: ObservableObject {
 
         do {
             let response = try await requestService.createCommunityRequest(
-                kind: kind,
+                kind: resolvedKind,
                 name: trimmedName,
                 about: trimmedAbout,
                 imageKey: imageKey,
@@ -97,7 +102,7 @@ final class CommunityRequestFlowViewModel: ObservableObject {
         if case let APIError.apiError(_, apiError, _) = error {
             switch apiError {
             case "invalid_kind":
-                return "Pick a valid community type."
+                return "Pick Company or Field."
             case "name_required":
                 return "Enter a community name."
             case "invalid_image":
@@ -133,6 +138,19 @@ final class CommunityRequestFlowViewModel: ObservableObject {
         }
 
         return ImageUploadPayload(data: data, mimeType: "image/jpeg", width: width, height: height)
+    }
+
+    private func normalizedRequestKind(_ kind: CommunityRequestKind) -> CommunityRequestKind {
+        switch kind {
+        case .company, .field:
+            return kind
+        case .school:
+            return .company
+        case .major:
+            return .field
+        case .unknown:
+            return .unknown
+        }
     }
 
     private func imageHasAlpha(_ image: UIImage) -> Bool {

@@ -15,7 +15,7 @@ struct CommunityVerificationsView: View {
 
     var body: some View {
         List {
-            Section("Joined Majors & Fields") {
+            Section("Joined Fields") {
                 if !orderedJoinLimits.isEmpty {
                     ForEach(orderedJoinLimits, id: \.specializationType) { limit in
                         HStack(spacing: 10) {
@@ -88,9 +88,9 @@ struct CommunityVerificationsView: View {
                 }
             }
             header: {
-                Text("Companies & Schools")
+                Text("Companies")
             } footer: {
-                Text("Search to verify another company or school. Tap an active verification to unverify.")
+                Text("Search to verify another company. Tap an active verification to unverify.")
                     .font(.loopedSubBodyRegular)
                     .foregroundColor(.loopedTextSecondary)
             }
@@ -177,16 +177,7 @@ struct CommunityVerificationsView: View {
     private var orderedJoinLimits: [SpecializationJoinLimit] {
         viewModel.joinLimits
             .filter { $0.specializationType != .unknown }
-            .sorted { lhs, rhs in
-                switch (lhs.specializationType, rhs.specializationType) {
-                case (.major, .field):
-                    return true
-                case (.field, .major):
-                    return false
-                default:
-                    return lhs.pluralLabel < rhs.pluralLabel
-                }
-            }
+            .sorted { lhs, rhs in lhs.pluralLabel < rhs.pluralLabel }
     }
 
     @ViewBuilder
@@ -250,9 +241,10 @@ struct CommunityVerificationsView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "checkmark.seal")
-                .font(.loopedCustom(size: 36))
-                .foregroundColor(.loopedTextSecondary.opacity(0.5))
+            VerifiedBadgeIcon(
+                tint: .loopedTextSecondary.opacity(0.5),
+                size: 36
+            )
 
             Text("No community verifications yet")
                 .font(.loopedBodyMedium)
@@ -306,7 +298,7 @@ struct CommunityVerificationsView: View {
                 .font(.loopedBodyMedium)
                 .foregroundColor(.loopedTextSecondary)
 
-            Text("Verify a community with your school/work email to see it here.")
+            Text("Verify a community with your work email to see it here.")
                 .font(.loopedSubBodyRegular)
                 .foregroundColor(.loopedTextSecondary)
                 .multilineTextAlignment(.center)
@@ -501,7 +493,7 @@ struct CommunityVerificationsView: View {
 
     private var verificationSearchSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Find a company or school to verify")
+            Text("Find a company to verify")
                 .font(.loopedSubBodyMedium)
                 .foregroundColor(.loopedTextSecondary)
 
@@ -510,7 +502,7 @@ struct CommunityVerificationsView: View {
                     .font(.loopedCustom(size: 14))
                     .foregroundColor(.loopedTextSecondary)
 
-                TextField("Search companies and schools", text: $verificationSearchText)
+                TextField("Search companies", text: $verificationSearchText)
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
                     .textInputAutocapitalization(.words)
@@ -552,7 +544,7 @@ struct CommunityVerificationsView: View {
                                             .foregroundColor(.loopedTextSecondary)
                                             .lineLimit(1)
                                     }
-                                    Text(result.kind == .school ? "School" : "Company")
+                                    Text("Company")
                                         .font(.loopedSmallText)
                                         .foregroundColor(.loopedTextSecondary)
                                 }
@@ -573,7 +565,7 @@ struct CommunityVerificationsView: View {
                 }
             } else if !verificationSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 let trimmed = verificationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-                Text(trimmed.count < 2 ? "Type at least 2 characters." : "No companies or schools found.")
+                Text(trimmed.count < 2 ? "Type at least 2 characters." : "No companies found.")
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
             }
@@ -588,7 +580,7 @@ struct CommunityVerificationsView: View {
                     .font(.loopedCustom(size: 14))
                     .foregroundColor(.loopedTextSecondary)
 
-                TextField("Search majors and fields", text: $specializationSearchText)
+                TextField("Search fields", text: $specializationSearchText)
                     .font(.loopedBody)
                     .foregroundColor(.loopedTextPrimary)
                     .textInputAutocapitalization(.words)
@@ -627,7 +619,7 @@ struct CommunityVerificationsView: View {
                                         .font(.loopedBodyMedium)
                                         .foregroundColor(.loopedTextPrimary)
                                         .lineLimit(1)
-                                    Text(item.result.specializationType == .major ? "Major" : "Field")
+                                    Text("Field")
                                         .font(.loopedSmallText)
                                         .foregroundColor(.loopedTextSecondary)
                                 }
@@ -650,7 +642,7 @@ struct CommunityVerificationsView: View {
                 }
             } else if !specializationSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 let trimmed = specializationSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-                Text(trimmed.count < 2 ? "Type at least 2 characters." : "No majors or fields found.")
+                Text(trimmed.count < 2 ? "Type at least 2 characters." : "No fields found.")
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
             }
@@ -715,7 +707,7 @@ struct CommunityVerificationsView: View {
         RoundedRectangle(cornerRadius: 8)
             .fill(Color.loopedMutedBackground)
             .overlay(
-                Text(result.specializationType == .major ? "M" : "F")
+                Text("F")
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
             )
@@ -749,11 +741,11 @@ struct CommunityVerificationsView: View {
     }
 
     @ViewBuilder
-    private func verificationSearchPreviewFallback(for result: CommunitySearchResult) -> some View {
+    private func verificationSearchPreviewFallback(for _: CommunitySearchResult) -> some View {
         RoundedRectangle(cornerRadius: 8)
             .fill(Color.loopedMutedBackground)
             .overlay(
-                Image(systemName: result.kind == .school ? "graduationcap.fill" : "building.2.fill")
+                Image(systemName: "building.2.fill")
                     .font(.loopedCustom(size: 13))
                     .foregroundColor(.loopedTextSecondary)
             )
@@ -813,7 +805,7 @@ private struct SpecializationSearchListItem: Identifiable {
 
     init(result: CommunitySearchResult) {
         self.result = result
-        // Major/field IDs can overlap, so include specialization type to keep row identity unique.
+        // Include specialization type to keep row identity stable if IDs overlap across types.
         self.id = "\(result.specializationType.rawValue)-\(result.id)"
     }
 }

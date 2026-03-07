@@ -55,19 +55,17 @@ final class OnboardingSpecializationSelectionViewModel: ObservableObject {
             if trimmed.isEmpty {
                 let recommended = try await discoveryService.fetchRecommendedSpecializations(limit: 50)
                 switch kind {
-                case .major:
-                    items = recommended.majors
                 case .field:
                     items = recommended.fields
                 default:
-                    items = recommended.majors + recommended.fields
+                    items = recommended.fields
                 }
             } else {
                 let page = try await communityService.searchCommunities(
                     query: trimmed,
                     limit: 50,
                     cursor: nil,
-                    kind: kind
+                    kind: .field
                 )
                 items = page.items
             }

@@ -89,7 +89,7 @@ struct OnboardingVerificationExplainerView: View {
 #Preview {
     OnboardingVerificationExplainerView(
         title: "Verification skipped",
-        message: "Finish verification in your company to join a major or field and start posting.",
+        message: "Finish verification in your company to join a field and start posting.",
         buttonTitle: "Continue",
         illustrationAssetName: "skipped-verification",
         onContinue: {}

@@ -3,7 +3,7 @@ import SwiftUI
 struct AccountActionIntroView: View {
     let action: AccountActionKind
 
-    private let feedbackURL = URL(string: "https://mylooped.app/feedback")!
+    private let feedbackURL = URL(string: "https://looped-social.com/feedback")!
 
     var body: some View {
         ScrollView {

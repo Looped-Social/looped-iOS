@@ -63,9 +63,9 @@ struct FirstPostCongratsSheetView: View {
     private var shareItems: [Any] {
         let shareUrl: URL
         if let postId {
-            shareUrl = URL(string: "https://mylooped.app/p/\(postId)")!
+            shareUrl = URL(string: "https://looped-social.com/p/\(postId)")!
         } else {
-            shareUrl = URL(string: "https://mylooped.app")!
+            shareUrl = URL(string: "https://looped-social.com")!
         }
         return [
             "First post down. Time to spark a conversation.",

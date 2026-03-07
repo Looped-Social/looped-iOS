@@ -7,18 +7,18 @@ enum OnboardingStep: String {
     case profileSetup
     case verificationInfo
     case selectCompany
-    case selectSchool
+    case selectOrganizationLegacy = "selectSchool"
     case departmentSelection
-    case degreeSelection
-    case communitySelectionStudent
+    case fieldSelectionLegacy = "degreeSelection"
+    case communitySelectionLegacy = "communitySelectionStudent"
     case communitySelectionCompany
-    case verificationIntroStudent
+    case verificationIntroLegacy = "verificationIntroStudent"
     case verificationIntroCompany
     case waysToVerifyCompany
-    case waysToVerifyStudent
-    case photoIdVerificationStudent
+    case waysToVerifyLegacy = "waysToVerifyStudent"
+    case photoIdVerificationLegacy = "photoIdVerificationStudent"
     case photoIdVerificationCompany
-    case emailVerificationStudent
+    case emailVerificationLegacy = "emailVerificationStudent"
     case emailVerificationCompany
     case verificationConfirmation
     case verificationNotifications

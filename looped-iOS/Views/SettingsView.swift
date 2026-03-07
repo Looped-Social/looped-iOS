@@ -45,11 +45,11 @@ struct SettingsView: View {
     @State private var pendingDisconnectProvider: LinkedProvider?
     @State private var contentDestination: MenuDestination?
 
-    private let feedbackUrl = URL(string: "https://www.mylooped.app/contact")!
-    private let contentPolicyUrl = URL(string: "https://www.mylooped.app/community-rules")!
-    private let privacyPolicyUrl = URL(string: "https://www.mylooped.app/privacy-policy")!
-    private let userAgreementUrl = URL(string: "https://www.mylooped.app/terms")!
-    private let attributionsUrl = URL(string: "https://www.mylooped.app/attributions")!
+    private let feedbackUrl = URL(string: "https://looped-social.com/contact")!
+    private let contentPolicyUrl = URL(string: "https://looped-social.com/community-rules")!
+    private let privacyPolicyUrl = URL(string: "https://looped-social.com/privacy-policy")!
+    private let userAgreementUrl = URL(string: "https://looped-social.com/terms")!
+    private let attributionsUrl = URL(string: "https://looped-social.com/attributions")!
 
     // Alert states
     @State private var showLogoutAlert = false
@@ -363,7 +363,7 @@ private struct SettingsListContent: View {
 	    private var accessSection: some View {
 	        Section("Communities & Access") {
 	            NavigationLink(destination: CommunityVerificationsView()) {
-	                SettingsRowLabel(icon: .system("checkmark.seal"), title: "Community verifications")
+	                SettingsRowLabel(icon: .asset("verfied-icon"), title: "Community verifications")
 	            }
 
 	            NavigationLink(destination: VerificationInfoScreen()) {

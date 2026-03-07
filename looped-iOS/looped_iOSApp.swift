@@ -24,7 +24,10 @@ import GoogleSignIn
 
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-  private let allowlistedUniversalHost = "mylooped.app"
+  private let allowlistedUniversalHosts: Set<String> = [
+      "looped-social.com",
+      "www.looped-social.com"
+  ]
 
   func application(_ application: UIApplication,
                    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
@@ -174,7 +177,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
       if scheme == "looped" {
           return url
       }
-      if scheme == "https", (url.host ?? "").lowercased() == allowlistedUniversalHost {
+      if scheme == "https", allowlistedUniversalHosts.contains((url.host ?? "").lowercased()) {
           return url
       }
       return nil

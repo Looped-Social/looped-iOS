@@ -185,17 +185,15 @@ struct OrganizationDetailSelectionView: View {
 private extension OrganizationDetailSelectionView {
     var inlineHelperText: String {
         switch kind {
-        case .field:
+        case .field, .major:
             return "Select up to 2 fields to join now."
-        case .major:
-            return "Select up to 2 majors to join now."
         default:
-            return "Select up to 2 specializations to join now."
+            return "Select up to 2 fields to join now."
         }
     }
 
     var infoText: String {
-        "Workplace verification lets you join up to 2 fields. School verification lets you join up to 2 majors."
+        "Workplace verification lets you join up to 2 fields."
     }
 
     func isSelected(_ specializationId: Int) -> Bool {

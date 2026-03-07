@@ -406,6 +406,13 @@ class UserService: UserServiceProtocol {
         return response.profileCompletion
     }
 
+    func acknowledgeNotice(noticeKey: String, action: UserNoticeAckAction) async throws {
+        let encodedKey = noticeKey.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? noticeKey
+        let endpoint = "/v1/me/notices/\(encodedKey)/ack"
+        let request = NoticeAckRequestDTO(action: action.rawValue)
+        let _: EmptyResponse = try await apiClient.post(endpoint, body: request)
+    }
+
     func markOnboardingInfoScreenViewed() async throws -> OnboardingStateV2DTO {
         try await apiClient.post(
             "/v1/users/me/onboarding-v2/info-screen/viewed",
@@ -622,6 +629,10 @@ private struct DisplaySpecializationUpdateRequest: Codable {
 }
 
 private struct EmptyBody: Codable {}
+
+private struct NoticeAckRequestDTO: Codable {
+    let action: String
+}
 
 private struct DeleteAccountResponse: Codable {
     let status: String?

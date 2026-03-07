@@ -108,7 +108,10 @@ final class DeepLinkRouter: ObservableObject {
     private var lastFingerprint = ""
     private var lastHandledAt = Date.distantPast
 
-    private let allowedUniversalHost = "mylooped.app"
+    private let allowedUniversalHosts: Set<String> = [
+        "looped-social.com",
+        "www.looped-social.com"
+    ]
     private let duplicateWindow: TimeInterval = 1.2
 
     private init() {}
@@ -257,7 +260,7 @@ final class DeepLinkRouter: ObservableObject {
 
         if scheme == "https" {
             let host = (url.host ?? "").lowercased()
-            guard host == allowedUniversalHost else { return nil }
+            guard allowedUniversalHosts.contains(host) else { return nil }
             return parseUniversal(url)
         }
 

@@ -6,20 +6,17 @@ struct DisplaySpecializationPickerView: View {
     @StateObject private var viewModel: DisplaySpecializationPickerViewModel
     @State private var searchText = ""
     @State private var searchTask: Task<Void, Never>?
-    @State private var filter: SpecializationFilter
     @State private var communityToView: CommunityProfileData?
     private let title: String
 
     init(
         selectedSpecialization: Binding<DisplayCommunity?>,
-        title: String = "Majors & Fields",
+        title: String = "Fields",
         communityService: CommunityServiceProtocol = CommunityService(),
         discoveryService: DiscoveryServiceProtocol = DiscoveryService()
     ) {
         _selectedSpecialization = selectedSpecialization
         self.title = title
-        let initialFilter = SpecializationFilter.from(selectedSpecialization.wrappedValue?.specializationType) ?? .major
-        _filter = State(initialValue: initialFilter)
         _viewModel = StateObject(
             wrappedValue: DisplaySpecializationPickerViewModel(
                 communityService: communityService,
@@ -32,13 +29,6 @@ struct DisplaySpecializationPickerView: View {
         NavigationStack {
             VStack(spacing: 16) {
                 searchField
-
-                Picker("Type", selection: $filter) {
-                    ForEach(SpecializationFilter.allCases, id: \.self) { option in
-                        Text(option.title).tag(option)
-                    }
-                }
-                .pickerStyle(.segmented)
 
                 content
 
@@ -71,9 +61,6 @@ struct DisplaySpecializationPickerView: View {
             .onChange(of: searchText) { _, _ in
                 scheduleSearch()
             }
-            .onChange(of: filter) { _, _ in
-                scheduleSearch(immediate: true)
-            }
             .sheet(item: $communityToView, onDismiss: {
                 scheduleSearch(immediate: true)
             }) { community in
@@ -91,7 +78,7 @@ struct DisplaySpecializationPickerView: View {
                 .font(.loopedCustom(size: 14))
                 .foregroundColor(.loopedTextSecondary)
 
-            TextField("Search majors or fields", text: $searchText)
+            TextField("Search fields", text: $searchText)
                 .font(.loopedBody)
                 .foregroundColor(.loopedTextPrimary)
                 .textInputAutocapitalization(.words)
@@ -137,7 +124,7 @@ struct DisplaySpecializationPickerView: View {
                                 await viewModel.loadMoreIfNeeded(
                                     currentId: result.id,
                                     query: searchText,
-                                    filter: filter
+                                    filter: .field
                                 )
                             }
                         }
@@ -163,7 +150,7 @@ struct DisplaySpecializationPickerView: View {
     private var emptyStateText: String {
         let trimmed = DisplaySpecializationPickerViewModel.normalizedQuery(searchText)
         if trimmed.isEmpty {
-            return "Browse majors and fields to join and display on your profile."
+            return "Browse fields to join and display on your profile."
         }
         return "No specializations found."
     }
@@ -171,13 +158,12 @@ struct DisplaySpecializationPickerView: View {
     private func scheduleSearch(immediate: Bool = false) {
         searchTask?.cancel()
         let query = searchText
-        let requestedFilter = filter
         searchTask = Task {
             if !immediate {
                 try? await Task.sleep(nanoseconds: 300_000_000)
             }
             guard !Task.isCancelled else { return }
-            await viewModel.reload(query: query, filter: requestedFilter)
+            await viewModel.reload(query: query, filter: .field)
         }
     }
 

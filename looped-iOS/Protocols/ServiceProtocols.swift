@@ -235,6 +235,7 @@ protocol UserServiceProtocol {
     func onboardUser(username: String, firstName: String, lastName: String, dateOfBirth: String) async throws -> User
     func updateOnboardingStep(_ step: RemoteOnboardingStep) async throws -> OnboardingStateDTO
     func dismissProfileCompletionPrompt() async throws -> ProfileCompletionDTO?
+    func acknowledgeNotice(noticeKey: String, action: UserNoticeAckAction) async throws
     func markOnboardingInfoScreenViewed() async throws -> OnboardingStateV2DTO
     func setOnboardingV2Organization(orgId: Int) async throws -> OnboardingStateV2DTO
     func setOnboardingV2VerificationChoice(path: String) async throws -> OnboardingStateV2DTO
@@ -315,6 +316,12 @@ extension UserServiceProtocol {
 
     func unfollowUser(userId: Int, asAnonymousActor: Bool) async throws -> UserFollowActionResult {
         try await unfollowUser(userId: userId, asAnonymousActor: asAnonymousActor, communityId: nil)
+    }
+
+    func acknowledgeNotice(noticeKey: String, action: UserNoticeAckAction) async throws {
+        _ = noticeKey
+        _ = action
+        throw APIError.invalidResponse
     }
 }
 

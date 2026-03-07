@@ -64,9 +64,9 @@ extension PostViewerCapabilities {
     func lockMessage(for verb: String) -> String {
         switch lockReason {
         case .some(.specializationNotJoined):
-            return "Join this major or field to \(verb)."
+            return "Join this field to \(verb)."
         case .some(.specializationVerificationRequired):
-            return "Verify first, then join this major or field to \(verb)."
+            return "Verify first, then join this field to \(verb)."
         case .some(.communityNotVerified):
             return "Verify in this community to \(verb)."
         case .some(.verificationExpired):

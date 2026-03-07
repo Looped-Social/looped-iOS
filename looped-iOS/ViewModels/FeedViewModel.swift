@@ -637,7 +637,7 @@ class FeedViewModel: ObservableObject {
                 case "community_not_verified":
                     errorMessage = "You must be verified in this community to post. Go to that community and tap Verify."
                 case "specialization_not_joined":
-                    errorMessage = "Join this major or field to post."
+                    errorMessage = "Join this field to post."
                 case "community_banned":
                     errorMessage = message ?? "Posting is disabled in this community right now."
                 case "user_not_verified":
@@ -651,9 +651,9 @@ class FeedViewModel: ObservableObject {
                 }
                 return .failed
             }
-            if case let APIError.apiError(code, apiError, message) = error, code == 404 {
+            if case let APIError.apiError(code, apiError, message) = error, code == 404 || code == 410 {
                 switch apiError {
-                case "community_not_found":
+                case "community_not_found", "community_unavailable":
                     errorMessage = "That community couldn't be found. Select another community and try again."
                 default:
                     errorMessage = message ?? apiError

@@ -17,7 +17,7 @@ enum SpecializationJoinRequiresVerificationKind: String, Codable {
         case .company:
             return "Company"
         case .school:
-            return "School"
+            return "Company"
         }
     }
 }
@@ -57,7 +57,7 @@ extension SpecializationJoinLimit {
     var pluralLabel: String {
         switch specializationType {
         case .major:
-            return "Majors"
+            return "Fields"
         case .field:
             return "Fields"
         case .unknown:
@@ -71,13 +71,13 @@ extension SpecializationJoinLimit {
 
     var requiredVerificationKind: SpecializationJoinRequiresVerificationKind? {
         if let joinRequiresVerificationKind {
-            return joinRequiresVerificationKind
+            return joinRequiresVerificationKind == .school ? .company : joinRequiresVerificationKind
         }
         switch blockedReason {
         case .verifyCompany:
             return .company
         case .verifySchool:
-            return .school
+            return .company
         default:
             return nil
         }

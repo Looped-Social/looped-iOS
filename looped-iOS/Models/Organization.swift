@@ -35,23 +35,13 @@ enum OrganizationKind: String, Codable {
 
 extension Organization {
     init(community: CommunitySearchResult) {
-        let orgKind: OrganizationKind
-        switch community.kind {
-        case .school:
-            orgKind = .school
-        case .company:
-            orgKind = .company
-        default:
-            orgKind = .company
-        }
-
         self.init(
             backendId: community.id,
             name: community.name,
             category: "",
             logoText: Self.logoText(for: community.name),
             imageURL: community.profileDisplayImageUrl,
-            kind: orgKind
+            kind: .company
         )
     }
 

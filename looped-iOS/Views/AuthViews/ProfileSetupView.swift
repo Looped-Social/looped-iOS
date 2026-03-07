@@ -16,8 +16,8 @@ struct ProfileSetupView: View {
     @State private var didLoadDraft = false
     @State private var toastMessage: ToastMessage?
     private let onboardingStore = OnboardingProgressStore()
-    private let privacyPolicyURL = URL(string: "https://www.mylooped.app/privacy-policy")!
-    private let userAgreementURL = URL(string: "https://www.mylooped.app/terms")!
+    private let privacyPolicyURL = URL(string: "https://looped-social.com/privacy-policy")!
+    private let userAgreementURL = URL(string: "https://looped-social.com/terms")!
 
     var body: some View {
         ZStack {

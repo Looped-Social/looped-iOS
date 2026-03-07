@@ -40,6 +40,8 @@ enum MenuDestination: Identifiable {
 }
 
 struct ContentView: View {
+    private static let migrationNoticeKey = "workplace_fields_migration_v1"
+
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @StateObject private var authViewModel = AuthViewModel()
@@ -54,6 +56,8 @@ struct ContentView: View {
     @State private var showFirstPostCongrats = false
     @State private var firstPostCongratsPostId: Int?
     @State private var globalToastMessage: ToastMessage?
+    @State private var presentedUserNotice: UserNotice?
+    @State private var inFlightUserNoticeAction: UserNoticeAckAction?
     @AppStorage("showAccountDeletedAlert") private var showAccountDeletedAlert = false
     @AppStorage("showAccountDeletionPendingAlert") private var showAccountDeletionPendingAlert = false
     @AppStorage("showAccountDeactivatedAlert") private var showAccountDeactivatedAlert = false
@@ -141,6 +145,28 @@ struct ContentView: View {
         .overlay {
             GlobalShareDrawerHost()
         }
+        .overlay {
+            LoopedBottomDrawer(
+                isPresented: presentedUserNotice != nil,
+                onDismiss: {
+                    guard let notice = presentedUserNotice,
+                          noticeAllowsOverlayDismiss(notice),
+                          inFlightUserNoticeAction == nil else { return }
+                    handleNoticeAction(notice, action: .dismiss)
+                },
+                backgroundColor: .loopedBackground
+            ) {
+                if let notice = presentedUserNotice {
+                    UserNoticeSheetView(
+                        notice: notice,
+                        inFlightAction: inFlightUserNoticeAction,
+                        onAction: { action in
+                            handleNoticeAction(notice, action: action)
+                        }
+                    )
+                }
+            }
+        }
     }
 
     private var alertContent: some View {
@@ -157,7 +183,7 @@ struct ContentView: View {
                 showAccountDeletionPendingAlert = false
             }
         } message: {
-            Text("Your request was accepted and deletion is still processing in the background. If it is still pending after 24 hours, contact support at mylooped.app/contact.")
+            Text("Your request was accepted and deletion is still processing in the background. If it is still pending after 24 hours, contact support at looped-social.com/contact.")
         }
         .alert("Account Deactivated", isPresented: $showAccountDeactivatedAlert) {
             Button("OK", role: .cancel) {
@@ -201,6 +227,7 @@ struct ContentView: View {
         .preferredColorScheme(preferredColorScheme)
         .onAppear {
             deepLinkRouter.setAuthenticationState(authViewModel.isAuthenticated)
+            syncPresentedUserNotice()
             if !authViewModel.isAuthenticated {
                 Task {
                     await spotlightIndexingService.removeAllPosts()
@@ -209,14 +236,26 @@ struct ContentView: View {
         }
         .onChange(of: authViewModel.isAuthenticated) { _, newValue in
             deepLinkRouter.setAuthenticationState(newValue)
+            syncPresentedUserNotice()
             if !newValue {
                 showProfileCompletionPrompt = false
                 showFirstPostCongrats = false
                 firstPostCongratsPostId = nil
+                presentedUserNotice = nil
+                inFlightUserNoticeAction = nil
                 Task {
                     await spotlightIndexingService.removeAllPosts()
                 }
             }
+        }
+        .onChange(of: authViewModel.didLoadIdentity) { _, _ in
+            syncPresentedUserNotice()
+        }
+        .onChange(of: authViewModel.onboardingComplete) { _, _ in
+            syncPresentedUserNotice()
+        }
+        .onChange(of: authViewModel.notices) { _, _ in
+            syncPresentedUserNotice()
         }
         .onReceive(NotificationCenter.default.publisher(for: .firstPostEverMilestoneAwarded)) { notification in
             guard showFirstPostCongrats == false else { return }
@@ -308,6 +347,48 @@ struct ContentView: View {
                 data: ["milestone_type": .string(FeedViewModel.firstPostEverMilestone)]
             )
         }
+    }
+
+    private func syncPresentedUserNotice() {
+        guard authViewModel.isAuthenticated,
+              authViewModel.didLoadIdentity,
+              authViewModel.onboardingComplete else {
+            presentedUserNotice = nil
+            inFlightUserNoticeAction = nil
+            return
+        }
+
+        if let current = presentedUserNotice,
+           authViewModel.notices.contains(where: { $0.key == current.key }) {
+            return
+        }
+
+        presentedUserNotice = authViewModel.notices.first
+        inFlightUserNoticeAction = nil
+    }
+
+    private func handleNoticeAction(_ notice: UserNotice, action: UserNoticeAckAction) {
+        guard inFlightUserNoticeAction == nil else { return }
+        inFlightUserNoticeAction = action
+
+        Task {
+            let didAcknowledge = await authViewModel.acknowledgeNotice(notice, action: action)
+            await MainActor.run {
+                inFlightUserNoticeAction = nil
+                if didAcknowledge {
+                    syncPresentedUserNotice()
+                } else {
+                    globalToastMessage = ToastMessage(
+                        text: "Couldn't update this message. Please try again.",
+                        kind: .error
+                    )
+                }
+            }
+        }
+    }
+
+    private func noticeAllowsOverlayDismiss(_ notice: UserNotice) -> Bool {
+        notice.dismissible && notice.key != Self.migrationNoticeKey
     }
 
     private func evaluateProfileCompletionPromptIfNeeded() async {
@@ -579,7 +660,7 @@ struct MainTabView: View {
     private var uiTestDisableNetworkBootstrap: Bool {
         ProcessInfo.processInfo.environment["LOOPED_UI_TEST_DISABLE_NETWORK"] == "1"
     }
-    private let faqUrl = URL(string: "https://www.mylooped.app/faq")!
+    private let faqUrl = URL(string: "https://looped-social.com/faq")!
     private let deepLinkFeedService: FeedServiceProtocol = FeedService()
     private let deepLinkUserService: UserServiceProtocol = UserService()
     private let widgetSummaryService: WidgetSummaryServiceProtocol = WidgetSummaryService()

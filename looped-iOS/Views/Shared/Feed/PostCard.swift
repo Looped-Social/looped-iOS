@@ -1263,7 +1263,7 @@ struct PostCard: View {
 
     private var canonicalPostURL: URL? {
         guard let postId = post.backendId else { return nil }
-        return URL(string: "https://mylooped.app/p/\(postId)")
+        return URL(string: "https://looped-social.com/p/\(postId)")
     }
 
     private var defaultShareItems: [Any] {
@@ -1751,9 +1751,9 @@ struct PostCard: View {
                         return "Join \(resolvedPostCommunityName()) to \(verb)."
                     }
                     if error == "specialization_verification_required" {
-                        return "Verify first, then join this major or field to \(verb)."
+                        return "Verify first, then join this field to \(verb)."
                     }
-	                return message ?? error
+		                return message ?? error
 	            default:
 	                return apiError.localizedDescription
 	            }

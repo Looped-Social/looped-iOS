@@ -22,35 +22,20 @@ class DiscoveryService: DiscoveryServiceProtocol {
         let endpoint = "/v1/specializations/recommended?type=all&limit=\(resolvedLimit)"
         let response: SpecializationsRecommendedResponseDTO = try await apiClient.get(endpoint)
         let initial = parseRecommendedSpecializations(response)
-        var majors = initial.majors
         var fields = initial.fields
 
-        // Some backend deployments only populate one type for `type=all`. If we didn't get both,
-        // opportunistically fetch the missing set(s).
-        let needsMajors = majors.isEmpty
+        // Some backend deployments only populate one type for `type=all`. We only support fields.
         let needsFields = fields.isEmpty
-        if needsMajors || needsFields {
-            async let majorsResponse: SpecializationsRecommendedResponseDTO? =
-                needsMajors
-                    ? (try? apiClient.get("/v1/specializations/recommended?type=major&limit=\(resolvedLimit)"))
-                    : nil
-
+        if needsFields {
             async let fieldsResponse: SpecializationsRecommendedResponseDTO? =
-                needsFields
-                    ? (try? apiClient.get("/v1/specializations/recommended?type=field&limit=\(resolvedLimit)"))
-                    : nil
-
-            let (maybeMajors, maybeFields) = await (majorsResponse, fieldsResponse)
-
-            if let maybeMajors, needsMajors {
-                majors = parseRecommendedSpecializations(maybeMajors).majors
-            }
-            if let maybeFields, needsFields {
+                try? apiClient.get("/v1/specializations/recommended?type=field&limit=\(resolvedLimit)")
+            let maybeFields = await fieldsResponse
+            if let maybeFields {
                 fields = parseRecommendedSpecializations(maybeFields).fields
             }
         }
 
-        return RecommendedSpecializations(majors: majors, fields: fields)
+        return RecommendedSpecializations(majors: [], fields: fields)
     }
 
     func browseSpecializations(
@@ -58,12 +43,16 @@ class DiscoveryService: DiscoveryServiceProtocol {
         limit: Int,
         cursor: String?
     ) async throws -> SearchResultPage<CommunitySearchResult> {
-        guard type == .major || type == .field else {
+        let resolvedType: CommunitySpecializationType
+        switch type {
+        case .field, .major:
+            resolvedType = .field
+        case .unknown:
             throw APIError.invalidResponse
         }
 
         let resolvedLimit = min(max(limit, 1), 100)
-        var endpoint = "/v1/specializations/browse?type=\(type.rawValue)&limit=\(resolvedLimit)"
+        var endpoint = "/v1/specializations/browse?type=\(resolvedType.rawValue)&limit=\(resolvedLimit)"
         if let cursor, !cursor.isEmpty {
             endpoint += "&cursor=\(URLQueryEncoding.encode(cursor))"
         }
@@ -76,8 +65,7 @@ class DiscoveryService: DiscoveryServiceProtocol {
     }
 
     func fetchMajorsIndex() async throws -> [SpecializationIndexItem] {
-        let response: SpecializationIndexResponseDTO = try await apiClient.get("/v1/majors")
-        return response.items.map(SpecializationIndexItem.init(dto:))
+        []
     }
 
     func fetchFieldsIndex() async throws -> [SpecializationIndexItem] {
@@ -86,22 +74,22 @@ class DiscoveryService: DiscoveryServiceProtocol {
     }
 
     private func parseRecommendedSpecializations(_ response: SpecializationsRecommendedResponseDTO) -> RecommendedSpecializations {
-        let majors: [CommunitySearchResult]
         let fields: [CommunitySearchResult]
 
-        if let responseMajors = response.majors, let responseFields = response.fields {
-            majors = responseMajors.map(CommunitySearchResult.init(dto:))
-            fields = responseFields.map(CommunitySearchResult.init(dto:))
+        if let responseFields = response.fields {
+            fields = responseFields
+                .map(CommunitySearchResult.init(dto:))
+                .filter { $0.specializationType == .field }
         } else if let items = response.items {
             let results = items.map(CommunitySearchResult.init(dto:))
-            majors = results.filter { $0.specializationType == .major }
             fields = results.filter { $0.specializationType == .field }
         } else {
-            majors = (response.majors ?? []).map(CommunitySearchResult.init(dto:))
-            fields = (response.fields ?? []).map(CommunitySearchResult.init(dto:))
+            fields = (response.fields ?? [])
+                .map(CommunitySearchResult.init(dto:))
+                .filter { $0.specializationType == .field }
         }
 
-        return RecommendedSpecializations(majors: majors, fields: fields)
+        return RecommendedSpecializations(majors: [], fields: fields)
     }
 
     private func search<T: Codable>(endpoint: String, query: String, limit: Int, cursor: String?) async throws -> SearchResultPage<T> {

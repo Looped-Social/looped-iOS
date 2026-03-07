@@ -41,7 +41,7 @@ struct VerificationInfoOnboardingView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
-                Text(.init("Questions? Visit our [FAQ](https://mylooped.app/faq) or our [About](https://mylooped.app/about)."))
+                Text(.init("Questions? Visit our [FAQ](https://looped-social.com/faq) or our [About](https://looped-social.com/about)."))
                     .font(.loopedCustom(.regular, size: 14, relativeTo: .body))
                     .foregroundColor(.loopedTextSecondary)
                     .multilineTextAlignment(.center)

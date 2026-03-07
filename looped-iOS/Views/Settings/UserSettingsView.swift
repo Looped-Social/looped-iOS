@@ -182,7 +182,7 @@ struct UserSettingsView: View {
                                 .font(.loopedBodyStrong)
                                 .foregroundColor(.loopedTextPrimary)
 
-                            Text("Choose a major or field to show on your anonymous profile.")
+                            Text("Choose a field to show on your anonymous profile.")
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
 
@@ -198,7 +198,7 @@ struct UserSettingsView: View {
                                 DisplaySpecializationRow(
                                     specialization: anonDisplaySpecialization,
                                     displayCommunity: selectedAnonDisplayCommunity,
-                                    fallbackText: "Join a major or field to add it here",
+                                    fallbackText: "Join a field to add it here",
                                     font: .loopedBody,
                                     textColor: anonDisplaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                     iconSize: 18,
@@ -224,7 +224,7 @@ struct UserSettingsView: View {
                                     label: DisplaySpecializationRow(
                                         specialization: anonDisplaySpecialization,
                                         displayCommunity: selectedAnonDisplayCommunity,
-                                        fallbackText: "Select a major or field",
+                                        fallbackText: "Select a field",
                                         font: .loopedBody,
                                         textColor: anonDisplaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                         iconSize: 18,
@@ -332,7 +332,7 @@ struct UserSettingsView: View {
                                 .foregroundColor(.loopedTextPrimary)
 
                             HStack(spacing: 0) {
-                                Text("mylooped.app/u/")
+                                Text("looped-social.com/u/")
                                     .font(.loopedBody)
                                     .foregroundColor(.loopedTextSecondary)
                                     .padding(.leading, 12)
@@ -463,7 +463,7 @@ struct UserSettingsView: View {
                                 .font(.loopedBodyStrong)
                                 .foregroundColor(.loopedTextPrimary)
 
-                            Text("Choose a major or field to show on your profile.")
+                            Text("Choose a field to show on your profile.")
                                 .font(.loopedSmallText)
                                 .foregroundColor(.loopedTextSecondary)
 
@@ -479,7 +479,7 @@ struct UserSettingsView: View {
                                 DisplaySpecializationRow(
                                     specialization: displaySpecialization,
                                     displayCommunity: selectedDisplayCommunity,
-                                    fallbackText: "Join a major or field to add it here",
+                                    fallbackText: "Join a field to add it here",
                                     font: .loopedBody,
                                     textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                     iconSize: 18,
@@ -505,7 +505,7 @@ struct UserSettingsView: View {
                                     label: DisplaySpecializationRow(
                                         specialization: displaySpecialization,
                                         displayCommunity: selectedDisplayCommunity,
-                                        fallbackText: "Select a major or field",
+                                        fallbackText: "Select a field",
                                         font: .loopedBody,
                                         textColor: displaySpecialization == nil ? .loopedTextSecondary : .loopedTextPrimary,
                                         iconSize: 18,
@@ -924,9 +924,9 @@ private extension UserSettingsView {
         case .checking:
             return "Checking availability..."
         case .available(let resolved):
-            return "Available: mylooped.app/u/\(resolved)"
+            return "Available: looped-social.com/u/\(resolved)"
         case .ownedByMe(let resolved):
-            return "Already yours: mylooped.app/u/\(resolved)"
+            return "Already yours: looped-social.com/u/\(resolved)"
         case .unavailable:
             return "That link is taken."
         case .reserved:
@@ -1103,7 +1103,7 @@ private extension UserSettingsView {
 
         let slug = normalizedShareSlugInput.isEmpty ? effectiveUsernameSlug : normalizedShareSlugInput
         guard !slug.isEmpty else { return nil }
-        return URL(string: "https://mylooped.app/u/\(slug)")
+        return URL(string: "https://looped-social.com/u/\(slug)")
     }
 
     @ViewBuilder
@@ -1309,8 +1309,19 @@ private extension UserSettingsView {
                     profileMediaAssetId: profileMediaAssetId
                 )
                 if displayCommunityId != initialDisplayCommunityId {
-                    _ = try await userService.updateDisplayCommunity(communityId: displayCommunityId)
-                    initialDisplayCommunityId = displayCommunityId
+                    do {
+                        _ = try await userService.updateDisplayCommunity(communityId: displayCommunityId)
+                        initialDisplayCommunityId = displayCommunityId
+                    } catch {
+                        if isStaleDisplaySelectionError(error) {
+                            displayCommunityId = nil
+                            initialDisplayCommunityId = nil
+                            _ = try? await userService.updateDisplayCommunity(communityId: nil)
+                        } else {
+                            displayCommunityError = mapSaveError(error)
+                            throw error
+                        }
+                    }
                 }
                 let displaySpecializationId = displaySpecialization?.id
                 if displaySpecializationId != initialDisplaySpecializationId {
@@ -1318,8 +1329,14 @@ private extension UserSettingsView {
                         _ = try await userService.updateDisplaySpecialization(specializationId: displaySpecializationId)
                         initialDisplaySpecializationId = displaySpecializationId
                     } catch {
-                        displaySpecializationError = mapSaveError(error)
-                        throw error
+                        if isStaleDisplaySelectionError(error) {
+                            displaySpecialization = nil
+                            initialDisplaySpecializationId = nil
+                            _ = try? await userService.updateDisplaySpecialization(specializationId: nil)
+                        } else {
+                            displaySpecializationError = mapSaveError(error)
+                            throw error
+                        }
                     }
                 }
                 if shouldUpdateShareLink {
@@ -1365,9 +1382,20 @@ private extension UserSettingsView {
             do {
                 var updatedProfile: AnonProfile?
                 if anonDisplayCommunityId != initialAnonDisplayCommunityId {
-                    updatedProfile = try await anonService.updateDisplayCommunity(communityId: anonDisplayCommunityId)
-                    anonDisplayCommunityId = updatedProfile?.displayCommunity?.id
-                    initialAnonDisplayCommunityId = anonDisplayCommunityId
+                    do {
+                        updatedProfile = try await anonService.updateDisplayCommunity(communityId: anonDisplayCommunityId)
+                        anonDisplayCommunityId = updatedProfile?.displayCommunity?.id
+                        initialAnonDisplayCommunityId = anonDisplayCommunityId
+                    } catch {
+                        if isStaleDisplaySelectionError(error) {
+                            anonDisplayCommunityId = nil
+                            initialAnonDisplayCommunityId = nil
+                            _ = try? await anonService.updateDisplayCommunity(communityId: nil)
+                        } else {
+                            anonDisplayCommunityError = mapSaveError(error)
+                            throw error
+                        }
+                    }
                 }
                 let specializationId = anonDisplaySpecialization?.id
                 if specializationId != initialAnonDisplaySpecializationId {
@@ -1376,8 +1404,14 @@ private extension UserSettingsView {
                         anonDisplaySpecialization = updatedProfile?.displaySpecialization
                         initialAnonDisplaySpecializationId = specializationId
                     } catch {
-                        anonDisplaySpecializationError = mapSaveError(error)
-                        throw error
+                        if isStaleDisplaySelectionError(error) {
+                            anonDisplaySpecialization = nil
+                            initialAnonDisplaySpecializationId = nil
+                            _ = try? await anonService.updateDisplaySpecialization(specializationId: nil)
+                        } else {
+                            anonDisplaySpecializationError = mapSaveError(error)
+                            throw error
+                        }
                     }
                 }
                 NotificationCenter.default.post(name: .profileRefreshRequested, object: nil)
@@ -1528,13 +1562,15 @@ private extension UserSettingsView {
             case "community_not_verified":
                 return "You must be verified in that community to display it."
             case "community_not_found":
-                return "That community could not be found."
+                return "That saved community is no longer available."
+            case "community_unavailable":
+                return "That community is no longer available."
             case "specialization_not_found":
-                return "That specialization could not be found."
+                return "That saved field is no longer available."
             case "invalid_specialization":
-                return "Select a major or field to display."
+                return "Select a field to display."
             case "specialization_not_joined":
-                return "You must join that major or field to display it."
+                return "You must join that field to display it."
             case "invalid_anon_proof":
                 return "Anonymous identity proof failed. Try toggling anonymous mode off/on."
             case "anon_jwt_not_allowed":
@@ -1546,6 +1582,9 @@ private extension UserSettingsView {
                 return apiError
             }
         }
+        if case let APIError.serverError(code) = error, code == 410 {
+            return "That saved selection is no longer available."
+        }
         return error.localizedDescription
     }
 
@@ -1554,6 +1593,25 @@ private extension UserSettingsView {
         switch apiError {
         case "slug_invalid", "slug_reserved", "slug_taken", "slug_not_actionable":
             return true
+        default:
+            return false
+        }
+    }
+
+    func isStaleDisplaySelectionError(_ error: Error) -> Bool {
+        switch error {
+        case APIError.serverError(let code):
+            return code == 404 || code == 410
+        case APIError.apiError(let code, let apiError, _):
+            if code == 404 || code == 410 {
+                return true
+            }
+            switch apiError {
+            case "community_not_found", "community_unavailable", "specialization_not_found", "invalid_specialization":
+                return true
+            default:
+                return false
+            }
         default:
             return false
         }

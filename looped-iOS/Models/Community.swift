@@ -62,7 +62,7 @@ enum CommunitySpecializationType: String, Codable {
     var displayName: String? {
         switch self {
         case .major:
-            return "Major"
+            return "Field"
         case .field:
             return "Field"
         case .unknown:
@@ -80,7 +80,20 @@ enum CommunitySearchKind: String {
     case unknown
 
     var queryValue: String? {
-        self == .unknown ? nil : rawValue
+        switch self {
+        case .company:
+            return "company"
+        case .school:
+            return "company"
+        case .specialization:
+            return "specialization"
+        case .major:
+            return "field"
+        case .field:
+            return "field"
+        case .unknown:
+            return nil
+        }
     }
 }
 

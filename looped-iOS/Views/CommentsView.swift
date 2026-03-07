@@ -913,7 +913,7 @@ private extension CommentsView {
 
     var canonicalPostURL: URL? {
         guard let postId = post.backendId else { return nil }
-        return URL(string: "https://mylooped.app/p/\(postId)")
+        return URL(string: "https://looped-social.com/p/\(postId)")
     }
 
     var defaultPostShareItems: [Any] {
@@ -1313,26 +1313,24 @@ private extension CommentsView {
            !name.isEmpty {
             return name
         }
-        return "this major or field"
+        return "this field"
     }
 
-	var restrictedInteractionNotice: some View {
-		VStack(alignment: .leading, spacing: 10) {
-			HStack(alignment: .top, spacing: 8) {
-				Image(systemName: "checkmark.seal")
-                    .font(.loopedCustom(.semibold, size: 16))
-                    .foregroundColor(.loopedSecondary)
+    var restrictedInteractionNotice: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                VerifiedBadgeIcon(tint: .loopedSecondary, size: 16)
 
-				Text(restrictedInteractionMessage)
-					.font(.loopedSubBodyRegular)
-					.foregroundColor(.loopedTextSecondary)
-			}
-		}
-		.padding(.horizontal, 20)
-		.padding(.vertical, 12)
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.background(Color.loopedBackground)
-	}
+                Text(restrictedInteractionMessage)
+                    .font(.loopedSubBodyRegular)
+                    .foregroundColor(.loopedTextSecondary)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.loopedBackground)
+    }
 
 	func loadAnonProfileId() async {
 		if isAnonymousMode {

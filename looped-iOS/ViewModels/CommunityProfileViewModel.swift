@@ -529,7 +529,7 @@ final class CommunityProfileViewModel: ObservableObject {
         let label = community.specializationLabel ?? "Specialization"
         switch apiError {
         case "specialization_verification_required":
-            let required = community.joinLimit?.requiredVerificationKind?.rawValue ?? "company or school"
+            let required = community.joinLimit?.requiredVerificationKind?.rawValue ?? "company"
             return specializationMessage(
                 message,
                 fallback: "Verify your \(required) before joining \(label.lowercased()) communities.",

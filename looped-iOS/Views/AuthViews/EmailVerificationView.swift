@@ -341,11 +341,11 @@ private extension EmailVerificationView {
     }
 
     var supportContactURL: URL {
-        URL(string: "https://mylooped.app/contact")!
+        URL(string: "https://looped-social.com/contact")!
     }
 
     var supportEmailURL: URL {
-        URL(string: "mailto:support@mylooped.app")!
+        URL(string: "mailto:support@looped-social.com")!
     }
 
     var domainSelector: some View {

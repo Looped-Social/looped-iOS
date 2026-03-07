@@ -9,18 +9,15 @@ struct AuthView: View {
     @State private var selectedLoopName: String = "Looped"
     @State private var selectedCommunityId: Int?
     @State private var companySearchText: String = ""
-    @State private var schoolSearchText: String = ""
+    @State private var organizationSearchTextLegacy: String = ""
     @State private var departmentSearchText: String = ""
-    @State private var degreeSearchText: String = ""
     @State private var selectedDepartments: [CommunitySearchResult] = []
-    @State private var selectedDegrees: [CommunitySearchResult] = []
     @State private var companyVerificationOptionId: String?
-    @State private var studentVerificationOptionId: String?
     @State private var verificationContext: VerificationContext?
     private let onboardingStore = OnboardingProgressStore()
     @State private var verificationFlowMode: VerificationFlowMode = .full
     private let communityService: CommunityServiceProtocol = CommunityService()
-    private let verificationInfoURL = URL(string: "https://www.mylooped.app/privacy")!
+    private let verificationInfoURL = URL(string: "https://looped-social.com/privacy")!
     private var uiTestStartOnLogin: Bool {
         ProcessInfo.processInfo.environment["LOOPED_UI_TEST_START_ON_LOGIN"] == "1"
     }
@@ -119,8 +116,8 @@ private extension AuthView {
             }
         case .selectCompany:
             OrganizationSelectionView(
-                title: "Search for your school or\nplace of work",
-                scope: .companiesAndSchools,
+                title: "Search for your workplace",
+                scope: .companiesOnly,
                 searchText: $companySearchText,
                 selectedOrganizationId: authViewModel.selectedOrganization?.id,
                 onSelect: { organization in
@@ -172,11 +169,11 @@ private extension AuthView {
                     return success
                 }
             )
-        case .selectSchool:
+        case .selectOrganizationLegacy:
             OrganizationSelectionView(
-                title: "Select your school",
-                scope: .schoolsOnly,
-                searchText: $schoolSearchText,
+                title: "Search for your workplace",
+                scope: .companiesOnly,
+                searchText: $organizationSearchTextLegacy,
                 selectedOrganizationId: authViewModel.selectedOrganization?.id,
                 onSelect: { organization in
                     authViewModel.selectedOrganization = organization
@@ -202,16 +199,16 @@ private extension AuthView {
                     selectedCommunityId = organization.backendId
                     followCommunityIfPossible(organization.backendId)
                     guard let orgId = organization.backendId else {
-                        logOnboardingDebug("school continue blocked: missing backendId for \(organization.name)")
+                        logOnboardingDebug("org continue blocked: missing backendId for \(organization.name)")
                         return
                     }
-                    logOnboardingDebug("school continue tapped: orgId=\(orgId), name=\(organization.name), stage=\(authViewModel.onboardingStageV2 ?? "nil"), local=\(onboardingStore.loadProgress()?.rawValue ?? "nil")")
+                    logOnboardingDebug("org continue tapped: orgId=\(orgId), name=\(organization.name), stage=\(authViewModel.onboardingStageV2 ?? "nil"), local=\(onboardingStore.loadProgress()?.rawValue ?? "nil")")
                     Task {
                         let success = await authViewModel.setOnboardingV2Organization(orgId: orgId)
-                        logOnboardingDebug("school org set result: success=\(success), stage=\(authViewModel.onboardingStageV2 ?? "nil"), allowed=\(authViewModel.onboardingAllowedNextStagesV2)")
+                        logOnboardingDebug("org set result: success=\(success), stage=\(authViewModel.onboardingStageV2 ?? "nil"), allowed=\(authViewModel.onboardingAllowedNextStagesV2)")
                         guard success else {
                             await authViewModel.loadCurrentUser()
-                            logOnboardingDebug("school org set failed; refreshed identity stage=\(authViewModel.onboardingStageV2 ?? "nil"), step=\(authViewModel.onboardingStep?.rawValue ?? "nil")")
+                            logOnboardingDebug("org set failed; refreshed identity stage=\(authViewModel.onboardingStageV2 ?? "nil"), step=\(authViewModel.onboardingStep?.rawValue ?? "nil")")
                             restoreOnboardingScreen()
                             return
                         }
@@ -243,15 +240,15 @@ private extension AuthView {
                     }
                 }
             )
-        case .degreeSelection:
+        case .fieldSelectionLegacy:
             OrganizationDetailSelectionView(
-                title: "Major",
-                kind: .major,
-                searchText: $degreeSearchText,
-                selectedItems: $selectedDegrees,
+                title: "Field",
+                kind: .field,
+                searchText: $departmentSearchText,
+                selectedItems: $selectedDepartments,
                 maxSelections: 2,
                 onSelect: { selections in
-                    selectedDegrees = selections
+                    selectedDepartments = selections
                 },
                 onContinue: { selections in
                     Task {
@@ -259,14 +256,14 @@ private extension AuthView {
                     }
                 }
             )
-        case .verificationIntro(let isStudent):
+        case .verificationIntro(let isLegacyFlow):
             VerificationIntroView(
                 loopName: selectedLoopName,
-                currentStep: verificationStep(for: .verificationIntro(isStudent: isStudent)),
+                currentStep: verificationStep(for: .verificationIntro(isLegacyFlow: isLegacyFlow)),
                 totalSteps: verificationTotalSteps,
                 onBack: {},
                 onContinue: {
-                    navigate(to: isStudent ? .waysToVerifyStudent : .waysToVerifyCompany)
+                    navigate(to: .waysToVerifyCompany)
                 },
                 onSkip: { Task { await startSkipVerificationFlow() } },
                 onHowItWorks: {
@@ -286,11 +283,11 @@ private extension AuthView {
                 onBack: {},
                 onContinue: { option in
                     let method = VerificationMethod.from(optionId: option.id)
-                    verificationContext = VerificationContext(isStudent: false, method: method)
+                    verificationContext = VerificationContext(isLegacyFlow: false, method: method)
                     onboardingStore.saveVerificationMethod(method == .photoId ? "photo_id" : "email")
                     let target: AuthScreen = method == .photoId
-                        ? .photoIdVerification(isStudent: false)
-                        : .emailVerification(isStudent: false)
+                        ? .photoIdVerification(isLegacyFlow: false)
+                        : .emailVerification(isLegacyFlow: false)
                     setNavigationStack(for: target)
                     Task {
                         _ = await authViewModel.setOnboardingV2VerificationChoice(path: method.v2Path)
@@ -302,23 +299,23 @@ private extension AuthView {
                 },
                 showsHeader: false
             )
-        case .waysToVerifyStudent:
+        case .waysToVerifyLegacy:
             WaysToVerifyView(
                 options: [
-                    VerificationOption(id: "student_email", title: "Student Email"),
+                    VerificationOption(id: "company_email", title: "Company Email"),
                     VerificationOption(id: "photo_id", title: "Work ID / Work Badge")
                 ],
-                currentStep: verificationStep(for: .waysToVerifyStudent),
+                currentStep: verificationStep(for: .waysToVerifyCompany),
                 totalSteps: verificationTotalSteps,
-                selectedOptionId: $studentVerificationOptionId,
+                selectedOptionId: $companyVerificationOptionId,
                 onBack: {},
                 onContinue: { option in
                     let method = VerificationMethod.from(optionId: option.id)
-                    verificationContext = VerificationContext(isStudent: true, method: method)
+                    verificationContext = VerificationContext(isLegacyFlow: false, method: method)
                     onboardingStore.saveVerificationMethod(method == .photoId ? "photo_id" : "email")
                     let target: AuthScreen = method == .photoId
-                        ? .photoIdVerification(isStudent: true)
-                        : .emailVerification(isStudent: true)
+                        ? .photoIdVerification(isLegacyFlow: false)
+                        : .emailVerification(isLegacyFlow: false)
                     setNavigationStack(for: target)
                     Task {
                         _ = await authViewModel.setOnboardingV2VerificationChoice(path: method.v2Path)
@@ -330,16 +327,16 @@ private extension AuthView {
                 },
                 showsHeader: false
             )
-        case .photoIdVerification(let isStudent):
+        case .photoIdVerification(let isLegacyFlow):
             PhotoIdVerificationView(
                 communityId: selectedCommunityId,
-                currentStep: verificationStep(for: .photoIdVerification(isStudent: isStudent)),
+                currentStep: verificationStep(for: .photoIdVerification(isLegacyFlow: isLegacyFlow)),
                 totalSteps: verificationTotalSteps,
                 onBack: {},
                 onSkip: { Task { await startSkipVerificationFlow() } },
                 onComplete: {
                     if verificationContext == nil {
-                        verificationContext = VerificationContext(isStudent: isStudent, method: .photoId)
+                        verificationContext = VerificationContext(isLegacyFlow: isLegacyFlow, method: .photoId)
                         onboardingStore.saveVerificationMethod("photo_id")
                     }
                     Task {
@@ -349,20 +346,20 @@ private extension AuthView {
                 },
                 showsHeader: false
             )
-        case .emailVerification(let isStudent):
+        case .emailVerification(let isLegacyFlow):
             EmailVerificationView(
                 communityId: selectedCommunityId,
                 communityName: selectedLoopName,
-                currentStep: verificationStep(for: .emailVerification(isStudent: isStudent)),
+                currentStep: verificationStep(for: .emailVerification(isLegacyFlow: isLegacyFlow)),
                 totalSteps: verificationTotalSteps,
                 onBack: {},
                 onSkip: { Task { await startSkipVerificationFlow() } },
                 onComplete: {
                     if verificationContext == nil {
-                        verificationContext = VerificationContext(isStudent: isStudent, method: .email)
+                        verificationContext = VerificationContext(isLegacyFlow: isLegacyFlow, method: .email)
                         onboardingStore.saveVerificationMethod("email")
                     }
-                    return await completeOnboardingEmailVerification(isStudent: isStudent)
+                    return await completeOnboardingEmailVerification(isLegacyFlow: isLegacyFlow)
                 },
                 showsHeader: false,
                 ensureOnboardingVerificationStep: {
@@ -395,8 +392,8 @@ private extension AuthView {
                 titleFont: .loopedHeadingMedium28,
                 messageFont: .loopedBody,
                 onBack: {
-                    let isStudent = isStudentOnboardingFlow
-                    setNavigationStack(for: .verificationIntro(isStudent: isStudent))
+                    let isLegacyFlow = isLegacyOnboardingFlow
+                    setNavigationStack(for: .verificationIntro(isLegacyFlow: isLegacyFlow))
                 },
                 onContinue: {
                     Task {
@@ -409,7 +406,7 @@ private extension AuthView {
         case .photoPendingExplainer:
             OnboardingVerificationExplainerView(
                 title: "Verification is in review",
-                message: "While we review your \(isStudentOnboardingFlow ? "school" : "company") verification, you can browse. Once approved, search and join majors or fields.",
+                message: "While we review your company verification, you can browse. Once approved, search and join fields.",
                 buttonTitle: "Continue",
                 illustrationMaxWidth: 330,
                 illustrationMaxHeight: 240,
@@ -449,7 +446,7 @@ private extension AuthView {
     }
 
     struct VerificationContext {
-        let isStudent: Bool
+        let isLegacyFlow: Bool
         let method: VerificationMethod
     }
 
@@ -485,7 +482,7 @@ private extension AuthView {
         switch screen {
         case .verificationIntro:
             return 1
-        case .waysToVerifyCompany, .waysToVerifyStudent:
+        case .waysToVerifyCompany, .waysToVerifyLegacy:
             return 2
         case .photoIdVerification, .emailVerification:
             return 3
@@ -508,7 +505,7 @@ private extension AuthView {
     }
 
     @MainActor
-    func completeOnboardingEmailVerification(isStudent: Bool) async -> Bool {
+    func completeOnboardingEmailVerification(isLegacyFlow: Bool) async -> Bool {
         var success = await authViewModel.markOnboardingV2EmailVerificationSuccess()
 
         // If onboarding-v2 wasn't aligned yet, re-assert email path and retry once.
@@ -527,7 +524,7 @@ private extension AuthView {
 
         restoreOnboardingScreen()
 
-        if path.last != .emailVerification(isStudent: isStudent) || authViewModel.onboardingComplete {
+        if path.last != .emailVerification(isLegacyFlow: isLegacyFlow) || authViewModel.onboardingComplete {
             Task {
                 await feedViewModel.loadFollowedCommunities(reset: true)
             }
@@ -535,29 +532,29 @@ private extension AuthView {
         }
 
         // Backend onboarding context can lag briefly after verification success.
-        if path.last == .emailVerification(isStudent: isStudent), !authViewModel.onboardingComplete {
+        if path.last == .emailVerification(isLegacyFlow: isLegacyFlow), !authViewModel.onboardingComplete {
             for _ in 0..<2 {
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 await authViewModel.loadCurrentUser()
                 restoreOnboardingScreen()
-                if path.last != .emailVerification(isStudent: isStudent) || authViewModel.onboardingComplete {
+                if path.last != .emailVerification(isLegacyFlow: isLegacyFlow) || authViewModel.onboardingComplete {
                     break
                 }
             }
         }
 
-        if path.last == .emailVerification(isStudent: isStudent), !authViewModel.onboardingComplete {
+        if path.last == .emailVerification(isLegacyFlow: isLegacyFlow), !authViewModel.onboardingComplete {
             let fallbackTarget: AuthScreen
             if authViewModel.onboardingContextV2?.specializationId != nil
                 || authViewModel.onboardingContextV2?.specializationRequired == false {
                 fallbackTarget = .verificationConfirmation
             } else {
-                fallbackTarget = isStudent ? .degreeSelection : .departmentSelection
+                fallbackTarget = .departmentSelection
             }
             setNavigationStack(for: fallbackTarget)
         }
 
-        let advanced = path.last != .emailVerification(isStudent: isStudent) || authViewModel.onboardingComplete
+        let advanced = path.last != .emailVerification(isLegacyFlow: isLegacyFlow) || authViewModel.onboardingComplete
         if advanced {
             Task {
                 await feedViewModel.loadFollowedCommunities(reset: true)
@@ -656,14 +653,14 @@ private extension AuthView {
         case .profileSetup: return "profileSetup"
         case .verificationInfo: return "verificationInfo"
         case .selectCompany: return "selectCompany"
-        case .selectSchool: return "selectSchool"
+        case .selectOrganizationLegacy: return "selectOrganizationLegacy"
         case .departmentSelection: return "departmentSelection"
-        case .degreeSelection: return "degreeSelection"
-        case .verificationIntro(let isStudent): return "verificationIntro(\(isStudent ? "student" : "company"))"
+        case .fieldSelectionLegacy: return "fieldSelectionLegacy"
+        case .verificationIntro(let isLegacyFlow): return "verificationIntro(\(isLegacyFlow ? "legacy" : "company"))"
         case .waysToVerifyCompany: return "waysToVerifyCompany"
-        case .waysToVerifyStudent: return "waysToVerifyStudent"
-        case .photoIdVerification(let isStudent): return "photoIdVerification(\(isStudent ? "student" : "company"))"
-        case .emailVerification(let isStudent): return "emailVerification(\(isStudent ? "student" : "company"))"
+        case .waysToVerifyLegacy: return "waysToVerifyLegacy"
+        case .photoIdVerification(let isLegacyFlow): return "photoIdVerification(\(isLegacyFlow ? "legacy" : "company"))"
+        case .emailVerification(let isLegacyFlow): return "emailVerification(\(isLegacyFlow ? "legacy" : "company"))"
         case .skipVerificationExplainer: return "skipVerificationExplainer"
         case .photoPendingExplainer: return "photoPendingExplainer"
         case .verificationConfirmation: return "verificationConfirmation"
@@ -678,14 +675,14 @@ enum AuthScreen: Hashable {
     case profileSetup
     case verificationInfo
     case selectCompany
-    case selectSchool
+    case selectOrganizationLegacy
     case departmentSelection
-    case degreeSelection
-    case verificationIntro(isStudent: Bool)
+    case fieldSelectionLegacy
+    case verificationIntro(isLegacyFlow: Bool)
     case waysToVerifyCompany
-    case waysToVerifyStudent
-    case photoIdVerification(isStudent: Bool)
-    case emailVerification(isStudent: Bool)
+    case waysToVerifyLegacy
+    case photoIdVerification(isLegacyFlow: Bool)
+    case emailVerification(isLegacyFlow: Bool)
     case skipVerificationExplainer
     case photoPendingExplainer
     case verificationConfirmation
@@ -704,7 +701,7 @@ private extension AuthView {
             allowedNextStagesV2: authViewModel.onboardingAllowedNextStagesV2,
             remoteStep: authViewModel.onboardingStep,
             localStep: onboardingStore.loadProgress(),
-            isStudent: isStudentOnboardingFlow,
+            isLegacyFlow: isLegacyOnboardingFlow,
             shouldEnterOnboardingFlow: authViewModel.shouldEnterOnboardingFlow
         )
         guard let target else { return }
@@ -740,33 +737,31 @@ private extension AuthView {
             return [.profileSetup, .verificationInfo]
         case .selectCompany:
             return [.profileSetup, .verificationInfo, .selectCompany]
-        case .selectSchool:
-            return [.profileSetup, .verificationInfo, .selectSchool]
-        case .verificationIntro(let isStudent):
-            return [.profileSetup, .verificationInfo, .selectCompany, .verificationIntro(isStudent: isStudent)]
+        case .selectOrganizationLegacy:
+            return navigationStack(for: .selectCompany)
+        case .verificationIntro(let isLegacyFlow):
+            return [.profileSetup, .verificationInfo, .selectCompany, .verificationIntro(isLegacyFlow: isLegacyFlow)]
         case .waysToVerifyCompany:
-            return navigationStack(for: .verificationIntro(isStudent: false)) + [.waysToVerifyCompany]
-        case .waysToVerifyStudent:
-            return navigationStack(for: .verificationIntro(isStudent: true)) + [.waysToVerifyStudent]
-        case .photoIdVerification(let isStudent):
-            return navigationStack(for: isStudent ? .waysToVerifyStudent : .waysToVerifyCompany)
-                + [.photoIdVerification(isStudent: isStudent)]
-        case .emailVerification(let isStudent):
-            return navigationStack(for: isStudent ? .waysToVerifyStudent : .waysToVerifyCompany)
-                + [.emailVerification(isStudent: isStudent)]
+            return navigationStack(for: .verificationIntro(isLegacyFlow: false)) + [.waysToVerifyCompany]
+        case .waysToVerifyLegacy:
+            return navigationStack(for: .waysToVerifyCompany)
+        case .photoIdVerification(let isLegacyFlow):
+            return navigationStack(for: .waysToVerifyCompany)
+                + [.photoIdVerification(isLegacyFlow: isLegacyFlow)]
+        case .emailVerification(let isLegacyFlow):
+            return navigationStack(for: .waysToVerifyCompany)
+                + [.emailVerification(isLegacyFlow: isLegacyFlow)]
         case .departmentSelection:
-            return navigationStack(for: .emailVerification(isStudent: false)) + [.departmentSelection]
-        case .degreeSelection:
-            return navigationStack(for: .emailVerification(isStudent: true)) + [.degreeSelection]
+            return navigationStack(for: .emailVerification(isLegacyFlow: false)) + [.departmentSelection]
+        case .fieldSelectionLegacy:
+            return navigationStack(for: .departmentSelection)
         case .skipVerificationExplainer:
-            let isStudent = authViewModel.onboardingContextV2?.selectedOrgKind?.lowercased() == "school"
-            return navigationStack(for: .verificationIntro(isStudent: isStudent)) + [.skipVerificationExplainer]
+            return navigationStack(for: .verificationIntro(isLegacyFlow: false)) + [.skipVerificationExplainer]
         case .photoPendingExplainer:
-            let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
-            return navigationStack(for: .photoIdVerification(isStudent: isStudent)) + [.photoPendingExplainer]
+            let isLegacyFlow = verificationContext?.isLegacyFlow ?? isLegacyOnboardingFlow
+            return navigationStack(for: .photoIdVerification(isLegacyFlow: isLegacyFlow)) + [.photoPendingExplainer]
         case .verificationConfirmation:
-            let isStudent = verificationContext?.isStudent ?? isStudentOnboardingFlow
-            let specializationScreen: AuthScreen = isStudent ? .degreeSelection : .departmentSelection
+            let specializationScreen: AuthScreen = .departmentSelection
             return navigationStack(for: specializationScreen) + [.verificationConfirmation]
         case .login:
             return [.login]
@@ -783,16 +778,7 @@ private extension AuthView {
         onboardingStore.saveProgress(step)
     }
 
-    var isStudentOnboardingFlow: Bool {
-        if authViewModel.onboardingContextV2?.selectedOrgKind?.lowercased() == "school" {
-            return true
-        }
-        if let kind = authViewModel.selectedOrganization?.kind {
-            return kind == .school
-        }
-        if let stored = onboardingStore.loadOrganizationDraft() {
-            return stored.kind == .school
-        }
+    var isLegacyOnboardingFlow: Bool {
         return false
     }
 
@@ -802,14 +788,13 @@ private extension AuthView {
            let orgId = context.selectedOrgId,
            let orgName = context.selectedOrgName?.trimmingCharacters(in: .whitespacesAndNewlines),
            !orgName.isEmpty {
-            let kind: OrganizationKind = context.selectedOrgKind?.lowercased() == "school" ? .school : .company
             authViewModel.selectedOrganization = Organization(
                 backendId: orgId,
                 name: orgName,
                 category: "",
                 logoText: Organization.logoText(for: orgName),
                 imageURL: nil,
-                kind: kind
+                kind: .company
             )
             selectedLoopName = orgName
             selectedCommunityId = orgId
@@ -839,10 +824,10 @@ private extension AuthView {
         if let path = authViewModel.onboardingContextV2?.verificationPath?.lowercased() {
             switch path {
             case "email":
-                verificationContext = VerificationContext(isStudent: isStudentOnboardingFlow, method: .email)
+                verificationContext = VerificationContext(isLegacyFlow: isLegacyOnboardingFlow, method: .email)
                 return
             case "photo_id":
-                verificationContext = VerificationContext(isStudent: isStudentOnboardingFlow, method: .photoId)
+                verificationContext = VerificationContext(isLegacyFlow: isLegacyOnboardingFlow, method: .photoId)
                 return
             default:
                 break
@@ -850,17 +835,17 @@ private extension AuthView {
         }
         guard let stored = onboardingStore.loadVerificationMethod() else { return }
         let method: VerificationMethod = stored == "photo_id" ? .photoId : .email
-        verificationContext = VerificationContext(isStudent: isStudentOnboardingFlow, method: method)
+        verificationContext = VerificationContext(isLegacyFlow: isLegacyOnboardingFlow, method: method)
     }
 
     func requiresOrganizationSelection(_ screen: AuthScreen) -> Bool {
         guard authViewModel.selectedOrganization == nil else { return false }
         switch screen {
-        case .departmentSelection, .degreeSelection:
+        case .departmentSelection, .fieldSelectionLegacy:
             return true
         case .verificationIntro,
              .waysToVerifyCompany,
-             .waysToVerifyStudent,
+             .waysToVerifyLegacy,
              .photoIdVerification,
              .emailVerification,
              .skipVerificationExplainer,
@@ -880,10 +865,10 @@ struct OnboardingRoutingResolver {
         allowedNextStagesV2: [String]? = nil,
         remoteStep: RemoteOnboardingStep?,
         localStep: OnboardingStep?,
-        isStudent: Bool,
+        isLegacyFlow: Bool,
         shouldEnterOnboardingFlow: Bool
     ) -> AuthScreen? {
-        let resolvedIsStudent = remoteContext?.selectedOrgKind?.lowercased() == "school" || isStudent
+        let resolvedIsLegacyFlow = isLegacyFlow
         let verificationPath = remoteContext?.verificationPath?.lowercased()
         let verificationStatus = remoteContext?.verificationStatus?.lowercased()
         let requiresSpecialization = remoteContext?.specializationRequired ?? false
@@ -907,17 +892,17 @@ struct OnboardingRoutingResolver {
                 if normalizedStage == "org_selected" {
                     if let allowedNextFallback = resolveFromAllowedNextStages(
                         normalizedAllowedNextStages,
-                        isStudent: resolvedIsStudent
+                        isLegacyFlow: resolvedIsLegacyFlow
                     ) {
                         return allowedNextFallback
                     }
-                    return .verificationIntro(isStudent: resolvedIsStudent)
+                    return .verificationIntro(isLegacyFlow: resolvedIsLegacyFlow)
                 }
                 return .selectCompany
             case "verification_intro":
-                return .verificationIntro(isStudent: resolvedIsStudent)
+                return .verificationIntro(isLegacyFlow: resolvedIsLegacyFlow)
             case "verification_choice", "ways_to_verify":
-                return resolvedIsStudent ? .waysToVerifyStudent : .waysToVerifyCompany
+                return .waysToVerifyCompany
             case "email_verification":
                 let isEmailCompatiblePath = verificationPath == nil || verificationPath == "email"
                 if isEmailCompatiblePath, isEmailVerificationApproved(verificationStatus) {
@@ -930,20 +915,20 @@ struct OnboardingRoutingResolver {
                     if requiresSpecialization
                         || normalizedAllowedNextStages.contains("specialization_selection")
                         || normalizedAllowedNextStages.contains("specialization_required") {
-                        return resolvedIsStudent ? .degreeSelection : .departmentSelection
+                        return .departmentSelection
                     }
                     return .verificationConfirmation
                 }
-                return .emailVerification(isStudent: resolvedIsStudent)
+                return .emailVerification(isLegacyFlow: resolvedIsLegacyFlow)
             case "photo_id_verification", "photo_verification":
-                return .photoIdVerification(isStudent: resolvedIsStudent)
+                return .photoIdVerification(isLegacyFlow: resolvedIsLegacyFlow)
             case "email_verified", "specialization_selection", "specialization_required":
                 if normalizedAllowedNextStages.contains("completed")
                     || normalizedAllowedNextStages.contains("finalized")
                     || normalizedAllowedNextStages.contains("ready_to_finalize") {
                     return .verificationConfirmation
                 }
-                return resolvedIsStudent ? .degreeSelection : .departmentSelection
+                return .departmentSelection
             case "skip_explainer":
                 return .skipVerificationExplainer
             case "photo_pending_explainer", "photo_id_pending_explainer":
@@ -952,11 +937,11 @@ struct OnboardingRoutingResolver {
                 return .verificationConfirmation
             default:
                 if normalizedStage.contains("specialization") {
-                    return resolvedIsStudent ? .degreeSelection : .departmentSelection
+                    return .departmentSelection
                 }
                 if let allowedNextFallback = resolveFromAllowedNextStages(
                     normalizedAllowedNextStages,
-                    isStudent: resolvedIsStudent
+                    isLegacyFlow: resolvedIsLegacyFlow
                 ) {
                     return allowedNextFallback
                 }
@@ -967,27 +952,27 @@ struct OnboardingRoutingResolver {
             return .skipVerificationExplainer
         }
         if verificationPath == "photo_id" {
-            return verificationStatus == "pending" ? .photoPendingExplainer : .photoIdVerification(isStudent: resolvedIsStudent)
+            return verificationStatus == "pending" ? .photoPendingExplainer : .photoIdVerification(isLegacyFlow: resolvedIsLegacyFlow)
         }
         if verificationPath == "email" {
             if hasSpecialization || (requiresSpecialization && verificationStatus == "approved") {
-                return (hasSpecialization ? .verificationConfirmation : (resolvedIsStudent ? .degreeSelection : .departmentSelection))
+                return hasSpecialization ? .verificationConfirmation : .departmentSelection
             }
-            return .emailVerification(isStudent: resolvedIsStudent)
+            return .emailVerification(isLegacyFlow: resolvedIsLegacyFlow)
         }
         if verificationPath == nil, isEmailVerificationApproved(verificationStatus) {
             if hasSpecialization {
                 return .verificationConfirmation
             }
             if requiresSpecialization {
-                return resolvedIsStudent ? .degreeSelection : .departmentSelection
+                return .departmentSelection
             }
             return .verificationConfirmation
         }
 
         if let allowedNextFallback = resolveFromAllowedNextStages(
             normalizedAllowedNextStages,
-            isStudent: resolvedIsStudent
+            isLegacyFlow: resolvedIsLegacyFlow
         ) {
             return allowedNextFallback
         }
@@ -999,7 +984,7 @@ struct OnboardingRoutingResolver {
         }
 
         if let remoteStep,
-           let remote = AuthScreen.fromRemoteOnboardingStep(remoteStep, isStudent: resolvedIsStudent) {
+           let remote = AuthScreen.fromRemoteOnboardingStep(remoteStep, isLegacyFlow: resolvedIsLegacyFlow) {
             return remote
         }
         guard shouldEnterOnboardingFlow else { return nil }
@@ -1012,17 +997,17 @@ struct OnboardingRoutingResolver {
     static func sanitizedLocalScreen(from step: OnboardingStep) -> AuthScreen? {
         guard let raw = AuthScreen.fromOnboardingStep(step) else { return nil }
         switch raw {
-        case .departmentSelection, .degreeSelection:
+        case .departmentSelection, .fieldSelectionLegacy:
             return .selectCompany
-        case .verificationIntro(isStudent: _):
+        case .verificationIntro(isLegacyFlow: _):
             return .selectCompany
         case .waysToVerifyCompany,
-             .photoIdVerification(isStudent: false),
-             .emailVerification(isStudent: false):
+             .photoIdVerification(isLegacyFlow: false),
+             .emailVerification(isLegacyFlow: false):
             return .selectCompany
-        case .waysToVerifyStudent,
-             .photoIdVerification(isStudent: true),
-             .emailVerification(isStudent: true):
+        case .waysToVerifyLegacy,
+             .photoIdVerification(isLegacyFlow: true),
+             .emailVerification(isLegacyFlow: true):
             return .selectCompany
         case .verificationConfirmation:
             return .selectCompany
@@ -1046,7 +1031,7 @@ struct OnboardingRoutingResolver {
 
     private static func resolveFromAllowedNextStages(
         _ allowed: Set<String>,
-        isStudent: Bool
+        isLegacyFlow: Bool
     ) -> AuthScreen? {
         if allowed.contains("completed") || allowed.contains("finalized") || allowed.contains("ready_to_finalize") {
             return .verificationConfirmation
@@ -1055,19 +1040,19 @@ struct OnboardingRoutingResolver {
             return .skipVerificationExplainer
         }
         if allowed.contains("specialization_selection") || allowed.contains("specialization_required") {
-            return isStudent ? .degreeSelection : .departmentSelection
+            return .departmentSelection
         }
         if allowed.contains("email_verification") {
-            return .emailVerification(isStudent: isStudent)
+            return .emailVerification(isLegacyFlow: isLegacyFlow)
         }
         if allowed.contains("photo_id_verification") || allowed.contains("photo_verification") {
-            return .photoIdVerification(isStudent: isStudent)
+            return .photoIdVerification(isLegacyFlow: isLegacyFlow)
         }
         if allowed.contains("verification_choice") || allowed.contains("ways_to_verify") {
-            return isStudent ? .waysToVerifyStudent : .waysToVerifyCompany
+            return .waysToVerifyCompany
         }
         if allowed.contains("verification_intro") {
-            return .verificationIntro(isStudent: isStudent)
+            return .verificationIntro(isLegacyFlow: isLegacyFlow)
         }
         if allowed.contains("org_selection") || allowed.contains("org_selected") || allowed.contains("select_company") {
             return .selectCompany
@@ -1098,22 +1083,22 @@ private extension AuthScreen {
             return .verificationInfo
         case .selectCompany:
             return .selectCompany
-        case .selectSchool:
-            return .selectSchool
+        case .selectOrganizationLegacy:
+            return .selectCompany
         case .departmentSelection:
             return .departmentSelection
-        case .degreeSelection:
-            return .degreeSelection
-        case .verificationIntro(let isStudent):
-            return isStudent ? .verificationIntroStudent : .verificationIntroCompany
+        case .fieldSelectionLegacy:
+            return .departmentSelection
+        case .verificationIntro(let isLegacyFlow):
+            return isLegacyFlow ? .verificationIntroLegacy : .verificationIntroCompany
         case .waysToVerifyCompany:
             return .waysToVerifyCompany
-        case .waysToVerifyStudent:
-            return .waysToVerifyStudent
-        case .photoIdVerification(let isStudent):
-            return isStudent ? .photoIdVerificationStudent : .photoIdVerificationCompany
-        case .emailVerification(let isStudent):
-            return isStudent ? .emailVerificationStudent : .emailVerificationCompany
+        case .waysToVerifyLegacy:
+            return .waysToVerifyCompany
+        case .photoIdVerification:
+            return .photoIdVerificationCompany
+        case .emailVerification:
+            return .emailVerificationCompany
         case .verificationConfirmation:
             return .verificationConfirmation
         default:
@@ -1129,32 +1114,32 @@ private extension AuthScreen {
             return .verificationInfo
         case .selectCompany:
             return .selectCompany
-        case .selectSchool:
-            return .selectSchool
+        case .selectOrganizationLegacy:
+            return .selectCompany
         case .departmentSelection:
             return .departmentSelection
-        case .degreeSelection:
-            return .degreeSelection
-        case .communitySelectionStudent:
-            return .verificationIntro(isStudent: true)
+        case .fieldSelectionLegacy:
+            return .departmentSelection
+        case .communitySelectionLegacy:
+            return .verificationIntro(isLegacyFlow: false)
         case .communitySelectionCompany:
-            return .verificationIntro(isStudent: false)
-        case .verificationIntroStudent:
-            return .verificationIntro(isStudent: true)
+            return .verificationIntro(isLegacyFlow: false)
+        case .verificationIntroLegacy:
+            return .verificationIntro(isLegacyFlow: false)
         case .verificationIntroCompany:
-            return .verificationIntro(isStudent: false)
+            return .verificationIntro(isLegacyFlow: false)
         case .waysToVerifyCompany:
             return .waysToVerifyCompany
-        case .waysToVerifyStudent:
-            return .waysToVerifyStudent
-        case .photoIdVerificationStudent:
-            return .photoIdVerification(isStudent: true)
+        case .waysToVerifyLegacy:
+            return .waysToVerifyCompany
+        case .photoIdVerificationLegacy:
+            return .photoIdVerification(isLegacyFlow: false)
         case .photoIdVerificationCompany:
-            return .photoIdVerification(isStudent: false)
-        case .emailVerificationStudent:
-            return .emailVerification(isStudent: true)
+            return .photoIdVerification(isLegacyFlow: false)
+        case .emailVerificationLegacy:
+            return .emailVerification(isLegacyFlow: false)
         case .emailVerificationCompany:
-            return .emailVerification(isStudent: false)
+            return .emailVerification(isLegacyFlow: false)
         case .verificationConfirmation:
             return .verificationConfirmation
         case .verificationNotifications:
@@ -1162,14 +1147,14 @@ private extension AuthScreen {
         }
     }
 
-    static func fromRemoteOnboardingStep(_ step: RemoteOnboardingStep, isStudent: Bool) -> AuthScreen? {
+    static func fromRemoteOnboardingStep(_ step: RemoteOnboardingStep, isLegacyFlow: Bool) -> AuthScreen? {
         switch step {
         case .profileSetup:
             return .profileSetup
         case .selectCompany:
             return .selectCompany
         case .verification:
-            return .verificationIntro(isStudent: isStudent)
+            return .verificationIntro(isLegacyFlow: isLegacyFlow)
         case .verificationNotifications:
             return .verificationConfirmation
         }

@@ -82,7 +82,7 @@ struct LinkifiedText: View {
 #Preview {
     VStack(alignment: .leading, spacing: 12) {
         LinkifiedText("Plain text")
-        LinkifiedText("Check this out: https://apple.com and also www.mylooped.app/privacy")
+        LinkifiedText("Check this out: https://apple.com and also looped-social.com/privacy")
         LinkifiedText("This has a #hashtag but it stays plain in this view.")
     }
     .padding()

@@ -23,7 +23,6 @@ final class CommunityVerificationsViewModel: ObservableObject {
     private let discoveryService: DiscoveryServiceProtocol
     private var verificationSearchGeneration = 0
     private var specializationSearchGeneration = 0
-    private var majorsIndexCache: [SpecializationIndexItem]?
     private var fieldsIndexCache: [SpecializationIndexItem]?
 
     init(
@@ -47,8 +46,8 @@ final class CommunityVerificationsViewModel: ObservableObject {
             async let limits = communityService.fetchSpecializationJoinLimits(type: nil)
             async let joined = communityService.fetchJoinedSpecializations(type: nil)
             items = try await verifications
-            joinLimits = (try? await limits) ?? []
-            joinedSpecializations = (try? await joined) ?? []
+            joinLimits = ((try? await limits) ?? []).filter { $0.specializationType == .field }
+            joinedSpecializations = ((try? await joined) ?? []).filter { $0.specializationType == .field }
         } catch {
             errorMessage = error.localizedDescription
             items = []
@@ -104,29 +103,22 @@ final class CommunityVerificationsViewModel: ObservableObject {
             cursor: nil,
             kind: .company
         )
-        async let schoolsPage = try? communityService.searchCommunities(
-            query: trimmed,
-            limit: 20,
-            cursor: nil,
-            kind: .school
-        )
-
-        let (companies, schools) = await (companiesPage, schoolsPage)
+        let companies = await companiesPage
 
         guard generation == verificationSearchGeneration else { return }
-        if companies == nil && schools == nil {
+        if companies == nil {
             guard generation == verificationSearchGeneration else { return }
             verificationSearchResults = []
-            verificationSearchError = "Couldn't load companies and schools."
+            verificationSearchError = "Couldn't load companies."
             isSearchingVerificationCommunities = false
             return
         }
 
         let verifiedCommunityIds = Set(items.filter(\.isActive).map(\.communityId))
         var seen = Set<Int>()
-        let combined = ((companies?.items ?? []) + (schools?.items ?? []))
+        let combined = (companies?.items ?? [])
             .filter { result in
-                (result.kind == .company || result.kind == .school)
+                result.kind == .company
                 && !verifiedCommunityIds.contains(result.id)
             }
             .filter { seen.insert($0.id).inserted }
@@ -156,28 +148,17 @@ final class CommunityVerificationsViewModel: ObservableObject {
 
         isSearchingSpecializations = true
         specializationSearchError = nil
-        let (majorsIndex, fieldsIndex) = await loadSpecializationIndexes()
+        let fieldsIndex = await loadSpecializationIndexes()
 
         guard generation == specializationSearchGeneration else { return }
-        if majorsIndex == nil && fieldsIndex == nil {
+        if fieldsIndex == nil {
             specializationSearchResults = []
-            specializationSearchError = "Couldn't load majors and fields."
+            specializationSearchError = "Couldn't load fields."
             isSearchingSpecializations = false
             return
         }
 
         let joinedIds = Set(joinedSpecializations.map(\.id))
-        let majorResults = (majorsIndex ?? [])
-            .filter { matchesSpecializationQuery(item: $0, query: trimmed) }
-            .map { item in
-                specializationResult(
-                    from: item,
-                    type: .major,
-                    isJoined: joinedIds.contains(item.id)
-                )
-            }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-
         let fieldResults = (fieldsIndex ?? [])
             .filter { matchesSpecializationQuery(item: $0, query: trimmed) }
             .map { item in
@@ -189,31 +170,22 @@ final class CommunityVerificationsViewModel: ObservableObject {
             }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
-        specializationSearchResults = interleavedSpecializations(
-            majors: majorResults,
-            fields: fieldResults,
-            maxCount: 30
-        )
+        specializationSearchResults = Array(fieldResults.prefix(30))
         isSearchingSpecializations = false
     }
 
-    private func loadSpecializationIndexes() async -> ([SpecializationIndexItem]?, [SpecializationIndexItem]?) {
-        if let majorsIndexCache, let fieldsIndexCache {
-            return (majorsIndexCache, fieldsIndexCache)
+    private func loadSpecializationIndexes() async -> [SpecializationIndexItem]? {
+        if let fieldsIndexCache {
+            return fieldsIndexCache
         }
 
-        async let majorsFetch = try? discoveryService.fetchMajorsIndex()
         async let fieldsFetch = try? discoveryService.fetchFieldsIndex()
-        let (majors, fields) = await (majorsFetch, fieldsFetch)
-
-        if let majors {
-            majorsIndexCache = majors
-        }
+        let fields = await fieldsFetch
         if let fields {
             fieldsIndexCache = fields
         }
 
-        return (majors ?? majorsIndexCache, fields ?? fieldsIndexCache)
+        return fields ?? fieldsIndexCache
     }
 
     private func matchesSpecializationQuery(item: SpecializationIndexItem, query: String) -> Bool {
@@ -248,35 +220,6 @@ final class CommunityVerificationsViewModel: ObservableObject {
         )
     }
 
-    private func interleavedSpecializations(
-        majors: [CommunitySearchResult],
-        fields: [CommunitySearchResult],
-        maxCount: Int
-    ) -> [CommunitySearchResult] {
-        let resolvedMaxCount = max(1, maxCount)
-        var output: [CommunitySearchResult] = []
-        output.reserveCapacity(min(resolvedMaxCount, majors.count + fields.count))
-
-        var majorIndex = 0
-        var fieldIndex = 0
-
-        while output.count < resolvedMaxCount && (majorIndex < majors.count || fieldIndex < fields.count) {
-            if majorIndex < majors.count {
-                output.append(majors[majorIndex])
-                majorIndex += 1
-            }
-            if output.count >= resolvedMaxCount {
-                break
-            }
-            if fieldIndex < fields.count {
-                output.append(fields[fieldIndex])
-                fieldIndex += 1
-            }
-        }
-
-        return output
-    }
-
     private func mapError(_ error: Error) -> String {
         guard case let APIError.apiError(_, apiError, message) = error else {
             return error.localizedDescription
@@ -285,7 +228,7 @@ final class CommunityVerificationsViewModel: ObservableObject {
         switch apiError {
         case "user_not_provisioned":
             return "Your account isn’t fully set up yet. Try again in a moment."
-        case "community_not_found":
+        case "community_not_found", "community_unavailable":
             return "That community no longer exists."
         default:
             if let message, !message.isEmpty {

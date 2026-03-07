@@ -250,7 +250,7 @@ class CommentsModalManager: ObservableObject {
                 let action: TelemetryInteractionAction = replyTarget != nil ? .reply : .comment
                 trackBlockedInteraction(action: action, permissions: permissions)
                 if permissions.requiresJoin {
-                    errorMessage = "Join this major or field to comment or like."
+                    errorMessage = "Join this field to comment or like."
                 } else if permissions.requiresVerification {
                     errorMessage = "Verification is required to comment or like in this community."
                 } else {
@@ -328,7 +328,7 @@ class CommentsModalManager: ObservableObject {
                 case "community_not_verified":
                     errorMessage = message ?? "You must be verified in this community to comment. Go to a community and tap Verify."
                 case "specialization_not_joined":
-                    errorMessage = message ?? "Join this major or field to comment."
+                    errorMessage = message ?? "Join this field to comment."
                 default:
                     errorMessage = message ?? apiError
                 }
@@ -487,7 +487,7 @@ class CommentsModalManager: ObservableObject {
                 case "community_not_verified":
                     errorMessage = message ?? "You must be verified in this community to like comments. Go to a community and tap Verify."
                 case "specialization_not_joined":
-                    errorMessage = message ?? "Join this major or field to like comments."
+                    errorMessage = message ?? "Join this field to like comments."
                 default:
                     errorMessage = message ?? apiError
                 }
@@ -639,9 +639,9 @@ class CommentsModalManager: ObservableObject {
         if let apiError = error as? APIError {
             switch apiError {
             case .serverError(let code):
-                return code == 404
+                return code == 404 || code == 410
             case .apiError(let code, _, _):
-                return code == 404
+                return code == 404 || code == 410
             default:
                 return false
             }
@@ -658,7 +658,7 @@ class CommentsModalManager: ObservableObject {
 
     private func lockMessage(from capabilities: PostViewerCapabilities, verb: String) -> String {
         if capabilities.lockReason == .specializationNotJoined {
-            return "Join this major or field to \(verb)."
+            return "Join this field to \(verb)."
         }
         return capabilities.lockMessage(for: verb)
     }

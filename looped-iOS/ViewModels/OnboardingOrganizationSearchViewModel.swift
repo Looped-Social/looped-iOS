@@ -12,10 +12,8 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
             switch self {
             case .companiesOnly:
                 return .company
-            case .schoolsOnly:
-                return .school
-            case .companiesAndSchools:
-                return nil
+            case .companiesAndSchools, .schoolsOnly:
+                return .company
             }
         }
     }
@@ -26,7 +24,6 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var hasNoResultsForActiveQuery = false
 
-    private let scope: Scope
     private let communityService: CommunityServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private var searchTask: Task<Void, Never>?
@@ -36,7 +33,7 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
         communityService: CommunityServiceProtocol = CommunityService(),
         enableQueryBinding: Bool = true
     ) {
-        self.scope = scope
+        _ = scope
         self.communityService = communityService
         if enableQueryBinding {
             bindQuery()
@@ -94,19 +91,8 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
 
     private func loadSuggestedOrganizations(fallbackQuery: String) async throws -> [Organization] {
         do {
-            switch scope {
-            case .companiesOnly:
-                let items = try await communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
-                return normalize(items)
-            case .schoolsOnly:
-                let items = try await communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
-                return normalize(items)
-            case .companiesAndSchools:
-                async let companies = communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
-                async let schools = communityService.fetchRecommendedCommunities(kind: .school, limit: 40)
-                let (companyItems, schoolItems) = try await (companies, schools)
-                return normalize(companyItems + schoolItems)
-            }
+            let items = try await communityService.fetchRecommendedCommunities(kind: .company, limit: 40)
+            return normalize(items)
         } catch {
             let normalizedFallbackQuery = fallbackQuery.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !normalizedFallbackQuery.isEmpty else {
@@ -121,57 +107,19 @@ final class OnboardingOrganizationSearchViewModel: ObservableObject {
     }
 
     private func searchOrganizations(query: String) async throws -> [Organization] {
-        switch scope {
-        case .companiesOnly:
-            let page = try await communityService.searchCommunities(
-                query: query,
-                limit: 25,
-                cursor: nil,
-                kind: .company
-            )
-            return normalize(page.items)
-        case .schoolsOnly:
-            let page = try await communityService.searchCommunities(
-                query: query,
-                limit: 25,
-                cursor: nil,
-                kind: .school
-            )
-            return normalize(page.items)
-        case .companiesAndSchools:
-            async let companies = communityService.searchCommunities(
-                query: query,
-                limit: 25,
-                cursor: nil,
-                kind: .company
-            )
-            async let schools = communityService.searchCommunities(
-                query: query,
-                limit: 25,
-                cursor: nil,
-                kind: .school
-            )
-            let (companiesPage, schoolsPage) = try await (companies, schools)
-            return normalize(companiesPage.items + schoolsPage.items)
-        }
+        let page = try await communityService.searchCommunities(
+            query: query,
+            limit: 25,
+            cursor: nil,
+            kind: .company
+        )
+        return normalize(page.items)
     }
 
     private func normalize(_ items: [CommunitySearchResult]) -> [Organization] {
-        let scope = self.scope
-        let allowed: (CommunityKind) -> Bool = { kind in
-            switch scope {
-            case .companiesOnly:
-                return kind == .company
-            case .schoolsOnly:
-                return kind == .school
-            case .companiesAndSchools:
-                return kind == .company || kind == .school
-            }
-        }
-
         var seen = Set<Int>()
         let filtered = items.filter { item in
-            guard allowed(item.kind) else { return false }
+            guard item.kind == .company else { return false }
             return seen.insert(item.id).inserted
         }
 

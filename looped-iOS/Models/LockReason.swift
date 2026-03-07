@@ -204,7 +204,7 @@ extension LockReason {
             return "Join \(specializationDisplayName) to \(actionType.verb)."
 
         case .joinRequiresVerificationFirst(_, _, _, _, _, _, let requiredKind, _, let verifyTargetCommunityName):
-            let kindText = requiredKind?.displayName ?? "company or school"
+            let kindText = requiredKind?.displayName ?? "company"
             if let verifyTargetCommunityName, !verifyTargetCommunityName.isEmpty {
                 return "To join \(specializationDisplayName), verify \(verifyTargetCommunityName) first. Then you can \(actionType.verb)."
             }

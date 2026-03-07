@@ -3,11 +3,9 @@ import SwiftUI
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
     @State private var showSearchResults = false
-    @State private var selectedMajorsPageIndex = 0
     @State private var selectedFieldsPageIndex = 0
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @EnvironmentObject private var commentsManager: CommentsModalManager
-    @EnvironmentObject private var feedViewModel: FeedViewModel
     @State private var openingTrendingPostId: Int?
     @State private var trendingOpenError: String?
 
@@ -256,16 +254,8 @@ struct SearchView: View {
                             }
                         }
 
-                        // Majors & Fields Section
-                        VStack(alignment: .leading, spacing: 24) {
-                            if shouldShowFieldsFirst {
-                                fieldsSection
-                                majorsSection
-                            } else {
-                                majorsSection
-                                fieldsSection
-                            }
-                        }
+                        // Fields Section
+                        fieldsSection
 
                         Spacer(minLength: 100)
                     }
@@ -298,32 +288,6 @@ struct SearchView: View {
         } message: {
             Text(trendingOpenError ?? "Unknown error")
         }
-    }
-
-    private var shouldShowFieldsFirst: Bool {
-        let hasCompany = feedViewModel.followedCommunities.contains(where: { $0.kind == .company })
-        let hasSchool = feedViewModel.followedCommunities.contains(where: { $0.kind == .school })
-
-        if hasCompany && !hasSchool { return true }
-        if hasSchool && !hasCompany { return false }
-        return false
-    }
-
-    private var majorsSection: some View {
-        let emptyMessage: String = {
-            if viewModel.isLoadingSpecializations { return "Loading majors..." }
-            return viewModel.specializationsError ?? "No majors yet."
-        }()
-
-        return SpecializationPagerSection(
-            title: "Majors",
-            items: viewModel.majors,
-            emptyMessage: emptyMessage,
-            selectedPageIndex: $selectedMajorsPageIndex,
-            hasMorePages: viewModel.majorsHasMorePages,
-            isLoadingMore: viewModel.isLoadingMoreMajors,
-            onReachedEnd: { Task { await viewModel.loadMoreMajors() } }
-        )
     }
 
     private var fieldsSection: some View {

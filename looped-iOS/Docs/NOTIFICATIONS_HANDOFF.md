@@ -123,8 +123,8 @@ Supported `looped://`:
 - `looped://channels/{channelId}`
 
 Supported universal links:
-- `https://mylooped.app/p/{postId}`
-- `https://mylooped.app/u/{slug}`
+- `https://looped-social.com/p/{postId}`
+- `https://looped-social.com/u/{slug}`
 
 Important:
 - `announcement` route currently expects a numeric path segment (`/announcement/{id}`), even though id is not used by destination.

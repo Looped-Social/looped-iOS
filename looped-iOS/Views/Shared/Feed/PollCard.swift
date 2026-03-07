@@ -278,7 +278,7 @@ struct PollCard: View {
         case .specializationNotJoined:
             return "Join \(name) to vote"
         case .communityNotVerified:
-            if communityKind == .company || communityKind == .school {
+            if communityKind == .company {
                 return "Verify in \(name) to vote"
             }
             return "Verify to vote"
@@ -438,7 +438,7 @@ private enum VoteGate: Equatable {
     var restrictionMessage: String {
         switch self {
         case .specializationNotJoined:
-            return "Join this major or field to vote."
+            return "Join this field to vote."
         case .communityNotVerified:
             return "Verify in this community to vote."
         case .verificationExpired:

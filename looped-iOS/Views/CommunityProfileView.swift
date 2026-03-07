@@ -273,8 +273,12 @@ struct CommunityProfileView: View {
     private var verificationPill: some View {
         Button(action: { verificationTargetCommunity = viewModel.community }) {
             HStack(spacing: 8) {
-                Image(systemName: verificationDisplay.icon)
-                    .foregroundColor(verificationDisplay.color)
+                if verificationDisplay.usesVerifiedBadgeAsset {
+                    VerifiedBadgeIcon(tint: verificationDisplay.color, size: 16)
+                } else {
+                    Image(systemName: verificationDisplay.icon)
+                        .foregroundColor(verificationDisplay.color)
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verificationDisplay.title)
@@ -705,7 +709,8 @@ struct CommunityProfileView: View {
                         inactivePrefix: nil
                     ),
                 icon: "checkmark.seal.fill",
-                color: .loopedVerifiedBadge
+                color: .loopedVerifiedBadge,
+                usesVerifiedBadgeAsset: true
             )
         case .some(.pending):
             return VerificationDisplay(
@@ -771,11 +776,11 @@ struct CommunityProfileView: View {
         case .company:
             return "Workplace"
         case .school:
-            return "School"
+            return "Workplace"
         case .specialization:
             switch viewModel.community.specializationType {
             case .major:
-                return "Major"
+                return "Field"
             case .field:
                 return "Field"
             case .unknown:
@@ -815,7 +820,7 @@ struct CommunityProfileView: View {
     }
 
     private var communityShareURL: URL? {
-        URL(string: "https://mylooped.app/c/\(viewModel.community.id)")
+        URL(string: "https://looped-social.com/c/\(viewModel.community.id)")
     }
 
     private struct VerificationDisplay {
@@ -823,6 +828,21 @@ struct CommunityProfileView: View {
         let subtitle: String?
         let icon: String
         let color: Color
+        let usesVerifiedBadgeAsset: Bool
+
+        init(
+            title: String,
+            subtitle: String?,
+            icon: String,
+            color: Color,
+            usesVerifiedBadgeAsset: Bool = false
+        ) {
+            self.title = title
+            self.subtitle = subtitle
+            self.icon = icon
+            self.color = color
+            self.usesVerifiedBadgeAsset = usesVerifiedBadgeAsset
+        }
     }
 
     private struct CommunityShareSheetPayload: Identifiable {
@@ -887,7 +907,7 @@ struct CommunityProfileView: View {
         }
 
         if joinLimit.requiresVerificationForJoin {
-            let required = joinLimit.requiredVerificationKind?.displayName.lowercased() ?? "company or school"
+            let required = joinLimit.requiredVerificationKind?.displayName.lowercased() ?? "company"
             return "Verify one \(required) first."
         }
 
@@ -912,7 +932,7 @@ struct CommunityProfileView: View {
         }
 
         if joinLimit.requiresVerificationForJoin {
-            let required = joinLimit.requiredVerificationKind?.displayName.lowercased() ?? "company or school"
+            let required = joinLimit.requiredVerificationKind?.displayName.lowercased() ?? "company"
             var lines: [String] = []
             lines.append("You're not verified in a \(required) community yet.")
             lines.append("Verify in at least one \(required) first to unlock joining \(joinLimit.pluralLabel.lowercased()).")
@@ -1028,7 +1048,7 @@ struct CommunityProfileView: View {
         let singular: String
         switch type {
         case .major:
-            singular = "major"
+            singular = "field"
         case .field:
             singular = "field"
         case .unknown:

@@ -88,7 +88,7 @@ struct LoopCard: View {
         case .company:
             return .emoji("🏢")
         case .school:
-            return .emoji("🎓")
+            return .emoji("🏢")
         default:
             return .system("person.3")
         }

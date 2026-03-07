@@ -19,7 +19,7 @@ final class DisplaySpecializationPickerViewModel: ObservableObject {
 
     private var nextCursor: String?
     private var activeQuery: String = ""
-    private var activeFilter: SpecializationFilter = .major
+    private var activeFilter: SpecializationFilter = .field
     private var requestGeneration = 0
 
     init(
@@ -121,13 +121,10 @@ final class DisplaySpecializationPickerViewModel: ObservableObject {
 }
 
 enum SpecializationFilter: CaseIterable {
-    case major
     case field
 
     var title: String {
         switch self {
-        case .major:
-            return "Major"
         case .field:
             return "Field"
         }
@@ -135,8 +132,6 @@ enum SpecializationFilter: CaseIterable {
 
     var searchKind: CommunitySearchKind {
         switch self {
-        case .major:
-            return .major
         case .field:
             return .field
         }
@@ -144,8 +139,6 @@ enum SpecializationFilter: CaseIterable {
 
     var specializationType: CommunitySpecializationType {
         switch self {
-        case .major:
-            return .major
         case .field:
             return .field
         }
@@ -153,12 +146,10 @@ enum SpecializationFilter: CaseIterable {
 
     static func from(_ specializationType: CommunitySpecializationType?) -> SpecializationFilter? {
         switch specializationType {
-        case .major:
-            return .major
         case .field:
             return .field
-        case .unknown, .none:
-            return nil
+        case .major, .unknown, .none:
+            return .field
         }
     }
 }

@@ -152,7 +152,7 @@ private extension VerificationConfirmationView {
         case .emailVerified(let loopName):
             return "You’re verified for \(loopName).\nFollow the rules and have fun."
         case .emailVerifiedAndJoined(let loopName):
-            return "You’re verified for \(loopName).\nYour major or field is joined. Start posting."
+            return "You’re verified for \(loopName).\nYour field is joined. Start posting."
         }
     }
 }

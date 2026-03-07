@@ -104,7 +104,7 @@ struct DeepLinkRouterTests {
         defer { resetRouter(router) }
         router.setAuthenticationState(true)
 
-        let handled = router.handleIncomingURL(URL(string: "https://mylooped.app/c/142")!)
+        let handled = router.handleIncomingURL(URL(string: "https://looped-social.com/c/142")!)
         #expect(handled)
         #expect(router.pendingNavigation?.destination == .community(142))
         #expect(router.pendingNavigation?.pathType == .community)
@@ -122,7 +122,7 @@ struct DeepLinkRouterTests {
         defer { resetRouter(router) }
         router.setAuthenticationState(true)
 
-        let handled = router.handleIncomingURL(URL(string: "https://mylooped.app/c/not-a-number")!)
+        let handled = router.handleIncomingURL(URL(string: "https://looped-social.com/c/not-a-number")!)
         #expect(handled)
         #expect(router.pendingNavigation?.destination == .home)
         #expect(router.pendingNavigation?.pathType == .community)
@@ -139,7 +139,7 @@ struct DeepLinkRouterTests {
         resetRouter(router)
         defer { resetRouter(router) }
 
-        let handled = router.handleIncomingURL(URL(string: "https://mylooped.app/c/777")!)
+        let handled = router.handleIncomingURL(URL(string: "https://looped-social.com/c/777")!)
         #expect(handled)
         #expect(router.pendingNavigation == nil)
 

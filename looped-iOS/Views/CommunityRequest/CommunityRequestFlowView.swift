@@ -8,22 +8,20 @@ private enum CommunityRequestRoute: Hashable {
 
 enum CommunityRequestType: String, CaseIterable, Identifiable {
     case company = "Company"
-    case school = "School"
     case field = "Field"
-    case major = "Major"
 
     var id: String { rawValue }
+
+    static var requestableCases: [CommunityRequestType] {
+        [.company, .field]
+    }
 
     var kind: CommunityRequestKind {
         switch self {
         case .company:
             return .company
-        case .school:
-            return .school
         case .field:
             return .field
-        case .major:
-            return .major
         }
     }
 }
@@ -34,11 +32,11 @@ private extension CommunityRequestType {
         case .company:
             self = .company
         case .school:
-            self = .school
+            self = .company
         case .field:
             self = .field
         case .major:
-            self = .major
+            self = .field
         case .unknown:
             return nil
         }
@@ -165,7 +163,7 @@ private struct CommunityRequestStepOneView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     fieldLabel("Community Name*")
-                    TextField("School or company name", text: $draft.name)
+                    TextField("Company or field name", text: $draft.name)
                         .font(.loopedBody)
                         .foregroundColor(.loopedTextPrimary)
                         .padding(.horizontal, 14)
@@ -202,7 +200,7 @@ private struct CommunityRequestStepOneView: View {
                                 .cornerRadius(12)
                         } else {
                             HStack(spacing: 10) {
-                                ForEach([CommunityRequestType.company, .school]) { type in
+                                ForEach(CommunityRequestType.requestableCases) { type in
                                     OnboardingRequestKindChip(
                                         title: type.rawValue,
                                         isSelected: draft.type == type,
@@ -231,7 +229,7 @@ private struct CommunityRequestStepOneView: View {
                             .background(Color.loopedMutedBackground)
                             .cornerRadius(12)
                         ) {
-                            ForEach(CommunityRequestType.allCases) { type in
+                            ForEach(CommunityRequestType.requestableCases) { type in
                                 Text(type.rawValue)
                                     .tag(Optional(type))
                             }

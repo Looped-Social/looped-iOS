@@ -7,24 +7,18 @@ enum SearchResultsFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case communities = "Communities"
     case companies = "Companies"
-    case schools = "Schools"
-    case majors = "Majors"
     case fields = "Fields"
 
     var id: String { rawValue }
 
     static var uiCases: [SearchResultsFilter] {
-        [.all, .posts, .users, .communities, .companies, .schools, .majors, .fields]
+        [.all, .posts, .users, .communities, .companies, .fields]
     }
 
     var searchKind: CommunitySearchKind? {
         switch self {
         case .companies:
             return .company
-        case .schools:
-            return .school
-        case .majors:
-            return .major
         case .fields:
             return .field
         default:
@@ -166,7 +160,7 @@ class SearchResultsViewModel: ObservableObject {
                 }
                 searchResults = applyingBlockFilters(to: results)
                 hashtagSuggestions = []
-            case .companies, .schools, .majors, .fields:
+            case .companies, .fields:
                 let loopResults = try await communityService.searchCommunities(
                     query: trimmedQuery,
                     limit: 20,

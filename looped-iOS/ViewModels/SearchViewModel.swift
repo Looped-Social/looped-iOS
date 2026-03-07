@@ -7,13 +7,11 @@ class SearchViewModel: ObservableObject {
     @Published var selectedTrendingIndex = 0
     @Published var trendingPosts: [TrendingPost] = []
     @Published var recommendedCommunities: [CommunitySearchResult] = []
-    @Published var majors: [CommunitySearchResult] = []
     @Published var fields: [CommunitySearchResult] = []
     @Published var peopleRecommendationRails: [PeopleRecommendationRailPage] = []
     @Published var isLoadingTrendingPosts = false
     @Published var isLoadingSpecializations = false
     @Published var isLoadingMoreRecommendedCommunities = false
-    @Published var isLoadingMoreMajors = false
     @Published var isLoadingMoreFields = false
     @Published var isLoadingPeopleRecommendations = false
     @Published var recommendationError: String?
@@ -26,7 +24,6 @@ class SearchViewModel: ObservableObject {
     private let userService: UserServiceProtocol
     private let followStateStore: FollowStateStore
     private var recommendedCommunitiesNextCursor: String?
-    private var majorsNextCursor: String?
     private var fieldsNextCursor: String?
     private let initialSpecializationsLimit = 24
     private let loadMoreSpecializationsLimit = 40
@@ -53,7 +50,6 @@ class SearchViewModel: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
     private var lastObservedFollowingUserIds: Set<Int>
 
-    var majorsHasMorePages: Bool { majorsNextCursor?.isEmpty == false }
     var fieldsHasMorePages: Bool { fieldsNextCursor?.isEmpty == false }
 
     init(
@@ -91,27 +87,11 @@ class SearchViewModel: ObservableObject {
         isLoadingSpecializations = true
         defer { isLoadingSpecializations = false }
 
-        majors = []
         fields = []
-        majorsNextCursor = nil
         fieldsNextCursor = nil
         specializationsError = nil
 
-        var firstError: Error?
-
         async let iconsById = loadSpecializationIconsById()
-
-        do {
-            let page = try await discoveryService.browseSpecializations(
-                type: .major,
-                limit: initialSpecializationsLimit,
-                cursor: nil
-            )
-            majors = page.items
-            majorsNextCursor = page.nextCursor
-        } catch {
-            firstError = firstError ?? error
-        }
 
         do {
             let page = try await discoveryService.browseSpecializations(
@@ -122,38 +102,12 @@ class SearchViewModel: ObservableObject {
             fields = page.items
             fieldsNextCursor = page.nextCursor
         } catch {
-            firstError = firstError ?? error
+            specializationsError = error.localizedDescription
         }
 
         let resolvedIconsById = await iconsById
-        majors = applyingSpecializationIcons(majors, iconsById: resolvedIconsById)
         fields = applyingSpecializationIcons(fields, iconsById: resolvedIconsById)
         recommendedCommunities = applyingSpecializationIcons(recommendedCommunities, iconsById: resolvedIconsById)
-
-        if let firstError {
-            specializationsError = firstError.localizedDescription
-        }
-    }
-
-    func loadMoreMajors() async {
-        guard !isLoadingMoreMajors else { return }
-        guard let majorsNextCursor, !majorsNextCursor.isEmpty else { return }
-
-        isLoadingMoreMajors = true
-        defer { isLoadingMoreMajors = false }
-
-        do {
-            let page = try await discoveryService.browseSpecializations(
-                type: .major,
-                limit: loadMoreSpecializationsLimit,
-                cursor: majorsNextCursor
-            )
-            self.majorsNextCursor = page.nextCursor
-            let iconsById = await loadSpecializationIconsById()
-            appendUnique(items: applyingSpecializationIcons(page.items, iconsById: iconsById), to: &majors)
-        } catch {
-            specializationsError = error.localizedDescription
-        }
     }
 
     func loadMoreFields() async {
@@ -462,16 +416,10 @@ class SearchViewModel: ObservableObject {
 
         let discoveryService = self.discoveryService
         let task = Task { () -> [Int: CommunityIcon] in
-            async let majors = try? discoveryService.fetchMajorsIndex()
             async let fields = try? discoveryService.fetchFieldsIndex()
-            let (majorItems, fieldItems) = await (majors, fields)
+            let fieldItems = await fields
 
             var resolved: [Int: CommunityIcon] = [:]
-            for item in (majorItems ?? []) {
-                if let icon = item.icon {
-                    resolved[item.id] = icon
-                }
-            }
             for item in (fieldItems ?? []) {
                 if let icon = item.icon {
                     resolved[item.id] = icon

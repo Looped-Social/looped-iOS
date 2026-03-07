@@ -205,9 +205,7 @@ struct CreatePostView: View {
 
                     if !canPost {
                         HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "checkmark.seal")
-                                .font(.loopedCustom(.semibold, size: 16))
-                                .foregroundColor(.loopedSecondary)
+                            VerifiedBadgeIcon(tint: .loopedSecondary, size: 16)
 
                             Text(disabledPostMessage)
                                 .font(.loopedSubBodyRegular)
