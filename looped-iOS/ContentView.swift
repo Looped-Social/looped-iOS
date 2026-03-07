@@ -279,6 +279,7 @@ struct ContentView: View {
         [
             authViewModel.isAuthenticated ? "auth" : "noauth",
             authViewModel.didLoadIdentity ? "id" : "noid",
+            authViewModel.isIdentityRefreshInFlight ? "identityloading" : "identitystable",
             authViewModel.onboardingComplete ? "onboarded" : "notonboarded",
             authViewModel.shouldPromptProfileCompletion ? "profileprompt" : "noprofileprompt",
             showProfileCompletionPrompt ? "profilepromptshown" : "profileprompthidden",
@@ -291,6 +292,7 @@ struct ContentView: View {
         [
             authViewModel.isAuthenticated ? "auth" : "noauth",
             authViewModel.didLoadIdentity ? "id" : "noid",
+            authViewModel.isIdentityRefreshInFlight ? "identityloading" : "identitystable",
             authViewModel.onboardingComplete ? "onboarded" : "notonboarded",
             authViewModel.shouldPromptProfileCompletion ? "shouldprompt" : "noshouldprompt"
         ].joined(separator: "|")
@@ -299,6 +301,7 @@ struct ContentView: View {
     private func evaluateNotificationPermissionPromptIfNeeded() async {
         guard authViewModel.isAuthenticated else { return }
         guard authViewModel.didLoadIdentity else { return }
+        guard !authViewModel.isIdentityRefreshInFlight else { return }
         guard authViewModel.onboardingComplete else { return }
         guard !authViewModel.shouldPromptProfileCompletion else { return }
         guard !showNotificationPermissionPrompt else { return }
@@ -399,6 +402,7 @@ struct ContentView: View {
             return
         }
         guard authViewModel.didLoadIdentity else { return }
+        guard !authViewModel.isIdentityRefreshInFlight else { return }
         guard authViewModel.onboardingComplete else {
             await MainActor.run {
                 showProfileCompletionPrompt = false
@@ -406,7 +410,11 @@ struct ContentView: View {
             return
         }
         await MainActor.run {
-            showProfileCompletionPrompt = authViewModel.shouldPromptProfileCompletion
+            let shouldShowProfileCompletionPrompt = authViewModel.shouldPromptProfileCompletion
+            if shouldShowProfileCompletionPrompt {
+                showNotificationPermissionPrompt = false
+            }
+            showProfileCompletionPrompt = shouldShowProfileCompletionPrompt
         }
     }
 

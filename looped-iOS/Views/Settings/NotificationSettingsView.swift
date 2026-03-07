@@ -1,9 +1,12 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 struct NotificationSettingsView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel = NotificationPreferencesViewModel()
     @State private var showPushPermissionAlert = false
+    @State private var pushAuthorizationStatus: UNAuthorizationStatus = .notDetermined
 
     var body: some View {
         List {
@@ -37,11 +40,15 @@ struct NotificationSettingsView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await viewModel.loadPreferences()
+            await refreshPushAuthorizationStatus()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task { await refreshPushAuthorizationStatus() }
         }
         .alert("Enable Push Notifications", isPresented: $showPushPermissionAlert) {
             Button("Open iOS Settings") {
-                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-                UIApplication.shared.open(url)
+                openIOSSettings()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -196,11 +203,21 @@ private extension NotificationSettingsView {
                 SettingsRowLabel(
                     icon: .system("bell.fill"),
                     title: "Push Notifications",
-                    subtitle: "Receive notifications on this device"
+                    subtitle: pushNotificationsSubtitle
                 )
             }
             .tint(.loopedSecondary)
             .disabled(!isLoaded)
+
+            if Self.shouldShowOpenSettingsRow(for: pushAuthorizationStatus) {
+                Button(action: openIOSSettings) {
+                    SettingsRowLabel(
+                        icon: .system("gear"),
+                        title: "Enable in iOS Settings",
+                        subtitle: "Open Settings > Looped > Notifications"
+                    )
+                }
+            }
         }
     }
 
@@ -233,6 +250,7 @@ private extension NotificationSettingsView {
                 Task {
                     if channel == .push, newValue {
                         let granted = await NotificationAuthorizationManager.shared.requestAuthorization()
+                        await refreshPushAuthorizationStatus()
                         guard granted else {
                             await MainActor.run { showPushPermissionAlert = true }
                             return
@@ -242,6 +260,22 @@ private extension NotificationSettingsView {
                 }
             }
         )
+    }
+
+    var pushNotificationsSubtitle: String {
+        Self.pushNotificationsSubtitle(for: pushAuthorizationStatus)
+    }
+
+    func refreshPushAuthorizationStatus() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        await MainActor.run {
+            pushAuthorizationStatus = settings.authorizationStatus
+        }
+    }
+
+    func openIOSSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     func typeBinding(type: NotificationPreferenceType) -> Binding<Bool> {
@@ -277,6 +311,19 @@ private extension NotificationSettingsView {
         default:
             return [.inApp, .push]
         }
+    }
+}
+
+extension NotificationSettingsView {
+    static func pushNotificationsSubtitle(for authorizationStatus: UNAuthorizationStatus) -> String {
+        if authorizationStatus == .denied {
+            return "Disabled in iOS Settings"
+        }
+        return "Receive notifications on this device"
+    }
+
+    static func shouldShowOpenSettingsRow(for authorizationStatus: UNAuthorizationStatus) -> Bool {
+        authorizationStatus == .denied
     }
 }
 

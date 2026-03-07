@@ -21,6 +21,7 @@ class AuthViewModel: ObservableObject {
     @Published var profileCompletionStatus: ProfileCompletionStatus?
     @Published var onboardingAllowedNextStagesV2: [String] = []
     @Published private(set) var didLoadIdentity = false
+    @Published private(set) var isIdentityRefreshInFlight = false
     @Published private(set) var isProvisioned = false
     @Published var selectedOrganization: Organization?
     @Published private(set) var linkedProviders: Set<String> = []
@@ -36,6 +37,7 @@ class AuthViewModel: ObservableObject {
     private let onboardingStore = OnboardingProgressStore()
     private let onboardingScopeUserDefaultsKey = "looped.onboarding.lastAuthUID"
     private var cancellables = Set<AnyCancellable>()
+    private var identityRefreshDepth = 0
     
     init(
         authService: AuthServiceProtocol = AuthService(),
@@ -296,6 +298,13 @@ class AuthViewModel: ObservableObject {
     }
 
     func loadCurrentUser() async {
+        identityRefreshDepth += 1
+        isIdentityRefreshInFlight = true
+        defer {
+            identityRefreshDepth = max(0, identityRefreshDepth - 1)
+            isIdentityRefreshInFlight = identityRefreshDepth > 0
+        }
+
         syncOnboardingScopeForCurrentAuthUser(clearPrevious: true)
         do {
             let identity = try await userService.getIdentity()

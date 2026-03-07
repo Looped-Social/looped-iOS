@@ -80,6 +80,55 @@ struct AuthViewModelTests {
     }
 
     @Test
+    func loadCurrentUser_togglesIdentityRefreshFlagDuringFetch() async throws {
+        let authService = MockAuthService()
+        let userService = MockUserService()
+        userService.getIdentityHandler = {
+            try await Task.sleep(nanoseconds: 60_000_000)
+            return TestFixtures.identityDTO(
+                provisioned: true,
+                onboardingComplete: true,
+                onboardingStep: nil,
+                user: TestFixtures.userDTO(id: 11, handle: "identity")
+            )
+        }
+        userService.getCurrentUserHandler = {
+            TestFixtures.user(backendId: 11, handle: "identity")
+        }
+
+        let viewModel = AuthViewModel(
+            authService: authService,
+            userService: userService,
+            deviceRegistrar: NotificationDeviceRegistrar(
+                deviceService: MockDeviceService(),
+                userDefaults: makeDefaults(prefix: "auth.registrar")
+            ),
+            notificationService: MockNotificationService()
+        )
+
+        #expect(viewModel.isIdentityRefreshInFlight == false)
+
+        let loadTask = Task {
+            await viewModel.loadCurrentUser()
+        }
+
+        var observedInFlight = false
+        for _ in 0..<20 {
+            if viewModel.isIdentityRefreshInFlight {
+                observedInFlight = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+
+        #expect(observedInFlight == true)
+
+        await loadTask.value
+
+        #expect(viewModel.isIdentityRefreshInFlight == false)
+    }
+
+    @Test
     func setOnboardingV2VerificationChoice_success_updatesOnboardingState() async {
         let authService = MockAuthService()
         authService.isAuthenticated = true
