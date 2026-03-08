@@ -4,12 +4,15 @@ import UIKit
 
 enum NativeLinkPreviewStyle {
     case standard
+    case composer
     case messageBubble
 
     var minHeight: CGFloat {
         switch self {
         case .standard:
-            return 120
+            return 156
+        case .composer:
+            return 156
         case .messageBubble:
             return 140
         }
@@ -17,7 +20,7 @@ enum NativeLinkPreviewStyle {
 
     var fixedWidth: CGFloat? {
         switch self {
-        case .standard:
+        case .standard, .composer:
             return nil
         case .messageBubble:
             return 220
@@ -45,7 +48,11 @@ struct NativeLinkPreviewView: View {
                 placeholder
             }
 
-            NativeURLLinkPreviewCard(url: url, onStateChange: handleStateChange)
+            NativeURLLinkPreviewCard(
+                url: url,
+                minHeight: style.minHeight,
+                onStateChange: handleStateChange
+            )
         }
         .frame(maxWidth: style.fixedWidth == nil ? .infinity : nil, alignment: .leading)
         .frame(width: style.fixedWidth, alignment: .leading)
@@ -126,6 +133,7 @@ struct NativeLinkPreviewView: View {
 
 private struct NativeURLLinkPreviewCard: UIViewRepresentable {
     let url: URL
+    let minHeight: CGFloat
     let onStateChange: (LinkPreviewLoadState) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -150,7 +158,7 @@ private struct NativeURLLinkPreviewCard: UIViewRepresentable {
             withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
         )
-        let resolvedHeight = max(120, measured.height)
+        let resolvedHeight = max(minHeight, measured.height)
         return CGSize(width: targetWidth, height: resolvedHeight)
     }
 

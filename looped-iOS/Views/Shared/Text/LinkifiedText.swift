@@ -48,7 +48,9 @@ struct LinkifiedText: View {
 
     private var displayText: String {
         if shouldRenderLinkPreview && firstURL != nil {
-            return LoopedTextParser.removingFirstURL(from: text)
+            return LoopedTextParser
+                .removingFirstURL(from: text)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return text
     }

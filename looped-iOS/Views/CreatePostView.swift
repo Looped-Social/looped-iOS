@@ -7,6 +7,7 @@ struct CreatePostView: View {
     @State private var postText: String = ""
     @FocusState private var isPostTextFocused: Bool
     @AppStorage("anonymousMode") private var isAnonymous: Bool = false
+    @AppStorage(LinkPreviewSettings.appStorageKey) private var linkPreviewsEnabled = LinkPreviewSettings.defaultEnabled
     @Environment(\.preferCommunityShortNames) private var preferCommunityShortNames
     @State private var selectedCommunityId: Int?
     @State private var isSubmitting: Bool = false
@@ -29,6 +30,8 @@ struct CreatePostView: View {
     @State private var isLoadingMentionSuggestions = false
     @State private var mentionQuery: String?
     @State private var mentionSearchTask: Task<Void, Never>?
+    @State private var attachedLinkURL: URL?
+    @State private var isUpdatingPostTextInternally = false
 
     @ObservedObject var feedViewModel: FeedViewModel
     private let communityService: CommunityServiceProtocol
@@ -63,12 +66,15 @@ struct CreatePostView: View {
     }
     
     private var characterLimit: Int { 500 }
-    private var remainingCharacters: Int { characterLimit - postText.count }
+    private var submissionContent: String {
+        Self.composeContent(text: postText, linkURL: attachedLinkURL)
+    }
+    private var remainingCharacters: Int { characterLimit - submissionContent.count }
     private var isPostValid: Bool {
-        let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasText = !submissionContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasMedia = !selectedMedia.isEmpty
         let hasValidPoll = pollDraft?.isValid ?? false
-        let isTextValid = postText.count <= characterLimit
+        let isTextValid = submissionContent.count <= characterLimit
         return (hasText || hasMedia || hasValidPoll) && isTextValid
     }
     private var selectedCommunity: CommunitySummary? {
@@ -86,6 +92,10 @@ struct CreatePostView: View {
 
     private var canPost: Bool {
         (selectedCommunity?.canPost ?? false) && (!isAnonymous || !(anonMembershipMissing || anonMembershipExpired))
+    }
+    private var composerPreviewURL: URL? {
+        guard linkPreviewsEnabled else { return nil }
+        return attachedLinkURL
     }
 
 	    private var mediaPickerAllowsVideo: Bool {
@@ -246,6 +256,25 @@ struct CreatePostView: View {
 
                         if shouldShowMentionSuggestions {
                             mentionSuggestionsSection
+                        }
+                    }
+
+                    if let composerPreviewURL {
+                        ZStack(alignment: .topTrailing) {
+                            NativeLinkPreviewView(url: composerPreviewURL, style: .composer)
+                            Button(action: removeAttachedLink) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.loopedBlack.opacity(0.55))
+                                        .frame(width: 34, height: 34)
+                                    Image(systemName: "xmark")
+                                        .font(.loopedCustom(.semibold, size: 16))
+                                        .foregroundColor(.loopedWhite)
+                                }
+                                .padding(8)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove link preview")
                         }
                     }
 
@@ -440,6 +469,7 @@ struct CreatePostView: View {
         }
         .onAppear {
             applySharedPrefillIfNeeded()
+            syncAttachedLinkFromTextIfNeeded()
             syncSelectedCommunity()
             updateAnonMembershipStatus(autoEnroll: true)
             Task { await loadPostableCommunities() }
@@ -484,7 +514,18 @@ struct CreatePostView: View {
             updateAnonMembershipStatus(autoEnroll: newValue)
         }
         .onChange(of: postText) { _, _ in
+            syncAttachedLinkFromTextIfNeeded()
             queueMentionLookup()
+        }
+        .onChange(of: linkPreviewsEnabled) { _, isEnabled in
+            guard !isEnabled else {
+                syncAttachedLinkFromTextIfNeeded()
+                return
+            }
+            if let attachedLinkURL {
+                postText = Self.composeContent(text: postText, linkURL: attachedLinkURL)
+                self.attachedLinkURL = nil
+            }
         }
         .onChange(of: isPostTextFocused) { _, focused in
             if focused {
@@ -505,6 +546,35 @@ struct CreatePostView: View {
         guard let sharedPrefill = SharedPostPrefillStore.loadComposedText() else { return }
         postText = sharedPrefill
         SharedPostPrefillStore.clearPending()
+    }
+
+    private func syncAttachedLinkFromTextIfNeeded() {
+        guard linkPreviewsEnabled else { return }
+        guard attachedLinkURL == nil else { return }
+        guard !isUpdatingPostTextInternally else { return }
+        guard let url = LoopedTextParser.firstURL(in: postText) else { return }
+
+        let textWithoutURL = LoopedTextParser
+            .removingFirstURL(from: postText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        isUpdatingPostTextInternally = true
+        attachedLinkURL = url
+        postText = textWithoutURL
+        isUpdatingPostTextInternally = false
+    }
+
+    private func removeAttachedLink() {
+        attachedLinkURL = nil
+    }
+
+    private static func composeContent(text: String, linkURL: URL?) -> String {
+        guard let linkURL else { return text }
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedText.isEmpty {
+            return linkURL.absoluteString
+        }
+        return "\(trimmedText)\n\n\(linkURL.absoluteString)"
     }
 
     private var mentionSuggestionsSection: some View {
@@ -563,7 +633,7 @@ struct CreatePostView: View {
     private func submitPost() async {
         guard !isSubmitting else { return }
         guard let communityId = selectedCommunity?.id else { return }
-        let trimmedContent = postText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedContent = submissionContent.trimmingCharacters(in: .whitespacesAndNewlines)
         let pollToSend = pollDraft?.isValid == true ? pollDraft : nil
         guard !trimmedContent.isEmpty || !selectedMedia.isEmpty || pollToSend != nil else { return }
         isPostTextFocused = false
@@ -739,7 +809,7 @@ struct CreatePostView: View {
     }
 
     private var hasDraftableContent: Bool {
-        CreatePostDraftPromptPolicy.shouldPromptForDraft(content: postText, poll: pollDraft)
+        CreatePostDraftPromptPolicy.shouldPromptForDraft(content: submissionContent, poll: pollDraft)
     }
 
 	    private var draftPromptMessage: String {
@@ -762,7 +832,7 @@ struct CreatePostView: View {
         guard hasDraftableContent else { return }
         let draft = draftStore.upsertDraft(
             id: activeDraftId,
-            content: postText,
+            content: submissionContent,
             communityId: selectedCommunity?.id,
             communityName: selectedCommunity?.name,
             poll: pollDraft
