@@ -15,6 +15,16 @@
 				<string>com.googleusercontent.apps.368315406437-ec62rpiq07nolu675q8p37md2q2ao2i9</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.mylooped.looped</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>looped</string>
+			</array>
+		</dict>
 	</array>
 	<key>UIAppFonts</key>
 	<array>

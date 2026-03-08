@@ -630,6 +630,7 @@ struct MainTabView: View {
     @State private var homeDidPopOnReselect = false
     @State private var feedScrollToTopSignal = 0
     @State private var showCreatePost = false
+    @State private var createPostPrefillText: String?
     @State private var showNewMessage = false
     @State private var isRightMenuOpen = false
 	    @State private var showingChat = false
@@ -680,6 +681,7 @@ struct MainTabView: View {
         .environment(\.floatingActionButtonState, fabState)
         .task {
             guard !uiTestDisableNetworkBootstrap else { return }
+            presentPendingSharedPostIfNeeded()
             didEvaluateUnverifiedSearchDiscoveryThisSession = false
             async let loadCommunities: Void = feedViewModel.loadFollowedCommunities()
             async let loadNotifications: Void = notificationsViewModel.loadNotifications()
@@ -696,6 +698,7 @@ struct MainTabView: View {
             syncWidgetSnapshot()
         }
         .onAppear {
+            presentPendingSharedPostIfNeeded()
             startFeedDiscoveryIfNeeded()
             startUnverifiedSearchDiscoveryIfNeeded()
             startSearchPageDiscoveryIfNeeded()
@@ -781,6 +784,7 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             authViewModel.appDidBecomeActive()
+            presentPendingSharedPostIfNeeded()
             Task {
                 await widgetSummaryService.refreshSharedSnapshot()
                 syncWidgetSnapshot()
@@ -793,6 +797,7 @@ struct MainTabView: View {
         .onReceive(authViewModel.$isAuthenticated.removeDuplicates()) { isAuthenticated in
             guard isAuthenticated else { return }
             guard scenePhase == .active else { return }
+            presentPendingSharedPostIfNeeded()
             Task {
                 await AppOpenReporter.shared.reportIfNeeded(
                     isAuthenticated: true,
@@ -829,9 +834,12 @@ struct MainTabView: View {
 	                }
 	            }
 	        )
-        .sheet(isPresented: $showCreatePost) {
+        .sheet(isPresented: $showCreatePost, onDismiss: {
+            createPostPrefillText = nil
+        }) {
             CreatePostView(
                 feedViewModel: feedViewModel,
+                prefillText: createPostPrefillText,
                 onPostCreated: {
                     showCreatePost = false
                 },
@@ -839,6 +847,11 @@ struct MainTabView: View {
                     toastMessage = message
                 }
             )
+                .onAppear {
+                    if createPostPrefillText != nil {
+                        SharedPostPrefillStore.clearPending()
+                    }
+                }
                 .preferredColorScheme(preferredColorScheme)
                 .presentationDetents([.large])
         }
@@ -1211,6 +1224,7 @@ struct MainTabView: View {
                             }
                         } else {
                             FloatingActionButton(type: .addPost) {
+                                createPostPrefillText = SharedPostPrefillStore.loadComposedText()
                                 showCreatePost = true
                             }
                             .coachMarkTarget(.feedPostButton)
@@ -1458,6 +1472,7 @@ struct MainTabView: View {
             selectedTab = .profile
         case .createPost:
             selectedTab = .home
+            createPostPrefillText = SharedPostPrefillStore.loadComposedText()
             showCreatePost = true
         case .community(let communityId):
             openCommunity(communityId: communityId)
@@ -1493,6 +1508,15 @@ struct MainTabView: View {
                 toastMessage = ToastMessage(text: "That link isn't available.", kind: .warning)
             }
         }
+    }
+
+    private func presentPendingSharedPostIfNeeded() {
+        guard authViewModel.isAuthenticated else { return }
+        guard !showCreatePost else { return }
+        guard let prefill = SharedPostPrefillStore.loadComposedText() else { return }
+        selectedTab = .home
+        createPostPrefillText = prefill
+        showCreatePost = true
     }
 
     private func openCommunity(communityId: Int) {

@@ -62,6 +62,24 @@ struct DeepLinkRouterTests {
     }
 
     @Test
+    func universalCreatePostDeepLinkRoutesWhenAuthenticated() {
+        let router = DeepLinkRouter.shared
+        resetRouter(router)
+        defer { resetRouter(router) }
+        router.setAuthenticationState(true)
+
+        let handled = router.handleIncomingURL(URL(string: "https://looped-social.com/create-post?source=share_extension")!)
+        #expect(handled)
+        #expect(router.pendingNavigation?.destination == .createPost)
+        #expect(router.pendingNavigation?.pathType == .createPost)
+        #expect(router.pendingNavigation?.resumedAfterLogin == false)
+
+        if let request = router.pendingNavigation {
+            router.consumeNavigation(request)
+        }
+    }
+
+    @Test
     func profileDeepLinkRoutesWhenAuthenticated() {
         let router = DeepLinkRouter.shared
         resetRouter(router)

@@ -34,6 +34,7 @@ struct CreatePostView: View {
     private let communityService: CommunityServiceProtocol
     private let userService: UserServiceProtocol
     private let draft: PostDraft?
+    private let prefillText: String?
     private let onPostCreated: (() -> Void)?
     private let onPostStatus: ((ToastMessage) -> Void)?
 
@@ -43,6 +44,7 @@ struct CreatePostView: View {
         userService: UserServiceProtocol = UserService(),
         draftStore: PostDraftStore = PostDraftStore(),
         draft: PostDraft? = nil,
+        prefillText: String? = nil,
         onPostCreated: (() -> Void)? = nil,
         onPostStatus: ((ToastMessage) -> Void)? = nil
     ) {
@@ -51,9 +53,10 @@ struct CreatePostView: View {
         self.userService = userService
         self.draftStore = draftStore
         self.draft = draft
+        self.prefillText = prefillText
         self.onPostCreated = onPostCreated
         self.onPostStatus = onPostStatus
-        _postText = State(initialValue: draft?.content ?? "")
+        _postText = State(initialValue: draft?.content ?? prefillText ?? "")
         _selectedCommunityId = State(initialValue: draft?.communityId)
         _activeDraftId = State(initialValue: draft?.id)
         _pollDraft = State(initialValue: draft?.poll)
@@ -434,8 +437,9 @@ struct CreatePostView: View {
                         }
                     }
                 ))
-	        }
+        }
         .onAppear {
+            applySharedPrefillIfNeeded()
             syncSelectedCommunity()
             updateAnonMembershipStatus(autoEnroll: true)
             Task { await loadPostableCommunities() }
@@ -492,6 +496,15 @@ struct CreatePostView: View {
         .onDisappear {
             mentionSearchTask?.cancel()
         }
+    }
+
+    private func applySharedPrefillIfNeeded() {
+        guard draft == nil else { return }
+        guard prefillText == nil else { return }
+        guard postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard let sharedPrefill = SharedPostPrefillStore.loadComposedText() else { return }
+        postText = sharedPrefill
+        SharedPostPrefillStore.clearPending()
     }
 
     private var mentionSuggestionsSection: some View {

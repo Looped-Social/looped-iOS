@@ -311,6 +311,9 @@ final class DeepLinkRouter: ObservableObject {
             }
             return ParsedDeepLink(destination: .profileSlug(slug), pathType: .profile)
 
+        case "create-post", "create_post", "new-post", "new_post":
+            return ParsedDeepLink(destination: .createPost, pathType: .createPost)
+
         default:
             return ParsedDeepLink(destination: .home, pathType: .unsupported)
         }
