@@ -31,11 +31,14 @@ struct ProfileView: View {
     @State private var profileRefreshTask: Task<Void, Never>?
     @State private var lastHeaderToggleAt: TimeInterval = 0
     @State private var headerRevealProgress: CGFloat = 0
+    @State private var profileShareSheetPayload: TopBarProfileShareSheetPayload?
+    @State private var isPreparingProfileShareSheet = false
 
 		@State private var headerHeight: CGFloat = 300
 		@State private var hasActiveVerifications: Bool?
     private let verificationService: CommunityVerificationServiceProtocol = CommunityVerificationService()
     private let anonService: AnonService = .shared
+    private let userService: UserServiceProtocol = UserService()
     private let scrollCoordinateSpace = "profileScrollCoordinateSpace"
     private let profileSkeletonDelayNanoseconds: UInt64 = 220_000_000
     private var usesIOS17ScrollTuning: Bool {
@@ -174,16 +177,34 @@ struct ProfileView: View {
         }
 			.overlay(alignment: .topTrailing) {
 				if displayProfile?.isCurrentUser ?? true {
-					Button(action: { presentMainOverlay(.settings) }) {
-						Image(systemName: "gearshape.fill")
-							.font(.loopedCustom(.semibold, size: 18))
-							.foregroundColor(.loopedTextSecondary)
-							.frame(width: 28, height: 28)
-							.loopedTapTarget()
-							.coachMarkTarget(.profileSettingsButton)
-					}
-					.buttonStyle(PlainButtonStyle())
-					.accessibilityLabel("Settings")
+                    HStack(spacing: -8) {
+                        if profileShareURL != nil {
+                            Button(action: shareProfileFromTopBar) {
+                                Image("share-icon")
+                                    .resizable()
+                                    .renderingMode(.template)
+                                    .scaledToFit()
+                                    .frame(width: 25, height: 25)
+                                    .foregroundColor(.loopedTextSecondary)
+                                    .frame(width: 30, height: 30)
+                                    .loopedTapTarget()
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .accessibilityLabel("Share profile")
+                            .disabled(isPreparingProfileShareSheet)
+                        }
+
+                        Button(action: { presentMainOverlay(.settings) }) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.loopedCustom(.semibold, size: 18))
+                                .foregroundColor(.loopedTextSecondary)
+                                .frame(width: 28, height: 28)
+                                .loopedTapTarget()
+                                .coachMarkTarget(.profileSettingsButton)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .accessibilityLabel("Settings")
+                    }
 					.padding(.top, 16)
 					.padding(.trailing, 16)
 				}
@@ -263,6 +284,7 @@ struct ProfileView: View {
             profileRefreshTask?.cancel()
 	            coachMarkPresenter.dismissIfSource(.profile)
 	        }
+            .loopedShareDrawer(item: $profileShareSheetPayload, items: { $0.items })
             .loopedHashtagNavigationHost()
             .loopedMentionNavigationHost()
 		    }
@@ -406,6 +428,36 @@ private extension ProfileView {
             contentViewModel.setAnonProfile(id: identity?.profileId)
         } else {
             contentViewModel.setCurrentUser(userId: viewModel.user?.backendId)
+        }
+    }
+
+    var profileShareURL: URL? {
+        guard !isAnonymous else { return nil }
+        guard let id = displayProfile?.backendId ?? authViewModel.currentUser?.backendId else { return nil }
+        var components = URLComponents()
+        components.scheme = "looped"
+        components.host = "user"
+        components.path = "/\(id)"
+        return components.url
+    }
+
+    func shareProfileFromTopBar() {
+        guard !isPreparingProfileShareSheet else { return }
+        guard let fallbackURL = profileShareURL else { return }
+
+        isPreparingProfileShareSheet = true
+        Task { @MainActor in
+            defer { isPreparingProfileShareSheet = false }
+            do {
+                let link = try await userService.fetchMyShareLink()
+                if let canonical = URL(string: link.canonicalUrl) {
+                    profileShareSheetPayload = TopBarProfileShareSheetPayload(items: [canonical])
+                } else {
+                    profileShareSheetPayload = TopBarProfileShareSheetPayload(items: [fallbackURL])
+                }
+            } catch {
+                profileShareSheetPayload = TopBarProfileShareSheetPayload(items: [fallbackURL])
+            }
         }
     }
 
@@ -578,6 +630,11 @@ private extension ProfileView {
             }
         }
     }
+}
+
+private struct TopBarProfileShareSheetPayload: Identifiable {
+    let id = UUID()
+    let items: [Any]
 }
 
 struct ProfileHeaderView: View {
