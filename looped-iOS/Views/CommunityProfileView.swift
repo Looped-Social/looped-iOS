@@ -522,7 +522,7 @@ struct CommunityProfileView: View {
                         )
                     case .needsJoin:
                         CommunityEmptyPostsCard(
-                            illustrationName: "community-find",
+                            illustrationName: "start-convo",
                             title: "Join to start the conversation",
                             message: "Join this specialization to post, comment, and like.",
                             primaryButtonTitle: "Join",
