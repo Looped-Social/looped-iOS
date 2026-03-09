@@ -433,7 +433,7 @@ private struct CommunitySearchResultRow: View {
         if let url = URL.loopedMediaURL(from: result.profileDisplayImageUrl) {
             return url
         }
-        if let icon = result.icon?.normalizedOrNil(),
+        if let icon = result.preferredSpecializationIcon,
            icon.kind == .imageUrl,
            let url = URL.loopedMediaURL(from: icon.value) {
             return url
@@ -458,7 +458,7 @@ private struct CommunitySearchResultRow: View {
 
     @ViewBuilder
     private var placeholderGlyph: some View {
-        if result.kind == .specialization, let icon = result.icon?.normalizedOrNil() {
+        if result.kind == .specialization, let icon = result.preferredSpecializationIcon {
             switch icon.kind {
             case .emoji:
                 Text(icon.value)

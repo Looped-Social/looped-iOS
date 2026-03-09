@@ -198,8 +198,8 @@ struct CommunityProfileView: View {
             CommunityProfileBanner(
                 name: viewModel.community.name,
                 kind: viewModel.community.kind,
-                imageUrl: communityBannerImageOverride,
-                bannerHeight: usesInvestmentBankingOverride ? 156 : 120
+                imageUrl: viewModel.community.bannerDisplayImageUrl,
+                bannerHeight: 120
             )
 
             VStack(alignment: .leading, spacing: 8) {
@@ -238,8 +238,8 @@ struct CommunityProfileView: View {
                         .foregroundColor(.loopedTextSecondary)
                 }
 
-                if !communityDescriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(communityDescriptionText)
+                if !viewModel.community.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(viewModel.community.description)
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                 }
@@ -249,31 +249,6 @@ struct CommunityProfileView: View {
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
         .padding(.bottom, 8)
-    }
-
-    private var communityBannerImageOverride: String? {
-        if usesInvestmentBankingOverride {
-            return "ib"
-        }
-        return viewModel.community.bannerDisplayImageUrl
-    }
-
-    private var communityDescriptionText: String {
-        if usesInvestmentBankingOverride {
-            return "Connect with people across investment banking."
-        }
-        return viewModel.community.description
-    }
-
-    private var usesInvestmentBankingOverride: Bool {
-        let normalizedName = viewModel.community.name
-            .lowercased()
-            .unicodeScalars
-            .filter(CharacterSet.alphanumerics.contains)
-            .map(String.init)
-            .joined()
-
-        return normalizedName == "ib" || normalizedName == "investmentbanking"
     }
 
     private var followButton: some View {

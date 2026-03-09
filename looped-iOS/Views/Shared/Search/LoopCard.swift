@@ -9,6 +9,7 @@ struct LoopCard: View {
     let memberCount: Int
     let imageURL: String?
     let icon: CommunityIcon?
+    let iconImageUrl: String?
     let kind: CommunityKind?
     let specializationType: CommunitySpecializationType?
 
@@ -66,21 +67,19 @@ struct LoopCard: View {
         case emoji(String)
         case system(String)
         case text(String)
-        case asset(String)
+        case remoteImage(String)
     }
 
     private var placeholderGlyph: PlaceholderGlyph {
-        if usesInvestmentBankingOverride {
-            return .asset("ib-icon")
-        }
-
-        if let resolvedIcon = icon?.normalizedOrNil() {
+        if let resolvedIcon = preferredIcon {
             switch resolvedIcon.kind {
             case .emoji:
                 return .emoji(resolvedIcon.value)
             case .sfSymbol:
                 return .system(resolvedIcon.value)
-            case .imageUrl, .unknown:
+            case .imageUrl:
+                return .remoteImage(resolvedIcon.value)
+            case .unknown:
                 break
             }
         }
@@ -166,11 +165,26 @@ struct LoopCard: View {
                     Text(text)
                         .font(.loopedCustom(.semibold, size: 22))
                         .foregroundColor(.loopedPrimary)
-                case .asset(let name):
-                    Image(name)
-                        .resizable()
-                        .scaledToFit()
-                        .padding(8)
+                case .remoteImage(let value):
+                    if let url = URL.loopedMediaURL(from: value) {
+                        LoopedDownsampledAsyncImage(url: url, maxPixelSize: 256) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .padding(8)
+                            case .failure, .empty:
+                                Text(placeholderText(from: title))
+                                    .font(.loopedCustom(.semibold, size: 22))
+                                    .foregroundColor(.loopedPrimary)
+                            }
+                        }
+                    } else {
+                        Text(placeholderText(from: title))
+                            .font(.loopedCustom(.semibold, size: 22))
+                            .foregroundColor(.loopedPrimary)
+                    }
                 }
             }
             .overlay(
@@ -194,15 +208,8 @@ struct LoopCard: View {
         return combined.isEmpty ? "?" : combined
     }
 
-    private var usesInvestmentBankingOverride: Bool {
-        let normalizedTitle = title
-            .lowercased()
-            .unicodeScalars
-            .filter(CharacterSet.alphanumerics.contains)
-            .map(String.init)
-            .joined()
-
-        return normalizedTitle == "ib" || normalizedTitle == "investmentbanking"
+    private var preferredIcon: CommunityIcon? {
+        CommunityIcon.imageURL(iconImageUrl) ?? icon?.normalizedOrNil()
     }
 }
 
@@ -214,6 +221,7 @@ struct LoopCard: View {
             memberCount: 1250,
             imageURL: "trending1",
             icon: nil,
+            iconImageUrl: nil,
             kind: .company,
             specializationType: nil
         )
@@ -224,6 +232,7 @@ struct LoopCard: View {
             memberCount: 890,
             imageURL: "trending2",
             icon: nil,
+            iconImageUrl: nil,
             kind: .company,
             specializationType: nil
         )
@@ -234,6 +243,7 @@ struct LoopCard: View {
             memberCount: 640,
             imageURL: "trending3",
             icon: nil,
+            iconImageUrl: nil,
             kind: .company,
             specializationType: nil
         )

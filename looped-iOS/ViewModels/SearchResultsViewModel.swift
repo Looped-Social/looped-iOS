@@ -155,6 +155,7 @@ class SearchResultsViewModel: ObservableObject {
                         bannerImageUrl: loop.bannerImageUrl,
                         profileImageUrl: loop.profileImageUrl,
                         imageUrl: loop.imageUrl,
+                        iconImageUrl: loop.iconImageUrl,
                         icon: loop.icon
                     )
                 }
@@ -180,6 +181,7 @@ class SearchResultsViewModel: ObservableObject {
                         bannerImageUrl: loop.bannerImageUrl,
                         profileImageUrl: loop.profileImageUrl,
                         imageUrl: loop.imageUrl,
+                        iconImageUrl: loop.iconImageUrl,
                         icon: loop.icon
                     )
                 }
@@ -245,6 +247,7 @@ class SearchResultsViewModel: ObservableObject {
                             bannerImageUrl: loop.bannerImageUrl,
                             profileImageUrl: loop.profileImageUrl,
                             imageUrl: loop.imageUrl,
+                            iconImageUrl: loop.iconImageUrl,
                             icon: loop.icon
                         )
                     }

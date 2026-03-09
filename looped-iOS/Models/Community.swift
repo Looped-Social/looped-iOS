@@ -121,6 +121,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
     let bannerImageUrl: String?
     let profileImageUrl: String?
     let imageUrl: String?
+    let iconImageUrl: String?
     let icon: CommunityIcon?
     let isFollowing: Bool?
     let isJoined: Bool?
@@ -136,6 +137,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
         bannerImageUrl: String? = nil,
         profileImageUrl: String? = nil,
         imageUrl: String? = nil,
+        iconImageUrl: String? = nil,
         icon: CommunityIcon? = nil,
         isFollowing: Bool? = nil,
         isJoined: Bool? = nil
@@ -150,6 +152,7 @@ struct CommunitySearchResult: Identifiable, Equatable {
         self.bannerImageUrl = bannerImageUrl
         self.profileImageUrl = profileImageUrl
         self.imageUrl = imageUrl
+        self.iconImageUrl = iconImageUrl
         self.icon = icon
         self.isFollowing = isFollowing
         self.isJoined = isJoined
@@ -161,6 +164,10 @@ struct CommunitySearchResult: Identifiable, Equatable {
 
     var profileDisplayImageUrl: String? {
         profileImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
+    }
+
+    var preferredSpecializationIcon: CommunityIcon? {
+        CommunityIcon.imageURL(iconImageUrl) ?? icon?.normalizedOrNil()
     }
 }
 
@@ -204,7 +211,31 @@ extension CommunitySearchResult {
             bannerImageUrl: bannerImageUrl,
             profileImageUrl: profileImageUrl,
             imageUrl: imageUrl,
+            iconImageUrl: iconImageUrl,
             icon: icon,
+            isFollowing: isFollowing,
+            isJoined: isJoined
+        )
+    }
+
+    func withSpecializationBranding(
+        iconImageUrl: String?,
+        bannerImageUrl: String?,
+        icon: CommunityIcon?
+    ) -> CommunitySearchResult {
+        CommunitySearchResult(
+            id: id,
+            name: name,
+            shortName: shortName,
+            description: description,
+            kind: kind,
+            specializationType: specializationType,
+            memberCount: memberCount,
+            bannerImageUrl: bannerImageUrl ?? self.bannerImageUrl,
+            profileImageUrl: profileImageUrl,
+            imageUrl: imageUrl,
+            iconImageUrl: iconImageUrl ?? self.iconImageUrl,
+            icon: icon ?? self.icon,
             isFollowing: isFollowing,
             isJoined: isJoined
         )
@@ -224,6 +255,7 @@ extension CommunitySearchResult {
         bannerImageUrl = dto.bannerImageUrl
         profileImageUrl = dto.profileImageUrl
         imageUrl = dto.imageUrl
+        iconImageUrl = dto.iconImageUrl
         icon = dto.icon?.normalizedOrNil()
         isFollowing = dto.isFollowing
         isJoined = dto.isJoined
@@ -243,6 +275,7 @@ extension CommunitySearchResult {
         bannerImageUrl = dto.bannerImageUrl
         profileImageUrl = dto.profileImageUrl
         imageUrl = dto.imageUrl
+        iconImageUrl = dto.iconImageUrl
         icon = dto.icon?.normalizedOrNil()
         isFollowing = dto.isFollowing
         isJoined = dto.isJoined

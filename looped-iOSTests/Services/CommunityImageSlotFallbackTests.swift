@@ -18,6 +18,7 @@ struct CommunityImageSlotFallbackTests {
               "banner_image_url": "https://cdn.example.com/banner.png",
               "profile_image_url": "https://cdn.example.com/profile.png",
               "image_url": "https://cdn.example.com/legacy.png",
+              "icon_image_url": "https://cdn.example.com/icon.png",
               "icon": null,
               "is_following": true,
               "is_joined": false
@@ -30,8 +31,10 @@ struct CommunityImageSlotFallbackTests {
         #expect(result.bannerImageUrl == "https://cdn.example.com/banner.png")
         #expect(result.profileImageUrl == "https://cdn.example.com/profile.png")
         #expect(result.imageUrl == "https://cdn.example.com/legacy.png")
+        #expect(result.iconImageUrl == "https://cdn.example.com/icon.png")
         #expect(result.bannerDisplayImageUrl == "https://cdn.example.com/banner.png")
         #expect(result.profileDisplayImageUrl == "https://cdn.example.com/profile.png")
+        #expect(result.preferredSpecializationIcon == CommunityIcon(kind: .imageUrl, value: "https://cdn.example.com/icon.png"))
     }
 
     @Test
@@ -77,6 +80,7 @@ struct CommunityImageSlotFallbackTests {
               "banner_image_url": "https://cdn.example.com/school-banner.png",
               "profile_image_url": "https://cdn.example.com/school-profile.png",
               "image_url": "https://cdn.example.com/school-legacy.png",
+              "icon_image_url": "https://cdn.example.com/school-icon.png",
               "icon": null,
               "is_following": true,
               "is_joined": false,
@@ -89,6 +93,7 @@ struct CommunityImageSlotFallbackTests {
 
         #expect(profileData.bannerDisplayImageUrl == "https://cdn.example.com/school-banner.png")
         #expect(profileData.profileDisplayImageUrl == "https://cdn.example.com/school-profile.png")
+        #expect(profileData.iconImageUrl == "https://cdn.example.com/school-icon.png")
     }
 
     @Test
@@ -120,6 +125,7 @@ struct CommunityImageSlotFallbackTests {
             bannerImageUrl: nil,
             profileImageUrl: nil,
             imageUrl: "https://cdn.example.com/new-legacy.png",
+            iconImageUrl: nil,
             icon: nil,
             isFollowing: true,
             isJoined: false,
@@ -164,6 +170,7 @@ struct CommunityImageSlotFallbackTests {
             bannerImageUrl: nil,
             profileImageUrl: nil,
             imageUrl: nil,
+            iconImageUrl: nil,
             icon: nil,
             isFollowing: nil,
             isJoined: nil,
@@ -175,6 +182,60 @@ struct CommunityImageSlotFallbackTests {
 
         #expect(merged.bannerDisplayImageUrl == "https://cdn.example.com/fallback-banner.png")
         #expect(merged.profileDisplayImageUrl == "https://cdn.example.com/fallback-profile.png")
+    }
+
+    @Test
+    func communitySearchDTO_decodesDuplicateCamelAndSnakeCaseBrandingKeys() throws {
+        let dto = try decodeCommunitySearchDTO(
+            from: """
+            {
+              "id": 103,
+              "name": "Finance",
+              "description": "Specialization community",
+              "kind": "specialization",
+              "specialization_type": "field",
+              "member_count": 2400,
+              "iconImageUrl": "https://cdn.example.com/icon.png",
+              "icon_image_url": "https://cdn.example.com/icon.png",
+              "bannerImageUrl": "https://cdn.example.com/banner.png",
+              "banner_image_url": "https://cdn.example.com/banner.png",
+              "icon": {
+                "kind": "emoji",
+                "value": "💼"
+              }
+            }
+            """
+        )
+
+        let result = CommunitySearchResult(dto: dto)
+
+        #expect(result.iconImageUrl == "https://cdn.example.com/icon.png")
+        #expect(result.bannerImageUrl == "https://cdn.example.com/banner.png")
+        #expect(result.preferredSpecializationIcon == CommunityIcon(kind: .imageUrl, value: "https://cdn.example.com/icon.png"))
+    }
+
+    @Test
+    func specializationBrandingMerge_prefersImageUrlButKeepsEmojiFallback() {
+        let result = CommunitySearchResult(
+            id: 201,
+            name: "Computer Science",
+            description: "Field community",
+            kind: .specialization,
+            specializationType: .field,
+            memberCount: 1200,
+            icon: CommunityIcon(kind: .emoji, value: "💻")
+        )
+
+        let merged = result.withSpecializationBranding(
+            iconImageUrl: "https://cdn.example.com/icon.png",
+            bannerImageUrl: "https://cdn.example.com/banner.png",
+            icon: nil
+        )
+
+        #expect(merged.icon?.value == "💻")
+        #expect(merged.iconImageUrl == "https://cdn.example.com/icon.png")
+        #expect(merged.bannerImageUrl == "https://cdn.example.com/banner.png")
+        #expect(merged.preferredSpecializationIcon == CommunityIcon(kind: .imageUrl, value: "https://cdn.example.com/icon.png"))
     }
 }
 

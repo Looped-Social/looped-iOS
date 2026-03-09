@@ -84,7 +84,9 @@ final class OnboardingCommunitySelectionViewModel: ObservableObject {
                         memberCount: result.memberCount,
                         bannerImageUrl: result.bannerImageUrl,
                         profileImageUrl: result.profileImageUrl,
-                        imageUrl: result.imageUrl
+                        imageUrl: result.imageUrl,
+                        iconImageUrl: result.iconImageUrl,
+                        icon: result.icon
                     )
                 }
         } catch {

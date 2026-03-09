@@ -33,6 +33,7 @@ struct CommunitySearchDTO: Codable {
     let bannerImageUrl: String?
     let profileImageUrl: String?
     let imageUrl: String?
+    let iconImageUrl: String?
     let icon: CommunityIcon?
     let isFollowing: Bool?
     let isJoined: Bool?
@@ -56,6 +57,7 @@ struct CommunityRecommendedDTO: Codable {
     let bannerImageUrl: String?
     let profileImageUrl: String?
     let imageUrl: String?
+    let iconImageUrl: String?
     let icon: CommunityIcon?
 }
 
@@ -70,6 +72,7 @@ struct CommunityDetailsDTO: Codable {
     let bannerImageUrl: String?
     let profileImageUrl: String?
     let imageUrl: String?
+    let iconImageUrl: String?
     let icon: CommunityIcon?
     let isFollowing: Bool?
     let isJoined: Bool?
@@ -119,5 +122,6 @@ struct DisplayCommunityDTO: Codable {
     let shortName: String?
     let kind: String?
     let specializationType: String?
+    let iconImageUrl: String?
     let icon: CommunityIcon?
 }

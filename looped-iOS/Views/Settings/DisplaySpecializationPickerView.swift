@@ -180,7 +180,8 @@ struct DisplaySpecializationPickerView: View {
             shortName: result.shortName,
             kind: result.kind,
             specializationType: result.specializationType == .unknown ? nil : result.specializationType,
-            icon: result.icon?.normalizedOrNil()
+            iconImageUrl: result.iconImageUrl,
+            icon: result.preferredSpecializationIcon
         )
         dismiss()
     }
@@ -242,7 +243,7 @@ private struct SpecializationResultRow: View {
     @ViewBuilder
     private var specializationGlyph: some View {
         Group {
-            if let icon = result.icon?.normalizedOrNil() {
+            if let icon = result.preferredSpecializationIcon {
                 switch icon.kind {
                 case .emoji:
                     RoundedRectangle(cornerRadius: 10)

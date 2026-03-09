@@ -183,7 +183,7 @@ struct CommunityVerificationsView: View {
     @ViewBuilder
     private func specializationPreview(for specialization: DisplayCommunity) -> some View {
         Group {
-            if let icon = specialization.icon?.normalizedOrNil() {
+            if let icon = specialization.preferredSpecializationIcon {
                 switch icon.kind {
                 case .emoji:
                     RoundedRectangle(cornerRadius: 8)
@@ -653,7 +653,7 @@ struct CommunityVerificationsView: View {
     @ViewBuilder
     private func specializationSearchPreview(for result: CommunitySearchResult) -> some View {
         Group {
-            if let icon = result.icon?.normalizedOrNil() {
+            if let icon = result.preferredSpecializationIcon {
                 switch icon.kind {
                 case .emoji:
                     RoundedRectangle(cornerRadius: 8)

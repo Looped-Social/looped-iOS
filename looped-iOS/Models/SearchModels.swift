@@ -235,6 +235,7 @@ struct SearchResultLoop: Identifiable {
     let bannerImageUrl: String?
     let profileImageUrl: String?
     let imageUrl: String?
+    let iconImageUrl: String?
     let icon: CommunityIcon?
 
     init(
@@ -249,6 +250,7 @@ struct SearchResultLoop: Identifiable {
         bannerImageUrl: String? = nil,
         profileImageUrl: String? = nil,
         imageUrl: String? = nil,
+        iconImageUrl: String? = nil,
         icon: CommunityIcon? = nil
     ) {
         self.id = id
@@ -262,6 +264,7 @@ struct SearchResultLoop: Identifiable {
         self.bannerImageUrl = bannerImageUrl
         self.profileImageUrl = profileImageUrl
         self.imageUrl = imageUrl
+        self.iconImageUrl = iconImageUrl
         self.icon = icon
     }
 
@@ -276,6 +279,10 @@ struct SearchResultLoop: Identifiable {
 
     var profileDisplayImageUrl: String? {
         profileImageUrl?.trimmedNonEmpty ?? imageUrl?.trimmedNonEmpty
+    }
+
+    var preferredSpecializationIcon: CommunityIcon? {
+        CommunityIcon.imageURL(iconImageUrl) ?? icon?.normalizedOrNil()
     }
 }
 

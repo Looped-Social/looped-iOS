@@ -231,8 +231,9 @@ struct SearchView: View {
                                                 ) ?? community.name,
                                                 description: community.description,
                                                 memberCount: community.memberCount,
-                                                imageURL: community.profileDisplayImageUrl,
+                                                imageURL: community.bannerDisplayImageUrl,
                                                 icon: community.icon,
+                                                iconImageUrl: community.iconImageUrl,
                                                 kind: community.kind,
                                                 specializationType: community.specializationType
                                             )
@@ -587,7 +588,8 @@ private struct SpecializationPagerSection: View {
                                         name: specialization.name,
                                         memberCount: specialization.memberCount,
                                         specializationType: specialization.specializationType,
-                                        icon: specialization.icon
+                                        icon: specialization.icon,
+                                        iconImageUrl: specialization.iconImageUrl
                                     )
                                 }
                                 .buttonStyle(PlainButtonStyle())

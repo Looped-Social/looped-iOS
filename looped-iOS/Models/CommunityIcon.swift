@@ -31,5 +31,11 @@ extension CommunityIcon {
         guard kind != .unknown, !trimmedValue.isEmpty else { return nil }
         return CommunityIcon(kind: kind, value: trimmedValue)
     }
-}
 
+    static func imageURL(_ value: String?) -> CommunityIcon? {
+        guard let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedValue.isEmpty else {
+            return nil
+        }
+        return CommunityIcon(kind: .imageUrl, value: trimmedValue)
+    }
+}

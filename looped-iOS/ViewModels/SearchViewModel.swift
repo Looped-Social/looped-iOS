@@ -32,8 +32,8 @@ class SearchViewModel: ObservableObject {
     private let recommendationRailPageLimit = 20
     private let recommendationFeedbackBatchThreshold = 20
     private let recommendationFeedbackFlushDelayNanoseconds: UInt64 = 2_000_000_000
-    private var specializationIconsById: [Int: CommunityIcon] = [:]
-    private var specializationIconsTask: Task<[Int: CommunityIcon], Never>?
+    private var specializationBrandingById: [Int: SpecializationIndexItem] = [:]
+    private var specializationBrandingTask: Task<[Int: SpecializationIndexItem], Never>?
     private var recommendationRailNextCursor: [PeopleRecommendationRail: String] = [:]
     private var recommendationRailHasMore: [PeopleRecommendationRail: Bool] = [:]
     @Published private var loadingRecommendationRails: Set<PeopleRecommendationRail> = []
@@ -91,7 +91,7 @@ class SearchViewModel: ObservableObject {
         fieldsNextCursor = nil
         specializationsError = nil
 
-        async let iconsById = loadSpecializationIconsById()
+        async let brandingById = loadSpecializationBrandingById()
 
         do {
             let page = try await discoveryService.browseSpecializations(
@@ -105,9 +105,9 @@ class SearchViewModel: ObservableObject {
             specializationsError = error.localizedDescription
         }
 
-        let resolvedIconsById = await iconsById
-        fields = applyingSpecializationIcons(fields, iconsById: resolvedIconsById)
-        recommendedCommunities = applyingSpecializationIcons(recommendedCommunities, iconsById: resolvedIconsById)
+        let resolvedBrandingById = await brandingById
+        fields = applyingSpecializationBranding(fields, brandingById: resolvedBrandingById)
+        recommendedCommunities = applyingSpecializationBranding(recommendedCommunities, brandingById: resolvedBrandingById)
     }
 
     func loadMoreFields() async {
@@ -124,8 +124,8 @@ class SearchViewModel: ObservableObject {
                 cursor: fieldsNextCursor
             )
             self.fieldsNextCursor = page.nextCursor
-            let iconsById = await loadSpecializationIconsById()
-            appendUnique(items: applyingSpecializationIcons(page.items, iconsById: iconsById), to: &fields)
+            let brandingById = await loadSpecializationBrandingById()
+            appendUnique(items: applyingSpecializationBranding(page.items, brandingById: brandingById), to: &fields)
         } catch {
             specializationsError = error.localizedDescription
         }
@@ -391,48 +391,50 @@ class SearchViewModel: ObservableObject {
                 cursor: recommendedCommunitiesNextCursor
             )
             self.recommendedCommunitiesNextCursor = page.nextCursor
-            let iconsById = await loadSpecializationIconsById()
-            appendUnique(items: applyingSpecializationIcons(page.items, iconsById: iconsById), to: &recommendedCommunities)
+            let brandingById = await loadSpecializationBrandingById()
+            appendUnique(items: applyingSpecializationBranding(page.items, brandingById: brandingById), to: &recommendedCommunities)
         } catch {
             // Keep the cursor so we can retry when the last card appears again.
         }
     }
 
-    private func applyingSpecializationIcons(
+    private func applyingSpecializationBranding(
         _ items: [CommunitySearchResult],
-        iconsById: [Int: CommunityIcon]
+        brandingById: [Int: SpecializationIndexItem]
     ) -> [CommunitySearchResult] {
-        guard !items.isEmpty, !iconsById.isEmpty else { return items }
+        guard !items.isEmpty, !brandingById.isEmpty else { return items }
         return items.map { item in
             guard item.kind == .specialization else { return item }
-            guard item.icon == nil else { return item }
-            return item.withIcon(iconsById[item.id] ?? item.icon)
+            guard let branding = brandingById[item.id] else { return item }
+            return item.withSpecializationBranding(
+                iconImageUrl: item.iconImageUrl ?? branding.iconImageUrl,
+                bannerImageUrl: item.bannerImageUrl ?? branding.bannerImageUrl,
+                icon: item.icon ?? branding.icon
+            )
         }
     }
 
-    private func loadSpecializationIconsById() async -> [Int: CommunityIcon] {
-        if !specializationIconsById.isEmpty { return specializationIconsById }
-        if let task = specializationIconsTask { return await task.value }
+    private func loadSpecializationBrandingById() async -> [Int: SpecializationIndexItem] {
+        if !specializationBrandingById.isEmpty { return specializationBrandingById }
+        if let task = specializationBrandingTask { return await task.value }
 
         let discoveryService = self.discoveryService
-        let task = Task { () -> [Int: CommunityIcon] in
+        let task = Task { () -> [Int: SpecializationIndexItem] in
             async let fields = try? discoveryService.fetchFieldsIndex()
             let fieldItems = await fields
 
-            var resolved: [Int: CommunityIcon] = [:]
+            var resolved: [Int: SpecializationIndexItem] = [:]
             for item in (fieldItems ?? []) {
-                if let icon = item.icon {
-                    resolved[item.id] = icon
-                }
+                resolved[item.id] = item
             }
             return resolved
         }
 
-        specializationIconsTask = task
+        specializationBrandingTask = task
         let resolved = await task.value
-        specializationIconsTask = nil
+        specializationBrandingTask = nil
         if !resolved.isEmpty {
-            specializationIconsById = resolved
+            specializationBrandingById = resolved
         }
         return resolved
     }

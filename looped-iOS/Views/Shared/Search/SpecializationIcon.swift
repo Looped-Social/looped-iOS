@@ -5,6 +5,7 @@ struct SpecializationIcon: View {
     let memberCount: Int
     let specializationType: CommunitySpecializationType?
     let icon: CommunityIcon?
+    let iconImageUrl: String?
 
     var body: some View {
         VStack(spacing: 8) {
@@ -35,12 +36,7 @@ struct SpecializationIcon: View {
 
     private var glyphView: some View {
         Group {
-            if usesInvestmentBankingOverride {
-                Image("ib-icon")
-                    .resizable()
-                    .scaledToFit()
-                    .padding(6)
-            } else if let resolvedIcon = icon?.normalizedOrNil() {
+            if let resolvedIcon = preferredIcon {
                 specializationGlyph(for: resolvedIcon)
             } else {
                 Text(initials)
@@ -100,24 +96,17 @@ struct SpecializationIcon: View {
         return combined.isEmpty ? "?" : combined
     }
 
-    private var usesInvestmentBankingOverride: Bool {
-        let normalizedName = name
-            .lowercased()
-            .unicodeScalars
-            .filter(CharacterSet.alphanumerics.contains)
-            .map(String.init)
-            .joined()
-
-        return normalizedName == "ib" || normalizedName == "investmentbanking"
+    private var preferredIcon: CommunityIcon? {
+        CommunityIcon.imageURL(iconImageUrl) ?? icon?.normalizedOrNil()
     }
 }
 
 #Preview {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-        SpecializationIcon(name: "Computer Science", memberCount: 1800, specializationType: .field, icon: CommunityIcon(kind: .emoji, value: "💻"))
-        SpecializationIcon(name: "Business", memberCount: 2500, specializationType: .field, icon: CommunityIcon(kind: .sfSymbol, value: "graduationcap.fill"))
-        SpecializationIcon(name: "Marketing", memberCount: 1200, specializationType: .field, icon: CommunityIcon(kind: .emoji, value: "📣"))
-        SpecializationIcon(name: "Design", memberCount: 760, specializationType: .field, icon: nil)
+        SpecializationIcon(name: "Computer Science", memberCount: 1800, specializationType: .field, icon: CommunityIcon(kind: .emoji, value: "💻"), iconImageUrl: nil)
+        SpecializationIcon(name: "Business", memberCount: 2500, specializationType: .field, icon: CommunityIcon(kind: .sfSymbol, value: "graduationcap.fill"), iconImageUrl: nil)
+        SpecializationIcon(name: "Marketing", memberCount: 1200, specializationType: .field, icon: CommunityIcon(kind: .emoji, value: "📣"), iconImageUrl: nil)
+        SpecializationIcon(name: "Design", memberCount: 760, specializationType: .field, icon: nil, iconImageUrl: nil)
     }
     .padding()
     .background(Color.loopedBackground)

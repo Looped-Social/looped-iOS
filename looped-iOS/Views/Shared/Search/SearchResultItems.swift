@@ -268,7 +268,7 @@ struct LoopSearchResultItem: View {
 
     @ViewBuilder
     private var specializationGlyph: some View {
-        if let icon = loop.icon?.normalizedOrNil() {
+        if let icon = loop.preferredSpecializationIcon {
             switch icon.kind {
             case .emoji:
                 Text(icon.value)

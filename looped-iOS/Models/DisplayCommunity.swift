@@ -6,6 +6,7 @@ struct DisplayCommunity: Codable, Equatable {
     let shortName: String?
     let kind: CommunityKind
     let specializationType: CommunitySpecializationType?
+    let iconImageUrl: String?
     let icon: CommunityIcon?
 
     init(
@@ -14,6 +15,7 @@ struct DisplayCommunity: Codable, Equatable {
         shortName: String?,
         kind: CommunityKind,
         specializationType: CommunitySpecializationType?,
+        iconImageUrl: String? = nil,
         icon: CommunityIcon? = nil
     ) {
         self.id = id
@@ -21,6 +23,7 @@ struct DisplayCommunity: Codable, Equatable {
         self.shortName = shortName
         self.kind = kind
         self.specializationType = specializationType
+        self.iconImageUrl = iconImageUrl
         self.icon = icon
     }
 
@@ -34,6 +37,10 @@ struct DisplayCommunity: Codable, Equatable {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let first = trimmed.first else { return "?" }
         return String(first).uppercased()
+    }
+
+    var preferredSpecializationIcon: CommunityIcon? {
+        CommunityIcon.imageURL(iconImageUrl) ?? icon?.normalizedOrNil()
     }
 }
 
@@ -49,6 +56,7 @@ extension DisplayCommunity {
         } else {
             specializationType = parsedType
         }
+        iconImageUrl = dto.iconImageUrl
         icon = dto.icon?.normalizedOrNil()
     }
 
@@ -58,6 +66,7 @@ extension DisplayCommunity {
         shortName = nil
         kind = verification.communityKind
         specializationType = nil
+        iconImageUrl = nil
         icon = nil
     }
 }
