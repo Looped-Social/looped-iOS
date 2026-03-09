@@ -42,7 +42,7 @@ struct VerificationIntroView: View {
                 Spacer()
                     .frame(height: geometry.size.height * 0.04)
 
-                Image("teal-verify")
+                Image("verify-illi")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(maxHeight: geometry.size.height * 0.36)

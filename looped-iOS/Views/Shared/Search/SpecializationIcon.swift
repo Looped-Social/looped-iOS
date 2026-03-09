@@ -35,7 +35,12 @@ struct SpecializationIcon: View {
 
     private var glyphView: some View {
         Group {
-            if let resolvedIcon = icon?.normalizedOrNil() {
+            if usesInvestmentBankingOverride {
+                Image("ib-icon")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(6)
+            } else if let resolvedIcon = icon?.normalizedOrNil() {
                 specializationGlyph(for: resolvedIcon)
             } else {
                 Text(initials)
@@ -93,6 +98,17 @@ struct SpecializationIcon: View {
         let second = parts.dropFirst().first?.first.map(String.init) ?? ""
         let combined = (first + second).uppercased()
         return combined.isEmpty ? "?" : combined
+    }
+
+    private var usesInvestmentBankingOverride: Bool {
+        let normalizedName = name
+            .lowercased()
+            .unicodeScalars
+            .filter(CharacterSet.alphanumerics.contains)
+            .map(String.init)
+            .joined()
+
+        return normalizedName == "ib" || normalizedName == "investmentbanking"
     }
 }
 

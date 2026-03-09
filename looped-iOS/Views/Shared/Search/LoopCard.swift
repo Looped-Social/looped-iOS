@@ -66,9 +66,14 @@ struct LoopCard: View {
         case emoji(String)
         case system(String)
         case text(String)
+        case asset(String)
     }
 
     private var placeholderGlyph: PlaceholderGlyph {
+        if usesInvestmentBankingOverride {
+            return .asset("ib-icon")
+        }
+
         if let resolvedIcon = icon?.normalizedOrNil() {
             switch resolvedIcon.kind {
             case .emoji:
@@ -161,6 +166,11 @@ struct LoopCard: View {
                     Text(text)
                         .font(.loopedCustom(.semibold, size: 22))
                         .foregroundColor(.loopedPrimary)
+                case .asset(let name):
+                    Image(name)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(8)
                 }
             }
             .overlay(
@@ -182,6 +192,17 @@ struct LoopCard: View {
         let second = parts.dropFirst().first?.first.map(String.init) ?? ""
         let combined = (first + second).uppercased()
         return combined.isEmpty ? "?" : combined
+    }
+
+    private var usesInvestmentBankingOverride: Bool {
+        let normalizedTitle = title
+            .lowercased()
+            .unicodeScalars
+            .filter(CharacterSet.alphanumerics.contains)
+            .map(String.init)
+            .joined()
+
+        return normalizedTitle == "ib" || normalizedTitle == "investmentbanking"
     }
 }
 

@@ -198,7 +198,8 @@ struct CommunityProfileView: View {
             CommunityProfileBanner(
                 name: viewModel.community.name,
                 kind: viewModel.community.kind,
-                imageUrl: viewModel.community.bannerDisplayImageUrl
+                imageUrl: communityBannerImageOverride,
+                bannerHeight: usesInvestmentBankingOverride ? 156 : 120
             )
 
             VStack(alignment: .leading, spacing: 8) {
@@ -237,8 +238,8 @@ struct CommunityProfileView: View {
                         .foregroundColor(.loopedTextSecondary)
                 }
 
-                if !viewModel.community.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(viewModel.community.description)
+                if !communityDescriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(communityDescriptionText)
                         .font(.loopedSubBodyRegular)
                         .foregroundColor(.loopedTextSecondary)
                 }
@@ -248,6 +249,31 @@ struct CommunityProfileView: View {
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
         .padding(.bottom, 8)
+    }
+
+    private var communityBannerImageOverride: String? {
+        if usesInvestmentBankingOverride {
+            return "ib"
+        }
+        return viewModel.community.bannerDisplayImageUrl
+    }
+
+    private var communityDescriptionText: String {
+        if usesInvestmentBankingOverride {
+            return "Connect with people across investment banking."
+        }
+        return viewModel.community.description
+    }
+
+    private var usesInvestmentBankingOverride: Bool {
+        let normalizedName = viewModel.community.name
+            .lowercased()
+            .unicodeScalars
+            .filter(CharacterSet.alphanumerics.contains)
+            .map(String.init)
+            .joined()
+
+        return normalizedName == "ib" || normalizedName == "investmentbanking"
     }
 
     private var followButton: some View {
@@ -1095,13 +1121,14 @@ struct CommunityProfileBanner: View {
     let name: String
     let kind: CommunityKind
     let imageUrl: String?
+    let bannerHeight: CGFloat
 
     var body: some View {
         VStack(spacing: 12) {
             if hasBannerImage {
                 bannerImage
                     .frame(maxWidth: .infinity)
-                    .frame(height: 120)
+                    .frame(height: bannerHeight)
                     .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
@@ -1112,7 +1139,7 @@ struct CommunityProfileBanner: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity, minHeight: hasBannerImage ? 0 : 120)
+                .frame(maxWidth: .infinity, minHeight: hasBannerImage ? 0 : bannerHeight)
                 .padding(.horizontal, hasBannerImage ? 0 : 16)
                 .background(hasBannerImage ? Color.loopedClear : Color.loopedBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
