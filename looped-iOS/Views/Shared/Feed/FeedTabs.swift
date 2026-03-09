@@ -91,7 +91,7 @@ private extension FeedTabs {
                         isSearching = true
                     }
                 }) {
-                    Image("search-icon")
+                    Image("search-selected")
                         .resizable()
                         .renderingMode(.template)
                         .aspectRatio(contentMode: .fit)
@@ -156,11 +156,11 @@ private extension FeedTabs {
         VStack(spacing: 10) {
             HStack(spacing: 12) {
                 HStack(spacing: 10) {
-                    Image("search-icon")
+                    Image("search-selected")
                         .resizable()
                         .renderingMode(.template)
                         .aspectRatio(contentMode: .fit)
-                        .foregroundColor(.loopedTextSecondary)
+                        .foregroundColor(.loopedSecondary)
                         .frame(width: 18, height: 18)
 
                     TextField("Search communities", text: $searchQuery)

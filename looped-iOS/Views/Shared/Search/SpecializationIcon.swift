@@ -1,6 +1,12 @@
 import SwiftUI
 
 struct SpecializationIcon: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let circleSize: CGFloat = 58
+    private let imageSize: CGFloat = 52
+    private let tileHeight: CGFloat = 128
+
     let name: String
     let memberCount: Int
     let specializationType: CommunitySpecializationType?
@@ -10,28 +16,33 @@ struct SpecializationIcon: View {
     var body: some View {
         VStack(spacing: 8) {
             Circle()
-                .fill(Color.loopedMutedBackground.opacity(0.12))
-                .frame(width: 50, height: 50)
+                .fill(circleBackdropColor)
+                .frame(width: circleSize, height: circleSize)
                 .overlay { glyphView }
                 .overlay(
                     Circle()
-                        .stroke(Color.loopedMutedBackground, lineWidth: 1)
+                        .stroke(circleStrokeColor, lineWidth: 1)
                 )
 
             VStack(spacing: 2) {
                 Text(name)
                     .font(.loopedSubBodyMedium)
                     .foregroundColor(.loopedTextPrimary)
-                    .lineLimit(1)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .top)
 
                 Text("\(memberCount) members")
                     .font(.loopedSmallText)
                     .foregroundColor(.loopedTextSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .top)
             }
         }
-        .frame(width: 80)
+        .frame(width: 84, height: tileHeight, alignment: .top)
     }
 
     private var glyphView: some View {
@@ -64,7 +75,8 @@ struct SpecializationIcon: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .scaledToFill()
+                            .scaledToFit()
+                            .padding(4)
                     case .failure:
                         Text(initials)
                             .font(.loopedCustom(.semibold, size: 24))
@@ -74,8 +86,7 @@ struct SpecializationIcon: View {
                             .tint(.loopedTextSecondary)
                     }
                 }
-                .frame(width: 46, height: 46)
-                .clipShape(Circle())
+                .frame(width: imageSize, height: imageSize)
             } else {
                 Text(initials)
                     .font(.loopedCustom(.semibold, size: 24))
@@ -98,6 +109,27 @@ struct SpecializationIcon: View {
 
     private var preferredIcon: CommunityIcon? {
         CommunityIcon.imageURL(iconImageUrl) ?? icon?.normalizedOrNil()
+    }
+
+    private var usesContrastBackdrop: Bool {
+        preferredIcon?.kind == .imageUrl
+    }
+
+    private var circleBackdropColor: Color {
+        guard usesContrastBackdrop else {
+            return Color.loopedMutedBackground.opacity(0.12)
+        }
+        if colorScheme == .dark {
+            return Color.loopedWhite.opacity(0.88)
+        }
+        return Color.loopedBackground
+    }
+
+    private var circleStrokeColor: Color {
+        guard usesContrastBackdrop else {
+            return Color.loopedMutedBackground
+        }
+        return Color.loopedMutedBackground.opacity(colorScheme == .dark ? 0.32 : 0.7)
     }
 }
 

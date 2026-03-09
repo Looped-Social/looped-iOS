@@ -24,13 +24,20 @@ struct ProfileSetupView: View {
             Color.loopedBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 14) {
                     Spacer()
-                        .frame(height: 12)
+                        .frame(height: 2)
+
+                    Image("profile-setup")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 168)
+                        .frame(maxWidth: .infinity)
 
                     Text("Create your profile")
-                        .font(.loopedHeading)
+                        .font(.loopedHeadingMedium28)
                         .foregroundColor(.loopedTextPrimary)
+                        .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text("Choose a username and tell us a little about you.")

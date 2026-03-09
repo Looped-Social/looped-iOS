@@ -15,10 +15,10 @@ struct VerificationInfoOnboardingView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                Image("verification-intro")
+                Image("verification-info")
                     .resizable()
                     .scaledToFit()
-                    .frame(maxWidth: 258, maxHeight: 162)
+                    .frame(maxWidth: 297, maxHeight: 186)
                     .padding(.top, 12)
 
                 VStack(spacing: 10) {

@@ -3,6 +3,7 @@ import UIKit
 
 struct LoopCard: View {
     @Environment(\.colorScheme) private var colorScheme
+    private let illustrationInset: CGFloat = 4
 
     let title: String
     let description: String
@@ -120,6 +121,7 @@ struct LoopCard: View {
                 Image(uiImage: localImage)
                     .resizable()
                     .scaledToFit()
+                    .padding(usesContrastBackdrop ? illustrationInset : 0)
             } else if let resolvedRemoteURL {
                 LoopedDownsampledAsyncImage(url: resolvedRemoteURL, maxPixelSize: 512) { phase in
                     switch phase {
@@ -127,6 +129,7 @@ struct LoopCard: View {
                         image
                             .resizable()
                             .scaledToFit()
+                            .padding(usesContrastBackdrop ? illustrationInset : 0)
                     case .failure:
                         placeholderImage
                     case .empty:
@@ -142,10 +145,15 @@ struct LoopCard: View {
     }
 
     private var imageBackdropColor: Color {
-        guard (kind ?? .unknown).usesContrastImageBackdrop else {
+        guard usesContrastBackdrop else {
             return .loopedBackground
         }
         return Color.loopedCommunityImageBackdrop(for: colorScheme)
+    }
+
+    private var usesContrastBackdrop: Bool {
+        let resolvedKind = kind ?? .unknown
+        return resolvedKind.usesContrastImageBackdrop || resolvedKind == .specialization
     }
 
     private var placeholderImage: some View {

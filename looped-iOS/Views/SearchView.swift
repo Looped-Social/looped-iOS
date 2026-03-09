@@ -537,6 +537,11 @@ private struct LoadingLoopCard: View {
 }
 
 private struct SpecializationPagerSection: View {
+    private let columnsCount = 4
+    private let gridSpacing: CGFloat = 16
+    private let tileHeight: CGFloat = 128
+    private let gridTopPadding: CGFloat = 8
+
     let title: String
     let items: [CommunitySearchResult]
     let emptyMessage: String
@@ -547,12 +552,16 @@ private struct SpecializationPagerSection: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 4)
     private let pageSize = 8
-    private let pageHeight: CGFloat = 232
     private let pageIndicatorDots = 5
 
     var body: some View {
         let pages = chunked(items, size: pageSize)
         let pageCount = pages.count
+        let maxRows = max(
+            pages.map { max(1, Int(ceil(Double($0.count) / Double(columnsCount)))) }.max() ?? 1,
+            1
+        )
+        let pageHeight = gridTopPadding + (CGFloat(maxRows) * tileHeight) + (CGFloat(maxRows - 1) * gridSpacing)
 
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -596,7 +605,7 @@ private struct SpecializationPagerSection: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                        .padding(.top, gridTopPadding)
                         .tag(index)
                     }
                 }

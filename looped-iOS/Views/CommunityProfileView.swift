@@ -1092,6 +1092,7 @@ struct CommunityProfileView: View {
 
 struct CommunityProfileBanner: View {
     @Environment(\.colorScheme) private var colorScheme
+    private let illustrationInset: CGFloat = 6
 
     let name: String
     let kind: CommunityKind
@@ -1139,6 +1140,7 @@ struct CommunityProfileBanner: View {
                 Image(uiImage: localBannerImage)
                     .resizable()
                     .scaledToFit()
+                    .padding(usesContrastBackdrop ? illustrationInset : 0)
             } else if let remoteBannerURL {
                 LoopedDownsampledAsyncImage(url: remoteBannerURL, maxPixelSize: 1800) { phase in
                     switch phase {
@@ -1146,6 +1148,7 @@ struct CommunityProfileBanner: View {
                         image
                             .resizable()
                             .scaledToFit()
+                            .padding(usesContrastBackdrop ? illustrationInset : 0)
                     case .failure:
                         bannerBackdropColor
                     case .empty:
@@ -1161,10 +1164,14 @@ struct CommunityProfileBanner: View {
     }
 
     private var bannerBackdropColor: Color {
-        if kind.usesContrastImageBackdrop {
+        if usesContrastBackdrop {
             return Color.loopedCommunityImageBackdrop(for: colorScheme)
         }
         return .loopedBackground
+    }
+
+    private var usesContrastBackdrop: Bool {
+        kind.usesContrastImageBackdrop || kind == .specialization
     }
 
     private var localBannerImage: UIImage? {

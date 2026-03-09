@@ -368,8 +368,8 @@ class SearchViewModel: ObservableObject {
                 limit: recommendedCommunitiesLimit,
                 cursor: nil
             )
-            let iconsById = await loadSpecializationIconsById()
-            recommendedCommunities = applyingSpecializationIcons(page.items, iconsById: iconsById)
+            let brandingById = await loadSpecializationBrandingById()
+            recommendedCommunities = applyingSpecializationBranding(page.items, brandingById: brandingById)
             recommendedCommunitiesNextCursor = page.nextCursor
         } catch {
             recommendedCommunities = []
