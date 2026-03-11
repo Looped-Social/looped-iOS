@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "find-light.png",
+      "filename" : "search-light.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
@@ -12,7 +12,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "dark-seraching final.png",
+      "filename" : "search-dark.png",
       "idiom" : "universal",
       "scale" : "1x"
     },

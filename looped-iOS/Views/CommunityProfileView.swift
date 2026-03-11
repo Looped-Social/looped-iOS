@@ -479,6 +479,7 @@ struct CommunityProfileView: View {
                     switch viewModel.emptyPostsNudgeMode {
                     case .verified:
                         CommunityEmptyPostsCard(
+                            illustrationName: "community-confirm",
                             onCreatePost: {
                                 createPostDraft = PostDraft(
                                     content: "",
@@ -537,7 +538,7 @@ struct CommunityProfileView: View {
                         )
                     case .unavailable:
                         CommunityEmptyPostsCard(
-                            illustrationName: "community-find",
+                            illustrationName: "start-convo",
                             title: "Posting unavailable",
                             message: "You can’t post here right now, but you can still share this community with someone who’d jump in.",
                             showsPrimaryButton: false,

@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "skipped-final-light.png",
+      "filename" : "skip-light.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
@@ -12,7 +12,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "fastdark.png",
+      "filename" : "skip-dark.png",
       "idiom" : "universal",
       "scale" : "1x"
     },

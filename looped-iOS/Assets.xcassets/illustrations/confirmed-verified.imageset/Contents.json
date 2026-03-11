@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "verificaiton finsiehd light.png",
+      "filename" : "unlock-light.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
@@ -12,7 +12,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "verificaiton finsihed dark.png",
+      "filename" : "unlock-dark.png",
       "idiom" : "universal",
       "scale" : "1x"
     },

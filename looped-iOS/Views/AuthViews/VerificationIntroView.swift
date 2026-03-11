@@ -45,7 +45,7 @@ struct VerificationIntroView: View {
                 Image("teal-verify")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: geometry.size.height * 0.36)
+                    .frame(maxHeight: geometry.size.height * 0.414)
                     .padding(.horizontal, 28)
 
                 VStack(spacing: 12) {
